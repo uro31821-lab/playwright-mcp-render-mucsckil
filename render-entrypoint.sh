@@ -21,20 +21,24 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-# Wait until the local Playwright MCP port is ready.
-i=0
-while ! (echo >/dev/tcp/127.0.0.1/"$UPSTREAM_PORT") 2>/dev/null; do
-  i=$((i+1))
-  if [ "$i" -ge 120 ]; then
-    echo "[tunnel] local MCP did not become ready in time" >&2
-    wait "$PROXY_PID"
-    exit 1
-  fi
-  sleep 0.5
-done
+# render-auth-proxy itself waits for the local MCP server before opening $PORT.
+# Wait for that public proxy port using Node (portable in /bin/sh; /dev/tcp is bash-only).
+echo "[tunnel] waiting for local Playwright MCP"
+if ! node -e '
+const net=require("net");
+const port=Number(process.env.PORT);
+const deadline=Date.now()+65000;
+(function probe(){
+  const s=net.connect(port,"127.0.0.1");
+  s.once("connect",()=>{s.destroy();process.exit(0)});
+  s.once("error",()=>{s.destroy(); if(Date.now()>deadline) process.exit(1); setTimeout(probe,250)});
+  s.setTimeout(250,()=>{s.destroy(); if(Date.now()>deadline) process.exit(1); setTimeout(probe,250)});
+})();'; then
+  echo "[tunnel] local MCP did not become ready in time" >&2
+  wait "$PROXY_PID"
+  exit 1
+fi
 
-# Optional OpenAI Secure MCP Tunnel. This lets ChatGPT reach this cloud-hosted
-# Playwright server without exposing the bearer token to ChatGPT.
 if [ -n "${CONTROL_PLANE_API_KEY:-}" ] && [ -n "${CONTROL_PLANE_TUNNEL_ID:-}" ]; then
   echo "[tunnel] connecting OpenAI Secure MCP Tunnel"
   if tunnel-client runtimes connect \
