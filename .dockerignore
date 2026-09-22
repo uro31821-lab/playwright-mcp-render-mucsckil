@@ -1,0 +1,20 @@
+# The Render wrapper (Dockerfile.render) only needs render-entrypoint.sh,
+# render-auth-proxy.mjs, and render-auth-limiter.mjs, so keep the build context
+# tiny — its tests never run in the image. This file applies to
+# every build using this context, including the upstream Dockerfile — but that
+# build is unaffected in practice: it reinstalls deps via `npm ci` and copies only
+# root files (none of these paths).
+node_modules/
+.git/
+.github/
+.devcontainer/
+.claude/
+tests/
+render-smoke-test.sh
+render-auth-*.test.mjs
+test-results/
+playwright-report/
+sessions/
+.env
+*.log
+.DS_Store

@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1
+# Thin Render wrapper over the official Playwright MCP image.
+# The base image already has headless Chromium + all system deps baked in, so
+# there is no browser download or source build here — just a Render-aware
+# entrypoint and the bearer-token gate it puts in front of the server.
+# The tag below is the single pin for the Playwright MCP version — bump it here
+# and nowhere else (see the README "Rolling Playwright MCP" section).
+FROM mcr.microsoft.com/playwright/mcp:v0.0.78
+
+# --chmod guarantees the executable bit regardless of the host checkout's file
+# mode (e.g. Windows/CRLF clones); it requires BuildKit, enabled by the syntax
+# directive above (Render builds with BuildKit).
+COPY --chmod=0755 render-entrypoint.sh /usr/local/bin/render-entrypoint.sh
+COPY render-auth-proxy.mjs /usr/local/bin/render-auth-proxy.mjs
+# Imported by the proxy, so it has to sit beside it — omit this and the container
+# crashes at startup on a missing module.
+COPY render-auth-limiter.mjs /usr/local/bin/render-auth-limiter.mjs
+
+ENTRYPOINT ["/usr/local/bin/render-entrypoint.sh"]
