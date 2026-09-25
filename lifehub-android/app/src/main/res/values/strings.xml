@@ -1,0 +1,4 @@
+<resources>
+<string name="app_name">Korean Life Hub Bridge</string>
+<string name="accessibility_desc">Life Hub 원격 화면읽기·클릭·입력·스크린샷 브리지</string>
+</resources>
