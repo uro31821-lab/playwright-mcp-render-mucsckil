@@ -276,7 +276,7 @@ async function browserTool(name,args={}){
 }
 
 function createMcp(){
-  const server=new McpServer({name:"JH",version:"1.4.9-fix5-task-policy"});
+  const server=new McpServer({name:"JH",version:"1.5.0-fix5-local-prompts"});
   const oauthSchemes56=[{type:"oauth2",scopes:[OAUTH_SCOPE56]}];
   const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},handler);
 
@@ -287,7 +287,7 @@ function createMcp(){
   },async()=>{
     let browser="unknown";
     try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }
-    return textResult({version:"1.4.9-fix5-task-policy",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
+    return textResult({version:"1.5.0-fix5-local-prompts",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
   });
 
   registerOAuthTool("life_route",{
@@ -569,9 +569,9 @@ function createMcp(){
   registerOAuthTool("life_android_secure_status",{title:"Secure Android bridge status",description:"Read-only checkpoint56 status for the selected Android device. Requires an activated device-bound secure session.",inputSchema:{device_id:z.string().optional(),task_digest:z.string()},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async(args)=>secureCall56("life_android_secure_status","secure_device_status","READ_ONLY",args));
   registerOAuthTool("life_android_computer_inspect",{title:"Inspect Android Computer Use target",description:"Read-only exact Computer Use inspection. Does not click, type, scroll, or capture pixels.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_computer_inspect","computer_use_inspect","READ_ONLY",args));
   registerOAuthTool("life_android_computer_prepare",{title:"Prepare one Android Computer Use action",description:"Read-only planning for exactly one Android Computer Use action. Returns a short-lived action lease or a local approval/consent boundary.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_computer_prepare","computer_use_action_prepare","READ_ONLY",args,{screenConsentDigest:String(args.screen_consent_digest||""),localActionApprovalDigest:String(args.local_action_approval_digest||"")}));
-  registerOAuthTool("life_android_action_approval_request",{title:"Request local approval for one Android action",description:"Creates a phone-local approval prompt for the exact prepared action. The server cannot approve it.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_action_approval_request","computer_use_action_approval_request","LOCAL_PROMPT",args));
+  registerOAuthTool("life_android_action_approval_request",{title:"Request local approval for one Android action",description:"Creates a phone-local approval prompt for the exact prepared action. The server cannot approve it.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_action_approval_request","computer_use_action_approval_request","REVERSIBLE_WRITE",args));
   registerOAuthTool("life_android_action_approval_status",{title:"Read local Android action approval status",description:"Read-only status of a phone-local one-shot action approval.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),request_token:z.string()}},async(args)=>secureCall56("life_android_action_approval_status","computer_use_action_approval_status","READ_ONLY",args));
-  registerOAuthTool("life_android_screen_consent_request",{title:"Request local screen sharing consent",description:"Creates a phone-local task-scoped screen sharing prompt. No pixels are captured until the user approves.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),run_digest:z.string(),max_frames:z.number().optional(),ttl_ms:z.number().optional()}},async(args)=>secureCall56("life_android_screen_consent_request","computer_use_screen_consent_request","LOCAL_PROMPT",args,{runDigest:String(args.run_digest||""),maxFrames:Number(args.max_frames||24),ttlMs:Number(args.ttl_ms||600000)}));
+  registerOAuthTool("life_android_screen_consent_request",{title:"Request local screen sharing consent",description:"Creates a phone-local task-scoped screen sharing prompt. No pixels are captured until the user approves.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),run_digest:z.string(),max_frames:z.number().optional(),ttl_ms:z.number().optional()}},async(args)=>secureCall56("life_android_screen_consent_request","computer_use_screen_consent_request","REVERSIBLE_WRITE",args,{runDigest:String(args.run_digest||""),maxFrames:Number(args.max_frames||24),ttlMs:Number(args.ttl_ms||600000)}));
   registerOAuthTool("life_android_screen_consent_status",{title:"Read local screen consent status",description:"Read-only status for a task-scoped phone-local screen consent request.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),request_token:z.string()}},async(args)=>secureCall56("life_android_screen_consent_status","computer_use_screen_consent_status","READ_ONLY",args));
   registerOAuthTool("life_android_execute_computer_action",{title:"Execute one approved Android Computer Use action",description:"Executes exactly one prepared action on the current work window. Consequential/personal-data actions require a phone-local one-shot approval grant. SECRET data is never accepted.",inputSchema:{...cuSchema56,lease_token:z.string(),local_action_approval_digest:z.string().optional()}},async(args)=>secureCall56("life_android_execute_computer_action","computer_use_action_execute","MUTATION",args,{leaseToken:String(args.lease_token||""),localActionApprovalDigest:String(args.local_action_approval_digest||"")}));
   registerOAuthTool("life_android_capture_work_window",{
@@ -639,7 +639,7 @@ const httpServer=createServer(async(req,res)=>{
 
   if(req.method==="GET" && url.pathname==="/health"){
     res.writeHead(200,{"content-type":"application/json"});
-    res.end(JSON.stringify({ok:true,version:"1.4.9-fix5-task-policy",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
+    res.end(JSON.stringify({ok:true,version:"1.5.0-fix5-local-prompts",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
     return;
   }
 
