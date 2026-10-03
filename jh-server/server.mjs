@@ -31,15 +31,17 @@ function sha56(v){return createHash("sha256").update(typeof v==="string"?v:Buffe
 function hmac56(secret,msg){return createHmac("sha256",secret).update(msg).digest("hex");}
 function eqHex56(a,b){try{if(typeof a!=="string"||typeof b!=="string"||a.length!==64||b.length!==64)return false;return timingSafeEqual(Buffer.from(a,"hex"),Buffer.from(b,"hex"));}catch{return false;}}
 function mcpCallerAuthorized56(req){
-  const expected=String(process.env.LIFE_HUB_TOKEN||"");
-  if(expected.length<24)return false;
   const auth=String(req.headers["authorization"]||"");
   if(!auth.startsWith("Bearer "))return false;
   const got=auth.slice(7);
-  try{
-    const a=Buffer.from(expected,"utf8"),b=Buffer.from(got,"utf8");
-    return a.length===b.length&&timingSafeEqual(a,b);
-  }catch{return false;}
+  const expected=String(process.env.LIFE_HUB_TOKEN||"");
+  if(expected.length>=24){
+    try{
+      const a=Buffer.from(expected,"utf8"),b=Buffer.from(got,"utf8");
+      if(a.length===b.length&&timingSafeEqual(a,b))return true;
+    }catch{}
+  }
+  return oauthAccessAuthorized56(got);
 }
 function token56(n=18){return randomBytes(n).toString("base64url");}
 function validToken56(v){return typeof v==="string"&&/^[A-Za-z0-9_-]{16,160}$/.test(v);}
@@ -51,6 +53,43 @@ function stable56(v){
   return JSON.stringify(v);
 }
 const PUBLIC_BASE_URL=String(process.env.PUBLIC_BASE_URL||"").replace(/\/+$/,"");
+const OAUTH_SCOPE56="jh.secure";
+const OAUTH_ACCESS_MS56=60*60*1000;
+const OAUTH_REFRESH_MS56=30*24*60*60*1000;
+const oauthCodes56=new Map();
+const oauthAccess56=new Map();
+const oauthRefresh56=new Map();
+function purgeOAuth56(){
+  const now=Date.now();
+  for(const [k,v] of oauthCodes56)if(now>v.expiresAt)oauthCodes56.delete(k);
+  for(const [k,v] of oauthAccess56)if(now>v.expiresAt)oauthAccess56.delete(k);
+  for(const [k,v] of oauthRefresh56)if(now>v.expiresAt)oauthRefresh56.delete(k);
+}
+function oauthAccessAuthorized56(token){
+  if(typeof token!=="string"||token.length<20)return false;
+  purgeOAuth56();
+  const x=oauthAccess56.get(sha56("oauth-access|"+token));
+  return !!x&&x.expiresAt>Date.now()&&x.scope===OAUTH_SCOPE56;
+}
+function validChatGptClient56(v){
+  return v==="https://chatgpt.com/oauth/client.json"||/^https:\/\/chatgpt\.com\/oauth\/[A-Za-z0-9_-]+\/client\.json$/.test(String(v||""));
+}
+function validChatGptRedirect56(v){
+  return v==="https://chatgpt.com/connector_platform_oauth_redirect"||/^https:\/\/chatgpt\.com\/connector\/oauth\/[A-Za-z0-9_-]+$/.test(String(v||""));
+}
+function validOAuthResource56(v){return v===PUBLIC_BASE_URL||v===PUBLIC_BASE_URL+"/mcp";}
+function escHtml56(v){return String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
+function oauthAuthorizeValid56(p){
+  return p.response_type==="code"&&validChatGptClient56(p.client_id)&&validChatGptRedirect56(p.redirect_uri)&&
+    p.code_challenge_method==="S256"&&typeof p.code_challenge==="string"&&/^[A-Za-z0-9_-]{43,128}$/.test(p.code_challenge)&&
+    validOAuthResource56(p.resource);
+}
+function oauthTokenResponse56(){
+  const access="at56_"+token56(32),refresh="rt56_"+token56(32),now=Date.now();
+  oauthAccess56.set(sha56("oauth-access|"+access),{expiresAt:now+OAUTH_ACCESS_MS56,scope:OAUTH_SCOPE56});
+  oauthRefresh56.set(sha56("oauth-refresh|"+refresh),{expiresAt:now+OAUTH_REFRESH_MS56,scope:OAUTH_SCOPE56});
+  return {access_token:access,token_type:"Bearer",expires_in:Math.floor(OAUTH_ACCESS_MS56/1000),refresh_token:refresh,scope:OAUTH_SCOPE56};
+}
 const SERVER_IDENTITY_DIGEST56=sha56((PUBLIC_BASE_URL||"https://unset.invalid")+"/mcp|jh-secure-bridge56");
 const secureStates56=new Map();
 const frameWaiters56=new Map();
@@ -237,7 +276,7 @@ async function browserTool(name,args={}){
 }
 
 function createMcp(){
-  const server=new McpServer({name:"JH",version:"1.3.0-fix4-secure"});
+  const server=new McpServer({name:"JH",version:"1.4.0-fix4-oauth"});
 
   server.registerTool("life_status",{
     title:"JH status",
@@ -246,7 +285,7 @@ function createMcp(){
   },async()=>{
     let browser="unknown";
     try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }
-    return textResult({version:"1.3.0-fix4-secure",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
+    return textResult({version:"1.4.0-fix4-oauth",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
   });
 
   server.registerTool("life_route",{
@@ -598,7 +637,7 @@ const httpServer=createServer(async(req,res)=>{
 
   if(req.method==="GET" && url.pathname==="/health"){
     res.writeHead(200,{"content-type":"application/json"});
-    res.end(JSON.stringify({ok:true,version:"1.3.0-fix4-secure",secureBridgeVersion:56,mcpCallerAuth:"bearer_required",devices:devices.size,browserSession:!!browserSessionId}));
+    res.end(JSON.stringify({ok:true,version:"1.4.0-fix4-oauth",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,browserSession:!!browserSessionId}));
     return;
   }
 
@@ -693,9 +732,79 @@ const httpServer=createServer(async(req,res)=>{
     res.writeHead(204,{
       "Access-Control-Allow-Origin":"*",
       "Access-Control-Allow-Methods":"POST, GET, DELETE, OPTIONS",
-      "Access-Control-Allow-Headers":"content-type, mcp-session-id",
+      "Access-Control-Allow-Headers":"content-type, mcp-session-id, authorization",
       "Access-Control-Expose-Headers":"Mcp-Session-Id"
     });res.end();return;
+  }
+
+  if(req.method==="GET" && url.pathname==="/.well-known/oauth-protected-resource"){
+    res.writeHead(200,{"content-type":"application/json","cache-control":"no-store"});
+    res.end(JSON.stringify({resource:PUBLIC_BASE_URL,authorization_servers:[PUBLIC_BASE_URL],scopes_supported:[OAUTH_SCOPE56],resource_documentation:PUBLIC_BASE_URL+"/health"}));return;
+  }
+
+  if(req.method==="GET" && (url.pathname==="/.well-known/oauth-authorization-server"||url.pathname==="/.well-known/openid-configuration")){
+    res.writeHead(200,{"content-type":"application/json","cache-control":"no-store"});
+    res.end(JSON.stringify({
+      issuer:PUBLIC_BASE_URL,
+      authorization_response_iss_parameter_supported:true,
+      authorization_endpoint:PUBLIC_BASE_URL+"/oauth/authorize",
+      token_endpoint:PUBLIC_BASE_URL+"/oauth/token",
+      client_id_metadata_document_supported:true,
+      token_endpoint_auth_methods_supported:["none"],
+      code_challenge_methods_supported:["S256"],
+      scopes_supported:[OAUTH_SCOPE56],
+      response_types_supported:["code"],
+      grant_types_supported:["authorization_code","refresh_token"]
+    }));return;
+  }
+
+  if(req.method==="GET" && url.pathname==="/oauth/authorize"){
+    const p=Object.fromEntries(url.searchParams.entries());
+    if(!oauthAuthorizeValid56(p)){res.writeHead(400,{"content-type":"text/plain; charset=utf-8"}).end("Invalid OAuth request");return;}
+    const html='<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'+
+      '<title>JHMCP Secure Bridge 연결</title><body style="font-family:sans-serif;max-width:520px;margin:48px auto;padding:0 20px">'+
+      '<h2>JHMCP Secure Bridge</h2><p>ChatGPT가 이 개인 Secure Bridge에 연결하도록 허용합니다.</p>'+
+      '<p>휴대폰 Secure Bridge의 로컬 승인과 별개이며, 이 승인은 ChatGPT MCP 연결에만 사용됩니다.</p>'+
+      '<form method="post" action="/oauth/authorize">'+
+      Object.entries(p).map(([k,v])=>'<input type="hidden" name="'+escHtml56(k)+'" value="'+escHtml56(v)+'">').join("")+
+      '<button type="submit" style="font-size:18px;padding:12px 18px">ChatGPT 연결 승인</button></form></body>';
+    res.writeHead(200,{"content-type":"text/html; charset=utf-8","cache-control":"no-store"});res.end(html);return;
+  }
+
+  if(req.method==="POST" && url.pathname==="/oauth/authorize"){
+    let b="";for await(const ch of req)b+=ch;if(b.length>16384){res.writeHead(413).end("too large");return;}
+    const p=Object.fromEntries(new URLSearchParams(b).entries());
+    if(!oauthAuthorizeValid56(p)){res.writeHead(400,{"content-type":"text/plain; charset=utf-8"}).end("Invalid OAuth request");return;}
+    purgeOAuth56();
+    const code="ac56_"+token56(24);
+    oauthCodes56.set(code,{clientId:p.client_id,redirectUri:p.redirect_uri,challenge:p.code_challenge,resource:p.resource,expiresAt:Date.now()+5*60*1000});
+    const dest=new URL(p.redirect_uri);dest.searchParams.set("code",code);if(p.state)dest.searchParams.set("state",p.state);dest.searchParams.set("iss",PUBLIC_BASE_URL);
+    res.writeHead(302,{"location":dest.toString(),"cache-control":"no-store"}).end();return;
+  }
+
+  if(req.method==="POST" && url.pathname==="/oauth/token"){
+    let b="";for await(const ch of req)b+=ch;if(b.length>16384){res.writeHead(413).end("too large");return;}
+    const p=Object.fromEntries(new URLSearchParams(b).entries());
+    res.setHeader("content-type","application/json");res.setHeader("cache-control","no-store");
+    purgeOAuth56();
+    if(p.grant_type==="authorization_code"){
+      const rec=oauthCodes56.get(String(p.code||""));
+      const verifier=String(p.code_verifier||"");
+      const challenge=createHash("sha256").update(verifier).digest("base64url");
+      if(!rec||rec.expiresAt<Date.now()||rec.clientId!==p.client_id||rec.redirectUri!==p.redirect_uri||rec.challenge!==challenge||!validOAuthResource56(p.resource)){
+        res.writeHead(400).end(JSON.stringify({error:"invalid_grant"}));return;
+      }
+      oauthCodes56.delete(String(p.code));
+      res.writeHead(200).end(JSON.stringify(oauthTokenResponse56()));return;
+    }
+    if(p.grant_type==="refresh_token"){
+      const key=sha56("oauth-refresh|"+String(p.refresh_token||""));
+      const rec=oauthRefresh56.get(key);
+      if(!rec||rec.expiresAt<Date.now()||!validChatGptClient56(p.client_id)){res.writeHead(400).end(JSON.stringify({error:"invalid_grant"}));return;}
+      oauthRefresh56.delete(key);
+      res.writeHead(200).end(JSON.stringify(oauthTokenResponse56()));return;
+    }
+    res.writeHead(400).end(JSON.stringify({error:"unsupported_grant_type"}));return;
   }
 
   if(url.pathname.startsWith("/.well-known/")){
@@ -704,8 +813,8 @@ const httpServer=createServer(async(req,res)=>{
 
   if(url.pathname==="/mcp" && ["POST","GET","DELETE"].includes(req.method||"")){
     if(!mcpCallerAuthorized56(req)){
-      res.setHeader("WWW-Authenticate",'Bearer realm="jh-private-mcp56"');
-      res.writeHead(401,{"content-type":"application/json"}).end(JSON.stringify({error:"mcp_caller_auth_required"}));return;
+      res.setHeader("WWW-Authenticate",'Bearer resource_metadata="'+PUBLIC_BASE_URL+'/.well-known/oauth-protected-resource", scope="'+OAUTH_SCOPE56+'", error="invalid_token", error_description="OAuth connection required"');
+      res.writeHead(401,{"content-type":"application/json","cache-control":"no-store"}).end(JSON.stringify({error:"mcp_caller_auth_required"}));return;
     }
     res.setHeader("Access-Control-Allow-Origin","*");
     res.setHeader("Access-Control-Expose-Headers","Mcp-Session-Id");
