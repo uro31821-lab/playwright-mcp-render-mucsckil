@@ -276,7 +276,7 @@ async function browserTool(name,args={}){
 }
 
 function createMcp(){
-  const server=new McpServer({name:"JH",version:"1.4.3-fix4-auth-meta"});
+  const server=new McpServer({name:"JH",version:"1.4.4-fix4-auth-top-level"});
   const oauthSchemes56=[{type:"oauth2",scopes:[OAUTH_SCOPE56]}];
   const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},handler);
 
@@ -287,7 +287,7 @@ function createMcp(){
   },async()=>{
     let browser="unknown";
     try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }
-    return textResult({version:"1.4.3-fix4-auth-meta",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
+    return textResult({version:"1.4.4-fix4-auth-top-level",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
   });
 
   registerOAuthTool("life_route",{
@@ -639,7 +639,7 @@ const httpServer=createServer(async(req,res)=>{
 
   if(req.method==="GET" && url.pathname==="/health"){
     res.writeHead(200,{"content-type":"application/json"});
-    res.end(JSON.stringify({ok:true,version:"1.4.3-fix4-auth-meta",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
+    res.end(JSON.stringify({ok:true,version:"1.4.4-fix4-auth-top-level",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
     return;
   }
 
@@ -847,6 +847,32 @@ const httpServer=createServer(async(req,res)=>{
 
     res.setHeader("Access-Control-Allow-Origin","*");
     res.setHeader("Access-Control-Expose-Headers","Mcp-Session-Id");
+
+    // MCP SDK v1 serializes OAuth tool security schemes only inside _meta.
+    // ChatGPT OAuth linking requires the canonical top-level securitySchemes field too.
+    // Patch only tools/list JSON responses and mirror the already-advertised _meta value.
+    const isToolsList56=req.method==="POST"&&Array.isArray(parsedBody)?false:(req.method==="POST"&&parsedBody?.method==="tools/list");
+    if(isToolsList56){
+      const originalEnd56=res.end.bind(res);
+      res.end=function(chunk,encoding,callback){
+        try{
+          const raw56=Buffer.isBuffer(chunk)?chunk.toString("utf8"):String(chunk??"");
+          const obj56=JSON.parse(raw56);
+          const tools56=obj56?.result?.tools;
+          if(Array.isArray(tools56)){
+            for(const tool56 of tools56){
+              const schemes56=tool56?._meta?.securitySchemes;
+              if(Array.isArray(schemes56)&&!Array.isArray(tool56.securitySchemes)) tool56.securitySchemes=schemes56;
+            }
+            const out56=JSON.stringify(obj56);
+            try{res.removeHeader("content-length");}catch{}
+            return originalEnd56(out56,encoding,callback);
+          }
+        }catch{}
+        return originalEnd56(chunk,encoding,callback);
+      };
+    }
+
     const server=createMcp();
     const transport=new StreamableHTTPServerTransport({
       sessionIdGenerator:undefined,
