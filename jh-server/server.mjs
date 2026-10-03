@@ -276,19 +276,20 @@ async function browserTool(name,args={}){
 }
 
 function createMcp(){
-  const server=new McpServer({name:"JH",version:"1.4.1-fix4-oauth"});
+  const server=new McpServer({name:"JH",version:"1.4.2-fix4-mixed-auth"});
+  const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:[{type:"oauth2",scopes:[OAUTH_SCOPE56]}]},handler);
 
-  server.registerTool("life_status",{
+  registerOAuthTool("life_status",{
     title:"JH status",
     description:"Diagnostic only. Avoid during normal open/search flows to reduce rate-limit risk.",
     inputSchema:{}
   },async()=>{
     let browser="unknown";
     try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }
-    return textResult({version:"1.4.1-fix4-oauth",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
+    return textResult({version:"1.4.2-fix4-mixed-auth",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
   });
 
-  server.registerTool("life_route",{
+  registerOAuthTool("life_route",{
     title:"Choose execution route",
     description:"Optional classifier only. Do not call before ordinary open/search requests. Directly call the execution tool to minimize MCP requests.",
     inputSchema:{request:z.string()}
@@ -311,7 +312,7 @@ function createMcp(){
     return textResult({owner,rule,request:raw});
   });
 
-  server.registerTool("life_open_service",{
+  registerOAuthTool("life_open_service",{
     title:"Open a service",
     description:"ONE-CALL tool for simple service-open requests. Do not call status or route first. Browser-capable services use Playwright; native-only services use the selected Android device.",
     inputSchema:{service:z.string()}
@@ -346,7 +347,7 @@ function createMcp(){
     return textResult({route:"unknown",service:raw,instruction:"Use life_web_navigate with a known web URL when browser-capable; use life_android_open only if the service is truly native-app-only."});
   });
 
-  server.registerTool("life_naver_mail",{
+  registerOAuthTool("life_naver_mail",{
     title:"Naver Mail — Playwright only",
     description:"Use this for ANY Naver Mail request, including opening mail, reading folders, deleting mail, emptying Trash, searching mail, or other mailbox actions. This tool NEVER uses Android foreground/accessibility. It opens https://mail.naver.com/ in the persistent Playwright browser and reads the page so the workflow can continue even while ChatGPT is the phone foreground app.",
     inputSchema:{}
@@ -357,7 +358,7 @@ function createMcp(){
     return textResult({route:"playwright",service:"네이버 메일",url,navigation,snapshot});
   });
 
-  server.registerTool("life_web_navigate",{
+  registerOAuthTool("life_web_navigate",{
     title:"Open website",
     description:"PRIMARY web route. Navigate the persistent Playwright browser to a URL. Prefer this for hotel, booking, shopping, search, maps, YouTube, and other browser-capable services. Do NOT use t.kakao.com as a browser destination; Kakao T is treated as a native-app route.",
     inputSchema:{url:z.string()}
@@ -370,13 +371,13 @@ function createMcp(){
     return textResult(await browserTool("browser_navigate",{url:u}));
   });
 
-  server.registerTool("life_web_snapshot",{
+  registerOAuthTool("life_web_snapshot",{
     title:"Read web page",
     description:"Read the current Playwright page accessibility tree after navigation. Use this instead of screenshots for normal web interaction.",
     inputSchema:{target:z.string().optional(),depth:z.number().optional()}
   },async(args)=>textResult(await browserTool("browser_snapshot",args||{})));
 
-  server.registerTool("life_web_click",{
+  registerOAuthTool("life_web_click",{
     title:"Click web element",
     description:"Click a web element in the persistent Playwright browser using a target/ref or unique selector from the snapshot.",
     inputSchema:{
@@ -386,7 +387,7 @@ function createMcp(){
     }
   },async(args)=>textResult(await browserTool("browser_click",args)));
 
-  server.registerTool("life_web_type",{
+  registerOAuthTool("life_web_type",{
     title:"Type in web page",
     description:"Type into a web form in the persistent Playwright browser. Use the exact target returned by life_web_snapshot, then re-read the page.",
     inputSchema:{
@@ -398,7 +399,7 @@ function createMcp(){
     }
   },async(args)=>textResult(await browserTool("browser_type",args)));
 
-  server.registerTool("life_web_select",{
+  registerOAuthTool("life_web_select",{
     title:"Select web option",
     description:"Select one or more values from a dropdown in the persistent Playwright browser using the exact target from the latest snapshot.",
     inputSchema:{
@@ -408,31 +409,31 @@ function createMcp(){
     }
   },async(args)=>textResult(await browserTool("browser_select_option",args)));
 
-  server.registerTool("life_web_press_key",{
+  registerOAuthTool("life_web_press_key",{
     title:"Press browser key",
     description:"Press a keyboard key in the Playwright browser, such as Enter, Escape, ArrowDown, or Tab.",
     inputSchema:{key:z.string()}
   },async(args)=>textResult(await browserTool("browser_press_key",args)));
 
-  server.registerTool("life_web_wait",{
+  registerOAuthTool("life_web_wait",{
     title:"Wait for web page",
     description:"Wait briefly for a Playwright page or dynamic result to update, then use snapshot again.",
     inputSchema:{time:z.number()}
   },async(args)=>textResult(await browserTool("browser_wait",args)));
 
-  server.registerTool("life_web_back",{
+  registerOAuthTool("life_web_back",{
     title:"Go back in web page",
     description:"Go back one step in the persistent Playwright browser history.",
     inputSchema:{}
   },async()=>textResult(await browserTool("browser_navigate_back",{})));
 
-  server.registerTool("life_web_screenshot",{
+  registerOAuthTool("life_web_screenshot",{
     title:"Capture web screenshot",
     description:"Capture a screenshot for visual verification. Use life_web_snapshot for actionable element references.",
     inputSchema:{}
   },async()=>textResult(await browserTool("browser_take_screenshot",{})));
 
-  server.registerTool("life_android_devices",{
+  registerOAuthTool("life_android_devices",{
     title:"List Android devices",
     description:"List recently connected Android Bridge devices and show which device JH will target. JH sends Android jobs to exactly one selected device, never all devices.",
     inputSchema:{}
@@ -446,7 +447,7 @@ function createMcp(){
     return textResult({selectedDeviceId:chooseDevice(),configuredActiveDeviceId:activeDeviceId,devices:list});
   });
 
-  server.registerTool("life_android_select_device",{
+  registerOAuthTool("life_android_select_device",{
     title:"Select Android device",
     description:"Select exactly one Android Bridge device for screenshots, UI reads, clicks, typing, and app launches. Use a deviceId returned by life_android_devices.",
     inputSchema:{device_id:z.string()}
@@ -456,7 +457,7 @@ function createMcp(){
     return textResult({ok:true,activeDeviceId});
   });
 
-  server.registerTool("life_android_select_latest",{
+  registerOAuthTool("life_android_select_latest",{
     title:"Select latest Android device",
     description:"Select the most recently active Android Bridge device as the target for all Android actions.",
     inputSchema:{}
@@ -467,7 +468,7 @@ function createMcp(){
     return textResult({ok:true,activeDeviceId});
   });
 
-  server.registerTool("life_android_open_and_snapshot",{
+  registerOAuthTool("life_android_open_and_snapshot",{
     title:"Open Android target and read foreground screen",
     description:"Native-app mobile workflow starter only. Do NOT use for Naver Mail or normal websites; those must use Playwright. Opens a native Android app on the selected device and then reads its accessibility screen.",
     inputSchema:{target:z.string(),url:z.string().optional()}
@@ -493,7 +494,7 @@ function createMcp(){
     return textResult({opened,targetDeviceId:openJob.targetDeviceId,snapshot:snap});
   });
 
-  server.registerTool("life_android_step_and_snapshot",{
+  registerOAuthTool("life_android_step_and_snapshot",{
     title:"Act on Android foreground screen and read result",
     description:"Preferred follow-up for mobile UI work. Perform one accessibility action on the current foreground app, then immediately read the updated screen in the same MCP call. This lets ChatGPT continue a multi-step phone workflow while the target app stays in front.",
     inputSchema:{
@@ -515,7 +516,7 @@ function createMcp(){
     return textResult({acted,targetDeviceId:stepJob.targetDeviceId,snapshot:snap});
   });
 
-  server.registerTool("life_android_open",{
+  registerOAuthTool("life_android_open",{
     title:"Open service",
     description:"Compatibility route. Browser-capable services, especially Naver Mail, are always rerouted to Playwright even if this tool is selected. Android is only for truly native-app-only functions such as Kakao T app control.",
     inputSchema:{target:z.string(),url:z.string().optional()}
@@ -564,15 +565,15 @@ function createMcp(){
     action_approval_grant_token:z.string().optional(),local_action_approval_digest:z.string().optional(),
     max_actions_in_call:z.number().optional()
   };
-  server.registerTool("life_android_secure_status",{title:"Secure Android bridge status",description:"Read-only checkpoint56 status for the selected Android device. Requires an activated device-bound secure session.",inputSchema:{device_id:z.string().optional(),task_digest:z.string()}},async(args)=>secureCall56("life_android_secure_status","secure_device_status","READ_ONLY",args));
-  server.registerTool("life_android_computer_inspect",{title:"Inspect Android Computer Use target",description:"Read-only exact Computer Use inspection. Does not click, type, scroll, or capture pixels.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_computer_inspect","computer_use_inspect","READ_ONLY",args));
-  server.registerTool("life_android_computer_prepare",{title:"Prepare one Android Computer Use action",description:"Read-only planning for exactly one Android Computer Use action. Returns a short-lived action lease or a local approval/consent boundary.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_computer_prepare","computer_use_action_prepare","READ_ONLY",args,{screenConsentDigest:String(args.screen_consent_digest||""),localActionApprovalDigest:String(args.local_action_approval_digest||"")}));
-  server.registerTool("life_android_action_approval_request",{title:"Request local approval for one Android action",description:"Creates a phone-local approval prompt for the exact prepared action. The server cannot approve it.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_action_approval_request","computer_use_action_approval_request","LOCAL_PROMPT",args));
-  server.registerTool("life_android_action_approval_status",{title:"Read local Android action approval status",description:"Read-only status of a phone-local one-shot action approval.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),request_token:z.string()}},async(args)=>secureCall56("life_android_action_approval_status","computer_use_action_approval_status","READ_ONLY",args));
-  server.registerTool("life_android_screen_consent_request",{title:"Request local screen sharing consent",description:"Creates a phone-local task-scoped screen sharing prompt. No pixels are captured until the user approves.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),run_digest:z.string(),max_frames:z.number().optional(),ttl_ms:z.number().optional()}},async(args)=>secureCall56("life_android_screen_consent_request","computer_use_screen_consent_request","LOCAL_PROMPT",args,{runDigest:String(args.run_digest||""),maxFrames:Number(args.max_frames||24),ttlMs:Number(args.ttl_ms||600000)}));
-  server.registerTool("life_android_screen_consent_status",{title:"Read local screen consent status",description:"Read-only status for a task-scoped phone-local screen consent request.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),request_token:z.string()}},async(args)=>secureCall56("life_android_screen_consent_status","computer_use_screen_consent_status","READ_ONLY",args));
-  server.registerTool("life_android_execute_computer_action",{title:"Execute one approved Android Computer Use action",description:"Executes exactly one prepared action on the current work window. Consequential/personal-data actions require a phone-local one-shot approval grant. SECRET data is never accepted.",inputSchema:{...cuSchema56,lease_token:z.string(),local_action_approval_digest:z.string().optional()}},async(args)=>secureCall56("life_android_execute_computer_action","computer_use_action_execute","MUTATION",args,{leaseToken:String(args.lease_token||""),localActionApprovalDigest:String(args.local_action_approval_digest||"")}));
-  server.registerTool("life_android_capture_work_window",{
+  registerOAuthTool("life_android_secure_status",{title:"Secure Android bridge status",description:"Read-only checkpoint56 status for the selected Android device. Requires an activated device-bound secure session.",inputSchema:{device_id:z.string().optional(),task_digest:z.string()},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async(args)=>secureCall56("life_android_secure_status","secure_device_status","READ_ONLY",args));
+  registerOAuthTool("life_android_computer_inspect",{title:"Inspect Android Computer Use target",description:"Read-only exact Computer Use inspection. Does not click, type, scroll, or capture pixels.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_computer_inspect","computer_use_inspect","READ_ONLY",args));
+  registerOAuthTool("life_android_computer_prepare",{title:"Prepare one Android Computer Use action",description:"Read-only planning for exactly one Android Computer Use action. Returns a short-lived action lease or a local approval/consent boundary.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_computer_prepare","computer_use_action_prepare","READ_ONLY",args,{screenConsentDigest:String(args.screen_consent_digest||""),localActionApprovalDigest:String(args.local_action_approval_digest||"")}));
+  registerOAuthTool("life_android_action_approval_request",{title:"Request local approval for one Android action",description:"Creates a phone-local approval prompt for the exact prepared action. The server cannot approve it.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_action_approval_request","computer_use_action_approval_request","LOCAL_PROMPT",args));
+  registerOAuthTool("life_android_action_approval_status",{title:"Read local Android action approval status",description:"Read-only status of a phone-local one-shot action approval.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),request_token:z.string()}},async(args)=>secureCall56("life_android_action_approval_status","computer_use_action_approval_status","READ_ONLY",args));
+  registerOAuthTool("life_android_screen_consent_request",{title:"Request local screen sharing consent",description:"Creates a phone-local task-scoped screen sharing prompt. No pixels are captured until the user approves.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),run_digest:z.string(),max_frames:z.number().optional(),ttl_ms:z.number().optional()}},async(args)=>secureCall56("life_android_screen_consent_request","computer_use_screen_consent_request","LOCAL_PROMPT",args,{runDigest:String(args.run_digest||""),maxFrames:Number(args.max_frames||24),ttlMs:Number(args.ttl_ms||600000)}));
+  registerOAuthTool("life_android_screen_consent_status",{title:"Read local screen consent status",description:"Read-only status for a task-scoped phone-local screen consent request.",inputSchema:{device_id:z.string().optional(),task_digest:z.string(),request_token:z.string()}},async(args)=>secureCall56("life_android_screen_consent_status","computer_use_screen_consent_status","READ_ONLY",args));
+  registerOAuthTool("life_android_execute_computer_action",{title:"Execute one approved Android Computer Use action",description:"Executes exactly one prepared action on the current work window. Consequential/personal-data actions require a phone-local one-shot approval grant. SECRET data is never accepted.",inputSchema:{...cuSchema56,lease_token:z.string(),local_action_approval_digest:z.string().optional()}},async(args)=>secureCall56("life_android_execute_computer_action","computer_use_action_execute","MUTATION",args,{leaseToken:String(args.lease_token||""),localActionApprovalDigest:String(args.local_action_approval_digest||"")}));
+  registerOAuthTool("life_android_capture_work_window",{
     title:"Capture the approved Android work window",
     description:"Captures one task-scoped work-window frame after phone-local screen consent. Pixels use a one-shot frame upload path and are never stored in the job-completion relay.",
     inputSchema:{...cuSchema56,run_digest:z.string(),screen_grant_token:z.string(),screen_consent_digest:z.string(),lease_token:z.string()}
@@ -589,7 +590,7 @@ function createMcp(){
     return {content:[{type:"text",text:JSON.stringify({ok:true,job:metaOut,frameDigest:fd,persisted:false})},{type:"image",data,mimeType:"image/png"}]};
   });
 
-  server.registerTool("life_android_snapshot",{
+  registerOAuthTool("life_android_snapshot",{
     title:"Read Android UI",
     description:"Read Android accessibility UI for native-app-only workflows.",
     inputSchema:{}
@@ -598,7 +599,7 @@ function createMcp(){
     return jobResult(await waitJob(j));
   });
 
-  server.registerTool("life_android_step",{
+  registerOAuthTool("life_android_step",{
     title:"Control Android UI",
     description:"Perform a native Android accessibility action after reading the Android UI.",
     inputSchema:{
@@ -611,13 +612,13 @@ function createMcp(){
     return jobResult(await waitJob(j));
   });
 
-  server.registerTool("open_on_android",{title:"Open Android target (compat)",description:"FIX3 compatibility alias. Preserves last_work_screen target-only.",inputSchema:{target:z.string(),url:z.string().optional()}},async({target,url})=>{const raw=String(target||"").trim(),low=raw.toLowerCase(),u=String(url||"");const last=["last_work_screen","마지막 작업 화면","아까 화면","마지막 작업화면"].includes(low);const j=mk("open_url",{target:last?"last_work_screen":raw,url:last?"":u});return textResult({queued:j.status==="queued",jobId:j.id,url:last?"last_work_screen":(u||raw),registeredDevices:devices.size});});
-  server.registerTool("device_status",{title:"Android device status (compat)",description:"FIX3 compatibility alias.",inputSchema:{}},async()=>{const r=recentDevices();return textResult({registeredDevices:r.length,secureActive:r.filter(([,m])=>m?.secureActive).length});});
-  server.registerTool("android_snapshot",{title:"Android snapshot (compat)",description:"FIX3 compatibility alias.",inputSchema:{}},async()=>{const j=mk("agent_snapshot");return jobResult(await waitJob(j));});
-  server.registerTool("android_step",{title:"Android step (compat)",description:"FIX3 compatibility alias.",inputSchema:{action:z.string(),text:z.string().optional(),value:z.string().optional()}},async(args)=>{const j=mk("agent_step",args);return jobResult(await waitJob(j));});
-  server.registerTool("job_status",{title:"Android job status (compat)",description:"FIX3 compatibility alias.",inputSchema:{job_id:z.string()}},async({job_id})=>{cleanupJobs();return jobResult(jobs.get(job_id));});
+  registerOAuthTool("open_on_android",{title:"Open Android target (compat)",description:"FIX3 compatibility alias. Preserves last_work_screen target-only.",inputSchema:{target:z.string(),url:z.string().optional()}},async({target,url})=>{const raw=String(target||"").trim(),low=raw.toLowerCase(),u=String(url||"");const last=["last_work_screen","마지막 작업 화면","아까 화면","마지막 작업화면"].includes(low);const j=mk("open_url",{target:last?"last_work_screen":raw,url:last?"":u});return textResult({queued:j.status==="queued",jobId:j.id,url:last?"last_work_screen":(u||raw),registeredDevices:devices.size});});
+  registerOAuthTool("device_status",{title:"Android device status (compat)",description:"FIX3 compatibility alias.",inputSchema:{}},async()=>{const r=recentDevices();return textResult({registeredDevices:r.length,secureActive:r.filter(([,m])=>m?.secureActive).length});});
+  registerOAuthTool("android_snapshot",{title:"Android snapshot (compat)",description:"FIX3 compatibility alias.",inputSchema:{}},async()=>{const j=mk("agent_snapshot");return jobResult(await waitJob(j));});
+  registerOAuthTool("android_step",{title:"Android step (compat)",description:"FIX3 compatibility alias.",inputSchema:{action:z.string(),text:z.string().optional(),value:z.string().optional()}},async(args)=>{const j=mk("agent_step",args);return jobResult(await waitJob(j));});
+  registerOAuthTool("job_status",{title:"Android job status (compat)",description:"FIX3 compatibility alias.",inputSchema:{job_id:z.string()}},async({job_id})=>{cleanupJobs();return jobResult(jobs.get(job_id));});
 
-  server.registerTool("life_job_status",{
+  registerOAuthTool("life_job_status",{
     title:"Android job status",
     description:"Read a queued Android job result.",
     inputSchema:{job_id:z.string()}
@@ -637,7 +638,7 @@ const httpServer=createServer(async(req,res)=>{
 
   if(req.method==="GET" && url.pathname==="/health"){
     res.writeHead(200,{"content-type":"application/json"});
-    res.end(JSON.stringify({ok:true,version:"1.4.1-fix4-oauth",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
+    res.end(JSON.stringify({ok:true,version:"1.4.2-fix4-mixed-auth",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
     return;
   }
 
@@ -816,10 +817,33 @@ const httpServer=createServer(async(req,res)=>{
   }
 
   if(url.pathname==="/mcp" && ["POST","GET","DELETE"].includes(req.method||"")){
-    if(!mcpCallerAuthorized56(req)){
-      res.setHeader("WWW-Authenticate",'Bearer resource_metadata="'+PUBLIC_BASE_URL+'/.well-known/oauth-protected-resource", scope="'+OAUTH_SCOPE56+'", error="invalid_token", error_description="OAuth connection required"');
-      res.writeHead(401,{"content-type":"application/json","cache-control":"no-store"}).end(JSON.stringify({error:"mcp_caller_auth_required"}));return;
+    const authorized=mcpCallerAuthorized56(req);
+    let parsedBody=undefined;
+    if(req.method==="POST"){
+      let b="";for await(const ch of req){b+=ch;if(b.length>2*1024*1024){res.writeHead(413).end("too large");return;}}
+      try{parsedBody=JSON.parse(b||"{}");}catch{res.writeHead(400,{"content-type":"application/json"}).end(JSON.stringify({jsonrpc:"2.0",id:null,error:{code:-32700,message:"Parse error"}}));return;}
     }
+
+    if(!authorized){
+      const list=Array.isArray(parsedBody)?parsedBody:[parsedBody];
+      const methods=list.filter(Boolean).map(x=>x?.method);
+      const catalogMethods=new Set(["initialize","notifications/initialized","ping","tools/list"]);
+      const catalogOnly=req.method==="POST"&&methods.length>0&&methods.every(m=>catalogMethods.has(m));
+
+      if(req.method==="POST"&&methods.length===1&&methods[0]==="tools/call"){
+        const item=list[0]||{};
+        const challenge='Bearer resource_metadata="'+PUBLIC_BASE_URL+'/.well-known/oauth-protected-resource", scope="'+OAUTH_SCOPE56+'", error="insufficient_scope", error_description="Connect JH Secure to continue"';
+        res.writeHead(200,{"content-type":"application/json","cache-control":"no-store"});
+        res.end(JSON.stringify({jsonrpc:"2.0",id:item.id??null,result:{content:[{type:"text",text:"Authentication required."}],isError:true,_meta:{"mcp/www_authenticate":[challenge]}}}));
+        return;
+      }
+
+      if(!catalogOnly){
+        res.setHeader("WWW-Authenticate",'Bearer resource_metadata="'+PUBLIC_BASE_URL+'/.well-known/oauth-protected-resource", scope="'+OAUTH_SCOPE56+'", error="invalid_token", error_description="OAuth connection required"');
+        res.writeHead(401,{"content-type":"application/json","cache-control":"no-store"}).end(JSON.stringify({error:"mcp_caller_auth_required"}));return;
+      }
+    }
+
     res.setHeader("Access-Control-Allow-Origin","*");
     res.setHeader("Access-Control-Expose-Headers","Mcp-Session-Id");
     const server=createMcp();
@@ -830,7 +854,7 @@ const httpServer=createServer(async(req,res)=>{
     res.on("close",()=>{try{transport.close();server.close();}catch{}});
     try{
       await server.connect(transport);
-      await transport.handleRequest(req,res);
+      await transport.handleRequest(req,res,parsedBody);
     }catch(e){
       if(!res.headersSent) res.writeHead(500).end("Internal server error");
     }
