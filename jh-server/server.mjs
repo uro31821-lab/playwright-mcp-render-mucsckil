@@ -277,7 +277,8 @@ async function browserTool(name,args={}){
 
 function createMcp(){
   const server=new McpServer({name:"JH",version:"1.4.3-fix4-auth-meta"});
-  const oauthSchemes56=[{type:"oauth2",scopes:[OAUTH_SCOPE56]}];\n  const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},handler);
+  const oauthSchemes56=[{type:"oauth2",scopes:[OAUTH_SCOPE56]}];
+  const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},handler);
 
   registerOAuthTool("life_status",{
     title:"JH status",
