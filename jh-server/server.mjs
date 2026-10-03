@@ -276,7 +276,7 @@ async function browserTool(name,args={}){
 }
 
 function createMcp(){
-  const server=new McpServer({name:"JH",version:"1.4.0-fix4-oauth"});
+  const server=new McpServer({name:"JH",version:"1.4.1-fix4-oauth"});
 
   server.registerTool("life_status",{
     title:"JH status",
@@ -285,7 +285,7 @@ function createMcp(){
   },async()=>{
     let browser="unknown";
     try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }
-    return textResult({version:"1.4.0-fix4-oauth",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
+    return textResult({version:"1.4.1-fix4-oauth",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
   });
 
   server.registerTool("life_route",{
@@ -637,7 +637,7 @@ const httpServer=createServer(async(req,res)=>{
 
   if(req.method==="GET" && url.pathname==="/health"){
     res.writeHead(200,{"content-type":"application/json"});
-    res.end(JSON.stringify({ok:true,version:"1.4.0-fix4-oauth",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,browserSession:!!browserSessionId}));
+    res.end(JSON.stringify({ok:true,version:"1.4.1-fix4-oauth",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
     return;
   }
 
@@ -686,6 +686,10 @@ const httpServer=createServer(async(req,res)=>{
   if(req.method==="GET" && url.pathname==="/device/poll"){
     const d=url.searchParams.get("deviceId");if(!d){res.writeHead(400).end("deviceId required");return;}
     const dm=devices.get(d);
+    const secureHeaderPresent=!!req.headers["x-jh-session"]||!!req.headers["x-jh-device"]||!!req.headers["x-jh-mac"];
+    if(secureHeaderPresent&&(!dm||dm.secureBridgeVersion!==56||!active56(d))){
+      res.writeHead(401,{"content-type":"application/json","cache-control":"no-store"}).end(JSON.stringify({ok:false,code:"secure_session_repair_required"}));return;
+    }
     if(dm?.secureBridgeVersion===56){
       const a=active56(d),sid=String(req.headers["x-jh-session"]||""),dev=String(req.headers["x-jh-device"]||""),nonce=String(req.headers["x-jh-nonce"]||""),exp=Number(req.headers["x-jh-expires"]||0),mac=String(req.headers["x-jh-mac"]||"");
       if(!a||sid!==a.sessionId||dev!==a.deviceDigest||!validToken56(nonce)||exp<Date.now()||exp-Date.now()>60000||!eqHex56(mac,hmac56(a.secret,"poll|"+sid+"|"+dev+"|"+nonce+"|"+exp))||!seen56(a.seenPoll,nonce)){res.writeHead(401).end("secure poll required");return;}
