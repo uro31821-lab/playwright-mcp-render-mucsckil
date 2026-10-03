@@ -276,8 +276,8 @@ async function browserTool(name,args={}){
 }
 
 function createMcp(){
-  const server=new McpServer({name:"JH",version:"1.4.2-fix4-mixed-auth"});
-  const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:[{type:"oauth2",scopes:[OAUTH_SCOPE56]}]},handler);
+  const server=new McpServer({name:"JH",version:"1.4.3-fix4-auth-meta"});
+  const oauthSchemes56=[{type:"oauth2",scopes:[OAUTH_SCOPE56]}];\n  const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},handler);
 
   registerOAuthTool("life_status",{
     title:"JH status",
@@ -286,7 +286,7 @@ function createMcp(){
   },async()=>{
     let browser="unknown";
     try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }
-    return textResult({version:"1.4.2-fix4-mixed-auth",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
+    return textResult({version:"1.4.3-fix4-auth-meta",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
   });
 
   registerOAuthTool("life_route",{
@@ -638,7 +638,7 @@ const httpServer=createServer(async(req,res)=>{
 
   if(req.method==="GET" && url.pathname==="/health"){
     res.writeHead(200,{"content-type":"application/json"});
-    res.end(JSON.stringify({ok:true,version:"1.4.2-fix4-mixed-auth",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
+    res.end(JSON.stringify({ok:true,version:"1.4.3-fix4-auth-meta",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
     return;
   }
 
