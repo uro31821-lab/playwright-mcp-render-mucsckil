@@ -276,7 +276,7 @@ async function browserTool(name,args={}){
 }
 
 function createMcp(){
-  const server=new McpServer({name:"JH",version:"1.4.6-fix4-catalog-restored"});
+  const server=new McpServer({name:"JH",version:"1.4.7-fix4-auth-canonical"});
   const oauthSchemes56=[{type:"oauth2",scopes:[OAUTH_SCOPE56]}];
   const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},handler);
 
@@ -287,7 +287,7 @@ function createMcp(){
   },async()=>{
     let browser="unknown";
     try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }
-    return textResult({version:"1.4.6-fix4-catalog-restored",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
+    return textResult({version:"1.4.7-fix4-auth-canonical",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
   });
 
   registerOAuthTool("life_route",{
@@ -639,7 +639,7 @@ const httpServer=createServer(async(req,res)=>{
 
   if(req.method==="GET" && url.pathname==="/health"){
     res.writeHead(200,{"content-type":"application/json"});
-    res.end(JSON.stringify({ok:true,version:"1.4.6-fix4-catalog-restored",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
+    res.end(JSON.stringify({ok:true,version:"1.4.7-fix4-auth-canonical",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
     return;
   }
 
@@ -848,28 +848,55 @@ const httpServer=createServer(async(req,res)=>{
     res.setHeader("Access-Control-Allow-Origin","*");
     res.setHeader("Access-Control-Expose-Headers","Mcp-Session-Id");
 
-    // MCP SDK v1 serializes OAuth tool security schemes only inside _meta.
-    // ChatGPT OAuth linking requires the canonical top-level securitySchemes field too.
-    // Patch only tools/list JSON responses and mirror the already-advertised _meta value.
-    const isToolsList56=req.method==="POST"&&Array.isArray(parsedBody)?false:(req.method==="POST"&&parsedBody?.method==="tools/list");
+    // MCP SDK v1 emits OAuth schemes only in _meta. ChatGPT also needs
+    // canonical top-level securitySchemes. Buffer tools/list and strip any
+    // stale Content-Length before sending the expanded JSON.
+    const isToolsList56=req.method==="POST"&&!Array.isArray(parsedBody)&&parsedBody?.method==="tools/list";
     if(isToolsList56){
-      const originalEnd56=res.end.bind(res);
+      const ow56=res.write.bind(res), oe56=res.end.bind(res), oh56=res.writeHead.bind(res);
+      const chunks56=[];
+      res.writeHead=function(statusCode,statusMessage,headers){
+        let sm56=statusMessage, h56=headers;
+        if(typeof statusMessage==="object"&&statusMessage!==null){h56=statusMessage;sm56=undefined;}
+        try{res.removeHeader("content-length");}catch{}
+        if(h56&&typeof h56==="object"){
+          const clean56={...h56};
+          for(const k56 of Object.keys(clean56)) if(k56.toLowerCase()==="content-length") delete clean56[k56];
+          h56=clean56;
+        }
+        return sm56===undefined?oh56(statusCode,h56):oh56(statusCode,sm56,h56);
+      };
+      res.write=function(chunk,encoding,callback){
+        if(chunk!==undefined&&chunk!==null) chunks56.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(String(chunk),typeof encoding==="string"?encoding:undefined));
+        if(typeof callback==="function") callback();
+        return true;
+      };
       res.end=function(chunk,encoding,callback){
-        try{
-          const raw56=Buffer.isBuffer(chunk)?chunk.toString("utf8"):String(chunk??"");
-          const obj56=JSON.parse(raw56);
+        if(chunk!==undefined&&chunk!==null) chunks56.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(String(chunk),typeof encoding==="string"?encoding:undefined));
+        let raw56=Buffer.concat(chunks56).toString("utf8");
+        const patchObj56=(obj56)=>{
           const tools56=obj56?.result?.tools;
           if(Array.isArray(tools56)){
             for(const tool56 of tools56){
               const schemes56=tool56?._meta?.securitySchemes;
-              if(Array.isArray(schemes56)&&!Array.isArray(tool56.securitySchemes)) tool56.securitySchemes=schemes56;
+              if(Array.isArray(schemes56)) tool56.securitySchemes=schemes56;
             }
-            const out56=JSON.stringify(obj56);
-            try{res.removeHeader("content-length");}catch{}
-            return originalEnd56(out56,encoding,callback);
+          }
+          return obj56;
+        };
+        try{
+          const ct56=String(res.getHeader("content-type")||"");
+          if(ct56.includes("text/event-stream")){
+            raw56=raw56.split(/\r?\n/).map(line56=>{
+              if(!line56.startsWith("data:")) return line56;
+              try{return "data:"+JSON.stringify(patchObj56(JSON.parse(line56.slice(5).trim())));}catch{return line56;}
+            }).join("\n");
+          }else{
+            raw56=JSON.stringify(patchObj56(JSON.parse(raw56)));
           }
         }catch{}
-        return originalEnd56(chunk,encoding,callback);
+        if(raw56) ow56(raw56);
+        return oe56(undefined,undefined,callback);
       };
     }
 
