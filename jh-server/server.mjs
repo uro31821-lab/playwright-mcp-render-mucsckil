@@ -113,7 +113,7 @@ function safeJobView56(j){
 }
 function secureResult56(j){return textResult(safeJobView56(j));}
 function computerPayload56(a={}){
-  const p={taskId:String(a.task_id||""),effect:String(a.effect||"READ_ONLY"),action:String(a.action||"").toUpperCase(),index:Number(a.index||0),viewportWidth:Number(a.viewport_width||0),viewportHeight:Number(a.viewport_height||0),scrollX:Number(a.scroll_x||0),scrollY:Number(a.scroll_y||0),waitMs:Number(a.wait_ms||0),dataClass:String(a.data_class||"NONE").toUpperCase(),maxActionsInCall:Number(a.max_actions_in_call||20)};
+  const p={taskId:String(a.task_id||a.task_digest||""),effect:String(a.effect||"READ_ONLY"),action:String(a.action||"").toUpperCase(),index:Number(a.index||0),viewportWidth:Number(a.viewport_width||0),viewportHeight:Number(a.viewport_height||0),scrollX:Number(a.scroll_x||0),scrollY:Number(a.scroll_y||0),waitMs:Number(a.wait_ms||0),dataClass:String(a.data_class||"NONE").toUpperCase(),maxActionsInCall:Number(a.max_actions_in_call||20)};
   for(const [sk,dk] of [["x","x"],["y","y"],["text_digest","textDigest"],["text_value","textValue"],["based_on_screenshot_digest","basedOnScreenshotDigest"],["current_screenshot_digest","currentScreenshotDigest"],["screen_grant_token","screenGrantToken"],["action_approval_grant_token","actionApprovalGrantToken"],["request_token","requestToken"],["run_digest","runDigest"]])if(a[sk]!==undefined&&a[sk]!==null&&String(a[sk])!=="")p[dk]=a[sk];
   if(Array.isArray(a.keys))p.keys=a.keys.slice(0,4).map(String);
   if(Array.isArray(a.drag_path))p.dragPath=a.drag_path.slice(0,32).map(q=>({x:Number(q.x),y:Number(q.y)}));
@@ -276,7 +276,7 @@ async function browserTool(name,args={}){
 }
 
 function createMcp(){
-  const server=new McpServer({name:"JH",version:"1.4.8-fix4-stable"});
+  const server=new McpServer({name:"JH",version:"1.4.9-fix5-task-policy"});
   const oauthSchemes56=[{type:"oauth2",scopes:[OAUTH_SCOPE56]}];
   const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},handler);
 
@@ -287,7 +287,7 @@ function createMcp(){
   },async()=>{
     let browser="unknown";
     try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }
-    return textResult({version:"1.4.8-fix4-stable",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
+    return textResult({version:"1.4.9-fix5-task-policy",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});
   });
 
   registerOAuthTool("life_route",{
@@ -639,7 +639,7 @@ const httpServer=createServer(async(req,res)=>{
 
   if(req.method==="GET" && url.pathname==="/health"){
     res.writeHead(200,{"content-type":"application/json"});
-    res.end(JSON.stringify({ok:true,version:"1.4.8-fix4-stable",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
+    res.end(JSON.stringify({ok:true,version:"1.4.9-fix5-task-policy",secureBridgeVersion:56,mcpCallerAuth:"oauth21_pkce",devices:devices.size,secureActiveDevices:[...devices.keys()].filter(d=>!!active56(d)).length,browserSession:!!browserSessionId}));
     return;
   }
 
