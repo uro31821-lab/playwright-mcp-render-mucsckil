@@ -14,7 +14,8 @@ const jobs = new Map();
 let seq = 0;
 let activeDeviceId = null;
 let browserSessionId = null;
-let browserInitialized = false;\nlet lastRegisterDiag={seen:false};
+let browserInitialized = false;
+let lastRegisterDiag={seen:false};
 const recentJobs=new Map();
 const recentWeb=new Map();
 const DEDUPE_MS=8000;
@@ -49,7 +50,8 @@ function stable56(v){
   if(typeof v==="object")return "{"+Object.keys(v).sort().map(k=>JSON.stringify(k)+":"+stable56(v[k])).join(",")+"}";
   return JSON.stringify(v);
 }
-const PUBLIC_BASE_URL=String(process.env.PUBLIC_BASE_URL||"").replace(/\\/+$/,"");\nconst SERVER_IDENTITY_DIGEST56=sha56((PUBLIC_BASE_URL||"https://unset.invalid")+"/mcp|jh-secure-bridge56");
+const PUBLIC_BASE_URL=String(process.env.PUBLIC_BASE_URL||"").replace(/\/+$/,"");
+const SERVER_IDENTITY_DIGEST56=sha56((PUBLIC_BASE_URL||"https://unset.invalid")+"/mcp|jh-secure-bridge56");
 const secureStates56=new Map();
 const frameWaiters56=new Map();
 function state56(deviceId){let s=secureStates56.get(deviceId);if(!s){s={active:null,pending:new Map()};secureStates56.set(deviceId,s);}purge56(s);return s;}
@@ -605,11 +607,15 @@ const httpServer=createServer(async(req,res)=>{
     const j=JSON.parse(b||"{}");
     if(!j.deviceId){res.writeHead(400).end("deviceId required");return;}
     const secureIntent=Number(j.secureBridgeVersion)===56 || (!!j.deviceDigest && !!j.clientNonce && !!j.toolCatalogDigest);
-    lastRegisterDiag={seen:true,at:new Date().toISOString(),secureIntent,secureBridgeVersion:Number(j.secureBridgeVersion||0),hasDeviceDigest:!!j.deviceDigest,hasClientNonce:!!j.clientNonce,hasClientTime:!!j.clientTime,hasToolCatalogDigest:!!j.toolCatalogDigest,keyCount:Object.keys(j).length,mode:"received"};\n    console.log("JH_REGISTER_DIAG",JSON.stringify({secureIntent,secureBridgeVersion:Number(j.secureBridgeVersion||0),hasDeviceDigest:!!j.deviceDigest,hasClientNonce:!!j.clientNonce,hasClientTime:!!j.clientTime,hasToolCatalogDigest:!!j.toolCatalogDigest,keyCount:Object.keys(j).length}));\n    if(!secureIntent){
+    lastRegisterDiag={seen:true,at:new Date().toISOString(),secureIntent,secureBridgeVersion:Number(j.secureBridgeVersion||0),hasDeviceDigest:!!j.deviceDigest,hasClientNonce:!!j.clientNonce,hasClientTime:!!j.clientTime,hasToolCatalogDigest:!!j.toolCatalogDigest,keyCount:Object.keys(j).length,mode:"received"};
+    console.log("JH_REGISTER_DIAG",JSON.stringify({secureIntent,secureBridgeVersion:Number(j.secureBridgeVersion||0),hasDeviceDigest:!!j.deviceDigest,hasClientNonce:!!j.clientNonce,hasClientTime:!!j.clientTime,hasToolCatalogDigest:!!j.toolCatalogDigest,keyCount:Object.keys(j).length}));
+    if(!secureIntent){
       const old=secureStates56.get(j.deviceId);if(old){wipeSession56(old.active);for(const [,p] of old.pending)wipeSession56(p);secureStates56.delete(j.deviceId);}
       devices.set(j.deviceId,{...(devices.get(j.deviceId)||{}),bridgeVersion:j.bridgeVersion||null,secureBridgeVersion:null,secureActive:false,deviceDigest:null,lastSeen:Date.now()});
       if(!queues.has(j.deviceId))queues.set(j.deviceId,[]);
-      res.writeHead(200,{"content-type":"application/json"});lastRegisterDiag={...lastRegisterDiag,mode:"legacy"};\n      console.log("JH_REGISTER_RESULT",JSON.stringify({mode:"legacy"}));\n      res.end(JSON.stringify({ok:true,deviceId:j.deviceId,secureBridgeVersion:null}));return;
+      res.writeHead(200,{"content-type":"application/json"});lastRegisterDiag={...lastRegisterDiag,mode:"legacy"};
+      console.log("JH_REGISTER_RESULT",JSON.stringify({mode:"legacy"}));
+      res.end(JSON.stringify({ok:true,deviceId:j.deviceId,secureBridgeVersion:null}));return;
     }
     const deviceDigest=String(j.deviceDigest||""),clientNonce=String(j.clientNonce||""),clientTime=Number(j.clientTime||0);
     if(!validHex56(deviceDigest)||deviceDigest!==sha56("jh56|"+j.deviceId)||String(j.toolCatalogDigest||"")!==SECURE56_TOOL_CATALOG_DIGEST||!validToken56(clientNonce)||Math.abs(Date.now()-clientTime)>120000){res.writeHead(400).end("secure registration invalid");return;}
@@ -620,7 +626,9 @@ const httpServer=createServer(async(req,res)=>{
     const pending={sessionId,secret,expiresAt,deviceDigest,seenActivate:new Set()};pending.sessionDigest=sessionDigest56(pending);st.pending.set(sessionId,pending);
     reg(j.deviceId,{bridgeVersion:j.bridgeVersion||null,deviceDigest,secureBridgeVersion:56,lastSeen:Date.now()});
     res.writeHead(200,{"content-type":"application/json"});
-    lastRegisterDiag={...lastRegisterDiag,mode:"secure",hasSessionId:true,hasSecret:true,hasSessionDigest:true};\n    console.log("JH_REGISTER_RESULT",JSON.stringify({mode:"secure",hasSessionId:true,hasSecret:true,hasSessionDigest:true}));\n    res.end(JSON.stringify({ok:true,deviceId:j.deviceId,secureBridgeVersion:56,transport:"PUBLIC_HTTPS_PROXY",serverIdentityDigest:SERVER_IDENTITY_DIGEST56,toolCatalogDigest:SECURE56_TOOL_CATALOG_DIGEST,secureSessionId:sessionId,secureSessionSecret:secret.toString("base64url"),secureExpiresAt:expiresAt,sessionDigest:pending.sessionDigest}));
+    lastRegisterDiag={...lastRegisterDiag,mode:"secure",hasSessionId:true,hasSecret:true,hasSessionDigest:true};
+    console.log("JH_REGISTER_RESULT",JSON.stringify({mode:"secure",hasSessionId:true,hasSecret:true,hasSessionDigest:true}));
+    res.end(JSON.stringify({ok:true,deviceId:j.deviceId,secureBridgeVersion:56,transport:"PUBLIC_HTTPS_PROXY",serverIdentityDigest:SERVER_IDENTITY_DIGEST56,toolCatalogDigest:SECURE56_TOOL_CATALOG_DIGEST,secureSessionId:sessionId,secureSessionSecret:secret.toString("base64url"),secureExpiresAt:expiresAt,sessionDigest:pending.sessionDigest}));
     return;
   }
 
