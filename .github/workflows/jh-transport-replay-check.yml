@@ -1,0 +1,44 @@
+name: JH isolated HTTP transport replay check
+on:
+  push:
+    branches: [jh-transport-replay-check-20261004]
+    paths: ['.github/workflows/jh-transport-replay-check.yml']
+permissions:
+  contents: read
+jobs:
+  loopback-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Download exact generic fixture and public upstream libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence libs
+          curl --fail --location --max-time 30 "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/jh-transport-verification/ReplayProbe.java" -o ReplayProbe.java
+          for path in com/squareup/okhttp/okhttp/2.7.5/okhttp-2.7.5.jar com/squareup/okhttp/okhttp-urlconnection/2.7.5/okhttp-urlconnection-2.7.5.jar com/squareup/okio/okio/1.6.0/okio-1.6.0.jar; do
+            file="${path##*/}"
+            curl --fail --location --retry 1 --max-time 30 "https://repo.maven.apache.org/maven2/$path" -o "libs/$file"
+            curl --fail --location --retry 1 --max-time 30 "https://repo.maven.apache.org/maven2/$path.sha1" -o "libs/$file.sha1"
+            (cd libs; printf '%s  %s\n' "$(cat "$file.sha1")" "$file" | sha1sum --check -)
+          done
+          sha256sum ReplayProbe.java libs/*.jar > evidence/source-and-dependency-sha256.txt
+          printf '%s\n' "$GITHUB_SHA" > evidence/source-commit.txt
+          printf '%s\n' 'Upstream OkHttp 2.7.5 JVM surrogate only. Not a Samsung/Android device result, not a root-cause assertion. Test server listens only on 127.0.0.1 with synthetic nonces and an ephemeral key. No user app source, device identifiers, credentials or screenshots used.' > evidence/SCOPE.txt
+      - name: Observe real library resend behavior with a deliberately lost response
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          java -version 2> evidence/java-version.txt
+          javac -cp 'libs/*' ReplayProbe.java 2>&1 | tee evidence/compile.log
+          timeout 60 java -cp '.:libs/*' ReplayProbe 2>&1 | tee evidence/replay-probe.log
+      - name: Keep bounded evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-http-replay-surrogate-evidence
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 7
