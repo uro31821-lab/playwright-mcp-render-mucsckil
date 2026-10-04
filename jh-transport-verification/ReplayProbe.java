@@ -69,7 +69,7 @@ public final class ReplayProbe {
               } else {
                 status=204; accepted.incrementAndGet();
               }
-              if (dropFirst && requestNumber==1) break; // request processed, reply deliberately lost
+              if (dropFirst && requestNumber==1) break;
             }
             String message = "HTTP/1.1 "+status+" "+(status==401?"Unauthorized":"OK")+"\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";
             socket.getOutputStream().write(message.getBytes(StandardCharsets.US_ASCII));
@@ -103,7 +103,8 @@ public final class ReplayProbe {
   }
   static void scenario(boolean warm, boolean drop, boolean retry) throws Exception {
     try (Fixture fixture=new Fixture(drop)) {
-      OkHttpClient client=new OkHttpClient().setRetryOnConnectionFailure(retry);
+      OkHttpClient client=new OkHttpClient();
+      client.setRetryOnConnectionFailure(retry);
       client.setConnectTimeout(2,TimeUnit.SECONDS); client.setReadTimeout(2,TimeUnit.SECONDS);
       OkUrlFactory factory=new OkUrlFactory(client);
       if (warm && get(factory,fixture,"/warm",null,false)!=200) throw new AssertionError("warm failed");
@@ -123,7 +124,9 @@ public final class ReplayProbe {
     scenario(false,true,true); scenario(true,true,true);
     scenario(false,true,false); scenario(true,true,false);
     try (Fixture fixture=new Fixture(false)) {
-      OkUrlFactory factory=new OkUrlFactory(new OkHttpClient().setRetryOnConnectionFailure(false));
+      OkHttpClient client=new OkHttpClient();
+      client.setRetryOnConnectionFailure(false);
+      OkUrlFactory factory=new OkUrlFactory(client);
       String n=UUID.randomUUID().toString();
       if (get(factory,fixture,"/poll",n,true)!=401 || get(factory,fixture,"/poll",n,false)!=204 || get(factory,fixture,"/poll",n,false)!=401 || get(factory,fixture,"/poll",UUID.randomUUID().toString(),false)!=204) throw new AssertionError("synthetic authentication boundary changed");
       System.out.println("{\"kind\":\"auth_boundary\",\"badMacRejected\":true,\"validAccepted\":true,\"replayRejected\":true,\"newNonceAccepted\":true,\"phoneOperations\":0}");
