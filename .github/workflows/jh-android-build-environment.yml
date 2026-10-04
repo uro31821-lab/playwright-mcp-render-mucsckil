@@ -20,13 +20,20 @@ jobs:
           export JAVA_HOME="$JAVA_HOME_17_X64"
           export PATH="$JAVA_HOME/bin:$PATH"
           export GRADLE_USER_HOME="$RUNNER_TEMP/jh-gradle-cache"
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           mkdir -p "$RUNNER_TEMP/jh-env" "$RUNNER_TEMP/jh-warm/app/src/main/java/com/example/warm" "$RUNNER_TEMP/jh-warm/app/src/test/java/com/example/warm" "$RUNNER_TEMP/jh-output"
+          printf 'sdk=%s\njava=%s\n' "$ANDROID_HOME" "$JAVA_HOME" > "$RUNNER_TEMP/jh-output/environment.txt"
           cd "$RUNNER_TEMP/jh-env"
           curl --fail --location --retry 2 --max-time 180 https://services.gradle.org/distributions/gradle-8.9-bin.zip -o gradle-8.9-bin.zip
           curl --fail --location --retry 2 --max-time 30 https://services.gradle.org/distributions/gradle-8.9-bin.zip.sha256 -o gradle.sha256
           printf '%s  gradle-8.9-bin.zip\n' "$(cat gradle.sha256)" | sha256sum --check -
           unzip -q gradle-8.9-bin.zip
-          sdkmanager 'platforms;android-35' 'build-tools;34.0.0' 'build-tools;35.0.0'
+          if [ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" ] || [ ! -f "$ANDROID_HOME/build-tools/34.0.0/aapt2" ] || [ ! -f "$ANDROID_HOME/build-tools/35.0.0/aapt2" ]; then
+            sdkmanager_path="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -1)"
+            test -n "$sdkmanager_path"
+            "$sdkmanager_path" 'platforms;android-35' 'build-tools;34.0.0' 'build-tools;35.0.0'
+          fi
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
           cd "$RUNNER_TEMP/jh-warm"
           cat > settings.gradle.kts <<'EOF'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
