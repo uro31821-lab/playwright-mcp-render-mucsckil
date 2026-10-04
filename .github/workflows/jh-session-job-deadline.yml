@@ -56,7 +56,15 @@ jobs:
             for(const s of sockets())if(!before.has(s))opened.add(s);
             assert.deepEqual([...opened],[target]);checks.push('only configured IPv4 listener');
             const denied=await fetch(`http://127.0.0.1:${port}/mcp`,{method:'POST',headers:{'content-type':'application/json','accept':'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'life_android_secure_status',arguments:{task_digest:'0'.repeat(64)}}}),signal:AbortSignal.timeout(3000)});
-            assert.equal(denied.status,401);checks.push('unauthenticated execution remains denied');
+            // Existing MCP tool calls return an auth error envelope with HTTP 200; this is not successful execution.
+            assert.equal(denied.status,200);
+            const denial=await denied.json();assert.equal(denial.result.isError,true);
+            assert.equal(denial.result.content[0].text,'Authentication required.');
+            assert.equal(denial.result._meta['mcp/www_authenticate'].length,1);
+            assert.match(denial.result._meta['mcp/www_authenticate'][0],/insufficient_scope/);
+            assert.equal(denial.result.content.length,1);checks.push('unauthenticated tool execution remains denied with exact auth envelope');
+            const transportDenied=await fetch(`http://127.0.0.1:${port}/mcp`,{method:'GET',signal:AbortSignal.timeout(3000)});
+            assert.equal(transportDenied.status,401);checks.push('unauthenticated non-catalog transport remains HTTP 401');
             assert.match(out,/connection-observer-v3-session-deadline/);assert.match(out,/952390b3d78547cc694566745f4aa4d5e4ad90d6c1fa35a156037cb50ce9f435/);checks.push('exact deadline runtime hash and revision');
             assert.doesNotMatch(out,/HTTP parity:|JH_FIXTURE_TIME|test-clock/);checks.push('no socket-opening tests or synthetic clock in runtime');
           }catch(e){failure=e;}
