@@ -1,0 +1,84 @@
+name: JH isolated Android build environment
+on:
+  push:
+    branches: [jh-android-build-env-20261004]
+    paths: [.github/workflows/jh-android-build-environment.yml]
+permissions:
+  contents: read
+concurrency:
+  group: jh-android-build-environment
+  cancel-in-progress: false
+jobs:
+  environment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Prepare matching SDK and public dependencies only
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          export GRADLE_USER_HOME="$RUNNER_TEMP/jh-gradle-cache"
+          mkdir -p "$RUNNER_TEMP/jh-env" "$RUNNER_TEMP/jh-warm/app/src/main/java/com/example/warm" "$RUNNER_TEMP/jh-warm/app/src/test/java/com/example/warm" "$RUNNER_TEMP/jh-output"
+          cd "$RUNNER_TEMP/jh-env"
+          curl --fail --location --retry 2 --max-time 180 https://services.gradle.org/distributions/gradle-8.9-bin.zip -o gradle-8.9-bin.zip
+          curl --fail --location --retry 2 --max-time 30 https://services.gradle.org/distributions/gradle-8.9-bin.zip.sha256 -o gradle.sha256
+          printf '%s  gradle-8.9-bin.zip\n' "$(cat gradle.sha256)" | sha256sum --check -
+          unzip -q gradle-8.9-bin.zip
+          sdkmanager 'platforms;android-35' 'build-tools;34.0.0' 'build-tools;35.0.0'
+          cd "$RUNNER_TEMP/jh-warm"
+          cat > settings.gradle.kts <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name="KoreanLifeHubBridge"
+          include(":app")
+          EOF
+          cat > build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application") version "8.7.3" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+          }
+          EOF
+          cat > app/build.gradle.kts <<'EOF'
+          plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
+          android {
+              namespace = "com.example.warm"
+              compileSdk = 35
+              defaultConfig { applicationId = "com.example.warm"; minSdk = 26; targetSdk = 35; versionCode = 1; versionName = "1" }
+              compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+              kotlinOptions { jvmTarget = "17" }
+          }
+          dependencies {
+              implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+              testImplementation("junit:junit:4.13.2")
+          }
+          EOF
+          printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8\nkotlin.code.style=official\n' > gradle.properties
+          printf '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="Dependency validation" /></manifest>\n' > app/src/main/AndroidManifest.xml
+          printf 'package com.example.warm\nclass Warm { fun value(): Int = 1 }\n' > app/src/main/java/com/example/warm/Warm.kt
+          printf 'package com.example.warm\nimport org.junit.Test\nimport org.junit.Assert.assertEquals\nclass WarmTest { @Test fun works() { assertEquals(1, Warm().value()) } }\n' > app/src/test/java/com/example/warm/WarmTest.kt
+          "$RUNNER_TEMP/jh-env/gradle-8.9/bin/gradle" --no-daemon --max-workers=2 --console=plain :app:assembleDebug :app:testDebugUnitTest :app:lintDebug 2>&1 | tee "$RUNNER_TEMP/jh-output/dependency-warm-build.log"
+          "$RUNNER_TEMP/jh-env/gradle-8.9/bin/gradle" --stop
+          cd "$RUNNER_TEMP"
+          mkdir -p jh-bundle/sdk/platforms jh-bundle/sdk/build-tools jh-bundle/gradle-home/caches
+          cp -a "$ANDROID_HOME/platforms/android-35" jh-bundle/sdk/platforms/
+          cp -a "$ANDROID_HOME/build-tools/34.0.0" "$ANDROID_HOME/build-tools/35.0.0" jh-bundle/sdk/build-tools/
+          cp -a "$ANDROID_HOME/licenses" jh-bundle/sdk/
+          cp -a "$GRADLE_USER_HOME/caches/modules-2" jh-bundle/gradle-home/caches/
+          find jh-bundle/gradle-home -name '*.lock' -delete
+          cp -a jh-env/gradle-8.9 jh-bundle/
+          printf 'Matching dependency warm-up only. This is NOT a JH app build, device test, update, or signing bundle. No repository secrets or private source were read.\n' > jh-bundle/SCOPE.txt
+          tar -C jh-bundle -czf jh-output/jh-android35-build-env.tar.gz .
+          cd jh-output
+          sha256sum jh-android35-build-env.tar.gz > SHA256SUMS.txt
+          du -h jh-android35-build-env.tar.gz
+      - name: Preserve environment and exact warm-up results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-android35-build-env
+          path: ${{ runner.temp }}/jh-output/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
