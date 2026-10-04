@@ -1,0 +1,56 @@
+name: JH exact server lost-response experiment
+on:
+  push:
+    branches: [jh-transport-replay-check-20261004]
+    paths: ['.github/workflows/jh-exact-server-replay-check.yml']
+permissions:
+  contents: read
+jobs:
+  isolated-exact-server:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Download exact public sources and pinned upstream libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence libs service/verification
+          for file in RealServerReplay.java real-server-probe.mjs; do
+            curl --fail --location --max-time 30 "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/jh-transport-verification/$file" -o "$file"
+          done
+          revision=6a9ef4a1722f33f04a279aa150664fa47d3800ff
+          for file in server.mjs package.json auth-diagnostics-entry.mjs connection-diagnostics.mjs connection-diagnostics.test.mjs verification/auth-rejection-probe.mjs verification/auth-rejection.test.mjs verification/build-auth-candidate.mjs; do
+            curl --fail --location --max-time 30 "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$revision/jh-server/$file" -o "service/$file"
+          done
+          for path in com/squareup/okhttp/okhttp/2.7.5/okhttp-2.7.5.jar com/squareup/okhttp/okhttp-urlconnection/2.7.5/okhttp-urlconnection-2.7.5.jar com/squareup/okio/okio/1.6.0/okio-1.6.0.jar; do
+            curl --fail --location --max-time 30 "https://repo.maven.apache.org/maven2/$path" -o "libs/${path##*/}"
+          done
+          cat > evidence/dependency-checksums.txt <<'EOF'
+          88ac9fd1bb51f82bcc664cc1eb9c225c90dc4389d660231b4cc737bebfe7d0aa  libs/okhttp-2.7.5.jar
+          6ae7c527abd2253e7c499ded790174f8f37d9676add63d9e23a76f3ba0588c07  libs/okhttp-urlconnection-2.7.5.jar
+          114bdc1f47338a68bcbc95abf2f5cdc72beeec91812f2fcd7b521c1937876266  libs/okio-1.6.0.jar
+          EOF
+          sha256sum --check evidence/dependency-checksums.txt
+          sha256sum RealServerReplay.java real-server-probe.mjs service/*.mjs service/package.json service/verification/*.mjs > evidence/source-identity.txt
+          printf '%s\n' "$GITHUB_SHA" > evidence/fixture-commit.txt
+      - name: Build exact diagnostic server and preserve its existing tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd service; npm install --no-audit --no-fund) 2>&1 | tee evidence/server-build.log
+      - name: Use actual server with synthetic sessions and a loopback response-loss proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          javac -cp 'libs/*' RealServerReplay.java 2>&1 | tee evidence/client-compile.log
+          timeout 60 node real-server-probe.mjs 2>&1 | tee evidence/experiment.log
+      - name: Preserve redacted evidence; never upload synthetic key files
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-exact-server-replay-evidence
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 7
