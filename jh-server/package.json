@@ -1,12 +1,18 @@
 {
-  "name":"jh-secure-bridge-fix4",
-  "version":"1.0.0",
-  "private":true,
-  "type":"module",
-  "scripts":{"start":"node server.mjs"},
-  "engines":{"node":">=20"},
-  "dependencies":{
-    "@modelcontextprotocol/sdk":"^1.25.2",
-    "zod":"^3.25.76"
+  "name": "jh-secure-bridge-fix4",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node connection-diagnostics-entry.mjs",
+    "test:connection-diag": "node --test connection-diagnostics.test.mjs",
+    "prestart": "node --test connection-diagnostics.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "zod": "^3.25.76"
   }
 }
