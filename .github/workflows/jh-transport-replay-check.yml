@@ -2,7 +2,7 @@ name: JH isolated HTTP transport replay check
 on:
   push:
     branches: [jh-transport-replay-check-20261004]
-    paths: ['.github/workflows/jh-transport-replay-check.yml']
+    paths: ['.github/workflows/jh-transport-replay-check.yml', 'jh-transport-verification/**']
 permissions:
   contents: read
 jobs:
