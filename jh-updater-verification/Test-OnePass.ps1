@@ -63,7 +63,7 @@ $old=Join-Path $temp 'old.apk';New-FixtureZip $old @(@('AndroidManifest.xml','ol
 Case 'Exact nonsignature APK entry hashes are checked' { Assert-JhPayload $fixture $entryMap }
 Case 'APK tampering is rejected' { MustThrow { Assert-JhPayload $old $entryMap } 'APK_PAYLOAD_MISMATCH' }
 Case 'Extra APK payload is rejected' { $p=Join-Path $temp 'extra.apk';New-FixtureZip $p @(@('AndroidManifest.xml','new-manifest'),@('classes.dex','synthetic-dex'),@('assets/extra','x'));MustThrow {Assert-JhPayload $p $entryMap} 'APK_UNEXPECTED_ENTRY' }
-Case 'Missing APK entry is rejected' { $p=Join-Path $temp 'missing.apk';New-FixtureZip $p @(@('AndroidManifest.xml','new-manifest'));MustThrow {Assert-JhPayload $p $entryMap} 'APK_ENTRY_MISSING' }
+Case 'Missing APK entry is rejected' { $p=Join-Path $temp 'missing.apk';New-FixtureZip $p (,@('AndroidManifest.xml','new-manifest'));MustThrow {Assert-JhPayload $p $entryMap} 'APK_ENTRY_MISSING' }
 Case 'Duplicate APK entry is rejected' { $p=Join-Path $temp 'duplicate.apk';New-FixtureZip $p @(@('AndroidManifest.xml','new-manifest'),@('classes.dex','synthetic-dex'),@('classes.dex','synthetic-dex'));MustThrow {Assert-JhPayload $p $entryMap} 'APK_DUPLICATE_ENTRY' }
 Case 'Signature entries may change but app payload may not' { $p=Join-Path $temp 'signature.apk';New-FixtureZip $p @(@('AndroidManifest.xml','new-manifest'),@('classes.dex','synthetic-dex'),@('META-INF/CERT.RSA','synthetic-signature'));Assert-JhPayload $p $entryMap }
 $release=[pscustomobject]@{schema=1;releaseId='jh57-fix10-integrated-20261004';packageName='com.koreanlifehub.bridge';versionCode=131;versionName='unified-final-checkpoint.57-fix10';minimumInstalledVersionCode=130;apkFile='payload-unsigned.apk';unsignedSha256=(Get-JhHash $fixture);payloadEntries=$entryMap}
