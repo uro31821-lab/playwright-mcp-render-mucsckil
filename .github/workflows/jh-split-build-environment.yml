@@ -1,0 +1,61 @@
+name: JH split verified build environment
+on:
+  push:
+    branches: [jh-android-build-env-20261004]
+    paths: [.github/workflows/jh-split-build-environment.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  split:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Reuse verified public dependency artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/input" "$RUNNER_TEMP/parts" "$RUNNER_TEMP/metadata"
+          gh run download 37195374435 --repo "$GH_REPO" --name jh-android35-build-env --dir "$RUNNER_TEMP/input"
+          cd "$RUNNER_TEMP/input"
+          sha256sum --check SHA256SUMS.txt
+          split -b 240M -d jh-android35-build-env.tar.gz "$RUNNER_TEMP/parts/env.part-"
+          test "$(find "$RUNNER_TEMP/parts" -maxdepth 1 -name 'env.part-*' | wc -l)" -eq 3
+          cp SHA256SUMS.txt dependency-warm-build.log environment.txt "$RUNNER_TEMP/metadata/"
+          cd "$RUNNER_TEMP/parts"
+          sha256sum env.part-* > "$RUNNER_TEMP/metadata/PART-SHA256SUMS.txt"
+          du -h env.part-*
+      - name: Part 00
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-env-part-00
+          path: ${{ runner.temp }}/parts/env.part-00
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+      - name: Part 01
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-env-part-01
+          path: ${{ runner.temp }}/parts/env.part-01
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+      - name: Part 02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-env-part-02
+          path: ${{ runner.temp }}/parts/env.part-02
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
+      - name: Metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-env-metadata
+          path: ${{ runner.temp }}/metadata/
+          retention-days: 1
+          if-no-files-found: error
