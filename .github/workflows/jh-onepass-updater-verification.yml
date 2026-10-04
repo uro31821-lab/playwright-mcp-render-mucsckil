@@ -1,0 +1,46 @@
+name: JH one-pass updater Windows verification
+on:
+  push:
+    branches: [jh-onepass-updater-check-20261004]
+    paths: ['jh-updater-verification/**', '.github/workflows/jh-onepass-updater-verification.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jh-onepass-updater-verification
+  cancel-in-progress: false
+jobs:
+  windows-updater:
+    runs-on: windows-2022
+    timeout-minutes: 8
+    steps:
+      - name: Read only generic test sources at this exact commit
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path tests,test-output | Out-Null
+          $files = @{
+            'JH.Update.Core.ps1' = 'aad38e0f4b95df889756118a0f8c3aa41075d3a70cf998aef18ec90d1c30b63d'
+            'Test-OnePass.ps1' = '1adb0c544c2232960f2e4798e82be03c5a6c4f64175f4198c41e681bb8f99cb4'
+            'Run-OnePass.ps1' = 'afe5e0e01fdfb99448cba4466c75ab0271ddf96e98f2c508e3e424d9aed10ed0'
+          }
+          foreach ($name in $files.Keys) {
+            $url = 'https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/jh-updater-verification/' + $name
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile (Join-Path tests $name)
+            $hash = (Get-FileHash -Algorithm SHA256 (Join-Path tests $name)).Hash.ToLowerInvariant()
+            if ($hash -cne $files[$name]) { throw ('Exact source checksum mismatch: ' + $name) }
+          }
+          $files | ConvertTo-Json | Set-Content test-output/source-hashes.json -Encoding UTF8
+      - name: Test Windows native quoting, APK guards and actual updater flow with synthetic tools
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\tests\Test-OnePass.ps1 -OutputDirectory (Join-Path $PWD test-output) *>&1 | Tee-Object -FilePath test-output/windows-test.log
+          if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve test evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-onepass-windows-test-evidence
+          path: test-output/
+          if-no-files-found: warn
+          retention-days: 7
