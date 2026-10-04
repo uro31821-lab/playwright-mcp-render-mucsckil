@@ -1,0 +1,129 @@
+name: JH production entry startup verification
+on:
+  push:
+    branches: [jh-poll-diagnostics-live-20261004]
+    paths: [.github/workflows/jh-production-entry-smoke.yml]
+permissions:
+  contents: read
+jobs:
+  startup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Read exact public server sources only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p service/verification evidence
+          node --input-type=module <<'JS'
+          import {writeFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import assert from 'node:assert/strict';
+          const revision='6a9ef4a1722f33f04a279aa150664fa47d3800ff';
+          const files={
+            'server.mjs':'2c4fc54d0c2789b8c02e825c3946b9777e14a694',
+            'package.json':'d97561e0b0693414f283c6efd7416539e689bb73',
+            'auth-diagnostics-entry.mjs':'16272ef819bdef78980bac938425b29647220e12',
+            'connection-diagnostics.mjs':'11345f9b5b9bc99c400f3716a7c6b9d6fb8771d8',
+            'connection-diagnostics.test.mjs':'819964c858bd5a72da43753fc23ea8234323d84f',
+            'verification/auth-rejection-probe.mjs':'0e3e16eccfb11e587af1b5431bea3e9c5b1a17cc',
+            'verification/auth-rejection.test.mjs':'ffcf177ad15d4475caf960db4a22e7ec7759c5fa',
+            'verification/build-auth-candidate.mjs':'34976ec84ade92920be053ccf32d472332fe5e5f'
+          };
+          const identity=[];
+          for(const [name,expected] of Object.entries(files)){
+            const response=await fetch(`https://raw.githubusercontent.com/uro31821-lab/playwright-mcp-render-mucsckil/${revision}/jh-server/${name}`,{signal:AbortSignal.timeout(30000)});
+            assert.equal(response.status,200,name);
+            const bytes=Buffer.from(await response.arrayBuffer());
+            const actual=createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+            assert.equal(actual,expected,name);
+            writeFileSync('service/'+name,bytes);
+            identity.push({name,gitBlob:actual,sha256:createHash('sha256').update(bytes).digest('hex')});
+          }
+          writeFileSync('evidence/source-identity.json',JSON.stringify({revision,files:identity},null,2));
+          JS
+      - name: Run all existing HTTP and diagnostics tests during build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd service
+          npm install --no-audit --no-fund 2>&1 | tee ../evidence/build-stage.log
+      - name: Test unmodified production entry and npm lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > startup-smoke.mjs <<'JS'
+          import assert from 'node:assert/strict';
+          import {spawn} from 'node:child_process';
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {networkInterfaces} from 'node:os';
+          import {setTimeout as sleep} from 'node:timers/promises';
+          const evidence=[];
+          const pkg=JSON.parse(readFileSync('service/package.json'));
+          assert.equal(pkg.scripts.prestart,'node verification/build-auth-candidate.mjs');
+          assert.match(pkg.scripts.postinstall,/auth-rejection\.test\.mjs/);
+          assert.match(pkg.scripts.postinstall,/connection-diagnostics\.test\.mjs/);
+          evidence.push({check:'HTTP tests remain in build stage, not prestart',passed:true});
+          const port=34129;
+          const tcp=()=>readFileSync('/proc/net/tcp','utf8').trim().split('\n').slice(1).map(x=>x.trim().split(/\s+/)).filter(x=>x[3]==='0A').map(x=>x[1]);
+          const before=new Set(tcp());
+          const target='00000000:'+port.toString(16).toUpperCase();
+          assert.ok(!before.has(target));
+          const child=spawn('npm',['start'],{cwd:'service',detached:true,stdio:['ignore','pipe','pipe'],env:{PATH:process.env.PATH,HOME:process.env.HOME,PORT:String(port),PUBLIC_BASE_URL:'https://test.invalid',NODE_ENV:'production'}});
+          let out='',err='';
+          child.stdout.on('data',b=>{out+=b.toString();});
+          child.stderr.on('data',b=>{err+=b.toString();});
+          const opened=new Set();
+          let failure=null;
+          try{
+            let response=null;
+            const deadline=Date.now()+20000;
+            while(Date.now()<deadline){
+              for(const socket of tcp())if(!before.has(socket))opened.add(socket);
+              assert.equal(child.exitCode,null,'npm must remain running');
+              try{response=await fetch(`http://127.0.0.1:${port}/health`,{signal:AbortSignal.timeout(500)});}catch{}
+              if(response?.ok)break;
+              await sleep(100);
+            }
+            assert.ok(response?.ok,'production entry must serve /health');
+            const health=await response.json();
+            assert.equal(health.ok,true);
+            assert.equal(health.secureBridgeVersion,56);
+            assert.equal(health.devices,0);
+            assert.equal(health.secureActiveDevices,0);
+            evidence.push({check:'actual production entry health response',passed:true,health});
+            for(const socket of tcp())if(!before.has(socket))opened.add(socket);
+            assert.deepEqual([...opened],[target],'only configured IPv4 listener, not ephemeral fixture ports');
+            evidence.push({check:'one listener on 0.0.0.0 at configured PORT',passed:true,port});
+            const internalAddress=Object.values(networkInterfaces()).flat().find(x=>x.family==='IPv4'&&!x.internal)?.address;
+            assert.ok(internalAddress,'runner has a non-loopback interface');
+            const external=await fetch(`http://${internalAddress}:${port}/health`,{signal:AbortSignal.timeout(3000)});
+            assert.equal(external.status,200);
+            evidence.push({check:'reachable through non-loopback worker interface',passed:true});
+            const denied=await fetch(`http://127.0.0.1:${port}/mcp`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list'}),signal:AbortSignal.timeout(3000)});
+            assert.equal(denied.status,401);
+            evidence.push({check:'unauthenticated MCP remains rejected',passed:true,status:401});
+            assert.match(out,/connection-observer-v2-poll-reasons/);
+            assert.doesNotMatch(out,/HTTP parity:|test-clock|JH_FIXTURE_TIME/);
+            evidence.push({check:'runtime diagnostics loaded without test execution or test clock',passed:true});
+          }catch(e){failure=e;}
+          finally{
+            try{process.kill(-child.pid,'SIGTERM');}catch{}
+            await sleep(300);
+            try{process.kill(-child.pid,'SIGKILL');}catch{}
+            writeFileSync('evidence/startup-stdout.log',out);
+            writeFileSync('evidence/startup-stderr.log',err);
+            writeFileSync('evidence/startup-result.json',JSON.stringify({schema:1,passed:!failure,checks:evidence,error:failure?String(failure):null,phoneOperations:0,productionDeployment:false,scope:'Exact production entry tested on an isolated worker, not the Render instance'},null,2));
+          }
+          if(failure)throw failure;
+          console.log('PRODUCTION_ENTRY_SMOKE_PASS checks='+evidence.length);
+          JS
+          node startup-smoke.mjs 2>&1 | tee evidence/startup-check.log
+      - name: Preserve diagnostic test evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-production-entry-smoke-evidence
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 7
