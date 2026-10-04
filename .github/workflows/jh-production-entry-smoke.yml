@@ -100,9 +100,18 @@ jobs:
             const external=await fetch(`http://${internalAddress}:${port}/health`,{signal:AbortSignal.timeout(3000)});
             assert.equal(external.status,200);
             evidence.push({check:'reachable through non-loopback worker interface',passed:true});
-            const denied=await fetch(`http://127.0.0.1:${port}/mcp`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list'}),signal:AbortSignal.timeout(3000)});
+            // Baseline permits unauthenticated catalog discovery but never tool execution.
+            // GET /mcp uses HTTP 401; a single tools/call uses an MCP authentication challenge.
+            const denied=await fetch(`http://127.0.0.1:${port}/mcp`,{signal:AbortSignal.timeout(3000)});
             assert.equal(denied.status,401);
-            evidence.push({check:'unauthenticated MCP remains rejected',passed:true,status:401});
+            evidence.push({check:'unauthenticated non-catalog request rejected',passed:true,status:401});
+            const deniedCall=await fetch(`http://127.0.0.1:${port}/mcp`,{method:'POST',headers:{'content-type':'application/json','accept':'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'life_android_secure_status',arguments:{task_digest:'0'.repeat(64)}}}),signal:AbortSignal.timeout(3000)});
+            assert.equal(deniedCall.status,200);
+            const deniedBody=await deniedCall.json();
+            assert.equal(deniedBody.result.isError,true);
+            assert.equal(deniedBody.result.content[0].text,'Authentication required.');
+            assert.ok(deniedBody.result._meta['mcp/www_authenticate'].length>0);
+            evidence.push({check:'unauthenticated tool call returns authentication error, not execution',passed:true});
             assert.match(out,/connection-observer-v2-poll-reasons/);
             assert.doesNotMatch(out,/HTTP parity:|test-clock|JH_FIXTURE_TIME/);
             evidence.push({check:'runtime diagnostics loaded without test execution or test clock',passed:true});
