@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node connection-diagnostics-entry.mjs",
+    "start": "node auth-diagnostics-entry.mjs",
     "test:connection-diag": "node --test connection-diagnostics.test.mjs",
-    "prestart": "node --test connection-diagnostics.test.mjs"
+    "prestart": "node verification/build-auth-candidate.mjs && node --test verification/auth-rejection.test.mjs && node --test connection-diagnostics.test.mjs"
   },
   "engines": {
     "node": ">=20"
