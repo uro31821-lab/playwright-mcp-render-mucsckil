@@ -1,0 +1,77 @@
+name: JH session bounded job deadline verification
+on:
+  push:
+    branches: [jh-session-job-deadline-20261004]
+    paths: ['.github/workflows/jh-session-job-deadline.yml']
+permissions:
+  contents: read
+jobs:
+  deadline-and-startup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fetch public server at this exact commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p service/verification evidence
+          for file in server.mjs package.json auth-diagnostics-entry.mjs connection-diagnostics.mjs connection-diagnostics.test.mjs verification/auth-rejection-probe.mjs verification/auth-rejection.test.mjs verification/build-auth-candidate.mjs verification/job-deadline.test.mjs; do
+            curl --fail --location --max-time 30 "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/jh-server/$file" -o "service/$file"
+          done
+          sha256sum service/*.mjs service/package.json service/verification/*.mjs > evidence/source-identity.txt
+          printf '%s\n' "$GITHUB_SHA" > evidence/source-commit.txt
+      - name: Run required HTTP parity, diagnosis and deadline tests during build
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd service; npm install --no-audit --no-fund) 2>&1 | tee evidence/build-tests.log
+          cp service/verification-output/*-results.json evidence/
+          cp service/verification-output/candidate-identity.json evidence/
+      - name: Check exact npm runtime and authenticated execution boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'JS'
+          import {spawn} from 'node:child_process';
+          import {setTimeout as sleep} from 'node:timers/promises';
+          import {writeFileSync,readFileSync} from 'node:fs';
+          import assert from 'node:assert/strict';
+          const port=34179,opened=new Set();
+          const sockets=()=>readFileSync('/proc/net/tcp','utf8').trim().split('\n').slice(1).map(s=>s.trim().split(/\s+/)).filter(s=>s[3]==='0A').map(s=>s[1]);
+          const before=new Set(sockets());
+          const target='00000000:'+port.toString(16).toUpperCase();assert.ok(!before.has(target));
+          const child=spawn('npm',['start'],{cwd:'service',detached:true,stdio:['ignore','pipe','pipe'],env:{PATH:process.env.PATH,HOME:process.env.HOME,PORT:String(port),PUBLIC_BASE_URL:'https://test.invalid',NODE_ENV:'production'}});
+          let out='',err='',failure=null;const checks=[];
+          child.stdout.on('data',b=>out+=b);child.stderr.on('data',b=>err+=b);
+          try{
+            let response=null;
+            for(let i=0;i<100;i++){
+              for(const s of sockets())if(!before.has(s))opened.add(s);
+              assert.equal(child.exitCode,null);
+              try{response=await fetch(`http://127.0.0.1:${port}/health`,{signal:AbortSignal.timeout(200)});}catch{}
+              if(response?.ok)break;await sleep(100);
+            }
+            assert.ok(response?.ok);const health=await response.json();assert.equal(health.ok,true);assert.equal(health.secureBridgeVersion,56);
+            checks.push('exact runtime health successful');
+            for(const s of sockets())if(!before.has(s))opened.add(s);
+            assert.deepEqual([...opened],[target]);checks.push('only configured IPv4 listener');
+            const denied=await fetch(`http://127.0.0.1:${port}/mcp`,{method:'POST',headers:{'content-type':'application/json','accept':'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'life_android_secure_status',arguments:{task_digest:'0'.repeat(64)}}}),signal:AbortSignal.timeout(3000)});
+            assert.equal(denied.status,401);checks.push('unauthenticated execution remains denied');
+            assert.match(out,/connection-observer-v3-session-deadline/);assert.match(out,/952390b3d78547cc694566745f4aa4d5e4ad90d6c1fa35a156037cb50ce9f435/);checks.push('exact deadline runtime hash and revision');
+            assert.doesNotMatch(out,/HTTP parity:|JH_FIXTURE_TIME|test-clock/);checks.push('no socket-opening tests or synthetic clock in runtime');
+          }catch(e){failure=e;}
+          finally{
+            try{process.kill(-child.pid,'SIGTERM');}catch{}await sleep(200);try{process.kill(-child.pid,'SIGKILL');}catch{}
+            writeFileSync('evidence/startup.log',out+err);writeFileSync('evidence/startup-result.json',JSON.stringify({passed:!failure,checks,error:failure?String(failure):null,phoneOperations:0,productionDeployment:false},null,2));
+          }
+          if(failure)throw failure;
+          console.log('EXACT_STARTUP_PASS checks='+checks.length);
+          JS
+      - name: Save verification evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-session-deadline-evidence
+          path: evidence/
+          if-no-files-found: error
+          retention-days: 7
