@@ -34,6 +34,7 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.IO.Compression
           & .\tests\Test-OnePass.ps1 -OutputDirectory (Join-Path $PWD test-output) *>&1 | Tee-Object -FilePath test-output/windows-test.log
           if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Preserve test evidence only
