@@ -17,7 +17,9 @@ const changes=[
   [route,route+'\n    const pollProbe=makeRejectionProbe();'],
   [oldEntry,newEntry],
   [entryBody,'pollProbe.record();'+entryBody],
-  [oldGate,newGate]
+  [oldGate,newGate],
+  ['const nonce=token56(),expiresAt=Date.now()+SECURE56_JOB_MS,pd=payloadDigest56(p);',
+   'const nonce=token56(),expiresAt=Math.min(a.expiresAt,Date.now()+SECURE56_JOB_MS),pd=payloadDigest56(p);']
 ];
 let candidate=baseline;
 for(const [before,after] of changes){
@@ -28,12 +30,12 @@ const extraImport='import {makeRejectionProbe} from "./auth-rejection-probe.mjs"
 candidate=extraImport+candidate;
 let restored=candidate.slice(extraImport.length);
 for(const [before,after] of [...changes].reverse())restored=restored.replace(after,before);
-if(restored!==baseline)throw Error('Candidate modified bytes beyond exact diagnostic edits');
+if(restored!==baseline)throw Error('Candidate changed bytes outside diagnostic edits and the job deadline cap');
 const out=path.join(root,'verification-output');
 mkdirSync(path.join(out,'original'),{recursive:true});mkdirSync(path.join(out,'candidate'),{recursive:true});
 writeFileSync(path.join(out,'original','server.mjs'),baseline);
 writeFileSync(path.join(out,'candidate','server.mjs'),candidate);
 copyFileSync(path.join(here,'auth-rejection-probe.mjs'),path.join(out,'candidate','auth-rejection-probe.mjs'));
 const sha=x=>createHash('sha256').update(x).digest('hex');
-writeFileSync(path.join(out,'candidate-identity.json'),JSON.stringify({schema:1,baselineGitBlob:gitBlob,baselineSha256:sha(baseline),candidateSha256:sha(candidate),diagnosticOnly:true,patchReversalEqualsBaseline:true,phoneOperations:0,productionDeployment:false,scope:'poll rejection diagnostic only; no Android app modification'},null,2));
-console.log('Candidate generation: exact baseline and reversible diagnostic-only diff verified');
+writeFileSync(path.join(out,'candidate-identity.json'),JSON.stringify({schema:2,baselineGitBlob:gitBlob,baselineSha256:sha(baseline),candidateSha256:sha(candidate),diagnosticOnly:false,jobSignedExpiryCapped:true,sessionLifetimeChanged:false,authenticationAcceptanceRulesChanged:false,patchReversalEqualsBaseline:true,phoneOperations:0,productionDeployment:false,scope:'poll rejection diagnostics plus signed job deadline cap; no Android app modification or automatic approval'},null,2));
+console.log('Candidate generation: exact baseline, diagnostic edits and session-bounded job deadline verified');
