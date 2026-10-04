@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node auth-diagnostics-entry.mjs",
     "test:connection-diag": "node --test connection-diagnostics.test.mjs",
-    "prestart": "node verification/build-auth-candidate.mjs && node --test verification/auth-rejection.test.mjs && node --test connection-diagnostics.test.mjs"
+    "postinstall": "node verification/build-auth-candidate.mjs && node --test verification/auth-rejection.test.mjs && node --test connection-diagnostics.test.mjs",
+    "prestart": "node verification/build-auth-candidate.mjs"
   },
   "engines": {
     "node": ">=20"
