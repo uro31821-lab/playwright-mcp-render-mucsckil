@@ -1,0 +1,34 @@
+name: JH trusted lifecycle public test dependencies
+on:
+  push:
+    branches: [jh-trust-lifecycle-validation-20261005]
+    paths: [.github/workflows/jh-trust-lifecycle-dependencies.yml]
+permissions:
+  contents: read
+jobs:
+  public-dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Download only public pinned libraries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir deps output
+          cd deps
+          printf '%s\n' '{"private":true,"type":"module","dependencies":{"@modelcontextprotocol/sdk":"1.25.2","zod":"3.25.76"}}' > package.json
+          npm install --ignore-scripts --no-audit --no-fund
+          node --version > ../output/node-version.txt
+          npm ls --all --json > ../output/dependency-tree.json
+          cp package-lock.json ../output/
+          tar -czf ../output/public-node-dependencies.tar.gz node_modules package.json package-lock.json
+          cd ../output
+          sha256sum public-node-dependencies.tar.gz > SHA256SUMS.txt
+          printf '%s\n' 'Public dependency bytes only. No private app source, account data, key, device operation, live server access or deployment. This job does not certify JH functionality.' > SCOPE.txt
+      - name: Preserve public dependency archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-trust-lifecycle-public-dependencies
+          path: output/
+          retention-days: 1
+          if-no-files-found: error
