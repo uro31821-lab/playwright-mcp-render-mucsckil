@@ -35,22 +35,37 @@ jobs:
           set -euo pipefail
           cd candidate
           node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=../evidence/junit.xml owner-enrollment.test.mjs 2>&1 | tee ../evidence/test.log
+      - name: Check known dependency vulnerabilities without modifying versions
+        shell: bash
+        run: |
+          set -uo pipefail
+          (cd candidate; npm audit --omit=dev --json) > evidence/npm-audit.json 2> evidence/npm-audit-stderr.log
+          result=$?
+          printf '%s\n' "$result" > evidence/npm-audit-exit-code.txt
+          python3 - <<'PY'
+          import pathlib,json,sys
+          raw=json.loads(pathlib.Path('evidence/npm-audit.json').read_text())
+          counts=raw.get('metadata',{}).get('vulnerabilities')
+          if not isinstance(counts,dict):
+              print('DEPENDENCY_AUDIT_UNAVAILABLE');sys.exit(1)
+          print('DEPENDENCY_AUDIT',json.dumps(counts))
+          sys.exit(1 if counts.get('high',0)+counts.get('critical',0)>0 else 0)
+          PY
       - name: Summarize exact results
         if: always()
         shell: bash
         run: |
           python3 - <<'PY'
-          import xml.etree.ElementTree as ET, pathlib, json
+          import xml.etree.ElementTree as ET,pathlib,json
           f=pathlib.Path('evidence/junit.xml')
           if f.exists():
-              root=ET.parse(f).getroot()
-              cases=list(root.iter('testcase'))
+              cases=list(ET.parse(f).getroot().iter('testcase'))
               result={'tests':len(cases),'failures':sum(c.find('failure') is not None for c in cases),'errors':sum(c.find('error') is not None for c in cases),'skipped':sum(c.find('skipped') is not None for c in cases)}
-          else:
-              result={'tests':0,'completed':False}
+          else: result={'tests':0,'completed':False}
           result.update({'phoneOperations':0,'liveProviderTokens':0,'productionDeployment':False,'androidBuildRerun':False,'registryApplied':False})
-          pathlib.Path('evidence/summary.json').write_text(json.dumps(result,indent=2))
-          print(json.dumps(result))
+          try: result['dependencyVulnerabilities']=json.loads(pathlib.Path('evidence/npm-audit.json').read_text()).get('metadata',{}).get('vulnerabilities')
+          except Exception: result['dependencyVulnerabilities']=None
+          pathlib.Path('evidence/summary.json').write_text(json.dumps(result,indent=2));print(json.dumps(result))
           PY
       - name: Save only source and bounded evidence
         if: always()
