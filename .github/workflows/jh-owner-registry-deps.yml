@@ -1,0 +1,30 @@
+name: JH owner registry public dependencies
+on:
+  push:
+    branches: [jh-owner-registry-deps-20261005]
+    paths: ['.github/workflows/jh-owner-registry-deps.yml']
+permissions:
+  contents: read
+jobs:
+  dependencies:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fetch public library only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p package evidence
+          printf '%s\n' '{"private":true,"dependencies":{"google-auth-library":"10.5.0"}}' > package/package.json
+          (cd package && npm install --ignore-scripts --no-audit --no-fund)
+          cp package/package-lock.json evidence/
+          (cd package && tar -czf ../evidence/public-google-auth-deps.tar.gz node_modules)
+          (cd evidence && sha256sum public-google-auth-deps.tar.gz > SHA256SUMS.txt)
+          printf '%s\n' 'Public npm dependencies only. No user source, account credentials, devices, storage provisioning or deployment.' > evidence/SCOPE.txt
+      - name: Preserve bounded archive
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-owner-registry-public-deps
+          path: evidence/
+          retention-days: 1
+          if-no-files-found: error
