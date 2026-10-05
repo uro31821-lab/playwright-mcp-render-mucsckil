@@ -1,0 +1,65 @@
+name: JH owner enrollment gate candidate verification
+on:
+  push:
+    branches: [jh-owner-enrollment-gate-20261005]
+    paths: ['jh-enrollment-candidate/**', '.github/workflows/jh-owner-enrollment-gate.yml']
+permissions:
+  contents: read
+jobs:
+  owner-enrollment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Download only new public candidate at exact revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p candidate evidence
+          for file in package.json enrollment-store.mjs owner-enrollment.mjs owner-enrollment.test.mjs; do
+            curl --fail --location --max-time 30 "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_SHA/jh-enrollment-candidate/$file" -o "candidate/$file"
+          done
+          sha256sum candidate/* > evidence/source-sha256.txt
+          printf '%s\n' "$GITHUB_SHA" > evidence/revision.txt
+          node --version > evidence/node-version.txt
+          printf '%s\n' 'Synthetic identities, synthetic RSA issuer certificate and software P256 keys. Actual Google-auth-library, Node crypto, local SQLite and child processes. No user account login, no real Google token, no Android test, no Bridge deployment. This candidate returns AUTHENTICATED_ENROLLMENT_NOT_APPLIED and cannot create trust or a session.' > evidence/SCOPE.txt
+      - name: Install isolated pinned direct dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd candidate
+          npm install --ignore-scripts --no-audit --no-fund 2>&1 | tee ../evidence/npm-install.log
+          cp package-lock.json ../evidence/dependency-lock.json
+      - name: Run cryptographic identity and restart boundary tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd candidate
+          node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=../evidence/junit.xml owner-enrollment.test.mjs 2>&1 | tee ../evidence/test.log
+      - name: Summarize exact results
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET, pathlib, json
+          f=pathlib.Path('evidence/junit.xml')
+          if f.exists():
+              root=ET.parse(f).getroot()
+              cases=list(root.iter('testcase'))
+              result={'tests':len(cases),'failures':sum(c.find('failure') is not None for c in cases),'errors':sum(c.find('error') is not None for c in cases),'skipped':sum(c.find('skipped') is not None for c in cases)}
+          else:
+              result={'tests':0,'completed':False}
+          result.update({'phoneOperations':0,'liveProviderTokens':0,'productionDeployment':False,'androidBuildRerun':False,'registryApplied':False})
+          pathlib.Path('evidence/summary.json').write_text(json.dumps(result,indent=2))
+          print(json.dumps(result))
+          PY
+      - name: Save only source and bounded evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-owner-enrollment-candidate-evidence
+          path: |
+            evidence/
+            candidate/*.mjs
+            candidate/package.json
+          if-no-files-found: error
+          retention-days: 7
