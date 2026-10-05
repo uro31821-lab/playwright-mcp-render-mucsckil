@@ -1,0 +1,101 @@
+name: JH Android owner login public dependencies
+on:
+  push:
+    branches: [jh-android-owner-login-deps-20261005]
+    paths: ['.github/workflows/jh-android-owner-login-deps.yml']
+permissions:
+  contents: read
+jobs:
+  public-auth-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Create isolated generic compilation project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p warm/app/src/main/java/example/auth evidence
+          cd warm
+          curl --fail --location --max-time 90 https://services.gradle.org/distributions/gradle-8.9-bin.zip -o gradle.zip
+          curl --fail --location --max-time 30 https://services.gradle.org/distributions/gradle-8.9-bin.zip.sha256 -o gradle.sha256
+          printf '%s  gradle.zip\n' "$(cat gradle.sha256)" | sha256sum --check -
+          unzip -q gradle.zip
+          cat > settings.gradle.kts <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositories { google(); mavenCentral() } }
+          rootProject.name="public-credential-api-check"
+          include(":app")
+          EOF
+          cat > build.gradle.kts <<'EOF'
+          plugins {
+              id("com.android.application") version "8.7.3" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+          }
+          EOF
+          cat > app/build.gradle.kts <<'EOF'
+          plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
+          android {
+              namespace="example.auth"; compileSdk=35
+              defaultConfig { applicationId="example.auth"; minSdk=26; targetSdk=35 }
+              compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
+              kotlinOptions { jvmTarget="17" }
+          }
+          dependencies {
+              implementation("androidx.credentials:credentials:1.5.0")
+              implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+              implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+          }
+          EOF
+          printf '%s\n' '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application/></manifest>' > app/src/main/AndroidManifest.xml
+          cat > app/src/main/java/example/auth/CompileOnly.kt <<'EOF'
+          package example.auth
+          import android.app.Activity
+          import android.os.CancellationSignal
+          import androidx.credentials.*
+          import androidx.credentials.exceptions.GetCredentialException
+          import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+          import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+          class CompileOnly {
+            fun compile(activity: Activity, clientId: String, nonce: String, signal: CancellationSignal) {
+              val option = GetSignInWithGoogleOption.Builder(clientId).setNonce(nonce).build()
+              val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
+              CredentialManager.create(activity).getCredentialAsync(activity, request, signal, activity.mainExecutor,
+                object : CredentialManagerCallback<GetCredentialResponse, GetCredentialException> {
+                  override fun onResult(result: GetCredentialResponse) {
+                    val credential = result.credential
+                    if (credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                      GoogleIdTokenCredential.createFrom(credential.data).idToken.length
+                    }
+                  }
+                  override fun onError(e: GetCredentialException) { }
+                })
+            }
+          }
+          EOF
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx1536m\n' > gradle.properties
+      - name: Compile actual public APIs and capture dependency evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          export GRADLE_USER_HOME="$RUNNER_TEMP/public-auth-gradle"
+          cd warm
+          ./gradle-8.9/bin/gradle :app:assembleDebug --no-daemon --max-workers=1 2>&1 | tee ../evidence/compile.log
+          ./gradle-8.9/bin/gradle :app:dependencies --configuration debugRuntimeClasspath --no-daemon --max-workers=1 > ../evidence/dependencies.txt
+          cd "$GRADLE_USER_HOME"
+          tar -czf "$GITHUB_WORKSPACE/public-credential-gradle-cache.tar.gz" caches/modules-2
+          cd "$GITHUB_WORKSPACE"
+          sha256sum public-credential-gradle-cache.tar.gz > evidence/SHA256SUMS.txt
+          printf '%s\n' 'Generic public API compilation only. No user app source, account token, device ID, login or deployment. Pinned credentials 1.5.0 and googleid 1.1.1, compileSdk35, Kotlin1.9.24.' > evidence/SCOPE.txt
+      - name: Keep public dependencies and build evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-android-owner-login-public-deps
+          path: |
+            evidence/
+            public-credential-gradle-cache.tar.gz
+          if-no-files-found: error
+          retention-days: 1
