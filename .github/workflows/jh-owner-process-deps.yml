@@ -1,0 +1,28 @@
+name: JH combined library public lifecycle dependency
+on:
+  push:
+    branches: [jh-android-owner-login-deps-20261005]
+    paths: ['.github/workflows/jh-owner-process-deps.yml']
+permissions:
+  contents: read
+jobs:
+  public-artifact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Fetch pinned Google Maven bytes only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p files
+          for ext in pom module aar; do
+            file="lifecycle-process-2.6.2.$ext"
+            curl --fail --location --max-time 30 "https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-process/2.6.2/$file" -o "files/$file"
+          done
+          (cd files; sha256sum lifecycle-process-* > SHA256SUMS.txt)
+          printf '%s\n' 'Public androidx.lifecycle lifecycle-process 2.6.2 only. No app source, credentials, device or operational server.' > files/SCOPE.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-owner-public-lifecycle-process
+          path: files/
+          retention-days: 1
