@@ -25,11 +25,13 @@ try{
   assert(await connects(),'proxy ready');
   for(const mode of ['baseline-direct','baseline-proxy','fixed-direct','fixed-proxy']){
     const fixed=mode.startsWith('fixed'),trace=[];
+    let lastSession=null;
     const local='http://127.0.0.1:'+(mode.endsWith('direct')?19131:19130)+'/mcp';
     const ids=new Map();const label=s=>!s?null:(ids.has(s)?ids.get(s):(ids.set(s,ids.size+1),ids.get(s)));
     const fetchImpl=async(_,opts)=>{const m=opts.body?JSON.parse(opts.body):{};const res=await fetch(local,opts);
+      const returnedSession=res.headers.get('mcp-session-id');if(returnedSession)lastSession=returnedSession;
       trace.push({method:opts.method==='GET'?'GET_SSE':m.method??'ping_reply',tool:m.params?.name??null,
-        status:res.status,session:label(new Headers(opts.headers).get('mcp-session-id')),createdSession:label(res.headers.get('mcp-session-id'))});return res;};
+        status:res.status,session:label(new Headers(opts.headers).get('mcp-session-id')),createdSession:label(returnedSession)});return res;};
     const transport=createBrowserTransport({endpoint:ENDPOINT,token,timeoutMs:20000,fetchImpl});
     const session=fixed?createBrowserSession({transport,heartbeatFactory:createBrowserHeartbeat({transport,endpoint:ENDPOINT,token,fetchImpl})}):baselineSession({transport});
     const row={mode,trace};results.push(row);
@@ -54,7 +56,18 @@ try{
         assert.equal(trace.filter(x=>x.tool==='browser_type').length,1);assert.equal(trace.filter(x=>x.tool==='browser_click').length,1);
       }else assert(trace.some(x=>x.status===404),'baseline loses its session');
       assert.equal(trace.filter(x=>x.tool==='browser_navigate').length,1,'no navigation replay');row.passed=true;
-    }finally{session.close?.();}
+    }finally{
+      session.close?.();
+      // Release only this fixture's session. Do not share or isolate contexts to
+      // hide loss of the original page, and never send this cleanup to production.
+      if(lastSession){
+        const cleaned=await fetch(local,{method:'DELETE',headers:{authorization:`Bearer ${token}`,
+          'mcp-session-id':lastSession,'mcp-protocol-version':'2025-03-26'},signal:AbortSignal.timeout(3000)});
+        row.cleanupStatus=cleaned.status;await cleaned.body?.cancel();
+        assert([200,202,204,404].includes(cleaned.status),'fixture session cleanup');
+      }
+      await delay(500);
+    }
   }
   console.log('ACTUAL_CHROMIUM_PAGE_LIFETIME_CONFIRMED',JSON.stringify(results.map(x=>({mode:x.mode,passed:x.passed,persisted:x.persisted,pingReplies:x.pingReplies}))));
 }finally{
