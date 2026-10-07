@@ -21,11 +21,12 @@ jobs:
       - name: Run exact deployed browser image with synthetic local page only
         run: |
           mkdir -p evidence-lifetime
-          docker pull mcr.microsoft.com/playwright/mcp:v0.0.78
-          docker image inspect mcr.microsoft.com/playwright/mcp:v0.0.78 --format '{{json .RepoDigests}}' > evidence-lifetime/image.json
-          docker run --rm --init --network none --entrypoint node \
+          IMAGE=mcr.microsoft.com/playwright/mcp@sha256:3d871c22ea2d4cca0966e2cfb1860e1cb03eb7353725a3d6cffd133296fb04eb
+          docker pull "$IMAGE"
+          docker image inspect "$IMAGE" --format '{{json .RepoDigests}}' > evidence-lifetime/image.json
+          docker run --rm --init --user root --network none --entrypoint node \
             -v "$PWD:/work:ro" -v "$PWD/evidence-lifetime:/out" \
-            mcr.microsoft.com/playwright/mcp:v0.0.78 /work/verification/browser-lifetime-probe.mjs
+            "$IMAGE" /work/verification/browser-lifetime-probe.mjs
       - name: Preserve diagnostic records only
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
