@@ -10,21 +10,20 @@ import {createBrowserSession} from '../jh-server/browser-session.mjs';
 const out='/out';
 const walk=p=>readdirSync(p,{withFileTypes:true}).flatMap(x=>x.isDirectory()?walk(join(p,x.name)):[join(p,x.name)]);
 const paths=walk('/app').filter(p=>/\.(?:mjs|cjs|js)$/.test(p));
-writeFileSync(out+'/source-paths.txt',paths.filter(p=>/mcp|\/http\./i.test(p)).join('\n'));
-let snippets='';
+writeFileSync(out+'/source-paths.txt',paths.join('\n'));
+let files=[];
 for(const p of paths){
-  if(!/http|transport|mcpBundle/i.test(p))continue;
   const text=readFileSync(p,'utf8');
-  if(!/StreamableHTTPServerTransport|sessions\.get|sessions =|_sessions/.test(text))continue;
-  if(text.length<100000)snippets+='\n=== '+p+' ===\n'+text+'\n';
-  else {const lines=text.split('\n');for(let i=0;i<lines.length;i++)if(/function.*(StreamableHTTP|streamable|Http)|sessions\.get|sessions =|sessions\.delete|onclose\s*=|connectionCount|disconnected/.test(lines[i]))snippets+='\n=== '+p+':'+(i+1)+' ===\n'+lines.slice(Math.max(0,i-8),i+35).join('\n')+'\n';}
+  if(!/sessionIdGenerator|Session not found|Invalid Host header|allowedHosts/.test(text))continue;
+  if(text.length>20000000)continue;
+  const name='upstream-source-'+files.length+'.js';writeFileSync(out+'/'+name,text);files.push({path:p,name,size:text.length});
 }
-writeFileSync(out+'/transport-source.txt',snippets.slice(0,250000));
+writeFileSync(out+'/upstream-files.json',JSON.stringify(files,null,2));
 const token='local-fixture-only-not-production-000000000000000000000';
 const logs=[];
 const proxy=spawn(process.execPath,['/work/render-auth-proxy.mjs',process.execPath,'/app/cli.js',
   '--headless','--browser','chromium','--no-sandbox','--host','127.0.0.1','--port','19131',
-  '--allowed-hosts','127.0.0.1'],{env:{...process.env,PORT:'19130',UPSTREAM_PORT:'19131',MCP_TOKEN:token},stdio:['ignore','pipe','pipe']});
+  '--allowed-hosts','*'],{env:{...process.env,PORT:'19130',UPSTREAM_PORT:'19131',MCP_TOKEN:token},stdio:['ignore','pipe','pipe']});
 proxy.stdout.on('data',b=>logs.push(b.toString()));proxy.stderr.on('data',b=>logs.push(b.toString()));
 const page=createServer((req,res)=>{res.setHeader('content-type','text/html');res.end('<title>JH Local Lifetime Test</title><h1>JH Local Lifetime Test</h1><input aria-label="Sample note"><a href="/second">Next page</a>');});
 await new Promise(r=>page.listen(19132,'127.0.0.1',r));
@@ -39,7 +38,8 @@ try{
     const transport=createBrowserTransport({endpoint:'https://playwright-mcp-yzcy.onrender.com/mcp',token,
       timeoutMs:20000,fetchImpl:async(_,opts)=>{const req=JSON.parse(opts.body);const res=await fetch(local,opts);
         trace.push({method:req.method,tool:req.params?.name??null,status:res.status,
-          inputSession:sidLabel(new Headers(opts.headers).get('mcp-session-id')),outputSession:sidLabel(res.headers.get('mcp-session-id'))});return res;}});
+          inputSession:sidLabel(new Headers(opts.headers).get('mcp-session-id')),outputSession:sidLabel(res.headers.get('mcp-session-id')),
+          localFixtureError:res.ok?null:(await res.clone().text()).slice(0,500)});return res;}});
     const session=createBrowserSession({transport});const row={mode,trace};
     try{
       row.navigate=await session.tool('browser_navigate',{url:'http://127.0.0.1:19132/first'});
