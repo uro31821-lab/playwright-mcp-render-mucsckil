@@ -2,7 +2,7 @@ import {readFileSync,writeFileSync,renameSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const PARENT='8f4f205ada0c00b5af99a99bdba3966d5b7825761fb3ecd53627156330fd63e4';
-const EVENTS='4ac90e7825857fd332f8423c5efca2d7e60e3819c587c8b9336182eb584504b6';
+const EVENTS='716ddf301e448510224f814c3eef83aed0885fa87490520ad39314eba40caa50';
 const BEFORE='const browserTransport = createBrowserTransport();';
 const AFTER='const browserTransport = withBrowserEvents(createBrowserTransport());';
 const IMPORT='import {withBrowserEvents} from "../../browser-events.mjs";\n';
