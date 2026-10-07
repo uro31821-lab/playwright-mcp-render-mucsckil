@@ -21,18 +21,18 @@ jobs:
       - name: Install existing client dependencies
         working-directory: jh-server
         run: npm install --ignore-scripts --no-audit --no-fund
-      - name: Start same browser image tag as deployed server
+      - name: Start separate copies of deployed browser image
         run: |
-          docker pull mcr.microsoft.com/playwright/mcp:v0.0.78
-          docker image inspect mcr.microsoft.com/playwright/mcp:v0.0.78 --format '{{index .RepoDigests 0}}'
-          docker run -d --name jh-browser-probe --network host --entrypoint node mcr.microsoft.com/playwright/mcp:v0.0.78 /app/cli.js --headless --browser chromium --no-sandbox --host 127.0.0.1 --port 18931 --allowed-hosts 127.0.0.1:18931
-          for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:18931/mcp && break; sleep 1; done
+          docker pull mcr.microsoft.com/playwright/mcp@sha256:3d871c22ea2d4cca0966e2cfb1860e1cb03eb7353725a3d6cffd133296fb04eb
+          for port in 18931 18933; do
+            docker run -d --name jh-browser-$port --network host --entrypoint node mcr.microsoft.com/playwright/mcp@sha256:3d871c22ea2d4cca0966e2cfb1860e1cb03eb7353725a3d6cffd133296fb04eb /app/cli.js --headless --browser chromium --no-sandbox --host 127.0.0.1 --port $port --allowed-hosts 127.0.0.1:$port
+            for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:$port/mcp && break; sleep 1; done
+          done
       - name: Compare current client and official SDK using real Chromium
         working-directory: jh-server
         run: timeout 120 node browser-persistence-probe.mjs
-      - name: Inspect installed heartbeat code and stop test container
+      - name: Inspect installed heartbeat and stop test containers
         if: always()
         run: |
-          docker exec jh-browser-probe sh -c 'find /app/node_modules -path "*/mcp/*" -name "server.js" -exec grep -n -A25 "startHeartbeat" {} \;' || true
-          docker logs --tail 12 jh-browser-probe || true
-          docker rm -f jh-browser-probe || true
+          docker exec jh-browser-18931 node -e 'const fs=require("fs");function walk(p){for(const x of fs.readdirSync(p,{withFileTypes:true})){const f=p+"/"+x.name;if(x.isDirectory())walk(f);else if(x.isFile()&&f.endsWith(".js")){const s=fs.readFileSync(f,"utf8"),i=s.indexOf("ping timeout");if(i>=0&&s.includes("startHeartbeat"))console.log(f+"\n"+s.slice(Math.max(0,i-900),i+500));}}}walk("/app");' || true
+          docker rm -f jh-browser-18931 jh-browser-18933 || true
