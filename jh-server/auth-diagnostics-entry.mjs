@@ -17,9 +17,9 @@ console.log('JH_CONNECTION_DIAG', JSON.stringify({
   revision: 'connection-observer-v3-session-deadline', authenticationChanged: false,
   jobSignedExpiryCapped: true, sessionLifetimeChanged: false, runtimeSha256
 }));
-// Browser transport is the only additional transformation; old auth runtime stays pinned.
+// Scoped browser transport and tools/list framing corrections; old auth runtime stays pinned.
 const { prepareBrowserRuntime } = await import('./browser-runtime.mjs');
 const browserRuntimeUrl = prepareBrowserRuntime();
-console.log('JH_BROWSER_TRANSPORT', JSON.stringify({revision: 'render-browser-v1',
+console.log('JH_BROWSER_TRANSPORT', JSON.stringify({revision: 'render-browser-v2-catalog-framing',
   configurationRequired: true, credentialsLogged: false, automaticRetry: false}));
 await import(browserRuntimeUrl.href);
