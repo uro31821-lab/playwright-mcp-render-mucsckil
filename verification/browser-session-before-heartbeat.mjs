@@ -5,14 +5,13 @@ const fail = code => { throw new Error(code); };
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const expired = error => error?.message === 'browser_http_404';
 
-export function createBrowserSession({transport,heartbeatFactory}) {
+export function createBrowserSession({transport}) {
   if (!transport || typeof transport.request !== 'function') fail('browser_session_transport_required');
   let sessionId = null, version = '2025-03-26', initialized = false;
-  let heartbeat = null, generation = 0;
   let everInitialized = false, viewChanged = false, sequence = 0, pending = 0;
   let tail = Promise.resolve();
   const inFlight = new Map();
-  const drop = () => { generation++; const previous=heartbeat; heartbeat=null; previous?.close(); sessionId = null; initialized = false; viewChanged = everInitialized; };
+  const drop = () => { sessionId = null; initialized = false; viewChanged = everInitialized; };
   const enqueue = (key, fn) => {
     if (inFlight.has(key)) return inFlight.get(key);
     if (pending >= 8) return Promise.reject(new Error('browser_busy_no_request_sent'));
@@ -75,11 +74,6 @@ export function createBrowserSession({transport,heartbeatFactory}) {
       if (![202,204].includes(ack.status) || (await ack.text()).trim() !== '') fail('browser_initialize_ack_invalid');
       initialized = true;
       everInitialized = true;
-      if(sessionId!==null && heartbeatFactory){
-        const boundGeneration=generation;
-        heartbeat=heartbeatFactory({sessionId,version,onEnd:()=>{if(generation===boundGeneration)drop();}});
-        if(!heartbeat || typeof heartbeat.close!=='function' || !heartbeat.active())fail('browser_heartbeat_start_failed');
-      }
     } catch (error) { drop(); throw error; }
   };
   const catalog = async () => {
@@ -117,9 +111,7 @@ export function createBrowserSession({transport,heartbeatFactory}) {
       if (!metadata.result.tools.some(t => t.name === frozen.name)) fail('browser_tool_not_available');
       try {
         // Exactly one tools/call. A 404, timeout or error never replays it.
-        const boundGeneration=generation;
         const {result} = await request('tools/call', frozen);
-        if(generation!==boundGeneration || (heartbeat && !heartbeat.active()))fail('browser_connection_changed_during_action');
         if (!object(result.result)) fail('browser_tool_result_invalid');
         if (freshView && result.result.isError !== true) viewChanged = false;
         return result;
@@ -131,7 +123,6 @@ export function createBrowserSession({transport,heartbeatFactory}) {
     });
   };
   return {
-    close: drop,
     rpc,
     probe: async () => { await rpc('tools/list'); },
     tool: async (name, args = {}) => (await rpc('tools/call', {name, arguments:args})).result

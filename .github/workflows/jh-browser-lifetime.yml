@@ -18,19 +18,30 @@ jobs:
           git remote add origin "https://github.com/${REPOSITORY}.git"
           git fetch --depth=1 origin "$COMMIT"
           git checkout --detach FETCH_HEAD
+      - name: Existing authentication and session regressions plus heartbeat checks
+        working-directory: jh-server
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          mkdir -p ../evidence-lifetime
+          set -o pipefail
+          node verification/build-auth-candidate.mjs
+          node --test connection-diagnostics.test.mjs verification/auth-rejection.test.mjs verification/job-deadline.test.mjs browser-framing.test.mjs browser-session.test.mjs browser-session-entry.test.mjs browser-heartbeat.test.mjs | tee ../evidence-lifetime/tests.tap
       - name: Run exact deployed browser image with synthetic local page only
         run: |
-          mkdir -p evidence-lifetime
           IMAGE=mcr.microsoft.com/playwright/mcp@sha256:3d871c22ea2d4cca0966e2cfb1860e1cb03eb7353725a3d6cffd133296fb04eb
           docker pull "$IMAGE"
           docker image inspect "$IMAGE" --format '{{json .RepoDigests}}' > evidence-lifetime/image.json
           docker run --rm --init --user root --network none --entrypoint node \
             -v "$PWD:/work:ro" -v "$PWD/evidence-lifetime:/out" \
             "$IMAGE" /work/verification/browser-lifetime-probe.mjs
-      - name: Preserve diagnostic records only
+      - name: Preserve diagnostic records and scoped source only
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: jh-browser-lifetime
           retention-days: 3
-          path: evidence-lifetime/
+          path: |
+            evidence-lifetime/
+            jh-server/browser-heartbeat*.mjs
+            jh-server/browser-session*.mjs
+            verification/browser-lifetime-probe.mjs

@@ -16,6 +16,7 @@ test('deployed entry + real MCP SDK: navigation/readback, expiry, no replay, cal
   let sid='none',initializations=0,actions=0,page='about:blank',failAction=false;
   const upstream=createServer(async(req,res)=>{
     assert.equal(req.headers.authorization,'Bearer '+'b'.repeat(32));
+    if(req.method==='GET'){res.writeHead(200,{'content-type':'text/event-stream'});res.write(': fixture session\n\n');return;}
     let text='';for await(const b of req)text+=b;const m=JSON.parse(text);
     if(m.method==='initialize'){
       assert.equal(req.headers['mcp-session-id'],undefined);sid='mock-'+(++initializations);
