@@ -1,0 +1,40 @@
+name: JH runtime metadata checks
+on:
+  push:
+    branches: [jh/runtime-metadata-20261008]
+permissions:
+  contents: read
+concurrency:
+  group: jh-runtime-metadata-checks
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Read exact public source without persisted credentials
+        env:
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -eu
+          git init .
+          git remote add origin "https://github.com/$REPO.git"
+          git fetch --depth=1 origin "$COMMIT"
+          git checkout --detach FETCH_HEAD
+          git fetch --depth=1 origin 95010cefe67639b23af7493b5b16d1cf553ed4c9
+          git diff --exit-code 95010cefe67639b23af7493b5b16d1cf553ed4c9 -- jh-server/server.mjs jh-server/browser-events.mjs jh-server/browser-session.mjs jh-server/browser-transport.mjs jh-server/browser-runtime.mjs jh-server/browser-session-runtime.mjs jh-server/browser-persistence-runtime.mjs jh-server/verification jh-server/package.json
+      - name: Verify read-only metadata and unchanged entry
+        working-directory: jh-server
+        run: |
+          node --test runtime-metadata.test.mjs > metadata-checks.tap 2>&1 || { cat metadata-checks.tap; exit 1; }
+          tail -10 metadata-checks.tap
+      - name: Rerun existing security and browser transport tests
+        working-directory: jh-server
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          node verification/build-auth-candidate.mjs
+          node --test connection-diagnostics.test.mjs verification/auth-rejection.test.mjs verification/job-deadline.test.mjs browser-framing.test.mjs browser-session.test.mjs browser-session-entry.test.mjs browser-events.test.mjs > prior-checks.tap 2>&1 || { tail -100 prior-checks.tap; exit 1; }
+          tail -10 prior-checks.tap
+          node --check runtime-metadata.mjs
+          node --check auth-diagnostics-entry.mjs
