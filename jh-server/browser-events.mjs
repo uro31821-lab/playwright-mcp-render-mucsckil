@@ -16,28 +16,21 @@ export function withBrowserEvents(base,{
   if(typeof token!=='string'||token.length<24||token.length>512||!/^[\x21-\x7e]+$/.test(token))fail('browser_service_credential_required');
   if(!Number.isSafeInteger(headerTimeoutMs)||headerTimeoutMs<1||headerTimeoutMs>30000||!Number.isSafeInteger(lifetimeMs)||lifetimeMs<1||lifetimeMs>600000||!Number.isSafeInteger(maxFrameBytes)||maxFrameBytes<64||maxFrameBytes>65536)fail('browser_event_limits_invalid');
  };
- const open=async(sid,version)=>{
+ const open=(sid,version)=>{
   config();
   if(typeof sid!=='string'||!/^[\x21-\x7e]{1,512}$/.test(sid)||!VERSIONS.has(version))fail('browser_event_binding_invalid');
   const epoch=generation,controller=new AbortController();
-  const h={'accept':'text/event-stream','authorization':`Bearer ${token}`,'mcp-session-id':sid,'mcp-protocol-version':version};
+  const h={accept:'text/event-stream',authorization:`Bearer ${token}`,'mcp-session-id':sid,'mcp-protocol-version':version};
   let reader,ended=false,total=0,frames=0,buffer='',windowAt=Date.now(),windowCount=0;
   const seen=new Set();
+  let resolveReady,rejectReady;
+  const ready=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
+  void ready.catch(()=>{});
   const timer=setTimeout(()=>controller.abort(),lifetimeMs);timer.unref?.();
-  const stop=()=>{ended=true;clearTimeout(timer);controller.abort();if(reader)void reader.cancel().catch(()=>{});};
-  const recordFailure=()=>{if(epoch===generation){lost=true;}stop();};
+  const headersTimer=setTimeout(()=>controller.abort(),headerTimeoutMs);headersTimer.unref?.();
+  const stop=()=>{ended=true;clearTimeout(timer);clearTimeout(headersTimer);controller.abort();rejectReady(new Error('browser_event_channel_closed'));if(reader)void reader.cancel().catch(()=>{});};
+  const recordFailure=()=>{if(epoch===generation)lost=true;stop();};
   const aborted=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(new Error('browser_event_channel_closed')),{once:true}));
-  const headersTimer=setTimeout(()=>controller.abort(),headerTimeoutMs);
-  let response;
-  try{
-   response=await Promise.race([fetchImpl(ENDPOINT,{method:'GET',headers:h,redirect:'error',signal:controller.signal}),aborted]);
-   clearTimeout(headersTimer);
-   if(response.status!==200){void response.body?.cancel().catch(()=>{});fail(response.status===401||response.status===403?'browser_service_authentication_failed':`browser_event_http_${response.status}`);}
-   if((response.headers.get('content-type')||'').split(';')[0].trim().toLowerCase()!=='text/event-stream'||!response.body)fail('browser_event_stream_invalid');
-   if(response.headers.has('mcp-session-id')&&response.headers.get('mcp-session-id')!==sid)fail('browser_event_binding_invalid');
-   if(epoch!==generation)fail('browser_event_binding_invalid');
-   reader=response.body.getReader();
-  }catch(e){clearTimeout(headersTimer);recordFailure();if(/^browser_(service_authentication_failed|event_)/.test(e?.message))throw e;fail('browser_event_channel_unavailable');}
   const active=()=>!ended&&!controller.signal.aborted&&epoch===generation&&!lost;
   const processFrame=async(raw)=>{
    if(++frames>4096)fail('browser_event_budget_exceeded');
@@ -62,9 +55,18 @@ export function withBrowserEvents(base,{
    const ack=await base.request({method:'POST',headers:{...h,'content-type':'application/json',accept:'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id,result:{}})});
    if(!active()||![202,204].includes(ack.status)||(await ack.text()).trim()!=='')fail('browser_event_reply_failed');
   };
-  const decoder=new TextDecoder('utf-8',{fatal:true});
-  const loop=async()=>{
+  const pump=async()=>{
    try{
+    // Start the event stream without blocking POST initialization. Some proxies
+    // flush its headers only with the first server ping, triggered by a tool.
+    const response=await Promise.race([fetchImpl(ENDPOINT,{method:'GET',headers:h,redirect:'error',signal:controller.signal}),aborted]);
+    clearTimeout(headersTimer);
+    if(response.status!==200){void response.body?.cancel().catch(()=>{});fail('browser_event_channel_unavailable');}
+    if((response.headers.get('content-type')||'').split(';')[0].trim().toLowerCase()!=='text/event-stream'||!response.body)fail('browser_event_stream_invalid');
+    if(response.headers.has('mcp-session-id')&&response.headers.get('mcp-session-id')!==sid)fail('browser_event_binding_invalid');
+    if(!active())fail('browser_event_binding_invalid');
+    reader=response.body.getReader();resolveReady();
+    const decoder=new TextDecoder('utf-8',{fatal:true});
     while(active()){
      const part=await Promise.race([reader.read(),aborted]);
      if(part.done)fail('browser_event_channel_closed');
@@ -77,8 +79,8 @@ export function withBrowserEvents(base,{
     }
    }catch{recordFailure();}finally{stop();}
   };
-  channel={close:stop,active};
-  void loop();
+  channel={close:stop,active,ready};
+  void pump();
  };
  return {
   close,
@@ -86,7 +88,11 @@ export function withBrowserEvents(base,{
    let message;try{message=JSON.parse(options.body);}catch{fail('browser_request_invalid');}
    if(!object(message)||typeof message.method!=='string')fail('browser_request_invalid');
    if(message.method==='initialize'){close();lost=false;sessionId=null;}
-   else if(lost)fail('browser_event_channel_closed');
+   else{
+    if(lost)fail('browser_event_channel_closed');
+    if(sessionId!==null&&new Headers(options.headers).get('mcp-session-id')!==sessionId)fail('browser_event_binding_invalid');
+    if(sessionId!==null&&message.method!=='notifications/initialized'&&!channel?.active())fail('browser_event_channel_closed');
+   }
    const epoch=generation;
    let response;
    try{response=await base.request(options);}catch(e){close();throw e;}
@@ -94,11 +100,12 @@ export function withBrowserEvents(base,{
    if(message.method==='initialize'){sessionId=response.headers.get('mcp-session-id');return response;}
    if(message.method==='notifications/initialized'&&sessionId!==null){
     if(![202,204].includes(response.status))return response;
-    const h=new Headers(options.headers);
-    if(h.get('mcp-session-id')!==sessionId)fail('browser_event_binding_invalid');
-    await open(sessionId,h.get('mcp-protocol-version'));
-   }else if(sessionId!==null&&(!channel?.active()||new Headers(options.headers).get('mcp-session-id')!==sessionId)){
-    close();fail('browser_event_channel_closed');
+    open(sessionId,new Headers(options.headers).get('mcp-protocol-version'));
+   }else if(sessionId!==null){
+    // A completed action cannot be reported healthy with an unvalidated GET.
+    // Failure never replays the action; the prior session controller handles it.
+    if(message.method==='tools/call')await channel.ready;
+    if(!channel.active()){close();fail('browser_event_channel_closed');}
    }
    return response;
   }
