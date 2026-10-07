@@ -27,10 +27,10 @@ jobs:
         run: |
           set -o pipefail
           node verification/build-auth-candidate.mjs
-          node --test connection-diagnostics.test.mjs verification/auth-rejection.test.mjs verification/job-deadline.test.mjs browser-framing.test.mjs browser-session.test.mjs | tee session-checks.tap
+          node --test connection-diagnostics.test.mjs verification/auth-rejection.test.mjs verification/job-deadline.test.mjs browser-framing.test.mjs browser-session.test.mjs browser-session-entry.test.mjs | tee session-checks.tap
           node --check browser-session.mjs
           node --check browser-session-runtime.mjs
-      - name: Preserve small test records only
+      - name: Preserve small test records and scoped source
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -39,3 +39,5 @@ jobs:
           path: |
             jh-server/session-checks.tap
             jh-server/session-evidence/hashes.json
+            jh-server/browser-session*.mjs
+            jh-server/auth-diagnostics-entry.mjs
