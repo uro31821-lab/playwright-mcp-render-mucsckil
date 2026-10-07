@@ -1,0 +1,61 @@
+// Diagnostic: exact deployed Playwright image, actual Chromium, synthetic local page.
+// Network is disabled at the container boundary. No user credentials or pages.
+import {createServer} from 'node:http';
+import {connect} from 'node:net';
+import {spawn} from 'node:child_process';
+import {readFileSync,writeFileSync,readdirSync,existsSync} from 'node:fs';
+import {join} from 'node:path';
+import {setTimeout as delay} from 'node:timers/promises';
+import {createBrowserTransport} from '../jh-server/browser-transport.mjs';
+import {createBrowserSession} from '../jh-server/browser-session.mjs';
+const out='/out';
+const walk=(p)=>readdirSync(p,{withFileTypes:true}).flatMap(x=>x.isDirectory()?walk(join(p,x.name)):[join(p,x.name)]);
+const paths=walk('/app/node_modules/playwright/lib').filter(p=>/mcp/i.test(p));
+writeFileSync(out+'/source-paths.txt',paths.join('\n'));
+let snippets='';
+for(const p of paths.filter(p=>/http|transport/i.test(p))){
+  const text=readFileSync(p,'utf8');
+  if(text.length>100000)continue;
+  snippets+='\n=== '+p+' ===\n'+text+'\n';
+}
+writeFileSync(out+'/transport-source.txt',snippets.slice(0,150000));
+const token='local-fixture-only-not-production-000000000000000000000';
+const logs=[];
+const proxy=spawn(process.execPath,['/work/render-auth-proxy.mjs',process.execPath,'/app/cli.js',
+  '--headless','--browser','chromium','--no-sandbox','--host','127.0.0.1','--port','19131',
+  '--allowed-hosts','127.0.0.1,localhost'],{env:{...process.env,PORT:'19130',UPSTREAM_PORT:'19131',MCP_TOKEN:token},stdio:['ignore','pipe','pipe']});
+proxy.stdout.on('data',b=>logs.push(b.toString()));proxy.stderr.on('data',b=>logs.push(b.toString()));
+const page=createServer((req,res)=>{res.setHeader('content-type','text/html');res.end('<title>JH Local Lifetime Test</title><h1>JH Local Lifetime Test</h1><input aria-label="Sample note"><a href="/second">Next page</a>');});
+await new Promise(r=>page.listen(19132,'127.0.0.1',r));
+const connects=()=>new Promise(r=>{const s=connect(19130,'127.0.0.1');s.once('connect',()=>{s.destroy();r(true)});s.once('error',()=>r(false));s.setTimeout(250,()=>{s.destroy();r(false)});});
+const results=[];
+try{
+  for(let i=0;i<120&&!(await connects());i++){if(proxy.exitCode!==null)throw Error('proxy_start_failed');await delay(250);}
+  if(!(await connects()))throw Error('proxy_start_timeout');
+  for(const mode of ['direct','proxy']){
+    const trace=[];const local='http://127.0.0.1:'+(mode==='direct'?19131:19130)+'/mcp';
+    const ids=new Map();const sidLabel=s=>!s?null:(ids.has(s)?ids.get(s):(ids.set(s,ids.size+1),ids.get(s)));
+    const transport=createBrowserTransport({endpoint:'https://playwright-mcp-yzcy.onrender.com/mcp',token,
+      timeoutMs:20000,fetchImpl:async(_,opts)=>{const req=JSON.parse(opts.body);const res=await fetch(local,opts);
+        trace.push({method:req.method,tool:req.params?.name??null,status:res.status,
+          inputSession:sidLabel(new Headers(opts.headers).get('mcp-session-id')),outputSession:sidLabel(res.headers.get('mcp-session-id'))});return res;}});
+    const session=createBrowserSession({transport});
+    const row={mode,trace};
+    try{
+      row.navigate=await session.tool('browser_navigate',{url:'http://127.0.0.1:19132/first'});
+      await delay(1200);
+      row.snapshot=await session.tool('browser_snapshot',{});
+      row.persisted=JSON.stringify(row.snapshot).includes('JH Local Lifetime Test');
+      await delay(1200);row.secondSnapshot=await session.tool('browser_snapshot',{});
+      row.persistedTwice=JSON.stringify(row.secondSnapshot).includes('JH Local Lifetime Test');
+    }catch(e){row.error=e.message;}
+    results.push(row);
+  }
+  writeFileSync(out+'/probe.json',JSON.stringify(results,null,2));
+  console.log('REAL_CHROMIUM_LIFETIME',JSON.stringify(results));
+}finally{
+  proxy.kill('SIGTERM');page.close();
+  await Promise.race([new Promise(r=>proxy.once('exit',r)),delay(3000)]);
+  if(proxy.exitCode===null)proxy.kill('SIGKILL');
+  writeFileSync(out+'/proxy.log',logs.join(''));
+}

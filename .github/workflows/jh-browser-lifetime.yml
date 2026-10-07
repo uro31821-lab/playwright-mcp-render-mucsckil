@@ -1,0 +1,35 @@
+name: JH actual Chromium page lifetime
+on:
+  push:
+    branches: [jh/browser-page-lifetime-20261007]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Read exact public source
+        env:
+          COMMIT: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/${REPOSITORY}.git"
+          git fetch --depth=1 origin "$COMMIT"
+          git checkout --detach FETCH_HEAD
+      - name: Run exact deployed browser image with synthetic local page only
+        run: |
+          mkdir -p evidence-lifetime
+          docker pull mcr.microsoft.com/playwright/mcp:v0.0.78
+          docker image inspect mcr.microsoft.com/playwright/mcp:v0.0.78 --format '{{json .RepoDigests}}' > evidence-lifetime/image.json
+          docker run --rm --init --network none --entrypoint node \
+            -v "$PWD:/work:ro" -v "$PWD/evidence-lifetime:/out" \
+            mcr.microsoft.com/playwright/mcp:v0.0.78 /work/verification/browser-lifetime-probe.mjs
+      - name: Preserve diagnostic records only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-browser-lifetime
+          retention-days: 3
+          path: evidence-lifetime/
