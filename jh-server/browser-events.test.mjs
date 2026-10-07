@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {setTimeout as delay} from 'node:timers/promises';
+import {withBrowserEvents} from './browser-events.mjs';
+const endpoint='https://playwright-mcp-yzcy.onrender.com/mcp',token='synthetic-event-test-token-not-a-key';
+const h={'mcp-session-id':'test-session','mcp-protocol-version':'2025-03-26'};
+const opts=(method,headers=h)=>({method:'POST',headers,body:JSON.stringify({jsonrpc:'2.0',method,params:{}})});
+function fixture(extra={}){
+ let control;const calls=[];const stream=new ReadableStream({start(c){control=c;},cancel(){}});
+ const base={request:async o=>{calls.push(JSON.parse(o.body));const m=JSON.parse(o.body);return m.method==='initialize'?new Response('{}',{headers:{'mcp-session-id':'test-session'}}):m.method==='notifications/initialized'||m.result?new Response(null,{status:202}):new Response('{}');}};
+ const client=withBrowserEvents(base,{endpoint,token,fetchImpl:async(url,o)=>{assert.equal(url,endpoint);assert.equal(o.method,'GET');assert.equal(o.headers.authorization,'Bearer '+token);assert.equal(o.redirect,'error');return new Response(stream,{headers:{'content-type':'text/event-stream'}});},...extra});
+ return {client,calls,send:v=>control.enqueue(new TextEncoder().encode(typeof v==='string'?v:'event: message\ndata: '+JSON.stringify(v)+'\n\n')),end:()=>control.close()};
+}
+async function ready(f){await f.client.request(opts('initialize',{}));await f.client.request(opts('notifications/initialized'));}
+test('authenticated GET answers ping without executing tools',async()=>{const f=fixture();try{await ready(f);f.send({jsonrpc:'2.0',id:0,method:'ping'});await delay(10);assert.deepEqual(f.calls.at(-1),{jsonrpc:'2.0',id:0,result:{}});await f.client.request(opts('tools/list'));assert.equal(f.calls.length,4);}finally{f.client.close();}});
+test('fragmented UTF8/SSE ping is assembled',async()=>{const f=fixture();try{await ready(f);f.send('data: {"jsonrpc":"2.0",');f.send('"id":"p1","method":"ping"}\r\n\r\n');await delay(10);assert.equal(f.calls.at(-1).id,'p1');}finally{f.client.close();}});
+for(const [name,message]of[['tool request',{jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'browser_click'}}],['sampling',{jsonrpc:'2.0',id:1,method:'sampling/createMessage'}],['bad json','data: {broken}\n\n'],['wrong envelope',{jsonrpc:'1.0',id:1,method:'ping'}],['response on GET',{jsonrpc:'2.0',id:1,result:{}}]])test(name+' closes channel without request replay',async()=>{const f=fixture();try{await ready(f);f.send(message);await delay(10);const n=f.calls.length;await assert.rejects(f.client.request(opts('tools/call')),/channel_closed/);assert.equal(f.calls.length,n);}finally{f.client.close();}});
+test('duplicate ping never receives a second response',async()=>{const f=fixture();try{await ready(f);const p={jsonrpc:'2.0',id:9,method:'ping'};f.send(p);await delay(10);f.send(p);await delay(10);assert.equal(f.calls.filter(x=>x.id===9).length,1);await assert.rejects(f.client.request(opts('tools/list')),/channel_closed/);}finally{f.client.close();}});
+test('EOF invalidates before next browser action',async()=>{const f=fixture();await ready(f);f.end();await delay(10);await assert.rejects(f.client.request(opts('tools/call')),/channel_closed/);assert.equal(f.calls.length,2);f.client.close();});
+test('fixed channel lifetime expires without reconnect',async()=>{const f=fixture({lifetimeMs:20});await ready(f);await delay(35);await assert.rejects(f.client.request(opts('tools/list')),/channel_closed/);assert.equal(f.calls.length,2);f.client.close();});
+test('long frame is bounded',async()=>{const f=fixture({maxFrameBytes:64});await ready(f);f.send('x'.repeat(80));await delay(10);await assert.rejects(f.client.request(opts('tools/list')),/channel_closed/);f.client.close();});
+for(const status of[401,403,404,500])test('GET failure '+status+' is not retried',async()=>{let gets=0;const f=fixture({fetchImpl:async()=>{gets++;return new Response(null,{status});}});try{await assert.rejects(ready(f),/browser_/);assert.equal(gets,1);}finally{f.client.close();}});
+test('header timeout has no retry',async()=>{let gets=0;const f=fixture({headerTimeoutMs:20,fetchImpl:async()=>{gets++;return new Promise(()=>{});}});try{await assert.rejects(ready(f),/browser_/);assert.equal(gets,1);}finally{f.client.close();}});
+test('endpoint remains fixed',async()=>{const f=fixture({endpoint:'https://untrusted.invalid/mcp'});try{await assert.rejects(ready(f),/configuration_required/);}finally{f.client.close();}});
+test('tool list changed notification causes no write',async()=>{const f=fixture();try{await ready(f);f.send({jsonrpc:'2.0',method:'notifications/tools/list_changed'});await delay(10);assert.equal(f.calls.length,2);await f.client.request(opts('tools/list'));}finally{f.client.close();}});
