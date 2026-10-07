@@ -65,8 +65,12 @@ test('deployed entry + real MCP SDK: navigation/readback, expiry, no replay, cal
     failAction=true;const n=actions;const failed=await call('life_web_click',{target:'old-ref'});
     assert.equal(failed.isError,true);assert.match(failed.content[0].text,/not_replayed/);assert.equal(actions,n+1);
     await call('life_web_snapshot');assert.equal(actions,n+2);
-    const unauthorized=await fetch('http://127.0.0.1:'+port+'/mcp',{method:'POST',headers:{'content-type':'application/json','accept':'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list',params:{}})});
-    const denial=await unauthorized.text();assert(unauthorized.status===401 || denial.includes('mcp/www_authenticate'));
+    // Catalog discovery is intentionally public in the unchanged parent. Test
+    // protected tools/call, not tools/list, and require the exact error envelope.
+    const priorActions=actions;
+    const unauthorized=await fetch('http://127.0.0.1:'+port+'/mcp',{method:'POST',headers:{'content-type':'application/json','accept':'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:90,method:'tools/call',params:{name:'life_web_snapshot',arguments:{}}})});
+    const denial=await unauthorized.json();assert.equal(denial.id,90);assert.equal(denial.result.isError,true);
+    assert.equal(denial.result.content[0].text,'Authentication required.');assert(Array.isArray(denial.result._meta['mcp/www_authenticate']));assert.equal(actions,priorActions);
     assert(!log.includes('a'.repeat(32))&&!log.includes('b'.repeat(32)));
     console.log('ENTRY_FLOW_CONFIRMED '+JSON.stringify({initializations,actions,navigationReadback:true,staleRecovery:true,noActionReplay:true,callerAuthPreserved:true}));
   } finally {
