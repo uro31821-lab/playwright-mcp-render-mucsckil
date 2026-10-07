@@ -43,13 +43,13 @@ try{
       assert.equal(row.persisted,fixed,mode+' 6.5-second page lifetime');
       if(fixed){
         const text=row.snapshot.content.filter(x=>x.type==='text').map(x=>x.text).join('\n');
-        const ref=/textbox "Sample note"[^\n]*\[ref=(\w+)\]/.exec(text)?.[1];assert(ref,'live textbox reference');
-        const typed=await session.tool('browser_type',{element:'Sample note',ref,text:'retained test note'});assert(!typed.isError);
+        const target=/textbox "Sample note"[^\n]*\[ref=(\w+)\]/.exec(text)?.[1];assert(target,'live textbox reference');
+        row.typed=await session.tool('browser_type',{element:'Sample note',target,text:'retained test note'});assert(!row.typed.isError);
         await delay(6500);row.inputSnapshot=await session.tool('browser_snapshot',{});assert(!row.inputSnapshot.isError);
         const current=row.inputSnapshot.content.filter(x=>x.type==='text').map(x=>x.text).join('\n');
         assert(current.includes('retained test note'),'input retained after another heartbeat period');
         const link=/link "Next page"[^\n]*\[ref=(\w+)\]/.exec(current)?.[1];assert(link);
-        const clicked=await session.tool('browser_click',{element:'Next page',ref:link});assert(!clicked.isError);
+        row.clicked=await session.tool('browser_click',{element:'Next page',target:link});assert(!row.clicked.isError);
         row.linkSnapshot=await session.tool('browser_snapshot',{});assert(JSON.stringify(row.linkSnapshot).includes('19132/second'));
         row.pingReplies=trace.filter(x=>x.method==='ping_reply').length;assert(row.pingReplies>=3);
         assert.equal(trace.filter(x=>x.method==='initialize').length,1,'no session replacement during use');
