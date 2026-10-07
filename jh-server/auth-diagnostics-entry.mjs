@@ -1,3 +1,4 @@
+import { emitRuntimeMetadata } from './runtime-metadata.mjs';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { installDiagnostics } from './connection-diagnostics.mjs';
@@ -27,3 +28,4 @@ const persistentRuntimeUrl = prepareBrowserPersistenceRuntime(sessionRuntimeUrl)
 console.log('JH_BROWSER_TRANSPORT', JSON.stringify({revision:'render-browser-v4-heartbeat',
   configurationRequired:true,credentialsLogged:false,automaticActionRetry:false,eventChannelLifetimeMs:600000}));
 await import(persistentRuntimeUrl.href);
+emitRuntimeMetadata();
