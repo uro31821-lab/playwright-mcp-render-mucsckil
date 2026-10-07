@@ -85,3 +85,25 @@ export function createBrowserTransport({
     }
   };
 }
+
+// tools/list adds top-level security metadata before ending the response. Remove
+// the obsolete byte count BEFORE writeHead sends it; leave auth and body intact.
+export function installCatalogFraming(response) {
+  const originalWriteHead = response.writeHead;
+  response.writeHead = function (...args) {
+    this.removeHeader("content-length");
+    const index = typeof args[1] === "string" ? 2 : 1;
+    const headers = args[index];
+    if (Array.isArray(headers)) {
+      if (headers.length % 2 !== 0) return originalWriteHead.apply(this, args);
+      const filtered = [];
+      for (let i = 0; i < headers.length; i += 2) {
+        if (String(headers[i]).toLowerCase() !== "content-length") filtered.push(headers[i], headers[i + 1]);
+      }
+      args[index] = filtered;
+    } else if (headers && typeof headers === "object") {
+      args[index] = Object.fromEntries(Object.entries(headers).filter(([key]) => key.toLowerCase() !== "content-length"));
+    }
+    return originalWriteHead.apply(this, args);
+  };
+}
