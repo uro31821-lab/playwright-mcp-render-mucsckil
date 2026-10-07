@@ -1,0 +1,41 @@
+name: JH browser session recovery checks
+on:
+  push:
+    branches: [jh/browser-session-recovery-20261007]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Read exact source without persisted credentials
+        env:
+          COMMIT: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/${REPOSITORY}.git"
+          git fetch --depth=1 origin "$COMMIT"
+          git checkout --detach FETCH_HEAD
+      - name: Install existing JH dependency family
+        working-directory: jh-server
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Existing authentication and new session regression checks
+        working-directory: jh-server
+        shell: bash
+        run: |
+          set -o pipefail
+          node verification/build-auth-candidate.mjs
+          node --test connection-diagnostics.test.mjs verification/auth-rejection.test.mjs verification/job-deadline.test.mjs browser-framing.test.mjs browser-session.test.mjs | tee session-checks.tap
+          node --check browser-session.mjs
+          node --check browser-session-runtime.mjs
+      - name: Preserve small test records only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-browser-session-evidence
+          retention-days: 3
+          path: |
+            jh-server/session-checks.tap
+            jh-server/session-evidence/hashes.json
