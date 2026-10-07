@@ -1,0 +1,38 @@
+name: JH real-browser persistence diagnosis
+on:
+  push:
+    branches: ['jh/browser-persistence-20261007']
+permissions:
+  contents: read
+jobs:
+  real-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Read exact public source without credentials
+        env:
+          REPOSITORY: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/${REPOSITORY}.git"
+          git fetch --depth=1 origin "$COMMIT"
+          git checkout --detach FETCH_HEAD
+      - name: Install existing client dependencies
+        working-directory: jh-server
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Start same browser image tag as deployed server
+        run: |
+          docker pull mcr.microsoft.com/playwright/mcp:v0.0.78
+          docker image inspect mcr.microsoft.com/playwright/mcp:v0.0.78 --format '{{index .RepoDigests 0}}'
+          docker run -d --name jh-browser-probe --network host --entrypoint node mcr.microsoft.com/playwright/mcp:v0.0.78 /app/cli.js --headless --browser chromium --no-sandbox --host 127.0.0.1 --port 18931 --allowed-hosts 127.0.0.1:18931
+          for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:18931/mcp && break; sleep 1; done
+      - name: Compare current client and official SDK using real Chromium
+        working-directory: jh-server
+        run: timeout 120 node browser-persistence-probe.mjs
+      - name: Inspect installed heartbeat code and stop test container
+        if: always()
+        run: |
+          docker exec jh-browser-probe sh -c 'find /app/node_modules -path "*/mcp/*" -name "server.js" -exec grep -n -A25 "startHeartbeat" {} \;' || true
+          docker logs --tail 12 jh-browser-probe || true
+          docker rm -f jh-browser-probe || true
