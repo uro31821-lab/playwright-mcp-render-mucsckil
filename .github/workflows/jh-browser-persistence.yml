@@ -18,28 +18,38 @@ jobs:
           git remote add origin "https://github.com/${REPOSITORY}.git"
           git fetch --depth=1 origin "$COMMIT"
           git checkout --detach FETCH_HEAD
+          git fetch --depth=1 origin 0ddd2a630dc3ff9b898e3e6a4f55b9f68407c930
+          mkdir -p "$RUNNER_TEMP/jh-proxy"
+          git show 0ddd2a630dc3ff9b898e3e6a4f55b9f68407c930:render-auth-proxy.mjs > "$RUNNER_TEMP/jh-proxy/render-auth-proxy.mjs"
+          git show 0ddd2a630dc3ff9b898e3e6a4f55b9f68407c930:render-auth-limiter.mjs > "$RUNNER_TEMP/jh-proxy/render-auth-limiter.mjs"
       - name: Install existing client dependencies
         working-directory: jh-server
         run: npm install --ignore-scripts --no-audit --no-fund
-      - name: Run unchanged security checks and new event channel tests
+      - name: Run prior checks and new event channel tests
         working-directory: jh-server
         run: |
-          set -o pipefail
           node verification/build-auth-candidate.mjs
-          node --test connection-diagnostics.test.mjs verification/auth-rejection.test.mjs verification/job-deadline.test.mjs browser-framing.test.mjs browser-session.test.mjs browser-session-entry.test.mjs browser-events.test.mjs | tee events-checks.tap
-      - name: Start separate copies of deployed browser image
+          node --test connection-diagnostics.test.mjs verification/auth-rejection.test.mjs verification/job-deadline.test.mjs browser-framing.test.mjs browser-session.test.mjs browser-session-entry.test.mjs browser-events.test.mjs > events-checks.tap 2>&1 || { tail -100 events-checks.tap; exit 1; }
+          tail -10 events-checks.tap
+      - name: Start separate copies of pinned browser image and unchanged proxy
         run: |
-          docker pull mcr.microsoft.com/playwright/mcp@sha256:3d871c22ea2d4cca0966e2cfb1860e1cb03eb7353725a3d6cffd133296fb04eb
+          image=mcr.microsoft.com/playwright/mcp@sha256:3d871c22ea2d4cca0966e2cfb1860e1cb03eb7353725a3d6cffd133296fb04eb
+          docker pull "$image" > /tmp/image-pull.log 2>&1
           for port in 18931 18933 18935; do
-            docker run -d --name jh-browser-$port --network host --entrypoint node mcr.microsoft.com/playwright/mcp@sha256:3d871c22ea2d4cca0966e2cfb1860e1cb03eb7353725a3d6cffd133296fb04eb /app/cli.js --headless --browser chromium --no-sandbox --host 127.0.0.1 --port $port --allowed-hosts 127.0.0.1:$port
+            docker run -d --name jh-browser-$port --network host --entrypoint node "$image" /app/cli.js --headless --browser chromium --no-sandbox --host 127.0.0.1 --port $port --allowed-hosts 127.0.0.1:$port
             for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:$port/mcp && break; sleep 1; done
           done
-      - name: Reproduce original problem and verify SDK control
+          docker run -d --name jh-browser-proxy --network host -v "$RUNNER_TEMP/jh-proxy:/jh-proxy:ro" -e PORT=18937 -e UPSTREAM_PORT=18936 -e MCP_TOKEN=synthetic-test-browser-events-token --entrypoint node "$image" /jh-proxy/render-auth-proxy.mjs node /app/cli.js --headless --browser chromium --no-sandbox --host 127.0.0.1 --port 18936 --allowed-hosts 127.0.0.1:18937
+          for i in $(seq 1 30); do curl -s -o /dev/null http://127.0.0.1:18937/mcp && break; sleep 1; done
+      - name: Reproduce old bug and check official SDK control
         working-directory: jh-server
         run: timeout 120 node browser-persistence-probe.mjs
-      - name: Verify fixed transport with real Chromium beyond heartbeat deadlines
+      - name: Fixed client with real browser
         working-directory: jh-server
         run: timeout 120 node browser-events-real.mjs
+      - name: Complete deployed entry and authentication proxy with real browser
+        working-directory: jh-server
+        run: timeout 120 node browser-events-entry-real.mjs
       - name: Stop test containers
         if: always()
-        run: docker rm -f jh-browser-18931 jh-browser-18933 jh-browser-18935 || true
+        run: docker rm -f jh-browser-18931 jh-browser-18933 jh-browser-18935 jh-browser-proxy || true

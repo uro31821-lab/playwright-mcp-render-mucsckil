@@ -17,11 +17,13 @@ console.log('JH_CONNECTION_DIAG', JSON.stringify({
   revision: 'connection-observer-v3-session-deadline', authenticationChanged: false,
   jobSignedExpiryCapped: true, sessionLifetimeChanged: false, runtimeSha256
 }));
-// Preserve the pinned transport/catalog correction before the scoped session repair.
+// Each prior authentication/transport/session identity check is preserved.
 const { prepareBrowserRuntime } = await import('./browser-runtime.mjs');
 const browserRuntimeUrl = prepareBrowserRuntime();
 const { prepareBrowserSessionRuntime } = await import('./browser-session-runtime.mjs');
 const sessionRuntimeUrl = prepareBrowserSessionRuntime(browserRuntimeUrl);
-console.log('JH_BROWSER_TRANSPORT', JSON.stringify({revision: 'render-browser-v3-session-recovery',
-  configurationRequired: true, credentialsLogged: false, automaticActionRetry: false}));
-await import(sessionRuntimeUrl.href);
+const { prepareBrowserPersistenceRuntime } = await import('./browser-persistence-runtime.mjs');
+const persistentRuntimeUrl = prepareBrowserPersistenceRuntime(sessionRuntimeUrl);
+console.log('JH_BROWSER_TRANSPORT', JSON.stringify({revision:'render-browser-v4-heartbeat',
+  configurationRequired:true,credentialsLogged:false,automaticActionRetry:false,eventChannelLifetimeMs:600000}));
+await import(persistentRuntimeUrl.href);
