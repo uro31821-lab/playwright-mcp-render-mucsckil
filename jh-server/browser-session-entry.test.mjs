@@ -16,6 +16,11 @@ test('deployed entry + real MCP SDK: navigation/readback, expiry, no replay, cal
   let sid='none',initializations=0,actions=0,page='about:blank',failAction=false;
   const upstream=createServer(async(req,res)=>{
     assert.equal(req.headers.authorization,'Bearer '+'b'.repeat(32));
+    // Model the server-to-client channel as well as the existing POST fixture.
+    if(req.method==='GET'){
+      if(req.headers['mcp-session-id']!==sid){res.writeHead(404).end();return;}
+      res.writeHead(200,{'content-type':'text/event-stream'});res.flushHeaders();return;
+    }
     let text='';for await(const b of req)text+=b;const m=JSON.parse(text);
     if(m.method==='initialize'){
       assert.equal(req.headers['mcp-session-id'],undefined);sid='mock-'+(++initializations);
@@ -65,8 +70,6 @@ test('deployed entry + real MCP SDK: navigation/readback, expiry, no replay, cal
     failAction=true;const n=actions;const failed=await call('life_web_click',{target:'old-ref'});
     assert.equal(failed.isError,true);assert.match(failed.content[0].text,/not_replayed/);assert.equal(actions,n+1);
     await call('life_web_snapshot');assert.equal(actions,n+2);
-    // Catalog discovery is intentionally public in the unchanged parent. Test
-    // protected tools/call, not tools/list, and require the exact error envelope.
     const priorActions=actions;
     const unauthorized=await fetch('http://127.0.0.1:'+port+'/mcp',{method:'POST',headers:{'content-type':'application/json','accept':'application/json, text/event-stream'},body:JSON.stringify({jsonrpc:'2.0',id:90,method:'tools/call',params:{name:'life_web_snapshot',arguments:{}}})});
     const denial=await unauthorized.json();assert.equal(denial.id,90);assert.equal(denial.result.isError,true);

@@ -1,0 +1,22 @@
+name: JH heartbeat module validation
+on:
+  push:
+    branches: ['jh/browser-event-seal-20261007']
+permissions:
+  contents: read
+jobs:
+  module:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - env:
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          git init .
+          git remote add origin "https://github.com/$REPO.git"
+          git fetch --depth=1 origin "$COMMIT"
+          git checkout --detach FETCH_HEAD
+          cd jh-server
+          node --test browser-events.test.mjs
+          sha256sum browser-events.mjs
