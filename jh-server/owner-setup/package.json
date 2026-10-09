@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.25.2",
+    "zod": "3.25.76"
+  },
+  "scripts": {
+    "build:owner": "node verification/build-owner-runtime.mjs",
+    "start:owner": "node deployment/owner-service-entry.mjs",
+    "owner:storage": "node deployment/owner-deploy-cli.mjs",
+    "test:deployment": "node --test --test-concurrency=1 deployment/*.test.mjs",
+    "build:pc-owner": "node deployment/pc-owner-runtime-build.mjs",
+    "start:pc-owner": "node deployment/pc-owner-service-entry.mjs",
+    "start:published": "node deployment/published-service-entry.mjs"
+  }
+}

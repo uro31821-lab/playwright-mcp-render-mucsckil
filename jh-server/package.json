@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node auth-diagnostics-entry.mjs",
+    "start": "node owner-setup/deployment/published-host-router.mjs",
     "test:connection-diag": "node --test connection-diagnostics.test.mjs",
-    "postinstall": "node verification/build-auth-candidate.mjs && node --test verification/auth-rejection.test.mjs && node --test connection-diagnostics.test.mjs && node --test verification/job-deadline.test.mjs",
+    "postinstall": "node verification/build-auth-candidate.mjs && node --test verification/auth-rejection.test.mjs && node --test connection-diagnostics.test.mjs && node --test verification/job-deadline.test.mjs && npm ci --prefix owner-setup --ignore-scripts --no-audit --no-fund && npm ci --prefix owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund",
     "prestart": "node verification/build-auth-candidate.mjs"
   },
   "engines": {
