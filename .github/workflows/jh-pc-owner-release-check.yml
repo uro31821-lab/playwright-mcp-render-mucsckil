@@ -1,0 +1,45 @@
+name: JH PC owner release check
+on:
+  push:
+    branches: ['jh/pc-owner-publication-20261009','jh-fix3-secure-server']
+    paths: ['jh-server/**','.github/workflows/jh-pc-owner-release-check.yml']
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Install exact PC dependencies and run preserved host checks
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Verify deployment plan preservation and production boundaries
+        working-directory: jh-server
+        run: |
+          node --test owner-setup/deployment/pc-owner-environment-plan.test.mjs
+          node --input-type=module -e "import {assertPublishedLineage} from './owner-setup/deployment/published-lineage.mjs'; import path from 'node:path'; console.log(assertPublishedLineage(path.resolve('owner-setup')));"
+      - name: Start unchanged normal service and deny unconfigured PC activation
+        working-directory: jh-server
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=18761 PUBLIC_BASE_URL=https://jh-secure-bridge-fix4.onrender.com LIFE_HUB_TOKEN=JH_CI_SYNTHETIC_ONLY_TOKEN_1234567890 npm start > /tmp/jh-release-start.log 2>&1 &
+          P=$!
+          trap 'kill "$P" 2>/dev/null || true' EXIT
+          for n in $(seq 1 100); do
+            if curl --fail --silent http://127.0.0.1:18761/health > /tmp/jh-release-health.json; then break; fi
+            kill -0 "$P"
+            sleep 0.2
+          done
+          curl --fail --silent http://127.0.0.1:18761/health
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18761/mcp)
+          test "$code" = 401
+          code=$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18761/jh/setup/google)
+          test "$code" = 404
+          echo RELEASE_LAYOUT_PASS

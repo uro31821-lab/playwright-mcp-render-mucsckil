@@ -38,10 +38,13 @@ export function requirePcNodeVersion(version){
 export async function main(){
  const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),hostRoot=path.dirname(sourceRoot);
  if(path.basename(sourceRoot)!=='owner-setup')fail('PUBLISHED_HOST_LAYOUT_REQUIRED');
+ if(process.env.JH_PC_OWNER_SETUP_PLAN_JSON!==undefined&&process.env.JH_PC_OWNER_SETUP_ENABLED!=='1')fail('PC_SETUP_EXPLICIT_CONFIGURATION_REQUIRED');
  const mode=selectPublishedStartup(process.env);
  assertPublishedHost(hostRoot,sourceRoot);
  if(mode==='published')return import(pathToFileURL(path.join(hostRoot,'auth-diagnostics-entry.mjs')).href);
  requirePcNodeVersion(process.versions.node);
+ const {preparePcOwnerPlanFromEnvironment}=await import('./pc-owner-environment-plan.mjs');
+ preparePcOwnerPlanFromEnvironment();
  const {main:start}=await import('./published-service-entry.mjs');return start();
 }
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
