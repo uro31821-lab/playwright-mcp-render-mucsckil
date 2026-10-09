@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 import {assertPcIdentityEvidence} from '../owner-enrollment/pc-owner-proof.mjs';
 import {ownerConfigurationProposal} from './pc-owner-proof-config.mjs';
 import {EXPECTED_ORIGIN,loadOwnerConfiguration,validateOwnerConfiguration} from './owner-config.mjs';
-import {parseMountInfo,inspectOwnerMount} from './owner-storage.mjs';
+import {parseMountInfo,inspectOwnerMount,assertStorageRootAccess} from './owner-storage.mjs';
 const plans=new WeakSet(),used=new WeakSet();
 const CLIENT=/^[-a-zA-Z0-9.]{1,220}\.apps\.googleusercontent\.com$/;
 const names=['version','serverOrigin','googleWebClientId','androidClientId','expectedGmail','ownerLabel','storageMount','storageEpoch'];
@@ -29,8 +29,8 @@ function directory(p){const s=fs.lstatSync(p);if(!s.isDirectory()||s.isSymbolicL
 function syncDir(p){const fd=fs.openSync(p,fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
 function writeExclusive(p,bytes){const fd=fs.openSync(p,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL|fs.constants.O_NOFOLLOW,0o600);try{let i=0;while(i<bytes.length){const n=fs.writeSync(fd,bytes,i,bytes.length-i);if(n<1)fail('PC_SETUP_SHORT_WRITE');i+=n;}fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
 export function inspectPcOwnerSetupTarget(p,observations={}){
- assertPlan(p);const mount=p.storageMount,s=fs.lstatSync(mount);
- if(!s.isDirectory()||s.isSymbolicLink()||fs.realpathSync(mount)!==mount||(s.mode&0o022))fail('PC_SETUP_MOUNT_INVALID');
+ assertPlan(p);const mount=p.storageMount;
+ assertStorageRootAccess(mount,'PC_SETUP_MOUNT_INVALID');
  const rows=parseMountInfo(observations.mountInfo??fs.readFileSync('/proc/self/mountinfo','utf8')),found=rows.filter(x=>x.mount===mount);
  if(found.length!==1||!['ext4','xfs','btrfs','zfs'].includes(found[0].filesystem)||!found[0].options.includes('rw')||found[0].superOptions.includes('ro'))fail('PC_SETUP_PERSISTENT_MOUNT_REQUIRED');
  if(!new Set([0xef53,0x58465342,0x9123683e,0x2fc12fc1]).has((observations.filesystemType??Number(fs.statfsSync(mount).type))>>>0))fail('PC_SETUP_FILESYSTEM_MISMATCH');

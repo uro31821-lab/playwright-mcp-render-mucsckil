@@ -1,7 +1,7 @@
 name: JH PC owner release check
 on:
   push:
-    branches: ['jh/pc-owner-publication-20261009','jh-fix3-secure-server']
+    branches: ['jh/pc-owner-publication-20261009','jh-fix3-secure-server','jh/pc-owner-mount-20261009']
     paths: ['jh-server/**','.github/workflows/jh-pc-owner-release-check.yml']
 permissions:
   contents: read
