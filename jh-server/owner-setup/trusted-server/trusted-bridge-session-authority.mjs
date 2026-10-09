@@ -17,7 +17,7 @@ export class TrustedBridgeSessionAuthority {
   constructor({registry,bridge,now=Date.now}){
     if(!registry||typeof registry.trustForSessionIssuer!=='function'||typeof registry.claimForSessionIssuer!=='function')fail('TRUST_REGISTRY_REQUIRED');
     for(const k of ['devices','states','queues','jobs','recentJobs','frameWaiters'])if(!(bridge?.[k] instanceof Map))fail('BRIDGE_STATE_REQUIRED');
-    if(!hex(bridge.serverDigest)||!hex(bridge.catalogDigest)||typeof now!=='function')fail('BRIDGE_CONFIGURATION_REQUIRED');
+    if(!hex(bridge.serverDigest)||!hex(bridge.catalogDigest)||typeof bridge.sessionDigest!=='function'||typeof now!=='function')fail('BRIDGE_CONFIGURATION_REQUIRED');
     this.#registry=registry;this.#bridge=bridge;this.#now=now;
   }
   #time(){const n=this.#now();if(!Number.isSafeInteger(n)||n<0)fail('INVALID_CLOCK');return n;}
