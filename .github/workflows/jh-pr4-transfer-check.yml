@@ -1,0 +1,76 @@
+name: JH PR4 transfer verification
+on:
+  push:
+    branches: ['jh/pc-owner-publication-20261009']
+    paths: ['.github/workflows/jh-pr4-transfer-check.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jh-pr4-transfer-verification
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Reconstruct and verify the previously reviewed source bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, itertools, json, lzma, os, pathlib, re, urllib.request
+          repo = 'uro31821-lab/playwright-mcp-render-mucsckil'
+          assert os.environ['GITHUB_REPOSITORY'] == repo
+          assert os.environ['GITHUB_REF'] == 'refs/heads/jh/pc-owner-publication-20261009'
+          shas = '''f66e02b83070bd0233fffcfd69763347f8628580
+          3d06ca1a0e8f7e08c9abb35bf4bbd499ff61cdb4
+          de3e3f21a8ab119f6f5f38acc3a62d8c45a61d61
+          8d271d32100a29422917e560126d0204b3cbec1f
+          4803deb92675c1e14ae73023571ea752ffbf00f3
+          d2c9b00411f7afe0f57fad51e65232fa37c2b793
+          489f8c24efcc5efc9e7d9c5db5b277c3a3014f3d
+          cd5bb866b4247a57fe6ea09b0a831f38fc00cd3a
+          95680bc36b46cebebe4cd672e1d8be29a1b368ac
+          1f94430b691f9fba919b75189ab046ba5aa1b994
+          52179101a531d9a810ca8c45c98c97364d49c6c0
+          0c68b00897b3ee8b171cabdf5b67ffe95d157292'''.split()
+          out = pathlib.Path(os.environ['RUNNER_TEMP'])/'jh-pr4-transfer'; out.mkdir()
+          variants = []
+          for i, sha in enumerate(shas):
+              req = urllib.request.Request('https://api.github.com/repos/'+repo+'/git/blobs/'+sha, headers={'Accept':'application/vnd.github+json','Authorization':'Bearer '+os.environ['GH_TOKEN'],'X-GitHub-Api-Version':'2022-11-28'})
+              with urllib.request.urlopen(req, timeout=30) as r: data = json.loads(r.read(150000))
+              raw = base64.b64decode(data['content'])
+              assert len(raw) < 30000 and data['sha'] == sha
+              assert hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest() == sha
+              (out/('chunk-%02d.bin'%i)).write_bytes(raw)
+              opts = [raw]
+              if re.fullmatch(rb'[A-Za-z0-9+/=\r\n]+', raw):
+                  try: opts.append(base64.b64decode(raw, validate=False))
+                  except ValueError: pass
+              variants.append(opts)
+              print('verified_chunk', i, 'bytes', len(raw), 'variants', [len(x) for x in opts])
+          match = None
+          for parts in itertools.product(*variants):
+              joined = b''.join(parts)
+              if hashlib.sha256(joined).hexdigest() == 'b105c559d60bbdb6eaa57fa791ce9a6b34e950e6735a517b26af733762a5d9fa':
+                  assert len(joined) == 138752; match = joined; break
+          if match is None: raise SystemExit('PREVIOUS_CHUNKS_DO_NOT_MATCH_REVIEWED_BUNDLE')
+          dec = lzma.LZMADecompressor(memlimit=128*1024*1024)
+          payload = dec.decompress(match, max_length=2000000)
+          assert dec.eof and not dec.unused_data and len(payload) == 1079705
+          assert hashlib.sha256(payload).hexdigest() == 'c6492dc3442328a8f6369d05b8de8e8a1ed45d27d99e7d74a3928a97c80c4e64'
+          parsed = json.loads(payload)
+          print('PAYLOAD_VERIFIED', type(parsed).__name__, list(parsed)[:8] if isinstance(parsed,dict) else len(parsed))
+          (out/'reviewed-payload.json').write_bytes(payload)
+          (out/'reviewed-payload.xz').write_bytes(match)
+          PY
+      - name: Keep verified source bytes for exact local comparison
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-pr4-verified-transfer
+          path: ${{ runner.temp }}/jh-pr4-transfer/
+          retention-days: 1
+          if-no-files-found: error
