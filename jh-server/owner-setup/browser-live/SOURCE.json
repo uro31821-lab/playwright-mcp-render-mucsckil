@@ -1,0 +1,12 @@
+{
+  "repository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "commit": "95010cefe67639b23af7493b5b16d1cf553ed4c9",
+  "originalDirectory": "jh-server",
+  "sha256": {
+    "browser-transport.mjs": "2289e56329e76ae86b6f14519958d45c8a31a0d53b134cee3a83fc9220ad008e",
+    "browser-session.mjs": "f1e1e702fd5ac6f36bbc7bd98d318ca5cbc23c00c4fa3f0652dc704c34481fd5",
+    "browser-events.mjs": "716ddf301e448510224f814c3eef83aed0885fa87490520ad39314eba40caa50"
+  },
+  "sourceReadVia": "GitHub connector",
+  "secretsIncluded": false
+}

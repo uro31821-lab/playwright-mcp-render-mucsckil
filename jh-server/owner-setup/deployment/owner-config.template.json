@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "serverOrigin": "https://jh-secure-bridge-fix4.onrender.com",
+  "catalogDigest": "a777e1a88a0b7633ba983ca3054d2eb28f3b9c41596e0a46b93597d478a42ca1",
+  "googleWebClientId": "",
+  "ownerSubject": "",
+  "ownerLabel": "",
+  "storageMount": "/var/data",
+  "storageEpoch": "",
+  "allowedPresenterClientIds": []
+}

@@ -1,0 +1,38 @@
+{
+  "commit": "9ddc89bba3096abbc6a730b27c0baec59632ba3d",
+  "repository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "repositoryPrefix": "jh-server/",
+  "sha256": {
+    "auth-diagnostics-entry.mjs": "f4f3dfa0d474501d21c5f067831cf5e48e652085026485fd2a21ab5b6f73d2b3",
+    "browser-events.mjs": "716ddf301e448510224f814c3eef83aed0885fa87490520ad39314eba40caa50",
+    "browser-persistence-runtime.mjs": "dd247ef26f6c162bb9ce7ccf6413bea083d4c4d09942a7205f140713c0364011",
+    "browser-runtime.mjs": "babaf654064322d3c943aab66b10fa59c4d18729ce1d23c7bef461cf680685d5",
+    "browser-session-runtime.mjs": "73af2cc82c8d6b1b96863a991e2d1080f032a099170d296d532bda608b1adc1a",
+    "browser-session.mjs": "f1e1e702fd5ac6f36bbc7bd98d318ca5cbc23c00c4fa3f0652dc704c34481fd5",
+    "browser-transport.mjs": "2289e56329e76ae86b6f14519958d45c8a31a0d53b134cee3a83fc9220ad008e",
+    "connection-diagnostics.mjs": "1d34295258270c029963c2856504819dd28e22c510edf489cfaad851cc2dafcf",
+    "package.json": "10f6256b70a1a20f5cedbd41d04ac4a748edd8561f3421ae14af783c2c417c2a",
+    "runtime-metadata.mjs": "7fc079dddc4d23243870e24c7d186e64017fa5481a6e86acad0724468167a77c",
+    "server.mjs": "2a66e53bde1618be6180cef1fac3172426674f6634efcc4045a07c85c25d8f6e",
+    "verification/auth-rejection-probe.mjs": "136d578a0e0b6b70a5e52b6fb09dd03026bc9f2a19958c884641ca22ef845479",
+    "verification/build-auth-candidate.mjs": "383206a038d9d678663cdf3a96bed8a17b30703d4601052f303f7f28eaf030e7"
+  },
+  "gitBlobs": {
+    "auth-diagnostics-entry.mjs": "3d5171f930d0feedefe5f5326c4efa16f63dd372",
+    "browser-events.mjs": "4f1a584b75debee0349e503c6aaeb5cfed00345a",
+    "browser-persistence-runtime.mjs": "6c5075699c2efbc64702b1c572f9553b87c2079d",
+    "browser-runtime.mjs": "ee243a1316a6ae7e9c83a140c7463e0282fe3ef3",
+    "browser-session-runtime.mjs": "9e0b5e12928e200f9ee1e511630c2c87b8da942a",
+    "browser-session.mjs": "7715f452395d81d366fc3e73c5909fdcb06aa67e",
+    "browser-transport.mjs": "38e62508827bb3807509e8e7f260f5a5978a9449",
+    "connection-diagnostics.mjs": "11345f9b5b9bc99c400f3716a7c6b9d6fb8771d8",
+    "package.json": "431ebf964dec5ee4f432186f85ca880d92342ef4",
+    "runtime-metadata.mjs": "93c8773be07c04ec916d82757452053f38e1e541",
+    "server.mjs": "2c4fc54d0c2789b8c02e825c3946b9777e14a694",
+    "verification/auth-rejection-probe.mjs": "0e3e16eccfb11e587af1b5431bea3e9c5b1a17cc",
+    "verification/build-auth-candidate.mjs": "7e27a5f0b99142f2839a62f6e8ab2876123fb9ee"
+  },
+  "scope": "Exact startup dependency closure and package reference, not a full repository export. Old postinstall test sources are not included here. Use root lockfile install, not this reference package postinstall.",
+  "baseAcquisition": "Lossless reverse of fetched pinned generator applied to existing verified auth candidate; result matches Git blob 2c4fc54 and regenerates exact original candidate.",
+  "observedAtUtc": "2026-10-08T19:15:39.821696+00:00"
+}
