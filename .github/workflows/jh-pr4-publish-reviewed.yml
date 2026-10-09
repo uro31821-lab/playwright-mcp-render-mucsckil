@@ -1,0 +1,157 @@
+name: JH PR4 reviewed publication and build
+on:
+  push:
+    branches: ['jh/pc-owner-publication-20261009']
+    paths: ['.github/workflows/jh-pr4-publish-reviewed.yml']
+permissions:
+  contents: read
+concurrency:
+  group: jh-pr4-reviewed-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: write
+    outputs:
+      commit: ${{ steps.publish.outputs.commit }}
+    steps:
+      - name: Publish the exact reviewed application payload to this draft PR only
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64, hashlib, json, lzma, os, pathlib, re, urllib.request
+          repo='uro31821-lab/playwright-mcp-render-mucsckil'
+          branch='jh/pc-owner-publication-20261009'
+          base='9ddc89bba3096abbc6a730b27c0baec59632ba3d'
+          assert os.environ['GITHUB_REPOSITORY']==repo and os.environ['GITHUB_REF']=='refs/heads/'+branch
+          parent=os.environ['GITHUB_SHA']
+          def api(endpoint, body=None, method=None):
+              req=urllib.request.Request('https://api.github.com/repos/'+repo+'/'+endpoint, data=None if body is None else json.dumps(body,separators=(',',':')).encode(), method=method, headers={'Accept':'application/vnd.github+json','Content-Type':'application/json','Authorization':'Bearer '+os.environ['GH_TOKEN'],'X-GitHub-Api-Version':'2022-11-28'})
+              with urllib.request.urlopen(req,timeout=90) as r: return json.loads(r.read(8000000))
+          def gitblob(b): return hashlib.sha1(b'blob '+str(len(b)).encode()+b'\0'+b).hexdigest()
+          def tree(sha):
+              d=api('git/trees/'+sha+'?recursive=1'); assert not d.get('truncated')
+              return {x['path']:(x['mode'],x['type'],x['sha']) for x in d['tree'] if x['type']!='tree'}
+          assert api('git/ref/heads/'+branch)['object']['sha']==parent
+          assert api('git/ref/heads/jh-fix3-secure-server')['object']['sha']==base
+          shas='''f66e02b83070bd0233fffcfd69763347f8628580
+          3d06ca1a0e8f7e08c9abb35bf4bbd499ff61cdb4
+          de3e3f21a8ab119f6f5f38acc3a62d8c45a61d61
+          8d271d32100a29422917e560126d0204b3cbec1f
+          4803deb92675c1e14ae73023571ea752ffbf00f3
+          d2c9b00411f7afe0f57fad51e65232fa37c2b793
+          489f8c24efcc5efc9e7d9c5db5b277c3a3014f3d
+          cd5bb866b4247a57fe6ea09b0a831f38fc00cd3a
+          95680bc36b46cebebe4cd672e1d8be29a1b368ac
+          1f94430b691f9fba919b75189ab046ba5aa1b994
+          52179101a531d9a810ca8c45c98c97364d49c6c0
+          f3305da6bf1fdb86e31e598d865102dd5c88b215'''.split()
+          parts=[]
+          for sha in shas:
+              d=api('git/blobs/'+sha); raw=base64.b64decode(d['content'])
+              assert d['sha']==sha and gitblob(raw)==sha and len(raw)<=12000
+              parts.append(raw)
+          packed=b''.join(parts)
+          assert len(packed)==138752 and hashlib.sha256(packed).hexdigest()=='b105c559d60bbdb6eaa57fa791ce9a6b34e950e6735a517b26af733762a5d9fa'
+          dec=lzma.LZMADecompressor(memlimit=128*1024*1024)
+          raw=dec.decompress(packed,max_length=2000000)
+          assert dec.eof and not dec.unused_data and len(raw)==1079705
+          assert hashlib.sha256(raw).hexdigest()=='c6492dc3442328a8f6369d05b8de8e8a1ed45d27d99e7d74a3928a97c80c4e64'
+          payload=json.loads(raw); assert isinstance(payload,dict) and len(payload)==122
+          for p,s in payload.items():
+              assert isinstance(s,str) and '\0' not in s
+              assert p=='jh-server/package.json' or p.startswith('jh-server/owner-setup/')
+              assert not pathlib.PurePosixPath(p).is_absolute() and '..' not in pathlib.PurePosixPath(p).parts and '\\' not in p
+          old=tree(parent); baseline=tree(base)
+          assert all(old.get(p)==v for p,v in baseline.items())
+          additions=set(old)-set(baseline)
+          helper={'.github/workflows/jh-pr4-transfer-check.yml','.github/workflows/jh-pr4-publish-reviewed.yml'}
+          assert len(additions-helper)==21 and additions<=set(payload)|helper
+          for p in additions-helper: assert old[p]==('100644','blob',gitblob(payload[p].encode()))
+          original=json.loads(payload['jh-server/owner-setup/published-baseline/package.json'])
+          replacement=json.loads(payload['jh-server/package.json'])
+          assert original['dependencies']==replacement['dependencies'] and original['engines']==replacement['engines']
+          assert original['scripts']['prestart']==replacement['scripts']['prestart']
+          assert replacement['scripts']['postinstall'].startswith(original['scripts']['postinstall']+' && ')
+          assert old['jh-server/package.json'][2]==gitblob(payload['jh-server/owner-setup/published-baseline/package.json'].encode())
+          expected=dict(old)
+          for p,s in payload.items(): expected[p]=('100644','blob',gitblob(s.encode()))
+          entries=[{'path':p,'mode':'100644','type':'blob','content':s} for p,s in sorted(payload.items()) if old.get(p)!=expected[p]]
+          parent_tree=api('git/commits/'+parent)['tree']['sha']
+          new_tree=api('git/trees',{'base_tree':parent_tree,'tree':entries})['sha']
+          assert tree(new_tree)==expected
+          commit=api('git/commits',{'message':'feat(jh): publish complete byte-verified PC owner setup payload; not activated','tree':new_tree,'parents':[parent]})['sha']
+          assert api('git/ref/heads/'+branch)['object']['sha']==parent
+          assert api('git/ref/heads/jh-fix3-secure-server')['object']['sha']==base
+          api('git/refs/heads/'+branch,{'sha':commit,'force':False},'PATCH')
+          assert api('git/ref/heads/'+branch)['object']['sha']==commit
+          assert tree(commit)==expected
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f: f.write('commit='+commit+'\n')
+          print(json.dumps({'publishedFiles':122,'commit':commit,'tree':new_tree,'payloadSha256':hashlib.sha256(raw).hexdigest(),'productionBranchChanged':False,'deployed':False}))
+          PY
+  build:
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['26.11.0','26.11.1']
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ needs.publish.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Run the actual production install and original regression checks
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Verify the complete lineage and normal npm start without PC activation
+        working-directory: jh-server
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module -e "import {assertPublishedLineage} from './owner-setup/deployment/published-lineage.mjs'; import path from 'node:path'; console.log(assertPublishedLineage(path.resolve('owner-setup')));"
+          python3 - <<'PY'
+          import json,os,subprocess,time,urllib.request,urllib.error,signal
+          env=dict(os.environ,PORT='18761',PUBLIC_BASE_URL='https://jh-secure-bridge-fix4.onrender.com',LIFE_HUB_TOKEN='JH_BUILD_ONLY_SYNTHETIC_TOKEN_1234567890')
+          with open('pr4-startup.log','wb') as log:
+              p=subprocess.Popen(['npm','start'],env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+              try:
+                  for _ in range(150):
+                      if p.poll() is not None: raise RuntimeError('STARTUP_EXITED')
+                      try:
+                          with urllib.request.urlopen('http://127.0.0.1:18761/health',timeout=1) as r:
+                              assert r.status==200; health=json.loads(r.read()); break
+                      except (urllib.error.URLError,TimeoutError): time.sleep(.2)
+                  else: raise RuntimeError('HEALTH_TIMEOUT')
+                  for route in ['/mcp','/jh/setup/google']:
+                      req=urllib.request.Request('http://127.0.0.1:18761'+route,headers={'Accept':'application/json, text/event-stream'})
+                      try:
+                          with urllib.request.urlopen(req,timeout=3) as r: status=r.status
+                      except urllib.error.HTTPError as e: status=e.code
+                      assert status>=400,(route,status)
+                  print('DEPLOYMENT_LAYOUT_STARTUP_PASS', 'health200', 'unauthenticatedMcpDenied', 'pcSetupNotEnabled',flush=True)
+              finally:
+                  os.killpg(p.pid,signal.SIGTERM)
+                  try:p.wait(timeout=8)
+                  except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
+          PY
+      - name: Keep build startup log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-pr4-startup-${{ matrix.node }}
+          path: jh-server/pr4-startup.log
+          retention-days: 1
+          if-no-files-found: warn
