@@ -7,6 +7,7 @@ import {privateBytes} from './owner-config.mjs';
 import {parseOwnerJson} from '../owner-enrollment/owner-enrollment-http.mjs';
 import {validatePcOwnerSetupPlan,inspectPcOwnerSetupTarget} from './pc-owner-handoff.mjs';
 import {validatePcOwnerSetupEnvironment} from './pc-owner-service-entry.mjs';
+import {parseMountInfo} from './owner-storage.mjs';
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const exists=p=>{try{return fs.lstatSync(p);}catch(e){if(e.code==='ENOENT')return null;throw e;}};
 const encode=p=>Buffer.from(JSON.stringify(p)+'\n');
@@ -42,6 +43,37 @@ export function persistPcOwnerPlan(input){
  fs.unlinkSync(marker);sync(dir);
  return Object.freeze({privatePlanReady:true,created:true,identityVerified:false,authorityGranted:false});
 }
+/** Tightens only an operator-selected owned directory, never its children.
+ * The production caller additionally requires the exact service and genuine
+ * persistent mount. Kept separate so ownership/link checks are testable. */
+export function restrictOwnedDirectoryWrite(dir){
+ const before=fs.lstatSync(dir),uid=process.getuid();
+ if(!before.isDirectory()||before.isSymbolicLink()||fs.realpathSync(dir)!==dir||before.uid!==uid)fail('PC_MOUNT_OWNER_REVIEW_REQUIRED');
+ const fd=fs.openSync(dir,fs.constants.O_RDONLY|fs.constants.O_DIRECTORY|fs.constants.O_NOFOLLOW);
+ try{
+  const current=fs.fstatSync(fd);
+  if(current.ino!==before.ino||current.dev!==before.dev||current.uid!==uid||!current.isDirectory())fail('PC_MOUNT_CHANGED');
+  const original=current.mode&0o7777,next=original&~0o022;
+  if(next!==original){fs.fchmodSync(fd,next);fs.fsyncSync(fd);}
+  const after=fs.fstatSync(fd),named=fs.lstatSync(dir);
+  if((after.mode&0o7777)!==next||after.ino!==named.ino||after.dev!==named.dev||fs.realpathSync(dir)!==dir)fail('PC_MOUNT_PERMISSION_READBACK_FAILED');
+  return Object.freeze({permissionsTightened:next!==original,beforeMode:original.toString(8),afterMode:next.toString(8),childrenChanged:false});
+ }finally{fs.closeSync(fd);}
+}
+function prepareProductionMount(env){
+ const mount='/var/data',s=fs.lstatSync(mount);
+ const rows=parseMountInfo(fs.readFileSync('/proc/self/mountinfo','utf8')).filter(x=>x.mount===mount);
+ const type=Number(fs.statfsSync(mount).type)>>>0;
+ const meta={directory:s.isDirectory(),symbolicLink:s.isSymbolicLink(),canonical:fs.realpathSync(mount)===mount,
+  mode:(s.mode&0o7777).toString(8),ownerUid:s.uid,processUid:process.getuid(),mountRows:rows.length,
+  filesystem:rows.length===1?rows[0].filesystem:null,filesystemType:type};
+ try{console.log('JH_PC_OWNER_MOUNT '+JSON.stringify(meta));}catch{}
+ if(env.JH_PC_OWNER_SETUP_PREPARE_MOUNT===undefined)return;
+ if(env.JH_PC_OWNER_SETUP_PREPARE_MOUNT!=='1'||env.RENDER_SERVICE_ID!=='srv-db0fjl2d0e5s73be114g')fail('PC_MOUNT_PREPARATION_EXPLICIT_SERVICE_REQUIRED');
+ if(rows.length!==1||!['ext4','xfs','btrfs','zfs'].includes(rows[0].filesystem)||!rows[0].options.includes('rw')||rows[0].superOptions.includes('ro')||!new Set([0xef53,0x58465342,0x9123683e,0x2fc12fc1]).has(type))fail('PC_SETUP_PERSISTENT_MOUNT_REQUIRED');
+ const result=restrictOwnedDirectoryWrite(mount);
+ try{console.log('JH_PC_OWNER_MOUNT_PREPARED '+JSON.stringify(result));}catch{}
+}
 export function preparePcOwnerPlanFromEnvironment(env=process.env){
  const raw=env.JH_PC_OWNER_SETUP_PLAN_JSON;
  if(raw===undefined)return Object.freeze({materialized:false});
@@ -51,7 +83,8 @@ export function preparePcOwnerPlanFromEnvironment(env=process.env){
  const bytes=Buffer.from(raw);let plan;
  try{plan=validatePcOwnerSetupPlan(parseOwnerJson(bytes));}catch{fail('PC_PLAN_ENVIRONMENT_INVALID');}finally{bytes.fill(0);}
  if(plan.storageMount!=='/var/data')fail('PC_SETUP_PRODUCTION_MOUNT_REQUIRED');
- inspectPcOwnerSetupTarget(plan); // real kernel mount + filesystem observations only
+ prepareProductionMount(env); // optional explicit permission tightening, never a validation bypass
+ inspectPcOwnerSetupTarget(plan); // original real mount and private-state validation still mandatory
  const result=persistPcOwnerPlan(plan);
  delete env.JH_PC_OWNER_SETUP_PLAN_JSON; // avoid propagation to child processes
  return result;
