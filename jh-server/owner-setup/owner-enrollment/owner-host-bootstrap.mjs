@@ -4,6 +4,7 @@
  * Call before accepting requests; on any installation failure terminate startup.
  */
 import path from 'node:path';
+import {installCompletionObserver} from '../trusted-server/completion-observer.mjs';
 import {EnrollmentStore} from './enrollment-store.mjs';
 import {GoogleOwnerVerifier} from './owner-enrollment.mjs';
 import {createOwnerRegistryService} from './owner-registry-service.mjs';
@@ -14,13 +15,14 @@ export function installConfiguredOwnerHost(runtime,config) {
   // No first-caller ownership; the verifier refuses a missing allowlist/client.
   const verifier=new GoogleOwnerVerifier({clientId:config.googleClientId,allowedSubjects:config.allowedOwnerSubjects,allowedPresenters:config.allowedPresenters});
   const store=new EnrollmentStore({filename:config.ownerJournalPath,key:config.encryptionKey,epoch:config.storageEpoch,initialize:config.initialize===true});
-  let service;
+  let service,observer;
   try {
     service=createOwnerRegistryService({store,verifier,serverOrigin:config.serverOrigin,catalogDigest:config.catalogDigest,registryPath:config.registryPath,initializeRegistry:config.initialize===true});
     const authority=runtime.installTrustedSessionRegistry56(service.registry);
     service.installSessionAuthority(authority);
+    observer=installCompletionObserver(runtime.httpServer,authority,code=>console.error('JH_RESULT_RECEIPT '+JSON.stringify({code,saved:false,taskSuccessVerified:false})));
     runtime.installOwnerEnrollmentHandler56(createOwnerEnrollmentHttpHandler({service,serverOrigin:config.serverOrigin}));
     return Object.freeze({enrollmentHostInstalled:true,trustCreated:false,sessionCreated:false,actionApprovalGranted:false,
-      close(){service.close();store.close();}});
-  } catch(e) {try{service?.close();}catch{}store.close();throw e;}
+      close(){observer?.close();service.close();store.close();}});
+  } catch(e) {observer?.close();try{service?.close();}catch{}store.close();throw e;}
 }
