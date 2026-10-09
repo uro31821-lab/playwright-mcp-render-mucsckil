@@ -18,3 +18,67 @@ test('malformed, duplicate and extra fields cannot become a private plan',()=>{c
 test('owned directory permission preparation only removes other-user write bits',()=>{const f=fixture();try{const child=path.join(f.p.storageMount,'existing-user-data');fs.writeFileSync(child,'unchanged');fs.chmodSync(child,0o644);const before=fs.statSync(child);fs.chmodSync(f.p.storageMount,0o777);const r=restrictOwnedDirectoryWrite(f.p.storageMount);assert.deepEqual(r,{permissionsTightened:true,beforeMode:'777',afterMode:'755',childrenChanged:false});assert.equal(fs.readFileSync(child,'utf8'),'unchanged');assert.equal(fs.statSync(child).mode,before.mode);assert.equal(fs.statSync(child).mtimeMs,before.mtimeMs);assert.equal(restrictOwnedDirectoryWrite(f.p.storageMount).permissionsTightened,false);}finally{f.cleanup();}});
 test('mount preparation rejects symlinks and leaves target untouched',()=>{const f=fixture();try{const dir=path.join(f.p.storageMount,'dir');fs.mkdirSync(dir,{mode:0o777});fs.chmodSync(dir,0o777);fs.symlinkSync('dir',path.join(f.p.storageMount,'link'));assert.throws(()=>restrictOwnedDirectoryWrite(path.join(f.p.storageMount,'link')),/PC_MOUNT_OWNER_REVIEW_REQUIRED/);assert.equal(fs.statSync(dir).mode&0o777,0o777);}finally{f.cleanup();}});
 test('already private directory remains private',()=>{const f=fixture();try{assert.deepEqual(restrictOwnedDirectoryWrite(f.p.storageMount),{permissionsTightened:false,beforeMode:'700',afterMode:'700',childrenChanged:false});}finally{f.cleanup();}});
+
+// Mount-root metadata and private application state are different boundaries.
+import {isRenderManagedRoot,assertStorageRootAccess,inspectOwnerMount} from './owner-storage.mjs';
+import {validateOwnerConfiguration,EXPECTED_CATALOG} from './owner-config.mjs';
+import {validatePcOwnerSetupPlan,inspectPcOwnerSetupTarget} from './pc-owner-handoff.mjs';
+const renderContext={serviceId:'srv-db0fjl2d0e5s73be114g',uid:1000,gid:1000};
+const renderStat={uid:0,gid:1000,mode:0o42775,isDirectory:()=>true,isSymbolicLink:()=>false};
+test('observed service-owned group mount is distinct from a private directory',()=>{
+ assert.equal(isRenderManagedRoot('/var/data',renderStat,renderContext),true);
+ for(const mode of [0o777,0o2777,0o1775,0o775,0o2707,0o6775])assert.equal(isRenderManagedRoot('/var/data',{...renderStat,mode},renderContext),false);
+ for(const mount of ['/tmp/data','/var/data/child','/var/data/','/var/data/../data'])assert.equal(isRenderManagedRoot(mount,renderStat,renderContext),false);
+ for(const context of [{...renderContext,serviceId:'another-service'},{...renderContext,serviceId:undefined},{...renderContext,uid:0},{...renderContext,gid:0}])assert.equal(isRenderManagedRoot('/var/data',renderStat,context),false);
+ for(const st of [{...renderStat,uid:1000},{...renderStat,gid:1001},{...renderStat,isSymbolicLink:()=>true},{...renderStat,isDirectory:()=>false}])assert.equal(isRenderManagedRoot('/var/data',st,renderContext),false);
+});
+test('read-only mount policy leaves the directory and unrelated file unchanged',()=>{
+ const f=fixture();try{
+  const child=path.join(f.p.storageMount,'untouched');fs.writeFileSync(child,'original',{mode:0o600});
+  const before=fs.statSync(f.p.storageMount),file=fs.statSync(child);
+  assertStorageRootAccess(f.p.storageMount);
+  assert.equal(fs.statSync(f.p.storageMount).mode,before.mode);assert.equal(fs.statSync(f.p.storageMount).uid,before.uid);
+  assert.equal(fs.statSync(child).mtimeMs,file.mtimeMs);assert.equal(fs.readFileSync(child,'utf8'),'original');
+ }finally{f.cleanup();}
+});
+test('group-writable temporary roots are NOT mistaken for Render mounts',()=>{
+ const f=fixture();try{
+  fs.chmodSync(f.p.storageMount,0o2775);
+  assert.throws(()=>assertStorageRootAccess(f.p.storageMount),/MOUNT_WRITABLE_BY_OTHER_USERS/);
+  assert.throws(()=>persistPcOwnerPlan(f.p),/PC_PLAN_MOUNT_PATH_INVALID/);
+  assert.throws(()=>inspectPcOwnerSetupTarget(validatePcOwnerSetupPlan(f.p)),/PC_SETUP_MOUNT_INVALID/);
+  assert.equal(fs.statSync(f.p.storageMount).mode&0o7777,0o2775);assert.equal(fs.readdirSync(f.p.storageMount).length,0);
+ }finally{f.cleanup();}
+});
+test('a link to a restricted root is still rejected',()=>{
+ const f=fixture();try{
+  const real=path.join(f.p.storageMount,'real'),link=path.join(f.p.storageMount,'link');fs.mkdirSync(real,{mode:0o700});fs.symlinkSync(real,link);
+  assert.throws(()=>assertStorageRootAccess(link),/MOUNT_WRITABLE_BY_OTHER_USERS/);
+ }finally{f.cleanup();}
+});
+test('permission approval alone cannot turn an ephemeral directory into a persistent mount',()=>{
+ const f=fixture();try{
+  assertStorageRootAccess(f.p.storageMount);
+  const p=validatePcOwnerSetupPlan(f.p);
+  assert.throws(()=>inspectPcOwnerSetupTarget(p),/PC_SETUP_PERSISTENT_MOUNT_REQUIRED/);
+  const c=validateOwnerConfiguration({version:1,serverOrigin:p.serverOrigin,catalogDigest:EXPECTED_CATALOG,googleWebClientId:p.googleWebClientId,allowedPresenterClientIds:[p.googleWebClientId,p.androidClientId],ownerSubject:'synthetic-subject',ownerLabel:p.ownerLabel,storageMount:p.storageMount,storageEpoch:p.storageEpoch});
+  assert.throws(()=>inspectOwnerMount(c),/DISTINCT_PERSISTENT_MOUNT_REQUIRED/);
+  assert.equal(fs.readdirSync(f.p.storageMount).length,0);
+ }finally{f.cleanup();}
+});
+test('platform root policy never authorizes a group-readable private bootstrap directory',()=>{
+ const f=fixture();try{
+  const dir=path.join(f.p.storageMount,'jh-pc-bootstrap');fs.mkdirSync(dir,{mode:0o750});
+  assert.throws(()=>persistPcOwnerPlan(f.p),/PC_PLAN_PRIVATE_DIRECTORY_REQUIRED/);
+  assert.equal(fs.statSync(dir).mode&0o777,0o750);assert.equal(fs.readdirSync(dir).length,0);
+ }finally{f.cleanup();}
+});
+test('strict filesystem and nested mount checks remain active after root approval',()=>{
+ const f=fixture();try{
+  const p=validatePcOwnerSetupPlan(f.p);
+  const row=`41 20 8:1 / ${p.storageMount} rw,relatime - ext4 fixture rw\n`;
+  assert.throws(()=>inspectPcOwnerSetupTarget(p,{mountInfo:row,filesystemType:0x794c7630}),/PC_SETUP_FILESYSTEM_MISMATCH/);
+  assert.throws(()=>inspectPcOwnerSetupTarget(p,{mountInfo:row.replace('rw,relatime','ro,relatime'),filesystemType:0xef53}),/PC_SETUP_PERSISTENT_MOUNT_REQUIRED/);
+  assert.throws(()=>inspectPcOwnerSetupTarget(p,{mountInfo:row+`42 41 8:2 / ${p.storageMount}/jh-owner-setup rw - ext4 fixture rw\n`,filesystemType:0xef53}),/PC_SETUP_NESTED_MOUNT_FORBIDDEN/);
+ }finally{f.cleanup();}
+});

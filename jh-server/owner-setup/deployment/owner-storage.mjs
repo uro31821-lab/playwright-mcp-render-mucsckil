@@ -1,7 +1,7 @@
 /** Real filesystem lifecycle. Mount observations do NOT prove a cloud provider
  * backup/SLA. Operator provisioning and restore/epoch policy remain required.
  * Production callers read real mountinfo; tests may supply synthetic observations. */
-import {readFileSync,lstatSync,realpathSync,mkdirSync,openSync,writeSync,closeSync,fsyncSync,renameSync,unlinkSync,existsSync,statfsSync} from 'node:fs';
+import {readFileSync,lstatSync,realpathSync,mkdirSync,openSync,writeSync,closeSync,fsyncSync,renameSync,unlinkSync,existsSync,statfsSync,accessSync,constants} from 'node:fs';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createHmac,randomBytes,timingSafeEqual} from 'node:crypto';
@@ -11,6 +11,26 @@ import {GoogleOwnerVerifier} from '../owner-enrollment/owner-enrollment.mjs';
 import {createOwnerRegistryService} from '../owner-enrollment/owner-registry-service.mjs';
 const allowedFs=new Set(['ext4','xfs','btrfs','zfs']);
 const filesystemMagics=new Set([0xef53,0x58465342,0x9123683e,0x2fc12fc1]);
+/** The provider mount is NOT an application-private state directory. This exact
+ * service was observed with root:1000, mode 2775 and uid/gid 1000. Trust only
+ * that service-local group for the mount root; never chmod/chown the platform
+ * mount. Callers still verify the genuine writable filesystem and nested mounts.
+ * All state directories/files retain their separate owner-only checks. This
+ * is not isolation from another process running as the same service identity. */
+export function isRenderManagedRoot(mount,st,{serviceId=process.env.RENDER_SERVICE_ID,uid=process.getuid?.(),gid=process.getgid?.()}={}){
+ return mount==='/var/data'&&serviceId==='srv-db0fjl2d0e5s73be114g'&&uid===1000&&gid===1000&&
+  st.isDirectory()&&!st.isSymbolicLink()&&st.uid===0&&st.gid===1000&&(st.mode&0o7777)===0o2775;
+}
+export function assertStorageRootAccess(mount,code='MOUNT_WRITABLE_BY_OTHER_USERS'){
+ const st=lstatSync(mount);
+ if(!st.isDirectory()||st.isSymbolicLink()||realpathSync(mount)!==mount)fail(code);
+ if((st.mode&0o022)!==0){
+  if(!isRenderManagedRoot(mount,st))fail(code);
+  accessSync(mount,constants.W_OK|constants.X_OK);
+ }
+ return st;
+}
+
 const decodeMount=s=>s.replace(/\\(040|011|012|134)/g,(_,n)=>String.fromCharCode(parseInt(n,8)));
 export function parseMountInfo(text) {
   if(typeof text!=='string'||text.length>2*1024*1024)fail('MOUNT_METADATA_INVALID');
@@ -24,8 +44,7 @@ const under=(child,parent)=>child===parent||child.startsWith(parent+path.sep);
 export function inspectOwnerMount(config,{mountInfo=readFileSync('/proc/self/mountinfo','utf8'),filesystemType}={}) {
   assertConfig(config);const mount=config.storageMount;
   if(realpathSync(mount)!==mount)fail('MOUNT_LINK_FORBIDDEN');
-  const st=lstatSync(mount);
-  if(!st.isDirectory()||(st.mode&0o022)!==0)fail('MOUNT_WRITABLE_BY_OTHER_USERS');
+  assertStorageRootAccess(mount);
   const rows=parseMountInfo(mountInfo),matching=rows.filter(r=>r.mount===mount);
   if(matching.length!==1)fail('DISTINCT_PERSISTENT_MOUNT_REQUIRED');
   const row=matching[0];

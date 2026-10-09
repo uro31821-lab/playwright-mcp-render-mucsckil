@@ -7,7 +7,7 @@ import {privateBytes} from './owner-config.mjs';
 import {parseOwnerJson} from '../owner-enrollment/owner-enrollment-http.mjs';
 import {validatePcOwnerSetupPlan,inspectPcOwnerSetupTarget} from './pc-owner-handoff.mjs';
 import {validatePcOwnerSetupEnvironment} from './pc-owner-service-entry.mjs';
-import {parseMountInfo} from './owner-storage.mjs';
+import {parseMountInfo,isRenderManagedRoot,assertStorageRootAccess} from './owner-storage.mjs';
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const exists=p=>{try{return fs.lstatSync(p);}catch(e){if(e.code==='ENOENT')return null;throw e;}};
 const encode=p=>Buffer.from(JSON.stringify(p)+'\n');
@@ -24,7 +24,7 @@ function exclusive(p,b){
  * prove a production mount; the production entry checks it before calling. */
 export function persistPcOwnerPlan(input){
  const plan=validatePcOwnerSetupPlan(input),mount=plan.storageMount;
- if(fs.realpathSync(mount)!==mount||!fs.lstatSync(mount).isDirectory()||(fs.lstatSync(mount).mode&0o022))fail('PC_PLAN_MOUNT_PATH_INVALID');
+ assertStorageRootAccess(mount,'PC_PLAN_MOUNT_PATH_INVALID');
  const dir=path.join(mount,'jh-pc-bootstrap'),file=path.join(dir,'plan.json');
  const marker=path.join(dir,'.plan-writing'),stage=path.join(dir,'.plan-stage');
  if(!exists(dir)){fs.mkdirSync(dir,{mode:0o700});sync(mount);}
@@ -65,12 +65,18 @@ function prepareProductionMount(env){
  const rows=parseMountInfo(fs.readFileSync('/proc/self/mountinfo','utf8')).filter(x=>x.mount===mount);
  const type=Number(fs.statfsSync(mount).type)>>>0;
  const meta={directory:s.isDirectory(),symbolicLink:s.isSymbolicLink(),canonical:fs.realpathSync(mount)===mount,
-  mode:(s.mode&0o7777).toString(8),ownerUid:s.uid,processUid:process.getuid(),mountRows:rows.length,
+  mode:(s.mode&0o7777).toString(8),ownerUid:s.uid,groupGid:s.gid,processUid:process.getuid(),mountRows:rows.length,
   filesystem:rows.length===1?rows[0].filesystem:null,filesystemType:type};
  try{console.log('JH_PC_OWNER_MOUNT '+JSON.stringify(meta));}catch{}
  if(env.JH_PC_OWNER_SETUP_PREPARE_MOUNT===undefined)return;
  if(env.JH_PC_OWNER_SETUP_PREPARE_MOUNT!=='1'||env.RENDER_SERVICE_ID!=='srv-db0fjl2d0e5s73be114g')fail('PC_MOUNT_PREPARATION_EXPLICIT_SERVICE_REQUIRED');
  if(rows.length!==1||!['ext4','xfs','btrfs','zfs'].includes(rows[0].filesystem)||!rows[0].options.includes('rw')||rows[0].superOptions.includes('ro')||!new Set([0xef53,0x58465342,0x9123683e,0x2fc12fc1]).has(type))fail('PC_SETUP_PERSISTENT_MOUNT_REQUIRED');
+ // Render owns this mount. Use private children, never change its ownership.
+ if(isRenderManagedRoot(mount,s)){
+  assertStorageRootAccess(mount,'PC_MOUNT_OWNER_REVIEW_REQUIRED');
+  try{console.log('JH_PC_OWNER_MOUNT_PREPARED '+JSON.stringify({platformManaged:true,permissionsTightened:false,childrenChanged:false,privateDirectoriesRequired:true}));}catch{}
+  return;
+ }
  const result=restrictOwnedDirectoryWrite(mount);
  try{console.log('JH_PC_OWNER_MOUNT_PREPARED '+JSON.stringify(result));}catch{}
 }
