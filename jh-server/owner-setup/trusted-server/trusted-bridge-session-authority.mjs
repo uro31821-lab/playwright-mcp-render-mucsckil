@@ -17,7 +17,7 @@ export class TrustedBridgeSessionAuthority {
   constructor({registry,bridge,now=Date.now}){
     if(!registry||typeof registry.trustForSessionIssuer!=='function'||typeof registry.claimForSessionIssuer!=='function')fail('TRUST_REGISTRY_REQUIRED');
     for(const k of ['devices','states','queues','jobs','recentJobs','frameWaiters'])if(!(bridge?.[k] instanceof Map))fail('BRIDGE_STATE_REQUIRED');
-    if(!hex(bridge.serverDigest)||!hex(bridge.catalogDigest)||typeof bridge.sessionDigest!=='function'||typeof now!=='function')fail('BRIDGE_CONFIGURATION_REQUIRED');
+    if(!hex(bridge.serverDigest)||!hex(bridge.catalogDigest)||typeof now!=='function')fail('BRIDGE_CONFIGURATION_REQUIRED');
     this.#registry=registry;this.#bridge=bridge;this.#now=now;
   }
   #time(){const n=this.#now();if(!Number.isSafeInteger(n)||n<0)fail('INVALID_CLOCK');return n;}
@@ -93,6 +93,37 @@ export class TrustedBridgeSessionAuthority {
       nonce:input.nonce,expiresAt:p.expiresAt,actionApprovalGranted:false,screenConsentGranted:false};
     r.mac=mac(p.secret,receiptMaterial(r));return r;
   }
+  /** Extends only an existing trusted session while its enrolled device is in use.
+   * Requires BOTH a new durable one-shot device-key proof and the current session
+   * MAC. A stolen session token alone is insufficient. Never renews the trust,
+   * changes a job deadline, issues action consent, or drops nonce history. */
+  renew(input){
+    fields(input,['deviceId','sessionId','proof','mac']);
+    const d=this.#device(input.deviceId),c=input.proof?.challenge;
+    if(!c)fail('INVALID_PROOF');
+    const t=this.#trust(c.trustId);this.#scope(t,d);
+    const st=this.#bridge.states.get(d);if(st)this.#purge(st);
+    const a=st?.active;
+    if(!a||!a.trustId||a.trustId!==t.trustId||a.sessionId!==input.sessionId||!this.sessionAllowed(a))fail('RENEW_ACTIVE_TRUST_REQUIRED');
+    const binding=['JH_TRUST_RENEW_V1',PURPOSE,t.trustId,c.challengeId,c.clientNonce,a.sessionId,a.deviceDigest].join('\n');
+    if(!eq(input.mac,mac(a.secret,binding)))fail('RENEW_MAC_INVALID');
+    const verified=this.#registry.verifyReconnectProof(input.proof);
+    const claim=this.#registry.claimForSessionIssuer(verified.redemptionId,this.#registry.issuerContext);
+    const current=this.#trust(t.trustId),n=this.#time();
+    if(claim.trustId!==a.trustId||st.active!==a||!this.sessionAllowed(a))fail('RENEW_SCOPE_CHANGED');
+    const expiresAt=Math.min(n+MAX_SESSION_MS,claim.maxSessionExpiresAt,current.expiresAt);
+    if(expiresAt<=n||expiresAt<a.expiresAt)fail('RENEW_DEADLINE_INVALID');
+    a.expiresAt=expiresAt;a.sessionDigest=this.#bridge.sessionDigest(a);
+    const r={version:1,code:'TRUSTED_SESSION_RENEWED',purpose:PURPOSE,trustId:a.trustId,
+      sessionId:a.sessionId,deviceDigest:a.deviceDigest,ownerDigest:a.ownerDigest,
+      serverIdentityDigest:current.serverDigest,toolCatalogDigest:current.catalogDigest,
+      challengeId:c.challengeId,clientNonce:c.clientNonce,secureExpiresAt:expiresAt,
+      sessionDigest:a.sessionDigest,serverTime:n,actionApprovalGranted:false,screenConsentGranted:false};
+    r.mac=mac(a.secret,['JH_TRUST_RENEWED_V1',PURPOSE,r.trustId,r.challengeId,r.clientNonce,
+      r.sessionId,r.deviceDigest,r.ownerDigest,r.serverIdentityDigest,r.toolCatalogDigest,
+      r.secureExpiresAt,r.sessionDigest,r.serverTime].join('\n'));
+    return r;
+  }
   beforeDispatch(j){
     const st=this.#bridge.states.get(j.targetDeviceId),a=st?.active;
     if(!a||a.sessionId!==j.secureSessionId||a.trustId!==j.trustBindingId||!this.sessionAllowed(a))fail('TRUST_DISPATCH_FENCED');
@@ -138,7 +169,7 @@ export class TrustedBridgeSessionAuthority {
   }
   async handle(req,res,url){
     res.setHeader('cache-control','no-store');res.setHeader('content-type','application/json');
-    if(req.method!=='POST'||url.search||!['/device/trusted/challenge','/device/trusted/reconnect','/device/trusted/activate','/device/trusted/recovery-challenge','/device/trusted/recover'].includes(url.pathname)){res.writeHead(404).end('{"ok":false,"code":"NOT_FOUND"}');return;}
+    if(req.method!=='POST'||url.search||!['/device/trusted/challenge','/device/trusted/reconnect','/device/trusted/activate','/device/trusted/recovery-challenge','/device/trusted/recover','/device/trusted/renew'].includes(url.pathname)){res.writeHead(404).end('{"ok":false,"code":"NOT_FOUND"}');return;}
     if(!/^application\/json(?:\s*;|$)/i.test(String(req.headers['content-type']||''))){res.writeHead(415).end('{"ok":false,"code":"JSON_REQUIRED"}');return;}
     const now=this.#time();if(now<this.#window||now-this.#window>=60_000){this.#window=now;this.#requests=0;}
     if(++this.#requests>60){res.writeHead(429).end('{"ok":false,"code":"RATE_LIMIT"}');return;}
@@ -146,7 +177,7 @@ export class TrustedBridgeSessionAuthority {
     try{
       for await(const c of req){size+=c.length;if(size>8192){res.writeHead(413).end('{"ok":false,"code":"BODY_TOO_LARGE"}');return;}chunks.push(c);}
       let b;try{b=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{fail('INVALID_JSON');}
-      const r=url.pathname.endsWith('/recovery-challenge')?this.recoveryChallenge(b):url.pathname.endsWith('/recover')?this.recover(b):url.pathname.endsWith('/challenge')?this.challenge(b):url.pathname.endsWith('/reconnect')?this.begin(b):this.activate(b);
+      const r=url.pathname.endsWith('/renew')?this.renew(b):url.pathname.endsWith('/recovery-challenge')?this.recoveryChallenge(b):url.pathname.endsWith('/recover')?this.recover(b):url.pathname.endsWith('/challenge')?this.challenge(b):url.pathname.endsWith('/reconnect')?this.begin(b):this.activate(b);
       res.writeHead(200).end(JSON.stringify(r));
     }catch(e){const code=/^[A-Z0-9_]{1,70}$/.test(e.code||'')?e.code:'TRUST_REQUEST_REJECTED';if(!res.headersSent)res.writeHead(400).end(JSON.stringify({ok:false,code}));}
   }
