@@ -5,6 +5,7 @@
  * account + phone-local consent path, not a request-body boolean.
  */
 import { DatabaseSync } from 'node:sqlite';
+import {installReceiptSchema,pendingReceiptCount,insertDeviceReceipt} from './dispatch-receipts.mjs';
 import { createHash, createPublicKey, randomBytes, verify } from 'node:crypto';
 import { lstatSync, realpathSync, chmodSync, existsSync } from 'node:fs';
 import { isAbsolute, dirname, resolve } from 'node:path';
@@ -86,6 +87,7 @@ export class TrustedDeviceRegistry {
         id TEXT PRIMARY KEY, challenge_id TEXT NOT NULL UNIQUE REFERENCES challenges(id),
         trust_id TEXT NOT NULL REFERENCES trusts(id), issued INTEGER NOT NULL,
         max_session_expires INTEGER NOT NULL, state TEXT NOT NULL);`);
+    installReceiptSchema(this.#db);
     const version=this.#db.prepare('SELECT v FROM meta WHERE k=?').get('schema');
     if (version && version.v!=='1') {this.#db.close();fail('SCHEMA_MISMATCH');}
     this.#db.prepare('INSERT OR IGNORE INTO meta(k,v) VALUES(?,?)').run('schema','1');
@@ -233,7 +235,7 @@ export class TrustedDeviceRegistry {
       if(changed.changes!==1)fail('PROOF_REPLAY');
       const unused=this.#db.prepare('SELECT COUNT(*) n FROM challenges WHERE trust_id=? AND used IS NULL AND expires>?').get(t.id,n).n;
       const redeemable=this.#db.prepare("SELECT COUNT(*) n FROM redemptions WHERE trust_id=? AND state='VERIFIED_NOT_ISSUED' AND issued>? AND max_session_expires>?").get(t.id,n-CHALLENGE_MS,n).n;
-      const uncertain=this.#db.prepare('SELECT COUNT(*) n FROM trusted_dispatches WHERE trust_id=?').get(t.id).n;
+      const uncertain=pendingReceiptCount(this.#db,t.id);
       return {trustId:t.id,ownerDigest:t.owner,deviceDigest:t.device,serverDigest:t.server,catalogDigest:t.catalog,
         challengeId:c.challengeId,clientNonce:c.clientNonce,attemptDigest:proof.attemptDigest,
         unusedChallenges:unused,redeemableProofs:redeemable,dispatchedJobsUncertain:uncertain,
@@ -243,12 +245,18 @@ export class TrustedDeviceRegistry {
   noteUncertainDispatch(trustId,jobDigest,trustedContext){
     if(trustedContext!==this.issuerContext||!hex(jobDigest))fail('ISSUER_CONTEXT_REQUIRED');
     return this.#transaction(()=>{const n=this.#time();this.#trust(trustId,n);
-      if(this.#db.prepare('SELECT COUNT(*) n FROM trusted_dispatches WHERE trust_id=?').get(trustId).n>=512)fail('UNRESOLVED_DISPATCH_LIMIT');
+      if(pendingReceiptCount(this.#db,trustId)>=512)fail('UNRESOLVED_DISPATCH_LIMIT');
+      if(this.#db.prepare('SELECT 1 FROM trusted_dispatches WHERE job_digest=?').get(jobDigest))fail('DISPATCH_ALREADY_RECORDED_NO_RETRY');
       this.#db.prepare('INSERT INTO trusted_dispatches VALUES(?,?,?)').run(jobDigest,trustId,n);});
+  }
+  recordDeviceResult(trustId,jobDigest,evidenceDigest,trustedContext){
+    if(trustedContext!==this.issuerContext||!token(trustId))fail('ISSUER_CONTEXT_REQUIRED');
+    return this.#transaction(()=>{this.#trust(trustId,this.#time());
+      return insertDeviceReceipt(this.#db,trustId,jobDigest,evidenceDigest,this.#time());});
   }
   uncertainDispatchCount(trustId,trustedContext){
     if(trustedContext!==this.issuerContext||!token(trustId))fail('ISSUER_CONTEXT_REQUIRED');
-    return this.#db.prepare('SELECT COUNT(*) n FROM trusted_dispatches WHERE trust_id=?').get(trustId).n;
+    return pendingReceiptCount(this.#db,trustId);
   }
   /** Host-only live fence for both issuance and existing Bridge sessions.
    * Reads the durable registry on every use; no cached "trusted" boolean. */

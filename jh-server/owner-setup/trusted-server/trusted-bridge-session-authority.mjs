@@ -129,12 +129,24 @@ export class TrustedBridgeSessionAuthority {
     if(!a||a.sessionId!==j.secureSessionId||a.trustId!==j.trustBindingId||!this.sessionAllowed(a))fail('TRUST_DISPATCH_FENCED');
     // Read-only status/inspection has no external side effect to undo. Other work
     // stays unresolved durably until a separate result-verification flow resolves it.
-    if(j.secureRequestedEffect!=='READ_ONLY')this.#registry.noteUncertainDispatch(a.trustId,hash(j.id+'|'+j.secureSessionId),this.#registry.issuerContext);
+    if(j.secureRequestedEffect!=='READ_ONLY'&&j.type!=='agent_snapshot')this.#registry.noteUncertainDispatch(a.trustId,hash(j.id+'|'+j.secureSessionId),this.#registry.issuerContext);
+  }
+  /** Host-only callback AFTER the sealed HTTP handler accepted a device result.
+   * No scans during sessionAllowed/recover; those remain admission/read paths.
+   * Receipt confirms transport result acceptance, never business task success.
+   */
+  recordAuthenticatedCompletion(jobId){
+    if(typeof jobId!=='string'||!/^job_[1-9][0-9]*$/.test(jobId))fail('RESULT_JOB_INVALID');
+    const j=this.#bridge.jobs.get(jobId);
+    if(!j||j.id!==jobId||j.status!=='complete'||!j.trustBindingId||!j.secureSessionId||
+       !Number.isFinite(Date.parse(j.completedAt||'')))return {recorded:false,reason:'NO_ACCEPTED_RESULT'};
+    const evidence=hash(JSON.stringify([j.id,j.secureSessionId,j.completedAt,j.result??null]));
+    return this.#registry.recordDeviceResult(j.trustBindingId,hash(j.id+'|'+j.secureSessionId),evidence,this.#registry.issuerContext);
   }
   /** Mandatory fresh durable check by active56, before any existing Bridge work. */
   sessionAllowed(a){try{const t=this.#trust(a.trustId),n=this.#time();return a.ownerDigest===t.ownerDigest&&a.deviceDigest===t.deviceDigest&&t.serverDigest===this.#bridge.serverDigest&&t.catalogDigest===this.#bridge.catalogDigest&&a.expiresAt>n&&a.expiresAt<=t.expiresAt;}catch{return false;}}
   revokeForTrust(id){
-    if(!token(id))fail('INVALID_TRUST_ID');
+    if(!token(id))fail('INVALID_TOKEN');
     try{this.#trust(id);fail('TRUST_STILL_VALID');}catch(e){if(!['TRUST_REVOKED','TRUST_EXPIRED','TRUST_NOT_FOUND','TRUST_SCOPE_CHANGED'].includes(e.code))throw e;}
     return this.fenceSessions(id);
   }
