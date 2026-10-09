@@ -1,0 +1,11 @@
+{
+  "baseline": "9f4b9fb6d86aaf21b94e41d814ab7c3f1d2150377b26b395cf75dfa401db72e1",
+  "candidate": "a329fc7e71fb518a711a28146d34c5093a3f31486dc7ea8a9bd547e52d5118c6",
+  "reversalEqualsBaseline": true,
+  "patches": 7,
+  "hostEnabledByDefault": false,
+  "deferListenSupported": true,
+  "lifeRuntimeSlotSupported": true,
+  "lifeRuntimeEnabledByDefault": false,
+  "productionDeployment": false
+}
