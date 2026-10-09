@@ -146,7 +146,7 @@ export class TrustedBridgeSessionAuthority {
   /** Mandatory fresh durable check by active56, before any existing Bridge work. */
   sessionAllowed(a){try{const t=this.#trust(a.trustId),n=this.#time();return a.ownerDigest===t.ownerDigest&&a.deviceDigest===t.deviceDigest&&t.serverDigest===this.#bridge.serverDigest&&t.catalogDigest===this.#bridge.catalogDigest&&a.expiresAt>n&&a.expiresAt<=t.expiresAt;}catch{return false;}}
   revokeForTrust(id){
-    if(!token(id))fail('INVALID_TOKEN');
+    if(!token(id))fail('INVALID_TRUST_ID');
     try{this.#trust(id);fail('TRUST_STILL_VALID');}catch(e){if(!['TRUST_REVOKED','TRUST_EXPIRED','TRUST_NOT_FOUND','TRUST_SCOPE_CHANGED'].includes(e.code))throw e;}
     return this.fenceSessions(id);
   }
