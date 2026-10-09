@@ -38,6 +38,11 @@ export function requirePcNodeVersion(version){
 export async function main(){
  const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),hostRoot=path.dirname(sourceRoot);
  if(path.basename(sourceRoot)!=='owner-setup')fail('PUBLISHED_HOST_LAYOUT_REQUIRED');
+ if(process.env.JH_OPERATIONAL_START!==undefined||process.env.JH_OPERATIONAL_ACCOUNT_DIGEST!==undefined){
+  assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
+  const {main:operationalMain}=await import('./operational-service-entry.mjs');
+  return operationalMain();
+ }
  if(process.env.JH_PC_OWNER_SETUP_PLAN_JSON!==undefined&&process.env.JH_PC_OWNER_SETUP_ENABLED!=='1')fail('PC_SETUP_EXPLICIT_CONFIGURATION_REQUIRED');
  const mode=selectPublishedStartup(process.env);
  assertPublishedHost(hostRoot,sourceRoot);

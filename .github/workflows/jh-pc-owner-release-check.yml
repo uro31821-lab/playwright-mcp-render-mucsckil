@@ -1,7 +1,7 @@
 name: JH PC owner release check
 on:
   push:
-    branches: ['jh/pc-owner-publication-20261009','jh-fix3-secure-server','jh/pc-owner-mount-20261009']
+    branches: ['jh/pc-owner-publication-20261009','jh-fix3-secure-server','jh/pc-owner-mount-20261009','jh/operational-storage-20261009']
     paths: ['jh-server/**','.github/workflows/jh-pc-owner-release-check.yml']
 permissions:
   contents: read
@@ -23,6 +23,7 @@ jobs:
         working-directory: jh-server
         run: |
           node --test owner-setup/deployment/pc-owner-environment-plan.test.mjs
+          node --test owner-setup/deployment/operational-service-entry.test.mjs
           node --input-type=module -e "import {assertPublishedLineage} from './owner-setup/deployment/published-lineage.mjs'; import path from 'node:path'; console.log(assertPublishedLineage(path.resolve('owner-setup')));"
       - name: Start unchanged normal service and deny unconfigured PC activation
         working-directory: jh-server
