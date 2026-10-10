@@ -1,0 +1,32 @@
+name: JH durable Circuit outcome journal candidate
+on:
+  push:
+    branches: ['jh-restart-circuit-proof-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/circuit-outcome-journal.mjs'
+      - 'jh-server/verification/circuit-outcome-journal.test.mjs'
+      - '.github/workflows/jh-circuit-outcome-journal.yml'
+permissions:
+  contents: read
+jobs:
+  durable-journal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Native sqlite private journal checks, no server mutation
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/circuit-outcome-journal.mjs
+          node --check verification/circuit-outcome-journal.test.mjs
+          node --test verification/circuit-outcome-journal.test.mjs
+      - name: Preserve all existing production runtime and owner files
+        run: |
+          git diff --exit-code 52fd15dcb599e63e3e4861c53c6ad765a517b1dd -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/deployment/functional-release-runtime.mjs jh-server/owner-setup/deployment/owner-service-entry.mjs jh-server/owner-setup/deployment/operational-service-entry.mjs jh-server/owner-setup/trusted-server
+      - run: echo JH_DURABLE_CIRCUIT_CANDIDATE_PASS_NOT_PRODUCTION
