@@ -1,0 +1,71 @@
+name: JH published KakaoT route live-path predeploy
+on:
+  push:
+    branches: ['jh-published-route-live-fix-20261011']
+    paths:
+      - 'jh-server/owner-setup/deployment/published-service-entry.mjs'
+      - '.github/workflows/jh-published-route-live-predeploy.yml'
+permissions:
+  contents: read
+jobs:
+  verify-existing-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Protect production baseline and validate syntax
+        run: |
+          node --check jh-server/owner-setup/deployment/published-service-entry.mjs
+          git diff --exit-code 3010aab1141638a4b4dd61ea1c8161ed523fdc09 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/package.json jh-server/owner-setup/published-baseline jh-server/owner-setup/deployment/published-host-router.mjs jh-server/owner-setup/deployment/published-lineage.mjs jh-server/owner-setup/owner-enrollment
+      - name: Install existing production dependencies
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Exercise real published startup + authenticated MCP route + no-device queue status
+        working-directory: jh-server
+        env:
+          PORT: '19578'
+          LIFE_HUB_TOKEN: 'SYNTHETIC_JH_ROUTE_PREDEPLOY_20261011_NO_REAL_DEVICE'
+          PUBLIC_BASE_URL: 'https://jh-secure-bridge-fix4.onrender.com'
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+          import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+          import {main} from './owner-setup/deployment/published-service-entry.mjs';
+          await main();
+          const base='http://127.0.0.1:19578';
+          const health=await fetch(base+'/health');
+          assert.equal(health.status,200);
+          const body=await health.json();
+          assert.equal(body.ok,true);
+          assert.equal(body.devices,0);
+          const guest=await fetch(base+'/mcp');
+          assert.equal(guest.status,401);
+          const client=new Client({name:'jh-published-route-predeploy',version:'1.0'},{capabilities:{}});
+          await client.connect(new StreamableHTTPClientTransport(new URL(base+'/mcp'),{requestInit:{headers:{Authorization:'Bearer '+process.env.LIFE_HUB_TOKEN}}}));
+          const call=async(name,args)=>{const out=await client.callTool({name,arguments:args});assert.notEqual(out.isError,true);return JSON.parse(out.content.find(c=>c.type==='text').text)};
+          for(const req of ['카카오T 앱 열어 줘','JH로 라프텔 복귀','JH로 이전 앱 복귀해 줘','previous_work_app']){
+            const x=await call('life_route',{request:req});assert.equal(x.owner,'android',req);
+          }
+          for(const req of ['라프텔 원피스 검색','구글 검색'])assert.equal((await call('life_route',{request:req})).owner,'web');
+          assert.equal((await call('life_route',{request:'식당 예약'})).owner,'restaurant_reservation');
+          const returned=await call('life_open_service',{service:'JH로 라프텔 복귀'});
+          assert.equal(returned.route,'android');assert.equal(returned.queued,false);
+          const kakao=await call('life_open_service',{service:'카카오T'});
+          assert.equal(kakao.route,'android');assert.equal(kakao.queued,false);
+          const compat=await call('life_android_open',{target:'JH로 이전 앱 복귀'});
+          assert.equal(compat.route,'android');assert.equal(compat.queued,false);
+          const status=await call('life_status',{});
+          assert.equal(status.secureBridgeVersion,56);
+          await client.close();
+          console.log('JH_PUBLISHED_ROUTE_REAL_MCP_PASS '+JSON.stringify({unauthenticatedRejected:true,routeCases:7,queueCases:3,sourceBaselinePreserved:true,phoneActions:0,productionDeployments:0}));
+          process.exit(0);
+          JS
+      - name: Candidate only
+        run: echo JH_PUBLISHED_ROUTE_CANDIDATE_TEST_ONLY
