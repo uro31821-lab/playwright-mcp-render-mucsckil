@@ -73,7 +73,9 @@ export async function runNativeReadback({action,requestSnapshot,waitSnapshot,bin
 }
 const PREFIX='import {runNativeReadback} from "../deployment/native-readback.mjs";\n';
 const CACHE_OLD='const old=cacheGet(recentJobs,key); if(old) return old;';
-const CACHE_NEW='const old=cacheGet(recentJobs,key); if(old && !(type==="agent_snapshot" && ["complete","error","expired"].includes(old.status))) return old;';
+const CACHEGET_OLD='function cacheGet(m,k){const x=m.get(k);if(!x)return null;if(Date.now()-x.t>DEDUPE_MS){m.delete(k);return null;}return x.v;}';
+const CACHEGET_NEW='function cacheGet(m,k){const x=m.get(k);if(!x)return null;const pending=x.v?.status==="queued"||x.v?.status==="in_progress";if(Date.now()-x.t>DEDUPE_MS&&!pending){m.delete(k);return null;}return x.v;}';
+const CACHE_NEW='cleanupJobs();\n  const old=cacheGet(recentJobs,key);\n  const currentSessionId=active56(targetDeviceId)?.sessionId??null;\n  if(old && (old.secureSessionId??null)===currentSessionId && !(type==="agent_snapshot" && ["complete","error","expired"].includes(old.status))) return old;';
 const WRAPPER=`async function boundedNativeReadback(action){
  const d=action?.targetDeviceId;
  const bindingValid=()=>{
@@ -109,7 +111,7 @@ const STEP_OLD=`    let snap=null;
 const STEP_NEW=`    const observation=await boundedNativeReadback(acted);
     return textResult({acted:safeJobView56(acted),targetDeviceId:stepJob.targetDeviceId,
       snapshot:observation.snapshot?safeJobView56(observation.snapshot):null,readback:observation.readback});`;
-const edits=[[CACHE_OLD,CACHE_NEW],[HOOK,WRAPPER+HOOK],[OPEN_OLD,OPEN_NEW],[STEP_OLD,STEP_NEW]];
+const edits=[[CACHEGET_OLD,CACHEGET_NEW],[CACHE_OLD,CACHE_NEW],[HOOK,WRAPPER+HOOK],[OPEN_OLD,OPEN_NEW],[STEP_OLD,STEP_NEW]];
 export function applyNativeReadbackPatch(source){
  let patched=source;
  for(const [before,after]of edits){if(patched.split(before).length!==2||patched.includes(after))throw Error('NATIVE_READBACK_PATCH_ANCHOR');patched=patched.replace(before,after);}
