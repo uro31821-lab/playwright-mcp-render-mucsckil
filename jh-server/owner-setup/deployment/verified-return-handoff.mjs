@@ -4,7 +4,7 @@
  * from the authenticated existing host, never from client-supplied JSON.
  */
 import {inspectNativeReadback} from './native-readback.mjs';
-const id=x=>typeof x==='string'&&x.length>=8&&x.length<=200&&/^[A-Za-z0-9_.:-]+$/.test(x);
+const id=x=>typeof x==='string'&&x.length>=4&&x.length<=200&&/^[A-Za-z0-9_.:-]+$/.test(x);
 const pkg=x=>typeof x==='string'&&x.length<=200&&/^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/.test(x);
 const deny=code=>Object.freeze({ok:false,code});
 const grant=(code,extra={})=>Object.freeze({ok:true,code,...extra});
