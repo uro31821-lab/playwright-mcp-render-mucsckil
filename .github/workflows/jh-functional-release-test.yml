@@ -1,0 +1,47 @@
+name: JH integrated functional release test
+on:
+  push:
+    branches: ['jh-functional-release-test-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/functional-release-runtime.mjs'
+      - 'jh-server/owner-setup/deployment/owner-service-entry.mjs'
+      - 'jh-server/owner-setup/deployment/operational-service-entry.mjs'
+      - 'jh-server/verification/functional-release-*'
+      - '.github/workflows/jh-functional-release-test.yml'
+permissions:
+  contents: read
+jobs:
+  integrated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Dependencies and preserved checks
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Compile all release test modules
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/functional-release-runtime.mjs
+          node --check verification/functional-release-e2e.mjs
+          node --check verification/functional-release-browser.test.mjs
+      - name: Verify browser session repair against exact operational source
+        working-directory: jh-server
+        run: node --test verification/functional-release-browser.test.mjs
+      - name: Verify native app routing, genuine job expiry and no false completion
+        working-directory: jh-server
+        run: timeout 240s node verification/functional-release-e2e.mjs
+      - name: Existing delivery receipt and trust regression
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Check owner lifecycle and actual original source integrity
+        run: |
+          git diff --exit-code 6562eecd1710acf3ff5dfc713a1c642ef6ed78bd -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/browser-live/browser-session.mjs jh-server/owner-setup/server-integration/server-unified.mjs
+      - name: Result
+        run: echo JH_INTEGRATED_RELEASE_PASS
