@@ -6,6 +6,7 @@ on:
       - 'jh-server/owner-setup/deployment/native-readback.mjs'
       - 'jh-server/owner-setup/deployment/durable-native-runtime-candidate.mjs'
       - 'jh-server/verification/native-readback-20s.test.mjs'
+      - 'jh-server/verification/durable-computer-http.mjs'
       - '.github/workflows/jh-native-readback-20s.yml'
 permissions:
   contents: read
@@ -33,6 +34,12 @@ jobs:
         working-directory: jh-server
         run: |
           node --input-type=module -e 'import {assertFunctionalReleaseRuntime} from "./owner-setup/deployment/functional-release-runtime.mjs";import{readFileSync}from"node:fs";import{createHash}from"node:crypto";import path from"node:path";const runtime=assertFunctionalReleaseRuntime(path.resolve("owner-setup"));console.log("JH_UPDATED_NATIVE_RUNTIME_SHA256="+createHash("sha256").update(readFileSync(runtime)).digest("hex"));'
+      - name: Signed HTTP 14.5-second delayed native readback and durable Circuit integration
+        working-directory: jh-server
+        run: timeout 145s node verification/durable-computer-http.mjs
+      - name: Pin and validate the existing durable startup release
+        working-directory: jh-server
+        run: node --test verification/durable-live-release.test.mjs
       - name: Preserve trusted completion records
         working-directory: jh-server
         run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
