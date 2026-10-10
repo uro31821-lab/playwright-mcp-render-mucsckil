@@ -35,6 +35,8 @@ const COMPLETE_NEW=`    const durableReceipt=durableNativeHooks56?.acceptedCompl
     j.status="complete";j.result=body.result;j.completedAt=new Date().toISOString();`;
 const SUMMARY_OLD='  registerOAuthTool("life_status",{';
 const SUMMARY_NEW='  registerOAuthTool("life_android_complete_401_summary",{\n    title:"Secure completion 401 diagnostics (this process)",\n    description:"Read-only, OAuth-required aggregated Secure Android completion 401 causes in this server process. No device IDs, command IDs, nonce, MAC or payload; no historical cause claims.",\n    inputSchema:{}\n  },async()=>textResult(getSecureCompletion401Summary()));\n\n  registerOAuthTool("life_status",{';
+const STATUS_OLD='return textResult({version:"1.5.0-fix5-local-prompts",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56});';
+const STATUS_NEW='return textResult({version:"1.5.0-fix5-local-prompts",browser,registeredAndroidDevices:devices.size,secureBridgeVersion:56,completion401Summary:getSecureCompletion401Summary()});';
 const START_OLD='if(process.env.JH_OWNER_DEFER_LISTEN!=="1")httpServer.listen(PORT,"0.0.0.0");';
 const START_NEW='if(process.env.JH_OWNER_DEFER_LISTEN!=="1")throw Error("DURABLE_HOST_BOOTSTRAP_REQUIRED");';
 const AUTH_REJECT_OLD="if(!a||sid!==j.secureSessionId||sid!==a.sessionId||dev!==a.deviceDigest||rd!==actual||!validToken56(nonce)||exp<Date.now()||exp-Date.now()>60000||!eqHex56(mac,hmac56(a.secret,\"complete|\"+sid+\"|\"+j.id+\"|\"+dev+\"|\"+nonce+\"|\"+exp+\"|\"+rd))||!seen56(a.seenComplete,nonce)){raw.fill(0);res.writeHead(401).end(\"secure completion invalid\");return;}";
@@ -53,12 +55,14 @@ export function buildDurableNativeRuntime(root){
  candidate=candidate.replace(AUTH_REJECT_OLD,AUTH_REJECT_NEW);
  if(candidate.split(SUMMARY_OLD).length!==2||candidate.includes(SUMMARY_NEW))throw Error('DURABLE_COMPLETE_SUMMARY_ANCHOR');
  candidate=candidate.replace(SUMMARY_OLD,SUMMARY_NEW);
- let reversed=candidate.replace(SUMMARY_NEW,SUMMARY_OLD).replace(AUTH_REJECT_NEW,AUTH_REJECT_OLD);
+ if(candidate.split(STATUS_OLD).length!==2||candidate.includes(STATUS_NEW))throw Error('DURABLE_STATUS_COMPAT_ANCHOR');
+ candidate=candidate.replace(STATUS_OLD,STATUS_NEW);
+ let reversed=candidate.replace(STATUS_NEW,STATUS_OLD).replace(SUMMARY_NEW,SUMMARY_OLD).replace(AUTH_REJECT_NEW,AUTH_REJECT_OLD);
  for(const [before,after]of edits.slice().reverse())reversed=reversed.replace(after,before);
  if(reversed!==baseline)throw Error('DURABLE_PATCH_SCOPE');
  candidate=PREFIX+AUDIT_IMPORT+candidate+install;
  const file=path.join(root,'server-integration/server-durable-native-candidate.mjs');
  writeFileSync(file,candidate,{mode:0o600});
  if(readFileSync(file,'utf8')!==candidate)throw Error('DURABLE_BUILD_READBACK');
- return {file,baselineSha256:PIN,candidateSha256:sha(candidate),exactHookEdits:4,diagnosticOnlyEdits:2,productionEnabled:false};
+ return {file,baselineSha256:PIN,candidateSha256:sha(candidate),exactHookEdits:4,diagnosticOnlyEdits:3,productionEnabled:false};
 }
