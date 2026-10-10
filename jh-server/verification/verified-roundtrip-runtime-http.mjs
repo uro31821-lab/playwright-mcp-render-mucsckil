@@ -30,6 +30,7 @@ source+=String.raw`
    const onMessage=m=>{if(m?.op==='roundtripStopped'){clearTimeout(timer);h.p.off('message',onMessage);resolve(m.result)}};
    h.p.on('message',onMessage);h.p.send({op:'stopRoundtrip',workflowId});
   });
+ }
  const screenResult=app=>({ok:true,url:JSON.stringify([{package:app,text:'synthetic roundtrip screen',className:'android.view.View'}])});
  const args=id=>({target:'카카오T',workflow_id:id,return_to_origin:true});
  const APP='com.kakao.taxi',ORIGIN='laftel.net.laftel';
