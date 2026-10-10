@@ -91,9 +91,13 @@ const POLL_NEW=`cleanupJobs();const q=queues.get(d)||[];
       queued.completedAt=new Date().toISOString();
     }
     if(!q.length){res.writeHead(204).end();return;}`;
+const CLEANUP_OLD='if((j.status==="queued"||j.status==="in_progress") && now-born>JOB_TTL_MS){j.status="expired";j.error="job_timeout";j.completedAt=new Date().toISOString();}';
+const CLEANUP_NEW='if((j.status==="queued"||j.status==="in_progress") && now-born>JOB_TTL_MS){const dispatched=j.status==="in_progress";const uncertain=dispatched&&j.type!=="agent_snapshot";j.status=uncertain?"error":"expired";j.error=uncertain?"DISPATCH_OUTCOME_UNKNOWN_NO_AUTO_REPLAY":"job_timeout";j.completedAt=new Date().toISOString();}';
+const CACHEGET_TIMEOUT_OLD='function cacheGet(m,k){const x=m.get(k);if(!x)return null;const pending=x.v?.status==="queued"||x.v?.status==="in_progress";if(Date.now()-x.t>DEDUPE_MS&&!pending){m.delete(k);return null;}return x.v;}';
+const CACHEGET_TIMEOUT_NEW='function cacheGet(m,k){const x=m.get(k);if(!x)return null;const pending=x.v?.status==="queued"||x.v?.status==="in_progress";const uncertain=x.v?.status==="error"&&x.v?.error==="DISPATCH_OUTCOME_UNKNOWN_NO_AUTO_REPLAY"&&jobs.get(x.v.id)===x.v;if(Date.now()-x.t>DEDUPE_MS&&!pending&&!uncertain){m.delete(k);return null;}return x.v;}';
 const CACHEGET_OLD='function cacheGet(m,k){const x=m.get(k);if(!x)return null;if(Date.now()-x.t>DEDUPE_MS){m.delete(k);return null;}return x.v;}';
 const CACHEGET_NEW='function cacheGet(m,k){const x=m.get(k);if(!x)return null;const pending=x.v?.status==="queued"||x.v?.status==="in_progress";if(Date.now()-x.t>DEDUPE_MS&&!pending){m.delete(k);return null;}return x.v;}';
-const CACHE_NEW='cleanupJobs();\n  const old=cacheGet(recentJobs,key);\n  const currentSessionId=active56(targetDeviceId)?.sessionId??null;\n  // A dispatched job from an earlier session has an uncertain outcome: never replace it by retry.\n  if(old?.status==="in_progress"&&(old.secureSessionId??null)!==currentSessionId)return old;\n  if(old && (old.secureSessionId??null)===currentSessionId && !(type==="agent_snapshot" && ["complete","error","expired"].includes(old.status))) return old;';
+const CACHE_NEW='cleanupJobs();\n  const old=cacheGet(recentJobs,key);\n  const currentSessionId=active56(targetDeviceId)?.sessionId??null;\n  // A delivered operation whose result is unknown is NEVER an automatic retry.\n  if(old?.status==="error"&&old.error==="DISPATCH_OUTCOME_UNKNOWN_NO_AUTO_REPLAY")return old;\n  // A dispatched job from an earlier session has an uncertain outcome: never replace it by retry.\n  if(old?.status==="in_progress"&&(old.secureSessionId??null)!==currentSessionId)return old;\n  if(old && (old.secureSessionId??null)===currentSessionId && !(type==="agent_snapshot" && ["complete","error","expired"].includes(old.status))) return old;';
 const WRAPPER=`async function boundedNativeReadback(action){
  const d=action?.targetDeviceId;
  const bindingValid=()=>{
@@ -129,7 +133,7 @@ const STEP_OLD=`    let snap=null;
 const STEP_NEW=`    const observation=await boundedNativeReadback(acted);
     return textResult({acted:safeJobView56(acted),targetDeviceId:stepJob.targetDeviceId,
       snapshot:observation.snapshot?safeJobView56(observation.snapshot):null,readback:observation.readback});`;
-const edits=[[CACHEGET_OLD,CACHEGET_NEW],[CACHE_OLD,CACHE_NEW],[POLL_OLD,POLL_NEW],[HOOK,WRAPPER+HOOK],[OPEN_OLD,OPEN_NEW],[STEP_OLD,STEP_NEW]];
+const edits=[[CLEANUP_OLD,CLEANUP_NEW],[CACHEGET_OLD,CACHEGET_NEW],[CACHEGET_TIMEOUT_OLD,CACHEGET_TIMEOUT_NEW],[CACHE_OLD,CACHE_NEW],[POLL_OLD,POLL_NEW],[HOOK,WRAPPER+HOOK],[OPEN_OLD,OPEN_NEW],[STEP_OLD,STEP_NEW]];
 export function applyNativeReadbackPatch(source){
  let patched=source;
  for(const [before,after]of edits){if(patched.split(before).length!==2||patched.includes(after))throw Error('NATIVE_READBACK_PATCH_ANCHOR');patched=patched.replace(before,after);}
