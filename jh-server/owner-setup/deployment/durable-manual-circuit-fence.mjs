@@ -22,16 +22,16 @@ function verifyPath(p,existing){
 }
 const MAX_ROWS=10000,MAX_UNKNOWN=512;
 export class DurableManualCircuitFence {
- #db;#key;#namespace;#clock;#closed=false;
- constructor({file,key,namespace,clock=Date.now,mode='read'}={}){
-  if(!Buffer.isBuffer(key)||key.length!==32||!hex(namespace)||typeof clock!=='function')fail('JOURNAL_CONFIGURATION_INVALID');
+ #db;#key;#namespace;#clock;#verify;#closed=false;
+ constructor({file,key,namespace,clock=Date.now,mode='read',verifyAuthenticatedCompletion}={}){
+  if(!Buffer.isBuffer(key)||key.length!==32||!hex(namespace)||typeof clock!=='function'||typeof verifyAuthenticatedCompletion!=='function')fail('JOURNAL_CONFIGURATION_INVALID');
   if(!['read','EXPLICIT_ONE_TIME'].includes(mode))fail('JOURNAL_INIT_EXPLICIT_ONLY');
   verifyPath(file,mode==='read');
-  this.#key=Buffer.from(key);this.#namespace=namespace;this.#clock=clock;
+  this.#key=Buffer.from(key);this.#namespace=namespace;this.#clock=clock;this.#verify=verifyAuthenticatedCompletion;
   let db;
   try{
    db=new DatabaseSync(file,{timeout:4000});chmodSync(file,0o600);
-   db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=4000;');
+   db.exec('PRAGMA foreign_keys=ON; PRAGMA trusted_schema=OFF; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=4000;');
    if(mode==='EXPLICIT_ONE_TIME'){
     db.exec("CREATE TABLE circuit_meta(k TEXT PRIMARY KEY, v TEXT NOT NULL);"+
       "CREATE TABLE circuit_actions(record_id TEXT PRIMARY KEY, operation_hmac TEXT NOT NULL, status TEXT NOT NULL,"+
@@ -76,8 +76,9 @@ export class DurableManualCircuitFence {
   }catch(e){try{this.#db.exec('ROLLBACK')}catch{}throw e}
  }
  /** Call ONLY after authenticated HTTP completion acceptance; transport receipt is not task success. */
- recordAuthenticatedDeviceResult({recordId,resultDigest}={}){
+ recordAuthenticatedDeviceResult({recordId,resultDigest,hostEvidence}={}){
   this.#ready();if(!id(recordId)||!hex(resultDigest))fail('JOURNAL_RECEIPT_INVALID');
+  if(this.#verify({recordId,resultDigest,hostEvidence})!==true)fail('JOURNAL_RECEIPT_NOT_AUTHENTICATED');
   const now=this.#now(),proof=this.#mac('JH_RECEIPT_V1|'+resultDigest);
   this.#db.exec('BEGIN IMMEDIATE');
   try{
