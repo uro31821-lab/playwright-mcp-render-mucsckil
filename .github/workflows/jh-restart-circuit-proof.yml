@@ -1,0 +1,36 @@
+name: JH Circuit restart safety proof
+on:
+  push:
+    branches: ['jh-restart-circuit-proof-20261010']
+    paths:
+      - 'jh-server/verification/restart-circuit-proof.mjs'
+      - '.github/workflows/jh-restart-circuit-proof.yml'
+permissions:
+  contents: read
+jobs:
+  restart-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Install dependencies with existing security regressions
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Real secure Android protocol across two process crashes
+        working-directory: jh-server
+        run: |
+          node --check verification/restart-circuit-proof.mjs
+          timeout 110s node verification/restart-circuit-proof.mjs
+      - name: Existing trusted receipt and renewal tests
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: No production runtime or setup edits
+        run: |
+          git diff --exit-code 52fd15dcb599e63e3e4861c53c6ad765a517b1dd -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup
+      - run: echo JH_RESTART_CIRCUIT_PROOF_COMPLETE
