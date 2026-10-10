@@ -1,0 +1,44 @@
+name: JH durable native dispatch integration
+on:
+  push:
+    branches: ['jh-durable-manual-fence-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/durable-native-host.mjs'
+      - 'jh-server/owner-setup/deployment/durable-native-runtime-candidate.mjs'
+      - 'jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs'
+      - 'jh-server/verification/durable-native-integration.mjs'
+      - '.github/workflows/jh-durable-native-integration.yml'
+permissions:
+  contents: read
+jobs:
+  native-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Dependencies and preserved authentication checks
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Syntax and previous journal process regression
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/durable-native-host.mjs
+          node --check owner-setup/deployment/durable-native-runtime-candidate.mjs
+          node --check verification/durable-native-integration.mjs
+          node verification/durable-manual-fence-process.test.mjs
+      - name: Signed Secure56 HTTP and native MCP through two SIGKILL restarts
+        working-directory: jh-server
+        run: timeout 150s node verification/durable-native-integration.mjs
+      - name: Existing trusted receipt and renewal regressions
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Operational startup and production runtime remain unchanged
+        run: |
+          git diff --exit-code 52fd15dcb599e63e3e4861c53c6ad765a517b1dd -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/browser-live jh-server/owner-setup/trusted-server jh-server/owner-setup/owner-enrollment jh-server/owner-setup/deployment/native-readback.mjs jh-server/owner-setup/deployment/functional-release-runtime.mjs jh-server/owner-setup/deployment/owner-service-entry.mjs jh-server/owner-setup/deployment/operational-service-entry.mjs
+      - run: echo JH_DURABLE_NATIVE_INTEGRATION_VERIFIED
