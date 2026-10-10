@@ -38,6 +38,11 @@ export function requirePcNodeVersion(version){
 export async function main(){
  const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),hostRoot=path.dirname(sourceRoot);
  if(path.basename(sourceRoot)!=='owner-setup')fail('PUBLISHED_HOST_LAYOUT_REQUIRED');
+ if(process.env.JH_DURABLE_RELEASE!==undefined){
+  assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
+  const {main:durableMain}=await import('./durable-live-release.mjs');
+  return durableMain();
+ }
  if(process.env.JH_OPERATIONAL_START!==undefined||process.env.JH_OPERATIONAL_ACCOUNT_DIGEST!==undefined){
   assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
   const {main:operationalMain}=await import('./operational-service-entry.mjs');
