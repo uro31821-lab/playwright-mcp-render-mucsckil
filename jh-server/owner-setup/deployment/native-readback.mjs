@@ -73,9 +73,27 @@ export async function runNativeReadback({action,requestSnapshot,waitSnapshot,bin
 }
 const PREFIX='import {runNativeReadback} from "../deployment/native-readback.mjs";\n';
 const CACHE_OLD='const old=cacheGet(recentJobs,key); if(old) return old;';
+const POLL_OLD='cleanupJobs();const q=queues.get(d)||[];while(q.length&&jobs.get(q[0])?.status!=="queued")q.shift();if(!q.length){res.writeHead(204).end();return;}';
+const POLL_NEW=`cleanupJobs();const q=queues.get(d)||[];
+    // FENCE: a queued job may belong to a former or now-expired secure session.
+    // Do not give that old command to a new session's authenticated poll.
+    while(q.length){
+      const queued=jobs.get(q[0]);
+      if(queued?.status!=="queued"){q.shift();continue;}
+      const active=dm?.secureBridgeVersion===56?active56(d):null;
+      const stale=dm?.secureBridgeVersion===56
+        ?(!active||queued.secureSessionId!==active.sessionId)
+        :!!queued.secureSessionId;
+      const deadline=Number.isFinite(queued.secureExpiresAt)&&queued.secureExpiresAt<=Date.now();
+      if(!stale&&!deadline)break;
+      q.shift();queued.status="expired";
+      queued.error=stale?"SECURE_SESSION_CHANGED_BEFORE_DISPATCH":"SECURE_JOB_EXPIRED_BEFORE_DISPATCH";
+      queued.completedAt=new Date().toISOString();
+    }
+    if(!q.length){res.writeHead(204).end();return;}`;
 const CACHEGET_OLD='function cacheGet(m,k){const x=m.get(k);if(!x)return null;if(Date.now()-x.t>DEDUPE_MS){m.delete(k);return null;}return x.v;}';
 const CACHEGET_NEW='function cacheGet(m,k){const x=m.get(k);if(!x)return null;const pending=x.v?.status==="queued"||x.v?.status==="in_progress";if(Date.now()-x.t>DEDUPE_MS&&!pending){m.delete(k);return null;}return x.v;}';
-const CACHE_NEW='cleanupJobs();\n  const old=cacheGet(recentJobs,key);\n  const currentSessionId=active56(targetDeviceId)?.sessionId??null;\n  if(old && (old.secureSessionId??null)===currentSessionId && !(type==="agent_snapshot" && ["complete","error","expired"].includes(old.status))) return old;';
+const CACHE_NEW='cleanupJobs();\n  const old=cacheGet(recentJobs,key);\n  const currentSessionId=active56(targetDeviceId)?.sessionId??null;\n  // A dispatched job from an earlier session has an uncertain outcome: never replace it by retry.\n  if(old?.status==="in_progress"&&(old.secureSessionId??null)!==currentSessionId)return old;\n  if(old && (old.secureSessionId??null)===currentSessionId && !(type==="agent_snapshot" && ["complete","error","expired"].includes(old.status))) return old;';
 const WRAPPER=`async function boundedNativeReadback(action){
  const d=action?.targetDeviceId;
  const bindingValid=()=>{
@@ -111,7 +129,7 @@ const STEP_OLD=`    let snap=null;
 const STEP_NEW=`    const observation=await boundedNativeReadback(acted);
     return textResult({acted:safeJobView56(acted),targetDeviceId:stepJob.targetDeviceId,
       snapshot:observation.snapshot?safeJobView56(observation.snapshot):null,readback:observation.readback});`;
-const edits=[[CACHEGET_OLD,CACHEGET_NEW],[CACHE_OLD,CACHE_NEW],[HOOK,WRAPPER+HOOK],[OPEN_OLD,OPEN_NEW],[STEP_OLD,STEP_NEW]];
+const edits=[[CACHEGET_OLD,CACHEGET_NEW],[CACHE_OLD,CACHE_NEW],[POLL_OLD,POLL_NEW],[HOOK,WRAPPER+HOOK],[OPEN_OLD,OPEN_NEW],[STEP_OLD,STEP_NEW]];
 export function applyNativeReadbackPatch(source){
  let patched=source;
  for(const [before,after]of edits){if(patched.split(before).length!==2||patched.includes(after))throw Error('NATIVE_READBACK_PATCH_ANCHOR');patched=patched.replace(before,after);}
