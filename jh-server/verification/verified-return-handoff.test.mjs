@@ -16,8 +16,9 @@ const action=(id,target,completed=100100,result={ok:true})=>({
 });
 const status=(ok=true)=>({status:'complete',result:{ok},deviceReportedOutcome:ok?'DEVICE_REPORTED_OK_UNVERIFIED':'DEVICE_REPORTED_FAILURE'});
 function fresh(ttlMs=60000){
- let t=100025;
+ let t=100000;
  const g=createVerifiedReturnHandoff({...BASE,originPackage:ORIGIN,destinationPackage:DEST,now:()=>t,ttlMs});
+ t=100025; // The workflow starts BEFORE the first screen was read.
  const binding={...BASE,dispatchJobId:'job_action_01',destinationTarget:'카카오T'};
  const original=snap('snapshot_origin_01',ORIGIN);
  const destination=snap('snapshot_dest_01',DEST,100105,100110);
