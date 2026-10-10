@@ -23,7 +23,7 @@ function patchExistingPublishedReturnRoute56(input){
   input=input.replace(oldText,newText);edits.push([oldText,newText]);
  };
  const original=input;
- const helper=String.raw\`
+ const helper=String.raw`
   // Dispatch explicit JH previous-app returns to the EXISTING Android open_url.
   function jhNativeReturnTarget56(value){
     const s=String(value||"").trim().toLowerCase();
@@ -36,25 +36,25 @@ function patchExistingPublishedReturnRoute56(input){
     return null;
   }
 
- \`;
+ `;
  once('  registerOAuthTool("life_status",{',helper+'  registerOAuthTool("life_status",{');
  const nativeOld='const nativeHints=["카카오톡","배달의민족","배민","앱 전용","native app","휴대폰 설정","전화 앱"];';
  const nativeNew='const nativeHints=["카카오톡","카카오t","카카오티","kakao t","카카오 택시","배달의민족","배민","앱 전용","native app","휴대폰 설정","전화 앱"];';
  once(nativeOld,nativeNew);
  once('(nativeHints.some(k=>s.includes(k))?"android":"web")','((nativeHints.some(k=>s.includes(k))||jhNativeReturnTarget56(s))?"android":"web")');
- const service=String.raw\`  registerOAuthTool("life_open_service",{\`;
- const next=String.raw\`  registerOAuthTool("life_naver_mail",{\`;
+ const service=String.raw`  registerOAuthTool("life_open_service",{`;
+ const next=String.raw`  registerOAuthTool("life_naver_mail",{`;
  let start=input.indexOf(service),end=input.indexOf(next,start);
  if(start<0||end<=start)fail('JH_ROUTE_SERVICE_CHANGED');
  let piece=input.slice(start,end);
- const sOld='    const s=raw.toLowerCase();\\n    const webMap=[';
- const sNew=String.raw\`    const s=raw.toLowerCase();
+ const sOld='    const s=raw.toLowerCase();\n    const webMap=[';
+ const sNew=String.raw`    const s=raw.toLowerCase();
     const returnTarget=jhNativeReturnTarget56(s);
     if(returnTarget){
       const j=mk("open_url",{target:returnTarget,url:""});
       return textResult({route:"android",service:raw,queued:j.status==="queued",jobId:j.id,targetDeviceId:j.targetDeviceId,registeredDevices:devices.size});
     }
-    const webMap=[\`;
+    const webMap=[`;
  if(piece.split(sOld).length!==2)fail('JH_ROUTE_SERVICE_ANCHOR');
  piece=piece.replace(sOld,sNew);
  const qOld='return textResult({route:"android",service:raw,queued:true,jobId:j.id,registeredDevices:devices.size});';
@@ -67,11 +67,11 @@ function patchExistingPublishedReturnRoute56(input){
  start=input.indexOf(nativeStart);end=input.indexOf(nativeEnd,start);
  if(start<0||end<=start)fail('JH_ROUTE_NATIVE_CHANGED');
  const nativeBlock=input.slice(start,end);
- const nOld='    const s=raw.toLowerCase();\\n    if(["last_work_screen"';
- const nNew=String.raw\`    const s=raw.toLowerCase();
+ const nOld='    const s=raw.toLowerCase();\n    if(["last_work_screen"';
+ const nNew=String.raw`    const s=raw.toLowerCase();
     const returnTarget=jhNativeReturnTarget56(s);
     if(returnTarget){const j=mk("open_url",{target:returnTarget,url:""});return textResult({route:"android",queued:j.status==="queued",jobId:j.id,targetDeviceId:j.targetDeviceId});}
-    if(["last_work_screen"\`;
+    if(["last_work_screen"`;
  if(nativeBlock.split(nOld).length!==2)fail('JH_ROUTE_NATIVE_ANCHOR');
  const replacement=nativeBlock.replace(nOld,nNew);
  edits.push([nativeBlock,replacement]);input=input.slice(0,start)+replacement+input.slice(end);
