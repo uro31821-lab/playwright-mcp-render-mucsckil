@@ -6,6 +6,7 @@ import path from 'node:path';
 import {readFileSync,writeFileSync,renameSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {assertUnifiedRuntime} from './unified-runtime-build.mjs';
+import {applyNativeReadbackPatch} from './native-readback.mjs';
 const sha=b=>createHash('sha256').update(b).digest('hex');
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const LIVE='108ad68ef5c87db4c311e3569a0d2a06b09726a2a638ac4f7ee1319d169fd14b';
@@ -43,8 +44,9 @@ export function assertFunctionalReleaseRuntime(root) {
  const fixed=patchOnce(patchOnce(patchOnce(patchOnce(patchOnce(src,ROUTE_OLD,ROUTE_NEW),STATUS_OLD,STATUS_NEW),IMPORT_OLD,IMPORT_NEW),JOB_OLD,JOB_NEW),OPEN_OLD,OPEN_NEW);
  if(fixed.replace(OPEN_NEW,OPEN_OLD).replace(JOB_NEW,JOB_OLD).replace(IMPORT_NEW,IMPORT_OLD).replace(STATUS_NEW,STATUS_OLD).replace(ROUTE_NEW,ROUTE_OLD)!==src ||
     browserFixed.replace(META_NEW,META_OLD)!==browser.toString('utf8'))fail('FUNCTIONAL_PATCH_SCOPE_MISMATCH');
+ const readbackFixed=applyNativeReadbackPatch(fixed);
  publish(path.join(root,'browser-live/browser-session-functional.mjs'),browserFixed);
  const dest=path.join(root,'server-integration/server-functional.mjs');
- publish(dest,fixed);
+ publish(dest,readbackFixed);
  return dest;
 }
