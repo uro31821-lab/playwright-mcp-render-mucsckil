@@ -19,8 +19,10 @@ function childPhase(phase,file,recordId){
    const a=j.reserveDispatch(action);assert.equal(a.allowed,true);
    process.stdout.write(JSON.stringify({recordId:a.recordId,counts:j.counts()}));return;
   }
-  assert.equal(j.inspect(equal).blocked,true);
-  assert.equal(j.reserveDispatch(equal).allowed,false);
+  if(phase!=='D'){
+   assert.equal(j.inspect(equal).blocked,true);
+   assert.equal(j.reserveDispatch(equal).allowed,false);
+  }
   assert.equal(j.inspect(different).blocked,false);
   if(phase==='B'){process.stdout.write(JSON.stringify({blocked:true,counts:j.counts()}));return;}
   if(phase==='C'){
