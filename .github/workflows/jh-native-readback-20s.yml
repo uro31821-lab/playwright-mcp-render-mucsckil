@@ -1,0 +1,42 @@
+name: JH native readback 20s deadline fix
+on:
+  push:
+    branches: ['jh-native-readback-20s-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/native-readback.mjs'
+      - 'jh-server/owner-setup/deployment/durable-native-runtime-candidate.mjs'
+      - 'jh-server/verification/native-readback-20s.test.mjs'
+      - '.github/workflows/jh-native-readback-20s.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Existing install with authenticated regressions
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Slow phone result, metadata, session and action replay checks
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/native-readback.mjs
+          node --test verification/native-readback-20s.test.mjs
+      - name: Compute exact updated runtime digest for pinned cutover release
+        working-directory: jh-server
+        run: |
+          node --input-type=module -e 'import {assertFunctionalReleaseRuntime} from "./owner-setup/deployment/functional-release-runtime.mjs";import{readFileSync}from"node:fs";import{createHash}from"node:crypto";import path from"node:path";const runtime=assertFunctionalReleaseRuntime(path.resolve("owner-setup"));console.log("JH_UPDATED_NATIVE_RUNTIME_SHA256="+createHash("sha256").update(readFileSync(runtime)).digest("hex"));'
+      - name: Preserve trusted completion records
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Only two revised components
+        run: |
+          git diff --exit-code c770d991000964b709af2a4eb90dbcc7aee51870 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/trusted-server jh-server/owner-setup/owner-enrollment jh-server/owner-setup/deployment/operational-service-entry.mjs jh-server/owner-setup/deployment/durable-live-release.mjs jh-server/owner-setup/deployment/owner-storage.mjs
+      - run: echo JH_NATIVE_READBACK_20S_VERIFIED
