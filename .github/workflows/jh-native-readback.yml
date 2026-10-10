@@ -1,0 +1,39 @@
+name: JH bounded native readback verification
+on:
+  push:
+    branches: ['jh-native-readback-fix-20261010']
+    paths: ['jh-server/owner-setup/deployment/native-readback.mjs','jh-server/owner-setup/deployment/functional-release-runtime.mjs','jh-server/verification/native-readback*','.github/workflows/jh-native-readback.yml']
+permissions:
+  contents: read
+jobs:
+  readback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Preserve authentication and dependency checks
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Syntax and bounded helper tests
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/native-readback.mjs
+          node --check owner-setup/deployment/functional-release-runtime.mjs
+          node --check verification/native-readback-e2e.mjs
+          node --test verification/native-readback.test.mjs
+      - name: Run exact before-and-after MCP servers with synthetic phone and real timers
+        working-directory: jh-server
+        run: timeout 150s node verification/native-readback-e2e.mjs
+      - name: Preserve signed receipts and trusted sessions
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Preserve pinned baseline and existing operational setup
+        run: |
+          git diff --exit-code e41349feb63ab05a76586b2b9e90746cfbed93a4 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration/server-unified.mjs jh-server/owner-setup/browser-live jh-server/owner-setup/trusted-server jh-server/owner-setup/deployment/owner-service-entry.mjs jh-server/owner-setup/deployment/operational-service-entry.mjs
+      - run: echo JH_NATIVE_READBACK_RELEASE_PASS
