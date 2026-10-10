@@ -40,11 +40,11 @@ export function inspectNativeReadback(job,expected=null){
 export async function runNativeReadback({action,requestSnapshot,waitSnapshot,bindingValid,now=()=>Date.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms))}){
  let snapshot=null,attempts=0;const expectedPackage=expectedNativePackage(action);
  let state=decision(false,'ACTION_NOT_CONFIRMED');
- const result=()=>({snapshot,readback:{version:'bounded-native-v2-full-budget',...state,attempts,maxAttempts:3,expectedPackage,
+ const result=()=>({snapshot,readback:{version:'bounded-native-v3-20s-full-budget',...state,attempts,maxAttempts:3,expectedPackage,
   actionReplayCount:0,taskSuccessVerified:false,pageOrScrollRestored:false}});
  const ended=Date.parse(action?.completedAt);
  if(action?.status!=='complete'||action?.result?.ok!==true||!Number.isFinite(ended))return result();
- const started=now(),deadline=started+12000;const seen=new Set();
+ const started=now(),deadline=started+20000;const seen=new Set();
  for(let index=0;index<3;index++){
   if(!bindingValid()){state=decision(false,'DEVICE_OR_SESSION_CHANGED');break;}
   if(index>0)await sleep(Math.min(index*250,Math.max(0,deadline-now())));
