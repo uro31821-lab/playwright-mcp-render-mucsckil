@@ -63,7 +63,9 @@ jobs:
           const nativeStart=src.indexOf('  registerOAuthTool("life_android_open",{');
           const nativeEnd=src.indexOf('  const cuSchema56={',nativeStart);
           assert.ok(nativeStart>=0&&nativeEnd>nativeStart);
-          new Function('registerOAuthTool','z','mk','textResult','browserTool','devices',src.slice(nativeStart,nativeEnd))(reg,z,mk,textResult,browserTool,{size:1});
+          const helperCode=initial.slice(0,initial.indexOf('  registerOAuthTool("life_status",{'));
+          const nativeReturnHelper=new Function(helperCode+'return jhNativeReturnTarget56;')();
+          new Function('registerOAuthTool','z','mk','textResult','browserTool','devices','jhNativeReturnTarget56',src.slice(nativeStart,nativeEnd))(reg,z,mk,textResult,browserTool,{size:1},nativeReturnHelper);
           const native=registrations.get('life_android_open');
           const n=await native({target:'JH로 라프텔 복귀'});
           assert.equal(n.route,'android');assert.equal(jobs.at(-1).target,'previous_work_app');
