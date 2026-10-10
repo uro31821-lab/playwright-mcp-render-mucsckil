@@ -9,6 +9,7 @@ import {checkOwnerStorage,acquireOwnerRuntimeLock} from './owner-storage.mjs';
 import {installConfiguredOwnerHost} from '../owner-enrollment/owner-host-bootstrap.mjs';
 import {installConfiguredLifeRuntime} from './life-runtime-install.mjs';
 import {assertUnifiedRuntime} from './unified-runtime-build.mjs';
+import {assertFunctionalReleaseRuntime} from './functional-release-runtime.mjs';
 import {createRegisteredLifeBootstrap} from './life-registered-bootstrap.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 let startAttempted=false;
@@ -23,7 +24,7 @@ export async function startConfiguredOwnerServer({config,key,port=Number(process
   const identity=JSON.parse(readFileSync(path.join(root,'evidence/owner-runtime-identity.json'),'utf8'));
   let serverPath=path.join(root,'server-integration/server.mjs');
   if(identity.deferListenSupported!==true||identity.hostEnabledByDefault!==false||sha(readFileSync(serverPath))!==identity.candidate)fail('OWNER_RUNTIME_IDENTITY_MISMATCH');
-  if(runtimeMode==='unified')serverPath=assertUnifiedRuntime(root);
+  if(runtimeMode==='unified')serverPath=assertFunctionalReleaseRuntime(root);
   const runtimeLock=acquireOwnerRuntimeLock(config);
   startAttempted=true;
   // Only this internal, reviewed entry sets defer. Default historical startup remains unchanged.
