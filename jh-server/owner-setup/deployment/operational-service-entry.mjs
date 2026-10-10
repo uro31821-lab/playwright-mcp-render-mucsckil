@@ -99,8 +99,8 @@ export async function main(env=process.env){
   if(!config||config.accountDigest!==env.JH_OPERATIONAL_ACCOUNT_DIGEST)fail('OPERATION_SAVED_IDENTITY_MISMATCH');
   // Validate all published ancestry and the exact runtime before any provisioning.
   await preparePublishedStartup();
-  const {assertUnifiedRuntime}=await import('./unified-runtime-build.mjs');
-  const runtime=assertUnifiedRuntime(ROOT);
+  const {assertFunctionalReleaseRuntime}=await import('./functional-release-runtime.mjs');
+  const runtime=assertFunctionalReleaseRuntime(ROOT);
   const keyFiles=materializeStorageKeys(config,secrets,'/tmp/jh-storage-keys-v1');
   const prepared=prepareOperationalStorage(config,keyFiles,{confirmation:'EXPLICIT_ONE_TIME'});
   const {installDiagnostics}=await import('../published-baseline/connection-diagnostics.mjs');observer=installDiagnostics();
