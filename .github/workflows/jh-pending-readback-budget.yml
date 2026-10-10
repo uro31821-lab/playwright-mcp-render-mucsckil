@@ -1,0 +1,42 @@
+name: JH pending readback budget verification
+on:
+  push:
+    branches: ['jh-pending-readback-budget-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/native-readback.mjs'
+      - 'jh-server/verification/pending-readback-budget*'
+      - '.github/workflows/jh-pending-readback-budget.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Preserve dependency and authenticated server checks
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Run unchanged prior helper tests and new remaining-budget tests
+        run: |
+          git show 87b389039a2cba7f86b168330a848661790b352d:jh-server/verification/native-readback.test.mjs > jh-server/verification/native-readback-regression.test.mjs
+          cd jh-server
+          node --check owner-setup/deployment/native-readback.mjs
+          node --check verification/pending-readback-budget-e2e.mjs
+          node --test verification/native-readback-regression.test.mjs verification/pending-readback-budget.test.mjs
+      - name: Execute before-and-after real MCP servers with nine-second phone response latency
+        working-directory: jh-server
+        run: timeout 150s node verification/pending-readback-budget-e2e.mjs
+      - name: Preserve receipt accounting and session authentication
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Verify protected runtime and setup bytes remain unchanged
+        run: |
+          git diff --exit-code 3b01161101c5b9168d65470cf0afa6d9e8b9db78 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/browser-live jh-server/owner-setup/trusted-server jh-server/owner-setup/deployment/functional-release-runtime.mjs jh-server/owner-setup/deployment/owner-service-entry.mjs jh-server/owner-setup/deployment/operational-service-entry.mjs
+      - run: echo JH_PENDING_READBACK_BUDGET_VERIFIED
