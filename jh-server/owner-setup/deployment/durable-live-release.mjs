@@ -13,6 +13,79 @@ import {prepareDurableCutover,verifyDurableCutover} from './durable-cutover.mjs'
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const blob=s=>createHash('sha1').update('blob '+Buffer.byteLength(s)+'\0').update(s).digest('hex');
 const SERVICE='srv-db0fjl2d0e5s73be114g';
+const sha256=x=>createHash('sha256').update(x).digest('hex');
+/** Exact route-only patch for the existing GENERATED Durable Secure56 host.
+ * All sealed authentication, HMAC, approval, job journal and runtime pins remain
+ * authoritative and are verified before any patched runtime is imported.
+ */
+function patchExistingDurableReturnRoute56(input){
+ const edits=[],once=(oldText,newText)=>{
+  if(input.split(oldText).length!==2||input.includes(newText))fail('JH_ROUTE_PATCH_ANCHOR_CHANGED');
+  input=input.replace(oldText,newText);edits.push([oldText,newText]);
+ };
+ const original=input;
+ const helper=String.raw`
+  // Dispatch explicit JH previous-app returns to the EXISTING Android open_url.
+  function jhNativeReturnTarget56(value){
+    const s=String(value||"").trim().toLowerCase();
+    if(["last_work_screen","마지막 작업 화면","마지막 작업화면"].includes(s)||
+       (/마지막 작업 화면/.test(s)&&/(복귀|돌아|열어)/.test(s)))return "last_work_screen";
+    if(["previous_work_app","이전 앱","이전 작업 앱","원래 앱"].includes(s))return "previous_work_app";
+    if((/(이전 앱|이전 작업 앱|원래 앱)/.test(s)&&/(복귀|돌아|열어)/.test(s))||
+       (/(jh로|jhmcp로|jh 브릿지로|jh bridge)/.test(s)&&/(복귀|돌아|되돌아)/.test(s)))
+      return "previous_work_app";
+    return null;
+  }
+
+ `;
+ once('  registerOAuthTool("life_status",{',helper+'  registerOAuthTool("life_status",{');
+ const nativeOld='const nativeHints=["카카오톡","배달의민족","배민","앱 전용","native app","휴대폰 설정","전화 앱"];';
+ const nativeNew='const nativeHints=["카카오톡","카카오t","카카오티","kakao t","카카오 택시","배달의민족","배민","앱 전용","native app","휴대폰 설정","전화 앱"];';
+ if(input.includes(nativeOld))once(nativeOld,nativeNew);
+ else if(!input.includes(nativeNew))fail('JH_ROUTE_NATIVE_HINTS_CHANGED');
+ once('(nativeHints.some(k=>s.includes(k))?"android":"web")','((nativeHints.some(k=>s.includes(k))||jhNativeReturnTarget56(s))?"android":"web")');
+ const service=String.raw`  registerOAuthTool("life_open_service",{`;
+ const next=String.raw`  registerOAuthTool("life_naver_mail",{`;
+ let start=input.indexOf(service),end=input.indexOf(next,start);
+ if(start<0||end<=start)fail('JH_ROUTE_SERVICE_CHANGED');
+ let piece=input.slice(start,end);
+ const sOld='    const s=raw.toLowerCase();\n    const webMap=[';
+ const sNew=String.raw`    const s=raw.toLowerCase();
+    const returnTarget=jhNativeReturnTarget56(s);
+    if(returnTarget){
+      const j=mk("open_url",{target:returnTarget,url:""});
+      return textResult({route:"android",service:raw,queued:j.status==="queued",jobId:j.id,targetDeviceId:j.targetDeviceId,registeredDevices:devices.size});
+    }
+    const webMap=[`;
+ if(piece.split(sOld).length!==2)fail('JH_ROUTE_SERVICE_ANCHOR');
+ piece=piece.replace(sOld,sNew);
+ const qOld='return textResult({route:"android",service:raw,queued:true,jobId:j.id,registeredDevices:devices.size});';
+ const qNew='return textResult({route:"android",service:raw,queued:j.status==="queued",jobId:j.id,registeredDevices:devices.size});';
+ if(piece.split(qOld).length!==2)fail('JH_ROUTE_QUEUE_ANCHOR');
+ piece=piece.replace(qOld,qNew);
+ edits.push([input.slice(start,end),piece]);input=input.slice(0,start)+piece+input.slice(end);
+ const nativeStart='  registerOAuthTool("life_android_open",{';
+ const nativeEnd='  const cuSchema56={';
+ start=input.indexOf(nativeStart);end=input.indexOf(nativeEnd,start);
+ if(start<0||end<=start)fail('JH_ROUTE_NATIVE_CHANGED');
+ const nativeBlock=input.slice(start,end);
+ const nOld='    const s=raw.toLowerCase();\n    if(["last_work_screen"';
+ const nNew=String.raw`    const s=raw.toLowerCase();
+    const returnTarget=jhNativeReturnTarget56(s);
+    if(returnTarget){const j=mk("open_url",{target:returnTarget,url:""});return textResult({route:"android",queued:j.status==="queued",jobId:j.id,targetDeviceId:j.targetDeviceId});}
+    if(["last_work_screen"`;
+ if(nativeBlock.split(nOld).length!==2)fail('JH_ROUTE_NATIVE_ANCHOR');
+ const replacement=nativeBlock.replace(nOld,nNew);
+ edits.push([nativeBlock,replacement]);input=input.slice(0,start)+replacement+input.slice(end);
+ let restored=input;
+ for(const [before,after] of edits.reverse()){
+  if(restored.split(after).length!==2)fail('JH_ROUTE_REVERSAL_CHANGED');
+  restored=restored.replace(after,before);
+ }
+ if(restored!==original)fail('JH_ROUTE_PATCH_SCOPE_CHANGED');
+ return input;
+}
+
 export const INITIAL_MODE='EXPLICIT_INITIALIZE_AND_SERVE_V1';
 export const READY_MODE='SERVE_READY_V1';
 export function validateDurableReleaseMode(mode){
@@ -54,11 +127,49 @@ export function buildDurableOperationalEntrypoint(root){
  const file=path.join(base,'operational-service-durable-live.mjs');writeChecked(file,candidate);
  return Object.freeze({file,ownerFile:owner.file,runtimeFile:runtime.file,baselineSha256:runtime.baselineSha256,candidateSha256:runtime.candidateSha256,exactEdits:5});
 }
+
+/** Preserve the existing durable result-verification engine; change only JH
+ * routing and real queued-status reporting on the generated server file.
+ */
+export function buildDurableRoutedRuntime(root){
+ const parent=buildDurableNativeRuntime(root);
+ if(parent.productionEnabled!==false)fail('JH_DURABLE_ROUTE_PARENT_CHANGED');
+ const input=readFileSync(parent.file,'utf8');
+ if(sha256(input)!==parent.candidateSha256)fail('JH_DURABLE_ROUTE_PARENT_DIGEST');
+ const output=patchExistingDurableReturnRoute56(input);
+ const file=path.join(root,'server-integration/server-durable-native-return-route56.mjs');
+ writeChecked(file,output);
+ if(sha256(readFileSync(file))!==sha256(output))fail('JH_DURABLE_ROUTE_READBACK');
+ return Object.freeze({...parent,file,parentSha256:parent.candidateSha256,
+  candidateSha256:sha256(output),runtimeRoutePatched:true,productionEnabled:false});
+}
+export function buildDurableRoutedOperationalEntrypoint(root){
+ const base=buildDurableOperationalEntrypoint(root);
+ const original=readFileSync(base.file,'utf8');
+ const editedImport="import {buildDurableNativeRuntime} from './durable-native-runtime-candidate.mjs';";
+ const routeImport="import {buildDurableRoutedRuntime} from './durable-live-release.mjs';";
+ const oldCall='const runtime=buildDurableNativeRuntime(ROOT).file;';
+ const routeCall='const runtime=buildDurableRoutedRuntime(ROOT).file;';
+ const replaced=exact(exact(original,editedImport,routeImport),oldCall,routeCall);
+ if(replaced.replace(routeCall,oldCall).replace(routeImport,editedImport)!==original)
+  fail('JH_DURABLE_ROUTE_ENTRY_SCOPE');
+ const entry=path.join(root,'deployment/operational-service-durable-return-route56.mjs');
+ writeChecked(entry,replaced);
+ const routed=buildDurableRoutedRuntime(root);
+ return Object.freeze({...base,file:entry,runtimeFile:routed.file,
+   parentSha256:routed.parentSha256,candidateSha256:routed.candidateSha256,routePatch:true});
+}
+
 export async function main(env=process.env){
  validateDurableReleaseMode(env.JH_DURABLE_RELEASE);
  if(env.RENDER_SERVICE_ID!==SERVICE)fail('DURABLE_RELEASE_SERVICE_MISMATCH');
  const root=path.resolve(import.meta.dirname,'..');
- const built=buildDurableOperationalEntrypoint(root);
+ const built=buildDurableRoutedOperationalEntrypoint(root);
  const entry=await import(pathToFileURL(built.file).href);
- return entry.main(env);
+ const running=await entry.main(env);
+ console.log('JH_DURABLE_ROUTE_PATCH_ACTIVE '+JSON.stringify({
+  route:'existing_open_url',patchedRuntimeSha256:built.candidateSha256,
+  parentRuntimeSha256:built.parentSha256,secureVersion:56,
+  sessionExtensionChanged:false,approvalChanged:false,legacyHistoryReplayed:false}));
+ return running;
 }
