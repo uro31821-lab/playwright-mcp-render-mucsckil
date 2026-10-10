@@ -57,7 +57,7 @@ try{
  const oldGet='const CACHEGET_OLD=',newGet='const CACHEGET_NEW=';
  mark('actual deployed baseline had no extended in-flight cache guard',!input.includes(oldGet)&&!input.includes(newGet));
  mark('candidate introduces exact anchored guard',current.includes(oldGet)&&current.includes(newGet));
- const change=execFileSync('git',['diff','--numstat',BASELINE,'HEAD','--','jh-server/owner-setup/deployment/native-readback.mjs'],{encoding:'utf8',cwd}).trim();
+ const change=execFileSync('git',['diff','--numstat',BASELINE,'HEAD','--','jh-server/owner-setup/deployment/native-readback.mjs'],{encoding:'utf8',cwd:path.resolve(cwd,'..')}).trim();
  mark('single patched source file with tracked diff',change.endsWith('jh-server/owner-setup/deployment/native-readback.mjs'));
  writeFileSync(baselineHelper,input,{mode:0o600});
  const fixedRuntime=assertFunctionalReleaseRuntime(root);
