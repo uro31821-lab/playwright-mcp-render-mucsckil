@@ -1,0 +1,40 @@
+name: JH in-flight deduplication verification
+on:
+  push:
+    branches: ['jh-inflight-dedupe-fix-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/native-readback.mjs'
+      - 'jh-server/verification/inflight-dedupe-e2e.mjs'
+      - '.github/workflows/jh-inflight-dedupe.yml'
+permissions:
+  contents: read
+jobs:
+  dedupe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Install and run protected auth + deadline validations
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Syntax and input-pinned runtime tests
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/native-readback.mjs
+          node --check verification/inflight-dedupe-e2e.mjs
+      - name: Real HTTP MCP before-after, including 9-second repeated open and native snapshot
+        working-directory: jh-server
+        run: timeout 130s node verification/inflight-dedupe-e2e.mjs
+      - name: Trust, receipts and signed-renewal preservation
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Protected production baseline files must remain immutable
+        run: |
+          git diff --exit-code 3b01161101c5b9168d65470cf0afa6d9e8b9db78 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/browser-live jh-server/owner-setup/trusted-server jh-server/owner-setup/deployment/functional-release-runtime.mjs jh-server/owner-setup/deployment/owner-service-entry.mjs jh-server/owner-setup/deployment/operational-service-entry.mjs
+      - run: echo JH_INFLIGHT_DEDUPE_VERIFIED
