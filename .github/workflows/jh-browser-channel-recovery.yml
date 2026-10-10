@@ -1,0 +1,30 @@
+name: JH browser channel recovery execution
+on:
+  push:
+    branches: ['jh-browser-channel-fix-test-20261010']
+    paths: ['jh-server/verification/browser-channel-recovery*.mjs','.github/workflows/jh-browser-channel-recovery.yml']
+permissions:
+  contents: read
+jobs:
+  recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Syntax and source identity
+        run: |
+          node --check jh-server/verification/browser-channel-recovery-candidate.mjs
+          node --check jh-server/verification/browser-channel-recovery.test.mjs
+      - name: Execute original-versus-repaired real session/HTTP tests
+        working-directory: jh-server
+        run: node --test verification/browser-channel-recovery.test.mjs
+      - name: Confirm protected production source remains unchanged
+        run: |
+          git diff --exit-code 6562eecd1710acf3ff5dfc713a1c642ef6ed78bd -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/
+      - run: echo JH_CHANNEL_RECOVERY_PASS
