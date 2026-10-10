@@ -18,6 +18,13 @@ const IMPORT_OLD='import {createBrowserSession} from "../browser-live/browser-se
 const IMPORT_NEW='import {createBrowserSession} from "../browser-live/browser-session-functional.mjs";';
 const META_OLD='const recover = attempt === 0 && sessionId !== null && expired(error);';
 const META_NEW="const recover = attempt === 0 && sessionId !== null && (expired(error) || error?.message === 'browser_event_channel_closed');";
+
+/** Distinguish completed delivery from device-declared action outcome. */
+const JOB_OLD='function jobResult(j){\n  return textResult(safeJobView56(j));\n}';
+const JOB_NEW='function jobResult(j){\n  const view=safeJobView56(j);\n  if(!j)return textResult(view);\n  const deviceReportedOutcome=j.status==="complete"?(j.result?.ok===false?"DEVICE_REPORTED_FAILURE":(j.result?.ok===true?"DEVICE_REPORTED_OK_UNVERIFIED":"DEVICE_RESULT_UNVERIFIED")):"NO_COMPLETION_REPORT";\n  return textResult({...view,deviceReportedOutcome});\n}';
+/** A failed Android launch is terminal: no unrelated foreground snapshot follows. */
+const OPEN_OLD='const opened=await waitJob(openJob,15000);\n    let snap=null;';
+const OPEN_NEW='const opened=await waitJob(openJob,15000);\n    if(opened?.status!=="complete"||opened?.result?.ok!==true)\n      return textResult({opened:safeJobView56(opened),targetDeviceId:openJob.targetDeviceId,snapshot:null,actionSucceeded:false,code:opened?.result?.ok===false?"ANDROID_OPEN_FAILED":"ANDROID_OPEN_UNCONFIRMED"});\n    let snap=null;';
 function patchOnce(input,before,after){if(input.split(before).length!==2||input.includes(after))fail('FUNCTIONAL_PATCH_ANCHOR_MISMATCH');return input.replace(before,after);}
 function publish(file,content){
  const tmp=file+'.tmp';
@@ -33,8 +40,8 @@ export function assertFunctionalReleaseRuntime(root) {
  const browser=readFileSync(browserPath);
  if(sha(browser)!==BROWSER)fail('FUNCTIONAL_BROWSER_BASE_SHA_MISMATCH');
  const browserFixed=patchOnce(browser.toString('utf8'),META_OLD,META_NEW);
- const fixed=patchOnce(patchOnce(patchOnce(src,ROUTE_OLD,ROUTE_NEW),STATUS_OLD,STATUS_NEW),IMPORT_OLD,IMPORT_NEW);
- if(fixed.replace(IMPORT_NEW,IMPORT_OLD).replace(STATUS_NEW,STATUS_OLD).replace(ROUTE_NEW,ROUTE_OLD)!==src ||
+ const fixed=patchOnce(patchOnce(patchOnce(patchOnce(patchOnce(src,ROUTE_OLD,ROUTE_NEW),STATUS_OLD,STATUS_NEW),IMPORT_OLD,IMPORT_NEW),JOB_OLD,JOB_NEW),OPEN_OLD,OPEN_NEW);
+ if(fixed.replace(OPEN_NEW,OPEN_OLD).replace(JOB_NEW,JOB_OLD).replace(IMPORT_NEW,IMPORT_OLD).replace(STATUS_NEW,STATUS_OLD).replace(ROUTE_NEW,ROUTE_OLD)!==src ||
     browserFixed.replace(META_NEW,META_OLD)!==browser.toString('utf8'))fail('FUNCTIONAL_PATCH_SCOPE_MISMATCH');
  publish(path.join(root,'browser-live/browser-session-functional.mjs'),browserFixed);
  const dest=path.join(root,'server-integration/server-functional.mjs');
