@@ -1,0 +1,33 @@
+name: JH route execution verification return integration audit
+on:
+  push:
+    branches: ['jh-orchestrator-chain-audit-20261010']
+    paths:
+      - 'jh-server/verification/orchestrator-chain-audit.mjs'
+      - '.github/workflows/jh-orchestrator-chain-audit.yml'
+permissions:
+  contents: read
+jobs:
+  chain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout pinned action
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Node runtime
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Install existing runtime auth dependencies and regressions
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Syntax check exact integration fixture
+        working-directory: jh-server
+        run: node --check verification/orchestrator-chain-audit.mjs
+      - name: Route to signed native action to observed verification to explicit return
+        working-directory: jh-server
+        run: timeout 150s node verification/orchestrator-chain-audit.mjs
+      - name: Confirm no phone, production, or credential mutation
+        run: echo JH_ORCHESTRATOR_CHAIN_TEST_ONLY_NO_DEPLOY_NO_PHONE
