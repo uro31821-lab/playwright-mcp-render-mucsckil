@@ -145,19 +145,50 @@ export function buildDurableRoutedRuntime(root){
 }
 export function buildDurableRoutedOperationalEntrypoint(root){
  const base=buildDurableOperationalEntrypoint(root);
+ const folder=path.join(root,'deployment');
+
+ // The original owner host selects the ACTUAL runtime inside
+ // startConfiguredOwnerServer. Patch that pre-listen selection (not just a
+ // diagnostic runtime variable in the operational wrapper).
+ const originalOwner=readFileSync(base.ownerFile,'utf8');
+ const ownerImportOld="import {buildDurableNativeRuntime} from './durable-native-runtime-candidate.mjs';";
+ const ownerImportNew="import {buildDurableRoutedRuntime} from './durable-live-release.mjs';";
+ const ownerSelectorOld="if(runtimeMode==='unified')serverPath=buildDurableNativeRuntime(root).file;";
+ const ownerSelectorNew="if(runtimeMode==='unified')serverPath=buildDurableRoutedRuntime(root).file;";
+ const ownerCandidate=exact(exact(originalOwner,ownerImportOld,ownerImportNew),ownerSelectorOld,ownerSelectorNew);
+ if(ownerCandidate.replace(ownerSelectorNew,ownerSelectorOld).replace(ownerImportNew,ownerImportOld)!==originalOwner)
+  fail('JH_DURABLE_ROUTE_OWNER_SCOPE');
+ const ownerFile=path.join(folder,'owner-service-durable-return-route56.mjs');
+ writeChecked(ownerFile,ownerCandidate);
+
+ // Link the existing unified host to the corrected owner host.
+ const originalUnified=readFileSync(path.join(folder,'unified-service-durable-live.mjs'),'utf8');
+ const oldUnified="from './owner-service-cutover-candidate.mjs';";
+ const newUnified="from './owner-service-durable-return-route56.mjs';";
+ const unified=exact(originalUnified,oldUnified,newUnified);
+ const unifiedFile=path.join(folder,'unified-service-durable-return-route56.mjs');
+ writeChecked(unifiedFile,unified);
+
+ // Link the existing operational wrapper; keep all owner/volume/session
+ // identity, Durable fence and manual cutover logic unchanged.
  const original=readFileSync(base.file,'utf8');
- const editedImport="import {buildDurableNativeRuntime} from './durable-native-runtime-candidate.mjs';";
- const routeImport="import {buildDurableRoutedRuntime} from './durable-live-release.mjs';";
+ let candidate=exact(original,"from './unified-service-durable-live.mjs';",
+  "from './unified-service-durable-return-route56.mjs';");
+ const oldImport="import {buildDurableNativeRuntime} from './durable-native-runtime-candidate.mjs';";
+ const newImport="import {buildDurableRoutedRuntime} from './durable-live-release.mjs';";
  const oldCall='const runtime=buildDurableNativeRuntime(ROOT).file;';
- const routeCall='const runtime=buildDurableRoutedRuntime(ROOT).file;';
- const replaced=exact(exact(original,editedImport,routeImport),oldCall,routeCall);
- if(replaced.replace(routeCall,oldCall).replace(routeImport,editedImport)!==original)
-  fail('JH_DURABLE_ROUTE_ENTRY_SCOPE');
- const entry=path.join(root,'deployment/operational-service-durable-return-route56.mjs');
- writeChecked(entry,replaced);
+ const newCall='const runtime=buildDurableRoutedRuntime(ROOT).file;';
+ candidate=exact(exact(candidate,oldImport,newImport),oldCall,newCall);
+ if(candidate.replace(newCall,oldCall).replace(newImport,oldImport)
+    .replace("from './unified-service-durable-return-route56.mjs';",
+             "from './unified-service-durable-live.mjs';")!==original)
+  fail('JH_DURABLE_ROUTE_OPERATIONAL_SCOPE');
+ const file=path.join(folder,'operational-service-durable-return-route56.mjs');
+ writeChecked(file,candidate);
  const routed=buildDurableRoutedRuntime(root);
- return Object.freeze({...base,file:entry,runtimeFile:routed.file,
-   parentSha256:routed.parentSha256,candidateSha256:routed.candidateSha256,routePatch:true});
+ return Object.freeze({...base,file,ownerFile,unifiedFile,runtimeFile:routed.file,
+  parentSha256:routed.parentSha256,candidateSha256:routed.candidateSha256,
+  exactOwnerSelectorEdits:2,exactHostLinkEdits:1,routePatch:true});
 }
 
 export async function main(env=process.env){
