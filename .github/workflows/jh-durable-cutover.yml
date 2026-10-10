@@ -1,0 +1,45 @@
+name: JH durable cutover history and startup
+on:
+  push:
+    branches: ['jh-durable-cutover-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/durable-cutover*.mjs'
+      - 'jh-server/verification/durable-cutover.test.mjs'
+      - '.github/workflows/jh-durable-cutover.yml'
+permissions:
+  contents: read
+jobs:
+  cutover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Install with original authentication regressions
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Historical cutover and actual owner startup
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/durable-cutover.mjs
+          node --check owner-setup/deployment/durable-cutover-startup-candidate.mjs
+          node --test verification/durable-cutover.test.mjs verification/durable-computer-policy.test.mjs verification/durable-owner-storage.test.mjs
+      - name: Previous journal restart checks
+        working-directory: jh-server
+        run: node verification/durable-manual-fence-process.test.mjs
+      - name: Signed Computer Use and native HTTP after actual process crashes
+        working-directory: jh-server
+        run: timeout 180s node verification/durable-computer-http.mjs
+      - name: Preserve authenticated receipts and trust records
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Original production and prior candidate sources unchanged
+        run: |
+          git diff --exit-code 71273cf1d175a0af8fa5c85418863a0675b4c1d5 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/browser-live jh-server/owner-setup/trusted-server jh-server/owner-setup/owner-enrollment jh-server/owner-setup/deployment/native-readback.mjs jh-server/owner-setup/deployment/functional-release-runtime.mjs jh-server/owner-setup/deployment/owner-service-entry.mjs jh-server/owner-setup/deployment/operational-service-entry.mjs jh-server/owner-setup/deployment/owner-storage.mjs jh-server/owner-setup/deployment/owner-config.mjs jh-server/owner-setup/deployment/durable-owner-storage.mjs jh-server/owner-setup/deployment/durable-owner-startup-candidate.mjs jh-server/owner-setup/deployment/durable-native-host.mjs jh-server/owner-setup/deployment/durable-native-job-policy.mjs jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs
+      - name: Completed
+        run: echo JH_DURABLE_CUTOVER_VERIFIED_NO_PRODUCTION_CHANGE
