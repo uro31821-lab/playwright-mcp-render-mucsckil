@@ -8,6 +8,7 @@ import {assertFunctionalReleaseRuntime} from './functional-release-runtime.mjs';
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const PIN='fdf101f9e08c146cada768c2e30eea2b2f23835083b0c6e0d9f342e170e69a47';
 const PREFIX='import {createDurableNativeHooks} from "../deployment/durable-native-host.mjs";\nlet durableNativeHooks56=null;\n';
+const AUDIT_IMPORT='import {auditSecureCompletionRejection} from "../deployment/secure-complete-401-audit.mjs";\n';
 const install=`
 export function installDurableNativeCircuit56(options){
  if(durableNativeHooks56||httpServer.listening||jobs.size||devices.size)throw Error("DURABLE_INSTALL_BEFORE_LISTEN_ONLY");
@@ -34,6 +35,9 @@ const COMPLETE_NEW=`    const durableReceipt=durableNativeHooks56?.acceptedCompl
     j.status="complete";j.result=body.result;j.completedAt=new Date().toISOString();`;
 const START_OLD='if(process.env.JH_OWNER_DEFER_LISTEN!=="1")httpServer.listen(PORT,"0.0.0.0");';
 const START_NEW='if(process.env.JH_OWNER_DEFER_LISTEN!=="1")throw Error("DURABLE_HOST_BOOTSTRAP_REQUIRED");';
+const AUTH_REJECT_OLD="if(!a||sid!==j.secureSessionId||sid!==a.sessionId||dev!==a.deviceDigest||rd!==actual||!validToken56(nonce)||exp<Date.now()||exp-Date.now()>60000||!eqHex56(mac,hmac56(a.secret,\"complete|\"+sid+\"|\"+j.id+\"|\"+dev+\"|\"+nonce+\"|\"+exp+\"|\"+rd))||!seen56(a.seenComplete,nonce)){raw.fill(0);res.writeHead(401).end(\"secure completion invalid\");return;}";
+const AUTH_AUDIT_STATEMENT="try{auditSecureCompletionRejection({\n sessionAbsent:!a,\n jobSessionMismatch:sid!==j.secureSessionId,\n activeSessionMismatch:!!a&&sid!==a.sessionId,\n deviceMismatch:!!a&&dev!==a.deviceDigest,\n bodyMismatch:rd!==actual,\n nonceInvalid:!validToken56(nonce),\n expired:exp<Date.now(),\n tooFar:exp-Date.now()>60000,\n signatureMismatch:!!a&&!eqHex56(mac,hmac56(a.secret,\"complete|\"+sid+\"|\"+j.id+\"|\"+dev+\"|\"+nonce+\"|\"+exp+\"|\"+rd)),\n nonceReplayed:!!a&&a.seenComplete.has(nonce)\n });}catch{};";
+const AUTH_REJECT_NEW=AUTH_REJECT_OLD.replace('{raw.fill(0);','{'+AUTH_AUDIT_STATEMENT+'raw.fill(0);');
 const edits=[[CAPTURE_OLD,CAPTURE_NEW],[DISPATCH_OLD,DISPATCH_NEW],[COMPLETE_OLD,COMPLETE_NEW],[START_OLD,START_NEW]];
 export function buildDurableNativeRuntime(root){
  const baseline=readFileSync(assertFunctionalReleaseRuntime(root),'utf8');
@@ -43,12 +47,14 @@ export function buildDurableNativeRuntime(root){
   if(candidate.split(before).length!==2||candidate.includes(after))throw Error('DURABLE_PATCH_ANCHOR');
   candidate=candidate.replace(before,after);
  }
- let reversed=candidate;
+ if(candidate.split(AUTH_REJECT_OLD).length!==2||candidate.includes(AUTH_REJECT_NEW))throw Error('DURABLE_COMPLETE_AUDIT_ANCHOR');
+ candidate=candidate.replace(AUTH_REJECT_OLD,AUTH_REJECT_NEW);
+ let reversed=candidate.replace(AUTH_REJECT_NEW,AUTH_REJECT_OLD);
  for(const [before,after]of edits.slice().reverse())reversed=reversed.replace(after,before);
  if(reversed!==baseline)throw Error('DURABLE_PATCH_SCOPE');
- candidate=PREFIX+candidate+install;
+ candidate=PREFIX+AUDIT_IMPORT+candidate+install;
  const file=path.join(root,'server-integration/server-durable-native-candidate.mjs');
  writeFileSync(file,candidate,{mode:0o600});
  if(readFileSync(file,'utf8')!==candidate)throw Error('DURABLE_BUILD_READBACK');
- return {file,baselineSha256:PIN,candidateSha256:sha(candidate),exactHookEdits:4,productionEnabled:false};
+ return {file,baselineSha256:PIN,candidateSha256:sha(candidate),exactHookEdits:4,diagnosticOnlyEdits:1,productionEnabled:false};
 }
