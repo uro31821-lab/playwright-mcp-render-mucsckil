@@ -1,0 +1,46 @@
+name: JH Secure56 completion 401 cause diagnostics
+on:
+  push:
+    branches: ['jh-complete-401-reason-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/secure-complete-401-audit.mjs'
+      - 'jh-server/owner-setup/deployment/durable-native-runtime-candidate.mjs'
+      - 'jh-server/verification/secure-complete-401-audit.test.mjs'
+      - 'jh-server/verification/secure-complete-401-http.mjs'
+      - '.github/workflows/jh-secure-complete-401.yml'
+permissions:
+  contents: read
+jobs:
+  safe-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Install existing signed Secure56 authentication fixture
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Completion categorization is sanitized, bounded and non-invasive
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/secure-complete-401-audit.mjs
+          node --check owner-setup/deployment/durable-native-runtime-candidate.mjs
+          node --test verification/secure-complete-401-audit.test.mjs
+      - name: Signed live HTTP/MCP auth-denial paths, no real device
+        working-directory: jh-server
+        run: timeout 125s node verification/secure-complete-401-http.mjs
+      - name: Existing live owner startup and durable cutover preserved
+        working-directory: jh-server
+        run: node --test verification/durable-live-release.test.mjs verification/durable-cutover.test.mjs verification/durable-computer-policy.test.mjs
+      - name: Trusted completion and renewal regressions
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Production auth, journal and owner source unchanged
+        run: |
+          git diff --exit-code d866ac98cd0efb680d0bdb44eb456883bdcefcb0 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/trusted-server jh-server/owner-setup/owner-enrollment jh-server/owner-setup/deployment/owner-storage.mjs jh-server/owner-setup/deployment/native-readback.mjs jh-server/owner-setup/deployment/durable-live-release.mjs jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs
+      - run: echo JH_COMPLETION_401_SAFE_AUDIT_VERIFIED
