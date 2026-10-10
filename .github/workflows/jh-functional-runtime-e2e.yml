@@ -1,0 +1,32 @@
+name: JH functional repair runtime verification
+on:
+  push:
+    branches: ['jh-runtime-fix-verify-20261010']
+    paths: ['jh-server/verification/functional-runtime-*.mjs', '.github/workflows/jh-functional-runtime-e2e.yml']
+permissions:
+  contents: read
+jobs:
+  runtime-verification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Preserve original dependency and integrity checks
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Syntax check both new modules
+        working-directory: jh-server
+        run: |
+          node --check verification/functional-runtime-candidate.mjs
+          node --check verification/functional-runtime-e2e.mjs
+      - name: Run original and repaired MCP servers with real elapsed job expiry
+        working-directory: jh-server
+        run: timeout 240s node verification/functional-runtime-e2e.mjs
+      - name: Confirm protected source was not modified
+        run: |
+          git diff --exit-code 6562eecd1710acf3ff5dfc713a1c642ef6ed78bd -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup
