@@ -12,7 +12,7 @@ if(s.split(anchor).length!==2)throw Error('JH_ROUTE_HTTP_HARNESS_CHANGED');
 const oldImport="import {buildDurableNativeRuntime} from '../owner-setup/deployment/durable-native-runtime-candidate.mjs';";
 if(s.split(oldImport).length!==2)throw Error('JH_ROUTE_HTTP_IMPORT_CHANGED');
 s=s.slice(0,s.indexOf(anchor)).replace(oldImport,"import {buildDurableRoutedRuntime} from '../owner-setup/deployment/durable-live-release.mjs';");
-s+=String.raw\`
+s+=String.raw`
  try{
   build=buildDurableRoutedRuntime(ROOT);
   mark('sealed durable host and route-only derived runtime present',build.runtimeRoutePatched===true&&build.productionEnabled===false);
@@ -40,9 +40,8 @@ s+=String.raw\`
  }catch(e){console.error('JH_DURABLE_PUBLISHED_ROUTE_HTTP_FAIL',e);process.exitCode=1}
  finally{for(const c of clients)try{await c.close()}catch{};for(const p of children)try{await kill(p)}catch{};rmSync(dir,{recursive:true,force:true})}
 }
-\`;
+`;
 try{
- s=s.split(String.raw\`\`\`).join('\`');
  writeFileSync(generated,s,{mode:0o600});
  const syntax=spawnSync(process.execPath,['--check',fileURLToPath(generated)],{stdio:'inherit'});
  if(syntax.status!==0)throw Error('JH_DURABLE_ROUTE_FIXTURE_SYNTAX');
