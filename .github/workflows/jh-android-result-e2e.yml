@@ -1,0 +1,40 @@
+name: JH Android Result Contract E2E
+on:
+  push:
+    branches: ['jh-android-result-fix-test-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/functional-release-runtime.mjs'
+      - 'jh-server/verification/android-result-e2e.mjs'
+      - '.github/workflows/jh-android-result-e2e.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Retain existing authenticated startup, signing and previous regression
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Syntax check
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/functional-release-runtime.mjs
+          node --check verification/android-result-e2e.mjs
+      - name: Real local MCP + synthetic Android result before versus after
+        working-directory: jh-server
+        run: timeout 150s node verification/android-result-e2e.mjs
+      - name: Verify trusted receipt and renewal unaffected
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Preserve protected production source
+        run: |
+          git diff --exit-code 6187db95689b0dd1fddd0a406d384b020f904932 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration/server-unified.mjs jh-server/owner-setup/browser-live/browser-session.mjs
+      - run: echo JH_ANDROID_RESULT_FIX_VERIFIED
