@@ -1,0 +1,74 @@
+name: JH existing return route regression
+on:
+  push:
+    branches: ['jh-existing-return-route-fix-20261011']
+    paths:
+      - 'jh-server/server.mjs'
+      - '.github/workflows/jh-existing-return-route-regression.yml'
+permissions:
+  contents: read
+jobs:
+  route-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Syntax and exact production-only change scope
+        run: |
+          node --check jh-server/server.mjs
+          git diff --exit-code 3010aab1141638a4b4dd61ea1c8161ed523fdc09 -- jh-server/auth-diagnostics-entry.mjs jh-server/package.json jh-server/owner-setup .github/workflows/jh-pc-owner-release-check.yml
+      - name: Verify existing MCP handlers without creating a new runner
+        run: |
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          const src=readFileSync('jh-server/server.mjs','utf8');
+          const before=src.indexOf('  // Route explicit JH app-return requests through the existing Android open_url job.');
+          const after=src.indexOf('  registerOAuthTool("life_naver_mail",{',before);
+          assert.ok(before>=0&&after>before);
+          const initial=src.slice(before,after);
+          const registrations=new Map(),jobs=[],browser=[];
+          let queueStatus='queued';
+          const reg=(name,config,fn)=>registrations.set(name,fn);
+          const z={string:()=>({optional(){return this}})};
+          const mk=(type,payload)=>{const job={id:'job_synthetic_'+(jobs.length+1),status:queueStatus,type,...payload};jobs.push(job);return job};
+          const textResult=v=>v;
+          const browserTool=async(name,options)=>{browser.push({name,options});return {ok:true}};
+          new Function('registerOAuthTool','z','mk','textResult','browserTool','devices',initial)(reg,z,mk,textResult,browserTool,{size:1});
+          const route=registrations.get('life_route'),open=registrations.get('life_open_service');
+          assert.equal(typeof route,'function');assert.equal(typeof open,'function');
+          for(const request of ['JH로 라프텔 복귀','JH로 이전 앱 복귀해 줘','previous_work_app','이전 작업 앱으로 돌아가']){
+            const v=await route({request});assert.equal(v.owner,'android',request);
+          }
+          assert.equal((await route({request:'라프텔 원피스 검색'})).owner,'web');
+          assert.equal((await route({request:'식당 예약'})).owner,'restaurant_reservation');
+          assert.equal((await route({request:'카카오T 앱 열어'})).owner,'android');
+          const a=await open({service:'JH로 라프텔 복귀'});
+          assert.equal(a.route,'android');assert.equal(a.queued,true);assert.equal(jobs.at(-1).target,'previous_work_app');
+          assert.equal(browser.length,0);
+          queueStatus='error';
+          const no=await open({service:'JH로 이전 앱 복귀'});
+          assert.equal(no.queued,false);assert.equal(jobs.at(-1).target,'previous_work_app');
+          queueStatus='queued';
+          const ls=await open({service:'last_work_screen'});
+          assert.equal(ls.route,'android');assert.equal(jobs.at(-1).target,'last_work_screen');
+          const web=await open({service:'라프텔 원피스 검색'});
+          assert.equal(web.route,'playwright');assert.equal(browser.length,1);
+          const nativeStart=src.indexOf('  registerOAuthTool("life_android_open",{');
+          const nativeEnd=src.indexOf('  const cuSchema56={',nativeStart);
+          assert.ok(nativeStart>=0&&nativeEnd>nativeStart);
+          new Function('registerOAuthTool','z','mk','textResult','browserTool','devices',src.slice(nativeStart,nativeEnd))(reg,z,mk,textResult,browserTool,{size:1});
+          const native=registrations.get('life_android_open');
+          const n=await native({target:'JH로 라프텔 복귀'});
+          assert.equal(n.route,'android');assert.equal(jobs.at(-1).target,'previous_work_app');
+          assert.equal(browser.length,1);
+          console.log('JH_EXISTING_ROUTE_PATCH_VERIFIED',JSON.stringify({routeCases:7,openCases:4,nativeCases:1,productionModulesAdded:0,phoneActions:0,deployments:0}));
+          JS
+      - name: No deployment
+        run: echo ROUTE_ONLY_CANDIDATE_NO_DEPLOY_NO_APK
