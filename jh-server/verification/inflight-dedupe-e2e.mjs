@@ -88,7 +88,7 @@ try{
  const fresh=await fixed.poll();mark('fresh request has separate auditable job',fresh?.id===third.jobId);
  await fixed.complete(fresh);
  const directA=fixed.call('life_android_snapshot');
- const firstRead=await fixed.poll();mark('first standalone read queued',firstRead?.type==='agent_snapshot');
+ let firstRead=null;for(let i=0;i<80&&!firstRead;i++){firstRead=await fixed.poll();if(!firstRead)await delay(25)}mark('first standalone read queued',firstRead?.type==='agent_snapshot');
  await delay(9100);
  const directB=fixed.call('life_android_snapshot');
  await delay(250);
