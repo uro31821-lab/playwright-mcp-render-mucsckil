@@ -48,7 +48,7 @@ export function createVerifiedReturnHandoff({workflowId,deviceId,sessionId,origi
    if(!same(binding)||state!=='WAIT_DESTINATION'||!origin)return deny('HANDOFF_DESTINATION_SCOPE');
    if(!actionConfirmed(actionJob,actionStatus,binding?.dispatchJobId,binding?.destinationTarget))
      return deny('HANDOFF_ACTION_NOT_CONFIRMED');
-   if(!id(binding?.dispatchJobId)||!id(binding?.destinationTarget)||binding?.destinationTarget!=='카카오T'||
+   if(!id(binding?.dispatchJobId)||binding?.destinationTarget!=='카카오T'||
      Date.parse(actionJob.completedAt)<origin.at)return deny('HANDOFF_ACTION_SCOPE');
    if(!observed(readbackJob,destinationPackage,Date.parse(actionJob.completedAt))||
      readbackJob.id===origin.snapshotId||readbackJob.id===actionJob.id)return deny('HANDOFF_DESTINATION_NOT_VERIFIED');
