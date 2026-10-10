@@ -24,6 +24,11 @@ jobs:
       - name: Execute original-versus-repaired real session/HTTP tests
         working-directory: jh-server
         run: node --test verification/browser-channel-recovery.test.mjs
+      - name: Verify existing authenticated result receipts and trusted sessions
+        working-directory: jh-server
+        run: |
+          npm install --no-audit --no-fund
+          node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
       - name: Confirm protected production source remains unchanged
         run: |
           git diff --exit-code 6562eecd1710acf3ff5dfc713a1c642ef6ed78bd -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/
