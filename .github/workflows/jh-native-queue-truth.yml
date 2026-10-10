@@ -1,0 +1,32 @@
+name: JH native queue admission truth candidate
+on:
+  push:
+    branches: ['jh-native-queue-truth-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/native-queue-truth.mjs'
+      - 'jh-server/verification/native-queue-truth.test.mjs'
+      - '.github/workflows/jh-native-queue-truth.yml'
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout immutable action
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Syntax checks for pinned production source and isolated candidate
+        run: |
+          node --check jh-server/server.mjs
+          node --check jh-server/owner-setup/deployment/native-queue-truth.mjs
+          node --check jh-server/verification/native-queue-truth.test.mjs
+      - name: Real native queue status branch simulation
+        run: node --test jh-server/verification/native-queue-truth.test.mjs
+      - name: No deployment or phone action
+        run: echo JH_NATIVE_QUEUE_TRUTH_CANDIDATE_TEST_ONLY
