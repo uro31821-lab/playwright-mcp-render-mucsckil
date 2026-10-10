@@ -3,7 +3,8 @@
  */
 import assert from 'node:assert/strict';
 import {spawn,execFileSync} from 'node:child_process';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {reverseNativeReadbackPatch} from '../owner-setup/deployment/native-readback.mjs';
 import path from 'node:path';
 import {readFileSync,writeFileSync,rmSync} from 'node:fs';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -60,12 +61,16 @@ try{
  const change=execFileSync('git',['diff','--numstat',BASELINE,'HEAD','--','jh-server/owner-setup/deployment/native-readback.mjs'],{encoding:'utf8',cwd:path.resolve(cwd,'..')}).trim();
  mark('single patched source file with tracked diff',change.endsWith('jh-server/owner-setup/deployment/native-readback.mjs'));
  writeFileSync(baselineHelper,input,{mode:0o600});
+ const originalHelper=await import(pathToFileURL(baselineHelper).href);
  const fixedRuntime=assertFunctionalReleaseRuntime(root);
  const source=readFileSync(fixedRuntime,'utf8');
+ const beforeReadback=reverseNativeReadbackPatch(source);
+ const baselineSource=originalHelper.applyNativeReadbackPatch(beforeReadback);
  const importOriginal='import {runNativeReadback} from "../deployment/native-readback.mjs";';
  const importLegacy='import {runNativeReadback} from "../deployment/native-readback-dedupe-baseline.mjs";';
- assert.equal(source.split(importOriginal).length,2,'exact import target');
- writeFileSync(baselineRuntime,source.replace(importOriginal,importLegacy),{mode:0o600});
+ assert.equal(baselineSource.split(importOriginal).length,2,'exact baseline import target');
+ mark('baseline reconstructed from pinned previously deployed helper',baselineSource.includes('const old=cacheGet(recentJobs,key); if(old && !(type==="agent_snapshot"'));
+ writeFileSync(baselineRuntime,baselineSource.replace(importOriginal,importLegacy),{mode:0o600});
  const original=await start(baselineRuntime,19681),fixed=await start(fixedRuntime,19682);
  const firstBefore=await original.call('life_android_open',{target:'last_work_screen'});
  const firstAfter=await fixed.call('life_android_open',{target:'last_work_screen'});
