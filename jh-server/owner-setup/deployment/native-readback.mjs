@@ -40,7 +40,7 @@ export function inspectNativeReadback(job,expected=null){
 export async function runNativeReadback({action,requestSnapshot,waitSnapshot,bindingValid,now=()=>Date.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms))}){
  let snapshot=null,attempts=0;const expectedPackage=expectedNativePackage(action);
  let state=decision(false,'ACTION_NOT_CONFIRMED');
- const result=()=>({snapshot,readback:{version:'bounded-native-v1',...state,attempts,maxAttempts:3,expectedPackage,
+ const result=()=>({snapshot,readback:{version:'bounded-native-v2-full-budget',...state,attempts,maxAttempts:3,expectedPackage,
   actionReplayCount:0,taskSuccessVerified:false,pageOrScrollRestored:false}});
  const ended=Date.parse(action?.completedAt);
  if(action?.status!=='complete'||action?.result?.ok!==true||!Number.isFinite(ended))return result();
@@ -54,7 +54,7 @@ export async function runNativeReadback({action,requestSnapshot,waitSnapshot,bin
   try{job=requestSnapshot();attempts++;
    if(!job||typeof job.id!=='string'){state=decision(false,'SNAPSHOT_JOB_INVALID');break;}
    if(seen.has(job.id)){state=decision(false,'STALE_SNAPSHOT_REUSED');break;}
-   seen.add(job.id);snapshot=await waitSnapshot(job,Math.min(8000,Math.max(1,deadline-now())));
+   seen.add(job.id);snapshot=await waitSnapshot(job,Math.max(1,deadline-now()));
   }catch{state=decision(false,'SNAPSHOT_TRANSPORT_FAILED');break;}
   if(!bindingValid()||snapshot?.targetDeviceId!==action.targetDeviceId||
      (action.secureSessionId&&snapshot?.secureSessionId!==action.secureSessionId)){
