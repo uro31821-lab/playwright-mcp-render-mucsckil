@@ -299,7 +299,7 @@ function createMcp(){
     const s=raw.toLowerCase();
     const reservationHints=["예약","예매","예약해","예약 진행","book ","booking","reserve","reservation"];
     const restaurantHints=["맛집","식당","음식점","레스토랑","restaurant","dining","뭐 먹","먹을 곳","먹을곳"];
-    const nativeHints=["카카오톡","배달의민족","배민","앱 전용","native app","휴대폰 설정","전화 앱"];
+    const nativeHints=["카카오톡","카카오t","카카오티","kakao t","카카오 택시","배달의민족","배민","앱 전용","native app","휴대폰 설정","전화 앱"];
     const isReservation=reservationHints.some(k=>s.includes(k));
     const isRestaurant=restaurantHints.some(k=>s.includes(k));
     const owner=isReservation&&isRestaurant?"restaurant_reservation":(!isReservation&&isRestaurant?"sikindaero_search":(isReservation?"reservation_0_8":(nativeHints.some(k=>s.includes(k))?"android":"web")));
@@ -623,7 +623,7 @@ function createMcp(){
     title:"Android job status",
     description:"Read a queued Android job result.",
     inputSchema:{job_id:z.string()}
-  },async({job_id})=>jobResult(jobs.get(job_id)));
+  },async({job_id})=>{cleanupJobs();return jobResult(jobs.get(job_id));});
 
   return server;
 }
