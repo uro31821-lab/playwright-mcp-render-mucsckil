@@ -280,6 +280,19 @@ function createMcp(){
   const oauthSchemes56=[{type:"oauth2",scopes:[OAUTH_SCOPE56]}];
   const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},handler);
 
+  // Route explicit JH app-return requests through the existing Android open_url job.
+  // Do not treat ordinary web "back", reservations, or named-app searches as return commands.
+  function jhNativeReturnTarget56(value){
+    const s=String(value||"").trim().toLowerCase();
+    if(["last_work_screen","마지막 작업 화면","마지막 작업화면"].includes(s)||
+       (/마지막 작업 화면/.test(s)&&/(복귀|돌아|열어)/.test(s)))return "last_work_screen";
+    if(["previous_work_app","이전 앱","이전 작업 앱","원래 앱"].includes(s))return "previous_work_app";
+    if((/(이전 앱|이전 작업 앱|원래 앱)/.test(s)&&/(복귀|돌아|열어)/.test(s))||
+       (/(jh로|jhmcp로|jh 브릿지로|jh bridge)/.test(s)&&/(복귀|돌아|되돌아)/.test(s)))
+      return "previous_work_app";
+    return null;
+  }
+
   registerOAuthTool("life_status",{
     title:"JH status",
     description:"Diagnostic only. Avoid during normal open/search flows to reduce rate-limit risk.",
@@ -302,7 +315,7 @@ function createMcp(){
     const nativeHints=["카카오톡","배달의민족","배민","앱 전용","native app","휴대폰 설정","전화 앱"];
     const isReservation=reservationHints.some(k=>s.includes(k));
     const isRestaurant=restaurantHints.some(k=>s.includes(k));
-    const owner=isReservation&&isRestaurant?"restaurant_reservation":(!isReservation&&isRestaurant?"sikindaero_search":(isReservation?"reservation_0_8":(nativeHints.some(k=>s.includes(k))?"android":"web")));
+    const owner=isReservation&&isRestaurant?"restaurant_reservation":(!isReservation&&isRestaurant?"sikindaero_search":(isReservation?"reservation_0_8":((nativeHints.some(k=>s.includes(k))||jhNativeReturnTarget56(s))?"android":"web")));
     const rule=owner==="sikindaero_search"
       ?"Restaurant discovery/search only: use 시킨대로 먹어 (https://sikindaero-meogeo.uro3182.chatgpt.site). Do NOT perform reservations inside 시킨대로 먹어."
       :owner==="restaurant_reservation"
@@ -320,6 +333,11 @@ function createMcp(){
   },async({service})=>{
     const raw=String(service||"").trim();
     const s=raw.toLowerCase();
+    const returnTarget=jhNativeReturnTarget56(s);
+    if(returnTarget){
+      const j=mk("open_url",{target:returnTarget,url:""});
+      return textResult({route:"android",service:raw,queued:j.status==="queued",jobId:j.id,targetDeviceId:j.targetDeviceId,registeredDevices:devices.size});
+    }
     const webMap=[
       [["라프텔","laftel"],"https://laftel.net"],
       [["유튜브","youtube"],"https://www.youtube.com"],
@@ -524,6 +542,8 @@ function createMcp(){
   },async({target,url})=>{
     const raw=String(target||url||"").trim();
     const s=raw.toLowerCase();
+    const returnTarget=jhNativeReturnTarget56(s);
+    if(returnTarget){const j=mk("open_url",{target:returnTarget,url:""});return textResult({route:"android",queued:j.status==="queued",jobId:j.id,targetDeviceId:j.targetDeviceId});}
     if(["last_work_screen","마지막 작업 화면","아까 화면","마지막 작업화면"].includes(s)){const j=mk("open_url",{target:"last_work_screen",url:""});return textResult({route:"android",queued:j.status==="queued",jobId:j.id,targetDeviceId:j.targetDeviceId});}
     if(["chrome","browser","브라우저"].includes(s) && !url){const j=mk("open_url",{target:"chrome",url:""});return textResult({route:"android",queued:j.status==="queued",jobId:j.id,targetDeviceId:j.targetDeviceId});}
     if((s.includes("앱")||s.includes("native")) && !url){const j=mk("open_url",{target:raw,url:""});return textResult({route:"android",queued:j.status==="queued",jobId:j.id,targetDeviceId:j.targetDeviceId});}
