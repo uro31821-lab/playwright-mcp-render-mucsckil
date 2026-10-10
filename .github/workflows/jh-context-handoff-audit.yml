@@ -1,0 +1,33 @@
+name: JH verified context handoff and return contract
+on:
+  push:
+    branches: ['jh-context-handoff-audit-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/verified-return-handoff.mjs'
+      - 'jh-server/verification/verified-return-handoff.test.mjs'
+      - '.github/workflows/jh-context-handoff-audit.yml'
+permissions:
+  contents: read
+jobs:
+  handoff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout reviewed branch
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Node runtime
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Syntax and complete one-shot context contract
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/verified-return-handoff.mjs
+          node --check verification/verified-return-handoff.test.mjs
+          node --test verification/verified-return-handoff.test.mjs
+      - name: Verify operational service is untouched by this candidate
+        run: |
+          git diff --exit-code ab9c63198d7461bacff9c15b2bb09904457329a0 -- jh-server/server.mjs jh-server/package.json jh-server/owner-setup/deployment/published-host-router.mjs jh-server/owner-setup/deployment/durable-live-release.mjs
+          echo JH_CONTEXT_HANDOFF_ONLY_NO_DEPLOY_NO_PHONE
