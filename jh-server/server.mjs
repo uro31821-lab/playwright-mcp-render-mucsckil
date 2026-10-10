@@ -356,7 +356,7 @@ function createMcp(){
     ];
     if(["카카오t","카카오티","kakao t","카카오 택시"].some(k=>s.includes(k))){
       const j=mk("open_url",{target:"카카오T",url:"카카오T"});
-      return textResult({route:"android",service:raw,queued:true,jobId:j.id,registeredDevices:devices.size});
+      return textResult({route:"android",service:raw,queued:j.status==="queued",jobId:j.id,registeredDevices:devices.size});
     }
     for(const [keys,url] of webMap){
       if(keys.some(k=>s.includes(k))){
