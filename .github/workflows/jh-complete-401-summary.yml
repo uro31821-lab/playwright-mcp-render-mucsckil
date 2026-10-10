@@ -1,0 +1,47 @@
+name: JH read-only 401 summary MCP
+on:
+  push:
+    branches: ['jh-complete-401-summary-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/secure-complete-401-audit.mjs'
+      - 'jh-server/owner-setup/deployment/durable-native-runtime-candidate.mjs'
+      - 'jh-server/verification/secure-complete-401-summary.test.mjs'
+      - 'jh-server/verification/secure-complete-401-summary-http.mjs'
+      - '.github/workflows/jh-complete-401-summary.yml'
+permissions:
+  contents: read
+jobs:
+  audit-summary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Install original Secure56 and authenticated regressions
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Test bounded safe process-only summary
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/secure-complete-401-audit.mjs
+          node --check owner-setup/deployment/durable-native-runtime-candidate.mjs
+          node --check verification/secure-complete-401-summary-http.mjs
+          node --test verification/secure-complete-401-summary.test.mjs
+      - name: Signed Secure56 MCP and HTTP 401 reasons with OAuth-protected summary
+        working-directory: jh-server
+        run: timeout 115s node verification/secure-complete-401-summary-http.mjs
+      - name: Owner first cutover and live startup regressions
+        working-directory: jh-server
+        run: node --test verification/durable-live-release.test.mjs verification/durable-cutover.test.mjs
+      - name: Trusted signed result receipt regressions
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Production authorization and bridge code stays unchanged
+        run: |
+          git diff --exit-code 9cf74036de2ffb520ce29a8c852b2eded99f61f1 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/trusted-server jh-server/owner-setup/owner-enrollment jh-server/owner-setup/deployment/native-readback.mjs jh-server/owner-setup/deployment/durable-live-release.mjs jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs
+      - run: echo JH_401_MCP_SUMMARY_VERIFIED
