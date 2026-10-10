@@ -1,0 +1,47 @@
+name: JH durable owner startup and Computer Use compatibility
+on:
+  push:
+    branches: ['jh-durable-owner-compat-20261010']
+    paths:
+      - 'jh-server/owner-setup/deployment/durable-*.mjs'
+      - 'jh-server/verification/durable-*.mjs'
+      - '.github/workflows/jh-durable-owner-compat.yml'
+permissions:
+  contents: read
+jobs:
+  owner-computer-compat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Existing dependencies and authentication regressions
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Owner volume and Computer Use policy including actual owner startup
+        working-directory: jh-server
+        run: |
+          node --check owner-setup/deployment/durable-native-job-policy.mjs
+          node --check owner-setup/deployment/durable-native-host.mjs
+          node --check owner-setup/deployment/durable-owner-storage.mjs
+          node --check owner-setup/deployment/durable-owner-startup-candidate.mjs
+          node --test verification/durable-computer-policy.test.mjs verification/durable-owner-storage.test.mjs
+      - name: Existing durable journal process regression
+        working-directory: jh-server
+        run: node verification/durable-manual-fence-process.test.mjs
+      - name: Signed HTTP Computer Use and native dispatch through real SIGKILL restarts
+        working-directory: jh-server
+        run: timeout 180s node verification/durable-computer-http.mjs
+      - name: Original trusted receipts and renewal regressions
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Production startup, authentication, owner storage and runtime remain unchanged
+        run: |
+          git diff --exit-code 0152aaa4ac9ee1915b105a8dee70716b3f0c7be3 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/browser-live jh-server/owner-setup/trusted-server jh-server/owner-setup/owner-enrollment jh-server/owner-setup/deployment/native-readback.mjs jh-server/owner-setup/deployment/functional-release-runtime.mjs jh-server/owner-setup/deployment/owner-service-entry.mjs jh-server/owner-setup/deployment/operational-service-entry.mjs jh-server/owner-setup/deployment/owner-storage.mjs jh-server/owner-setup/deployment/owner-config.mjs
+      - name: Verification complete
+        run: echo JH_DURABLE_OWNER_COMPUTER_COMPAT_VERIFIED
