@@ -21,12 +21,11 @@ export function createDurableNativeHooks({file,key,namespace,mode='read'}={}){
  const isRead=j=>reads.has(j?.type)&&(j.type==='agent_snapshot'||j.secureRequestedEffect==='READ_ONLY');
  return Object.freeze({
   capture(job,payload){
-   if(closed)throw Error('DURABLE_HOST_CLOSED');
    if(writes.has(job.type))commands.set(job,structuredClone(payload));
   },
   beforeDispatch(job){
-   if(closed)return deny('DURABLE_STORAGE_UNAVAILABLE',503);
    if(isRead(job))return allow();
+   if(closed)return deny('DURABLE_STORAGE_UNAVAILABLE',503);
    if(!writes.has(job?.type))return deny('DURABLE_OPERATION_NOT_SUPPORTED');
    if(job.status!=='queued'||!job.secureSessionId||!job.targetDeviceId||!commands.has(job))return deny('DURABLE_JOB_BINDING_REQUIRED');
    if(records.has(job))return deny('DURABLE_DISPATCH_ALREADY_RESERVED');
@@ -41,8 +40,8 @@ export function createDurableNativeHooks({file,key,namespace,mode='read'}={}){
    * A client-provided field cannot manufacture the private WeakMap evidence capability.
    */
   acceptedCompletion(job,result){
-   if(closed)return deny('DURABLE_STORAGE_UNAVAILABLE',503);
    if(isRead(job))return allow();
+   if(closed)return deny('DURABLE_STORAGE_UNAVAILABLE',503);
    const record=records.get(job);
    if(!record||record.sessionId!==job.secureSessionId||record.deviceId!==job.targetDeviceId||
       !['in_progress','complete'].includes(job.status))return deny('DURABLE_COMPLETION_BINDING_REQUIRED');
@@ -56,6 +55,6 @@ export function createDurableNativeHooks({file,key,namespace,mode='read'}={}){
     return deny(e?.code==='JOURNAL_RESULT_CONFLICT'?'DURABLE_RESULT_CONFLICT':'DURABLE_RECEIPT_NOT_SAVED',e?.code==='JOURNAL_RESULT_CONFLICT'?409:503);
    }finally{proofs.delete(evidence)}
   },
-  close(){if(closed)return;closed=true;commands.clear?.();journal.close()}
+  close(){if(closed)return;closed=true;journal.close()}
  });
 }
