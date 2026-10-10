@@ -5,6 +5,8 @@ on:
     paths:
       - 'jh-server/owner-setup/deployment/native-queue-truth.mjs'
       - 'jh-server/verification/native-queue-truth.test.mjs'
+      - 'jh-server/owner-setup/deployment/native-queue-truth-candidate.mjs'
+      - 'jh-server/verification/native-queue-truth-integration.test.mjs'
       - '.github/workflows/jh-native-queue-truth.yml'
 permissions:
   contents: read
@@ -21,12 +23,19 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22.16.0'
+      - name: Install existing pinned owner authentication dependencies
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
       - name: Syntax checks for pinned production source and isolated candidate
         run: |
           node --check jh-server/server.mjs
           node --check jh-server/owner-setup/deployment/native-queue-truth.mjs
           node --check jh-server/verification/native-queue-truth.test.mjs
+          node --check jh-server/owner-setup/deployment/native-queue-truth-candidate.mjs
+          node --check jh-server/verification/native-queue-truth-integration.test.mjs
       - name: Real native queue status branch simulation
         run: node --test jh-server/verification/native-queue-truth.test.mjs
+      - name: Generate and verify complete pinned durable runtime candidate
+        run: node --test jh-server/verification/native-queue-truth-integration.test.mjs
       - name: No deployment or phone action
         run: echo JH_NATIVE_QUEUE_TRUTH_CANDIDATE_TEST_ONLY
