@@ -1,0 +1,39 @@
+name: JH crash-window Computer Use replay fence
+on:
+  push:
+    branches: ['jh-type-sigkill-replay-fence-20261010']
+    paths:
+      - 'jh-server/verification/durable-type-sigkill-http.mjs'
+      - '.github/workflows/jh-type-sigkill.yml'
+permissions:
+  contents: read
+jobs:
+  crash-window:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Install pinned authentication and owner packages
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Signed Secure56 TYPE delivered before SIGKILL; no replay after two more restarts
+        working-directory: jh-server
+        run: |
+          node --check verification/durable-type-sigkill-http.mjs
+          timeout 155s node verification/durable-type-sigkill-http.mjs
+      - name: Current read-only Computer Use and policy regression
+        working-directory: jh-server
+        run: node --test verification/durable-computer-policy.test.mjs verification/durable-cutover.test.mjs
+      - name: Original signed trusted result and renewal regressions
+        working-directory: jh-server
+        run: node --test owner-setup/trusted-server/dispatch-receipts*.test.mjs owner-setup/trusted-server/trusted-renewal.test.mjs
+      - name: Production source and durable journal unchanged
+        run: |
+          git diff --exit-code 3010aab1141638a4b4dd61ea1c8161ed523fdc09 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/owner-setup jh-server/package.json jh-server/package-lock.json
+      - run: echo JH_TYPE_SIGKILL_REPLAY_FENCE_VERIFIED_NO_LIVE_DEVICE
