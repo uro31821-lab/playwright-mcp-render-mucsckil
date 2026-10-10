@@ -61,7 +61,7 @@ if(['A','B','C','D'].includes(process.argv[2])){
   const bits=readFileSync(file);
   check('no original payload or deviceId is stored',!bits.includes('sensitive-fixture-secret')&&!bits.includes('do_not_store_plaintext')&&!bits.includes('synthetic-device-name'));
   check('correct owner namespace is required',(()=>{
-   try{new DurableManualCircuitFence({file,key,namespace,verifyAuthenticatedCompletion:digest('wrong-namespace')});return false}
+   try{new DurableManualCircuitFence({file,key,namespace:digest('wrong-namespace'),verifyAuthenticatedCompletion});return false}
    catch(e){return e.code==='JOURNAL_KEY_OR_NAMESPACE_MISMATCH'}})());
   check('incorrect encryption/HMAC secret is rejected',(()=>{
    try{new DurableManualCircuitFence({file,key:Buffer.alloc(32,24),namespace,verifyAuthenticatedCompletion});return false}
