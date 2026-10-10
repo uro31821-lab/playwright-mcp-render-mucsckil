@@ -45,6 +45,21 @@ const extra=`
   mark('correctly authenticated Computer Use reply records transport outcome only',typeResult.status==='complete'&&typeResult.result.ok===true&&counts().uncertain===beforeCu.uncertain);
   const secret=await b.call('life_android_execute_computer_action',{...typeArgs,data_class:'SECRET'});
   mark('SECRET input remains blocked by original MCP envelope before any dispatch',secret.ok===false&&secret.code==='credential_class_never_crosses_secure_bridge'&&(await b.poll(B)).status===204);
+  // Real MCP + signed Android poll/complete: emulate the delayed foreground accessibility update seen on FIX10.
+  const slowIntegrated=b.call('life_android_open_and_snapshot',{target:'카카오T'});
+  const slowAction=await b.take(B);
+  mark('delayed readback opens the native target only once',slowAction.type==='open_url'&&slowAction.target==='카카오T');
+  assert.equal((await b.complete(B,slowAction,{ok:true,url:'app:카카오T'})).status,200);
+  const slowRead=await b.take(B);
+  mark('delayed readback has exactly one queued native snapshot',slowRead.type==='agent_snapshot');
+  await delay(14500);
+  assert.equal((await b.complete(B,slowRead,{ok:true,url:JSON.stringify([{package:'com.kakao.taxi',className:'android.view.View',text:'synthetic slow foreground'}])})).status,200);
+  const observedSlow=await slowIntegrated;
+  mark('14.5-second real signed reply completes inside the expanded 20-second budget',
+     observedSlow.readback?.ready===true&&observedSlow.readback?.targetMatched===true&&observedSlow.snapshot?.status==='complete');
+  mark('delayed readback never replays app action or invents business completion',
+     observedSlow.readback.actionReplayCount===0&&observedSlow.readback.taskSuccessVerified===false);
+  mark('no pending repeated Android job follows accepted delayed readback',(await b.poll(B)).status===204);
   const cuBytes=[file,file+'-wal'].filter(existsSync).map(f=>readFileSync(f));
   mark('Computer Use text, grant and lease do not appear in durable storage',cuBytes.every(v=>!v.includes('SYNTHETIC_CU_PRIVATE_TEXT')&&!v.includes('SYNTHETIC_GRANT_ONE')&&!v.includes('SYNTHETIC_LEASE_ONE')));
 `;
