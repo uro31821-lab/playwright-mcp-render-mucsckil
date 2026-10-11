@@ -45,6 +45,22 @@ function legacySnapshot(config,s){
   return {tracked:entries.length,received:receipts.length,unresolved,digest:fingerprint};
  }finally{db.close()}
 }
+function bindLegacyDispatchBoundary(config,createdAtMs){
+ if(!Number.isSafeInteger(createdAtMs)||createdAtMs<=0)fail('CUTOVER_LEGACY_BOUNDARY_INVALID');
+ const db=new DatabaseSync(path.join(config.stateDir,'trusted-devices.sqlite'),{timeout:5000});
+ let committed=false;
+ try{
+  db.exec('PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL; PRAGMA busy_timeout=5000; BEGIN IMMEDIATE;');
+  const prior=db.prepare('SELECT v FROM meta WHERE k=?').get('legacy_dispatch_cutoff_ms');
+  const value=String(createdAtMs);
+  if(prior&&prior.v!==value)fail('CUTOVER_LEGACY_BOUNDARY_MISMATCH');
+  if(!prior)db.prepare('INSERT INTO meta(k,v) VALUES(?,?)').run('legacy_dispatch_cutoff_ms',value);
+  db.exec('COMMIT; PRAGMA wal_checkpoint(PASSIVE);');committed=true;
+ }finally{
+  if(!committed)try{db.exec('ROLLBACK')}catch{}
+  db.close();
+ }
+}
 function readReady(config,s){
  if(present(s.marker))fail('CUTOVER_INTERRUPTED_REVIEW_REQUIRED');
  if(!present(s.ready))fail('CUTOVER_RECEIPT_REQUIRED');
@@ -66,8 +82,13 @@ function readReady(config,s){
   const boundary=db.prepare('SELECT v FROM circuit_meta WHERE k=?').get('cutover_boundary')?.v;
   if(generation!==p.activationId||boundary!==r.mac)fail('CUTOVER_JOURNAL_GENERATION_MISMATCH');
  }finally{db.close()}
- return Object.freeze({ready:true,activationId:p.activationId,legacyTrackedAtCutover:p.legacy.tracked,
-  legacyUnresolvedAtCutover:p.legacy.unresolved,manualHistory:'UNKNOWN_NOT_IMPORTED',existingHistoryReconciled:false,automaticReplayAllowed:false});
+ // Bind the already signed cutover timestamp into the legacy registry. This does
+ // not delete, acknowledge, replay, or mark any historical dispatch as complete;
+ // it only establishes which unknown records belong to the preserved old era.
+ bindLegacyDispatchBoundary(config,p.createdAtMs);
+ return Object.freeze({ready:true,activationId:p.activationId,cutoverCreatedAtMs:p.createdAtMs,
+  legacyTrackedAtCutover:p.legacy.tracked,legacyUnresolvedAtCutover:p.legacy.unresolved,
+  manualHistory:'UNKNOWN_NOT_IMPORTED',existingHistoryReconciled:false,automaticReplayAllowed:false});
 }
 /** Offline only. The existing owner runtime lock prevents initialization while live.
  * Any interruption leaves the marker/staging data for explicit review; never erase them.
