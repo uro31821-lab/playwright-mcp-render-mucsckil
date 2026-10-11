@@ -39,8 +39,11 @@ export class TrustedBridgeSessionAuthority {
     if(!c)fail('INVALID_PROOF');this.#scope(this.#trust(c.trustId),d);
     const r=this.#registry.inspectRecovery(input.proof),st=this.#bridge.states.get(d);
     if(st)this.#purge(st);
-    // Report all current sessions/pairing on this device; never replace manual pairing.
-    const activeSessions=st?.active?1:0,pendingSessions=st?.pending.size||0;
+    // Report all current sessions/pairing on this device. A fresh signed device-trust
+    // recovery proof may fence only a stale session from this same enrolled device,
+    // and only when no pairing, queued/uncertain work, challenge/proof, or frame wait exists.
+    // This repairs an APK-update/process-restart gap without bypassing initial enrollment.
+    let activeSessions=st?.active?1:0,pendingSessions=st?.pending.size||0;
     let pendingJobs=0,uncertain=r.dispatchedJobsUncertain;
     for(const j of this.#bridge.jobs.values())if(j.trustBindingId===r.trustId){
       if(j.status==='queued'&&j.secureExpiresAt<=this.#time()){
@@ -49,8 +52,21 @@ export class TrustedBridgeSessionAuthority {
       if(j.status==='queued')pendingJobs++;
       if(j.status==='in_progress'&&j.secureRequestedEffect!=='READ_ONLY')uncertain++;
     }
+    const frameBusy=[...this.#bridge.frameWaiters.values()].some(w=>w?.deviceId===d);
+    if(activeSessions===1&&pendingSessions===0&&pendingJobs===0&&uncertain===0&&
+       r.unusedChallenges===0&&r.redeemableProofs===0&&!frameBusy){
+      const a=st?.active,m=this.#bridge.devices.get(d),lastSeen=Number(m?.lastSeen),n=this.#time();
+      const stale=Number.isSafeInteger(lastSeen)&&lastSeen>=0&&n>=lastSeen&&n-lastSeen>=15_000;
+      const sameDevice=a?.deviceDigest===r.deviceDigest;
+      const trustCompatible=!a?.trustId||a.trustId===r.trustId;
+      if(stale&&sameDevice&&trustCompatible){
+        a.secret.fill(0);st.active=null;activeSessions=0;
+        if(m)this.#bridge.devices.set(d,{...m,secureActive:false});
+        console.log("JH_TRUST_RECOVERY_STALE_SESSION_CLEARED",JSON.stringify({device:true,trustBound:!!a.trustId,staleMs:n-lastSeen}));
+      }
+    }
     const clear=activeSessions===0&&pendingSessions===0&&pendingJobs===0&&uncertain===0&&
-      r.unusedChallenges===0&&r.redeemableProofs===0;
+      r.unusedChallenges===0&&r.redeemableProofs===0&&!frameBusy;
     return {version:1,code:clear?'RECOVERY_CLEAR':'RECOVERY_WAIT',purpose:'SESSION_STATE_RECONCILE_ONLY',...r,
       activeSessions,pendingSessions,pendingJobs,dispatchedJobsUncertain:uncertain,
       safeToStartNewAttempt:clear,sessionActive:false,actionApprovalGranted:false,screenConsentGranted:false};
