@@ -4,6 +4,7 @@ import {withBrowserEvents} from "../browser-live/browser-events.mjs";
 import {createLifeRuntimeSlot} from "../server-continuation/life-runtime-slot.mjs";
 import {TrustedBridgeSessionAuthority} from "../trusted-server/trusted-bridge-session-authority.mjs";
 import {makeRejectionProbe} from "./auth-rejection-probe.mjs";
+import {createMemoriaReadPort} from "../server-adapter/memoria-mcp-read-port.mjs";
 
 import { createServer } from "node:http";
 import { randomBytes, createHash, createHmac, timingSafeEqual } from "node:crypto";
@@ -108,6 +109,34 @@ function purge56(s){const now=Date.now();if(s.active&&now>s.active.expiresAt){wi
 function active56(deviceId){const s=secureStates56.get(deviceId);if(!s)return null;purge56(s);if(s.active?.trustId&&(!trustedSessionAuthority56||!trustedSessionAuthority56.sessionAllowed(s.active))){const denied=s.active;try{if(trustedSessionAuthority56)trustedSessionAuthority56.fenceSessions(denied.trustId);}catch{}if(s.active===denied){wipeSession56(denied);s.active=null;}}return s.active;}
 function seen56(set,nonce){if(set.has(nonce))return false;set.add(nonce);while(set.size>512)set.delete(set.values().next().value);return true;}
 function sessionDigest56(x){return sha56(x.deviceDigest+"|"+SERVER_IDENTITY_DIGEST56+"|PUBLIC_HTTPS_PROXY|unified-dev-checkpoint.56|"+SECURE56_TOOL_CATALOG_DIGEST+"|56|"+x.sessionId+"|"+x.expiresAt);}
+const MEMORIA_READ_ENDPOINT56="https://memoria-cloud.onrender.com/mcp";
+async function memoriaRead56(a,deviceId,operation,args){
+  const current=()=>active56(deviceId)===a;
+  const port=createMemoriaReadPort({
+    endpoint:MEMORIA_READ_ENDPOINT56,
+    // Memoria Cloud currently exposes the MCP endpoint without a bearer challenge.
+    // This non-secret stable marker only satisfies the existing bounded client contract;
+    // the public JH route itself is protected by the active Secure56 device session below.
+    authorization:()=>"Bearer JHMemoriaReadProxyOnly20261011",
+    current,fetchImpl:globalThis.fetch,clock:Date.now,timeoutMs:12000,maxRequests:16
+  });
+  try{
+    await port.prepare();
+    if(operation==="search"){
+      const keys=Object.keys(args||{}).sort().join("|");
+      if(keys!=="limit|query"||typeof args.query!=="string"||!args.query.trim()||args.query.length>20000||
+         !Number.isInteger(args.limit)||args.limit<1||args.limit>5)throw new Error("memoria_search_arguments");
+      return await port.search(args.query,args.limit);
+    }
+    if(operation==="fetch"){
+      const keys=Object.keys(args||{}).sort().join("|");
+      if(keys!=="memory_id"||typeof args.memory_id!=="string"||!/^[A-Za-z0-9_.:-]{1,160}$/.test(args.memory_id))
+        throw new Error("memoria_fetch_arguments");
+      return await port.fetch(args.memory_id);
+    }
+    throw new Error("memoria_operation_not_allowed");
+  }finally{port.close();}
+}
 function payloadDigest56(p){return sha56(stable56(p||{}));}
 function signJob56(j,p){
   const a=active56(j.targetDeviceId);if(!a)return j;
@@ -648,6 +677,44 @@ export const httpServer=createServer(async(req,res)=>{
     for(const [k,p] of st.pending){if(k!==sid)wipeSession56(p);}st.pending.clear();
     const m=devices.get(deviceId)||{};devices.set(deviceId,{...m,secureActive:true,lastSeen:Date.now()});
     res.writeHead(200,{"content-type":"application/json"}).end(JSON.stringify({ok:true,code:"secure_bridge_activated",sessionDigest:st.active.sessionDigest}));return;
+  }
+
+  if(req.method==="POST" && url.pathname==="/device/memoria/read"){
+    let chunks=[],total=0;
+    for await(const ch of req){
+      const q=Buffer.from(ch);total+=q.length;
+      if(total>65536){chunks.forEach(x=>x.fill(0));q.fill(0);res.writeHead(413).end("memoria request too large");return;}
+      chunks.push(q);
+    }
+    const raw=Buffer.concat(chunks);chunks.forEach(x=>x.fill(0));
+    let body;
+    try{body=JSON.parse(raw.toString("utf8")||"{}");}
+    catch{raw.fill(0);res.writeHead(400).end("invalid json");return;}
+    const deviceId=String(body.deviceId||""),a=active56(deviceId);
+    const sid=String(req.headers["x-jh-session"]||""),dev=String(req.headers["x-jh-device"]||""),
+      nonce=String(req.headers["x-jh-nonce"]||""),exp=Number(req.headers["x-jh-expires"]||0),
+      pd=String(req.headers["x-jh-payload-digest"]||""),mac=String(req.headers["x-jh-mac"]||""),actual=sha56(raw);
+    const msg="request|"+sid+"|"+dev+"|"+nonce+"|"+exp+"|"+pd;
+    if(!a||sid!==a.sessionId||dev!==a.deviceDigest||pd!==actual||!validToken56(nonce)||exp<Date.now()||exp-Date.now()>60000||
+       !eqHex56(mac,hmac56(a.secret,msg))||!seen56(a.seenRequest||(a.seenRequest=new Set()),nonce)){
+      raw.fill(0);res.writeHead(401,{"cache-control":"no-store"}).end("secure memoria request invalid");return;
+    }
+    const operation=String(body.operation||""),args=body.arguments;
+    if(!args||Object.getPrototypeOf(args)!==Object.prototype||!["search","fetch"].includes(operation)){
+      raw.fill(0);res.writeHead(400).end("memoria request invalid");return;
+    }
+    try{
+      const result=await memoriaRead56(a,deviceId,operation,args);
+      if(active56(deviceId)!==a){raw.fill(0);res.writeHead(409).end("secure session changed");return;}
+      const encoded=JSON.stringify(result);
+      if(Buffer.byteLength(encoded)>524288){raw.fill(0);res.writeHead(502).end("memoria response too large");return;}
+      devices.set(deviceId,{...(devices.get(deviceId)||{}),lastSeen:Date.now()});
+      res.writeHead(200,{"content-type":"application/json","cache-control":"no-store"}).end(encoded);
+    }catch(e){
+      const code=String(e?.code||e?.message||"memoria_read_failed").replace(/[^A-Za-z0-9_.:-]/g,"_").slice(0,120);
+      res.writeHead(502,{"content-type":"application/json","cache-control":"no-store"}).end(JSON.stringify({ok:false,code}));
+    }finally{raw.fill(0);}
+    return;
   }
 
   if(req.method==="GET" && url.pathname==="/device/poll"){
