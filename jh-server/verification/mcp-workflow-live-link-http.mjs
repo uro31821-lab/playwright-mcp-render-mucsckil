@@ -20,7 +20,7 @@ s=s.replace('Synthetic Secure56 device only. Two actual SIGKILL restarts; no liv
 s+=String.raw`
  const linked=(j,r)=>({...r,jhMcpWorkflow:{workflowId:j.workflowId,workflowStepId:j.workflowStepId,
   workflowPlanDigest:j.workflowPlanDigest,workflowActionDigest:j.workflowActionDigest,jobId:j.id}});
- const screen=packageName=>({ok:true,url:JSON.stringify([{package:packageName,text:'synthetic',className:'android.view.View'}])});
+ const screenPayload=packageName=>({ok:true,url:JSON.stringify([{package:packageName,text:'synthetic',className:'android.view.View'}])});
  try{
   const assembled=buildDurableRoutedOperationalEntrypoint(ROOT);
   build=buildDurableRoutedRuntime(ROOT);
@@ -33,7 +33,7 @@ s+=String.raw`
   const begin=h.call('life_android_workflow_link',{mode:'BEGIN'});
   const origin=await h.take(p);
   mark('first screen has server-assigned workflow and a signed payload',origin.type==='agent_snapshot'&&/^jh_mcp_[a-f0-9]{32}$/.test(origin.workflowId)&&origin.workflowStepId==='step_0'&&!!origin.secureMac&&!!origin.workflowActionDigest);
-  assert.equal((await h.complete(p,origin,linked(origin,screen('com.android.chrome')))).status,200);
+  assert.equal((await h.complete(p,origin,linked(origin,screenPayload('com.android.chrome')))).status,200);
   const ready=await begin;
   mark('verified original Chrome screen is bound to step_0',ready.ok===true&&ready.phase==='READY'&&ready.jobs[0].jobId===origin.id);
   const id=ready.workflowId;
@@ -47,7 +47,7 @@ s+=String.raw`
   assert.equal((await h.complete(p,app,linked(app,{ok:true,packageName:'com.kakao.taxi'}))).status,200);
   const destination=await h.take(p);
   assert.equal(destination.workflowStepId,'step_2');
-  assert.equal((await h.complete(p,destination,linked(destination,screen('com.kakao.taxi')))).status,200);
+  assert.equal((await h.complete(p,destination,linked(destination,screenPayload('com.kakao.taxi')))).status,200);
   const opened=await opening;
   mark('action receipt alone is not final; separate destination screen verified',opened.ok===true&&opened.phase==='OPENED'&&opened.verified===false&&opened.jobs.length===3);
   const returning=h.call('life_android_workflow_link',{mode:'RETURN_PREVIOUS',workflow_id:id});
@@ -56,19 +56,19 @@ s+=String.raw`
   assert.equal((await h.complete(p,back,linked(back,{ok:true,code:'synthetic_return'}))).status,200);
   const last=await h.take(p);
   assert.equal(last.workflowStepId,'step_4');
-  assert.equal((await h.complete(p,last,linked(last,screen('com.android.chrome')))).status,200);
+  assert.equal((await h.complete(p,last,linked(last,screenPayload('com.android.chrome')))).status,200);
   const done=await returning;
   mark('five actual signed jobs share one workflow and final origin verified',done.ok===true&&done.phase==='VERIFIED'&&done.verified===true&&done.workflowId===id&&done.jobs.length===5&&new Set(done.jobs.map(j=>j.jobId)).size===5);
   const repeated=await h.call('life_android_workflow_link',{mode:'RETURN_PREVIOUS',workflow_id:id});
   mark('repeating completed return never dispatches again',repeated.ok===false&&repeated.code==='workflow_phase_mismatch'&&(await h.poll(p)).status===204);
   const missing=h.call('life_android_workflow_link',{mode:'BEGIN'});
   const missingJob=await h.take(p);
-  assert.equal((await h.complete(p,missingJob,screen('com.android.chrome'))).status,200);
+  assert.equal((await h.complete(p,missingJob,screenPayload('com.android.chrome'))).status,200);
   const missingResult=await missing;
   mark('legacy phone without workflow echo cannot pass new integration',missingResult.ok===false&&missingResult.code==='workflow_phone_binding_not_proven'&&missingResult.phase==='NEEDS_REVIEW'&&(await h.poll(p)).status===204);
   const legacy=h.call('life_android_snapshot');
   const legacyJob=await h.take(p);
-  assert.equal((await h.complete(p,legacyJob,screen('com.android.chrome'))).status,200);
+  assert.equal((await h.complete(p,legacyJob,screenPayload('com.android.chrome'))).status,200);
   mark('legacy diagnostic call is unchanged',(await legacy).status==='complete'&&legacyJob.workflowId===undefined);
   console.log('JH_INSTALLED_V141_WORKFLOW_RELEASE_PASS '+JSON.stringify({checks:checks.length,failed:0,oneWorkflowJobs:5,runtimeSha256:build.candidateSha256,phoneActions:0,productionDeployments:0,scope:'signed localhost MCP plus synthetic v141 completion echoes; not physical phone completion'}));
  }catch(e){console.error('JH_INSTALLED_V141_WORKFLOW_RELEASE_FAIL',e);process.exitCode=1}
