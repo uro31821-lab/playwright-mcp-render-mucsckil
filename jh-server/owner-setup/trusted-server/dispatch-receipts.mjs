@@ -20,11 +20,26 @@ export function installReceiptSchema(db){
  BEGIN SELECT RAISE(ABORT,'RECEIPT_IMMUTABLE'); END;
 `);
 }
+function legacyDispatchCutoff(db){
+ const row=db.prepare('SELECT v FROM meta WHERE k=?').get('legacy_dispatch_cutoff_ms');
+ if(!row)return null;
+ if(typeof row.v!=='string'||!/^[1-9][0-9]{0,15}$/.test(row.v))fail('RECEIPT_CUTOVER_INVALID');
+ const value=Number(row.v);
+ if(!Number.isSafeInteger(value)||value<=0)fail('RECEIPT_CUTOVER_INVALID');
+ return value;
+}
 export function pendingReceiptCount(db,trustId){
  if(!tok(trustId))fail('RECEIPT_TRUST_INVALID');
- return db.prepare(`SELECT COUNT(*) n FROM trusted_dispatches d WHERE d.trust_id=?
+ const cutoff=legacyDispatchCutoff(db);
+ if(cutoff===null)return db.prepare(`SELECT COUNT(*) n FROM trusted_dispatches d WHERE d.trust_id=?
  AND NOT EXISTS(SELECT 1 FROM trusted_dispatch_receipts r
  WHERE r.job_digest=d.job_digest AND r.trust_id=d.trust_id)`).get(trustId).n;
+ // The signed durable cutover quarantines pre-cutover unknown history without
+ // replaying, deleting, or pretending those old jobs completed. Only work created
+ // after the cutover can block a new trusted session.
+ return db.prepare(`SELECT COUNT(*) n FROM trusted_dispatches d WHERE d.trust_id=? AND d.created>?
+ AND NOT EXISTS(SELECT 1 FROM trusted_dispatch_receipts r
+ WHERE r.job_digest=d.job_digest AND r.trust_id=d.trust_id)`).get(trustId,cutoff).n;
 }
 /** Called only by the registry with its host-only capability, inside a transaction. */
 export function insertDeviceReceipt(db,trustId,jobDigest,evidenceDigest,now){
