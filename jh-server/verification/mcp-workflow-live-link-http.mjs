@@ -61,6 +61,32 @@ s+=String.raw`
   mark('five actual signed jobs share one workflow and final origin verified',done.ok===true&&done.phase==='VERIFIED'&&done.verified===true&&done.workflowId===id&&done.jobs.length===5&&new Set(done.jobs.map(j=>j.jobId)).size===5);
   const repeated=await h.call('life_android_workflow_link',{mode:'RETURN_PREVIOUS',workflow_id:id});
   mark('repeating completed return never dispatches again',repeated.ok===false&&repeated.code==='workflow_phase_mismatch'&&(await h.poll(p)).status===204);
+
+  // A real phone can finish accessibility readback just after the bounded
+  // server wait. Prove STATUS reconciles the already MAC-accepted result
+  // without re-dispatching or creating a new job.
+  const lateBegin=h.call('life_android_workflow_link',{mode:'BEGIN'});
+  const lateOrigin=await h.take(p);
+  assert.equal((await h.complete(p,lateOrigin,linked(lateOrigin,screenPayload('com.android.chrome')))).status,200);
+  const lateReady=await lateBegin;
+  const lateId=lateReady.workflowId;
+  const lateOpening=h.call('life_android_workflow_link',{mode:'OPEN_KAKAO_T',workflow_id:lateId});
+  const lateApp=await h.take(p);
+  assert.equal((await h.complete(p,lateApp,linked(lateApp,{ok:true,packageName:'com.kakao.taxi'}))).status,200);
+  const lateDestination=await h.take(p);
+  assert.equal((await h.complete(p,lateDestination,linked(lateDestination,screenPayload('com.kakao.taxi')))).status,200);
+  assert.equal((await lateOpening).phase,'OPENED');
+  const lateReturning=h.call('life_android_workflow_link',{mode:'RETURN_PREVIOUS',workflow_id:lateId});
+  const lateBack=await h.take(p);
+  assert.equal((await h.complete(p,lateBack,linked(lateBack,{ok:true,code:'synthetic_return'}))).status,200);
+  const lateLast=await h.take(p);
+  const lateCompletion=delay(26000).then(()=>h.complete(p,lateLast,linked(lateLast,screenPayload('com.android.chrome'))));
+  const needsReview=await lateReturning;
+  mark('bounded wait can end before a valid late screen receipt',needsReview.phase==='NEEDS_REVIEW'&&needsReview.verified===false);
+  assert.equal((await lateCompletion).status,200);
+  const beforeStatusJobs=needsReview.jobs.length;
+  const reconciled=await h.call('life_android_workflow_link',{mode:'STATUS',workflow_id:lateId});
+  mark('STATUS promotes a MAC-accepted late final screen without replay',reconciled.ok===true&&reconciled.reconciled===true&&reconciled.phase==='VERIFIED'&&reconciled.verified===true&&reconciled.jobs.length===beforeStatusJobs&&(await h.poll(p)).status===204);
   const missing=h.call('life_android_workflow_link',{mode:'BEGIN'});
   const missingJob=await h.take(p);
   assert.equal((await h.complete(p,missingJob,screenPayload('com.android.chrome'))).status,200);
