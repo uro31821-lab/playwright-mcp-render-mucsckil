@@ -40,9 +40,16 @@ jobs:
           assert.equal(current,entry+original.replace(from,to));
           const modulePath='jh-server/owner-setup/deployment/durable-mcp-workflow-patch.mjs';
           const module=readFileSync(modulePath,'utf8');
-          const prior=execFileSync('git',['show','107e7660c6b3a206d41fb29c038fb379dc2f5173:'+modulePath],{encoding:'utf8'});
-          assert.equal(module,prior.replace('const result=await waitJob(j,15000);','const result=await waitJob(j,25000);'));
-          console.log('JH_INSTALLED_PACKAGE_MODULE_IDENTICAL_PLUS_BOUNDED_WAIT_FIX');
+          const prior=execFileSync('git',['show','58837d5e02586b0c3f6517e2066d4e47c4cbfa47:'+modulePath],{encoding:'utf8'});
+          const helperStart='  function jhValidateLateSnapshot56(w,stepId,expectedPackage){';
+          const helperEnd="  registerOAuthTool('life_android_workflow_link',{";
+          const a=module.indexOf(helperStart),b=module.indexOf(helperEnd,a);
+          assert.ok(a>=0&&b>a);
+          const oldStatus="    if(mode==='STATUS')return textResult({ok:true,...jhWorkflowView56(w)});";
+          const newStatus="    if(mode==='STATUS'){\n      const reconciled=jhReconcileLateWorkflow56(w);\n      return textResult({ok:true,reconciled,...jhWorkflowView56(w)});\n    }";
+          const reversed=module.slice(0,a)+module.slice(b);
+          assert.equal(reversed.replace(newStatus,oldStatus),prior);
+          console.log('JH_INSTALLED_PACKAGE_MODULE_IDENTICAL_PLUS_LATE_STATUS_RECONCILIATION');
           JS
           git diff --exit-code 6c669cc7004182ed8fe9cf8d3aa3d074d4afff7d -- jh-server/server.mjs jh-server/package.json jh-server/owner-setup/published-baseline jh-server/owner-setup/trusted-server jh-server/owner-setup/deployment/published-host-router.mjs jh-server/owner-setup/deployment/durable-native-runtime-candidate.mjs jh-server/owner-setup/server-continuation
       - name: Existing dependencies and unchanged authentication regressions
