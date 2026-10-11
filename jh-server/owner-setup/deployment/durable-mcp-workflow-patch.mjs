@@ -56,6 +56,36 @@ export const sourceInsertion56 = String.raw`
     // perform the next dedicated read-only screen step before advancing.
     log.code='DEVICE_REPORTED_OK_UNVERIFIED';return null;
   }
+  function jhValidateLateSnapshot56(w,stepId,expectedPackage){
+    const log=w.jobs.find(x=>x.stepId===stepId);
+    if(!log)return false;
+    const j=jobs.get(log.jobId);
+    if(!j||j.status!=='complete'||j.result?.ok!==true)return false;
+    const echoed=j.result?.jhMcpWorkflow;
+    if(!echoed||echoed.workflowId!==w.id||echoed.workflowStepId!==stepId||
+       echoed.workflowPlanDigest!==w.plan||echoed.workflowActionDigest!==j.workflowActionDigest||
+       echoed.jobId!==j.id)return false;
+    let rows;
+    try{rows=JSON.parse(j.result.url);if(!Array.isArray(rows))return false;}catch{return false;}
+    const packages=[...new Set(rows.map(x=>x?.package).filter(x=>typeof x==='string'&&
+      /^(com\.|org\.)[A-Za-z0-9_.]+$/.test(x)&&!x.startsWith('com.koreanlifehub.bridge')))];
+    if(packages.length!==1||packages[0]!==expectedPackage)return false;
+    log.code='SCREEN_READBACK_VERIFIED_LATE';
+    w.lastPackage=packages[0];
+    return true;
+  }
+  function jhReconcileLateWorkflow56(w){
+    if(w.phase!=='NEEDS_REVIEW')return false;
+    // Never dispatch/replay. Only accept a job that the existing signed
+    // completion endpoint already marked complete for this workflow.
+    if(w.initialPackage&&jhValidateLateSnapshot56(w,'step_4',w.initialPackage)){
+      w.phase='VERIFIED';return true;
+    }
+    if(jhValidateLateSnapshot56(w,'step_2','com.kakao.taxi')){
+      w.phase='OPENED';return true;
+    }
+    return false;
+  }
   registerOAuthTool('life_android_workflow_link',{
     title:'JH verified Android workflow correlation',
     description:'Explicit BEGIN / OPEN_KAKAO_T / RETURN_PREVIOUS / STATUS on one trusted Android device. Each actual signed MCP job is linked to one server-assigned workflow and separately screen-verified. No automatic replay, approval bypass, or arbitrary URL/script.',
@@ -84,7 +114,10 @@ export const sourceInsertion56 = String.raw`
     const read=jhFindWorkflow56(workflow_id);
     if(read.error)return textResult({ok:false,code:read.error});
     const w=read.workflow;
-    if(mode==='STATUS')return textResult({ok:true,...jhWorkflowView56(w)});
+    if(mode==='STATUS'){
+      const reconciled=jhReconcileLateWorkflow56(w);
+      return textResult({ok:true,reconciled,...jhWorkflowView56(w)});
+    }
     if(mode==='OPEN_KAKAO_T'&&w.phase!=='READY')return textResult({ok:false,code:'workflow_phase_mismatch',...jhWorkflowView56(w)});
     if(mode==='RETURN_PREVIOUS'&&w.phase!=='OPENED')return textResult({ok:false,code:'workflow_phase_mismatch',...jhWorkflowView56(w)});
     if(mode!=='OPEN_KAKAO_T'&&mode!=='RETURN_PREVIOUS')return textResult({ok:false,code:'workflow_mode_invalid'});
