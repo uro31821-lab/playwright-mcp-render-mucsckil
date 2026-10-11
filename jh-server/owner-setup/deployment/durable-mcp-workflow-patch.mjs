@@ -53,7 +53,7 @@ export const sourceInsertion56 = String.raw`
     const actionDigest=sha56('jh-mcp-workflow-step-v1|'+w.id+'|'+w.plan+'|'+stepId+'|'+type+'|'+JSON.stringify(payload));
     const j=mk(type,{...payload,workflowId:w.id,workflowStepId:stepId,
       workflowPlanDigest:w.plan,workflowActionDigest:actionDigest},w.device);
-    const log={stepId,jobId:j.id,jobDigest:sha56(j.id),type,code:'ISSUED'};
+    const log={stepId,jobId:j.id,runtimeDigest:jhWorkflowRuntimeDigest56,jobDigest:sha56(jhWorkflowRuntimeDigest56+'|'+j.id),type,code:'ISSUED'};
     w.jobs.push(log);jhPersistWorkflows56();
     if(j.targetDeviceId!==w.device||!j.secureSessionId||j.secureSessionId!==w.sessionId||j.status!=='queued'){
       log.code='NOT_DISPATCHED';jhPersistWorkflows56();throw Error('workflow_signed_dispatch_unavailable');
@@ -86,7 +86,9 @@ export const sourceInsertion56 = String.raw`
   }
   function jhValidateLateSnapshot56(w,stepId,expectedPackage){
     const log=w.jobs.find(x=>x.stepId===stepId);
-    if(!log)return false;
+    // Process-local job IDs restart from job_1 after a Render restart. A late
+    // reconciliation may only inspect a job from the same runtime generation.
+    if(!log||log.runtimeDigest!==jhWorkflowRuntimeDigest56)return false;
     const j=jobs.get(log.jobId);
     if(!j||j.status!=='complete'||j.result?.ok!==true)return false;
     const echoed=j.result?.jhMcpWorkflow;
@@ -183,11 +185,12 @@ export function patchDurableMcpWorkflow56(source) {
   // workflow state and its TTL therefore belong to the enclosing server scope.
   const imports="import {existsSync as jhExists56,readFileSync as jhReadFile56,writeFileSync as jhWriteFile56,renameSync as jhRename56,mkdirSync as jhMkdir56} from 'node:fs';\nimport jhPath56 from 'node:path';\n";
   const shared=String.raw`const jhWorkflowTtl56=10*60*1000;
+const jhWorkflowRuntimeDigest56=sha56('jh-workflow-runtime-v1|'+randomBytes(32).toString('hex'));
 const jhWorkflowStateDir56=(process.env.JH_WORKFLOW_STATE_DIR||'').trim();
 const jhWorkflowDurable56=!!jhWorkflowStateDir56;
 const jhWorkflowStateFile56=jhWorkflowDurable56?jhPath56.join(jhWorkflowStateDir56,'jh-mcp-workflows-v1.json'):null;
 function jhWorkflowSerializable56(w){return {id:w.id,plan:w.plan,device:w.device,sessionId:w.sessionId,trustId:w.trustId??null,ownerDigest:w.ownerDigest??null,secureDeviceDigest:w.secureDeviceDigest??null,sessionRebindCount:Number(w.sessionRebindCount||0),lastSessionReboundAt:w.lastSessionReboundAt??null,createdAt:w.createdAt,expiresAt:w.expiresAt,phase:w.phase,initialPackage:w.initialPackage,lastPackage:w.lastPackage,jobs:w.jobs};}
-function jhLoadWorkflows56(){const m=new Map();if(!jhWorkflowDurable56)return m;jhMkdir56(jhWorkflowStateDir56,{recursive:true});if(!jhExists56(jhWorkflowStateFile56))return m;let rows;try{rows=JSON.parse(jhReadFile56(jhWorkflowStateFile56,'utf8'));}catch{throw Error('workflow_state_unreadable');}if(!Array.isArray(rows)||rows.length>8)throw Error('workflow_state_invalid');for(const w of rows){if(!w||!/^jh_mcp_[a-f0-9]{32}$/.test(w.id)||typeof w.plan!=='string'||!Array.isArray(w.jobs)||w.jobs.length>8||typeof w.sessionId!=='string'||typeof w.expiresAt!=='number'||!['BEGIN','READY','RUNNING','OPENED','VERIFIED','NEEDS_REVIEW'].includes(w.phase))throw Error('workflow_state_invalid');if(Date.now()>=w.expiresAt)continue;const bindingOk=typeof w.trustId==='string'&&/^[A-Za-z0-9_-]{24,128}$/.test(w.trustId)&&typeof w.ownerDigest==='string'&&/^[0-9a-f]{64}$/.test(w.ownerDigest)&&typeof w.secureDeviceDigest==='string'&&/^[0-9a-f]{64}$/.test(w.secureDeviceDigest);const bindingAbsent=[w.trustId,w.ownerDigest,w.secureDeviceDigest].every(v=>v===undefined||v===null);if(!bindingOk&&!bindingAbsent)throw Error('workflow_state_invalid');if(bindingAbsent){w.trustId=null;w.ownerDigest=null;w.secureDeviceDigest=null;w.phase='NEEDS_REVIEW';}if(w.phase==='RUNNING'||w.phase==='BEGIN')w.phase='NEEDS_REVIEW';if(!Number.isSafeInteger(w.sessionRebindCount)||w.sessionRebindCount<0)w.sessionRebindCount=0;if(w.lastSessionReboundAt!==null&&w.lastSessionReboundAt!==undefined&&!Number.isSafeInteger(w.lastSessionReboundAt))throw Error('workflow_state_invalid');m.set(w.id,w);}return m;}
+function jhLoadWorkflows56(){const m=new Map();if(!jhWorkflowDurable56)return m;jhMkdir56(jhWorkflowStateDir56,{recursive:true});if(!jhExists56(jhWorkflowStateFile56))return m;let rows;try{rows=JSON.parse(jhReadFile56(jhWorkflowStateFile56,'utf8'));}catch{throw Error('workflow_state_unreadable');}if(!Array.isArray(rows)||rows.length>8)throw Error('workflow_state_invalid');for(const w of rows){if(!w||!/^jh_mcp_[a-f0-9]{32}$/.test(w.id)||typeof w.plan!=='string'||!Array.isArray(w.jobs)||w.jobs.length>8||typeof w.sessionId!=='string'||typeof w.expiresAt!=='number'||!['BEGIN','READY','RUNNING','OPENED','VERIFIED','NEEDS_REVIEW'].includes(w.phase))throw Error('workflow_state_invalid');for(const x of w.jobs){if(!x||typeof x.stepId!=='string'||typeof x.jobId!=='string'||typeof x.jobDigest!=='string'||!/^[0-9a-f]{64}$/.test(x.jobDigest)||(x.runtimeDigest!==undefined&&x.runtimeDigest!==null&&!/^[0-9a-f]{64}$/.test(x.runtimeDigest)))throw Error('workflow_state_invalid');}if(Date.now()>=w.expiresAt)continue;const bindingOk=typeof w.trustId==='string'&&/^[A-Za-z0-9_-]{24,128}$/.test(w.trustId)&&typeof w.ownerDigest==='string'&&/^[0-9a-f]{64}$/.test(w.ownerDigest)&&typeof w.secureDeviceDigest==='string'&&/^[0-9a-f]{64}$/.test(w.secureDeviceDigest);const bindingAbsent=[w.trustId,w.ownerDigest,w.secureDeviceDigest].every(v=>v===undefined||v===null);if(!bindingOk&&!bindingAbsent)throw Error('workflow_state_invalid');if(bindingAbsent){w.trustId=null;w.ownerDigest=null;w.secureDeviceDigest=null;w.phase='NEEDS_REVIEW';}if(w.phase==='RUNNING'||w.phase==='BEGIN')w.phase='NEEDS_REVIEW';if(!Number.isSafeInteger(w.sessionRebindCount)||w.sessionRebindCount<0)w.sessionRebindCount=0;if(w.lastSessionReboundAt!==null&&w.lastSessionReboundAt!==undefined&&!Number.isSafeInteger(w.lastSessionReboundAt))throw Error('workflow_state_invalid');m.set(w.id,w);}return m;}
 const jhMcpWorkflows56=jhLoadWorkflows56();
 function jhPersistWorkflows56(){if(!jhWorkflowDurable56)return;jhMkdir56(jhWorkflowStateDir56,{recursive:true});const rows=[...jhMcpWorkflows56.values()].filter(w=>Date.now()<w.expiresAt).map(jhWorkflowSerializable56);const tmp=jhWorkflowStateFile56+'.tmp';jhWriteFile56(tmp,JSON.stringify(rows),{encoding:'utf8',mode:0o600});jhRename56(tmp,jhWorkflowStateFile56);}
 `;
