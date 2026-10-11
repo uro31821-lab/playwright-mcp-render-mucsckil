@@ -38,9 +38,11 @@ jobs:
           const from='const output=patchExistingDurableReturnRoute56(input);';
           const to='const output=patchDurableMcpWorkflow56(patchExistingDurableReturnRoute56(input));';
           assert.equal(current,entry+original.replace(from,to));
-          const module=readFileSync('jh-server/owner-setup/deployment/durable-mcp-workflow-patch.mjs');
-          assert.equal(createHash('sha256').update(module).digest('hex'),'c664203d659cbdc8a474a4b50e4389859ab26eba7504f5ce595b960d55f4de84');
-          console.log('JH_INSTALLED_PACKAGE_MODULE_IDENTICAL_AND_TWO_LINE_HOST_LINK');
+          const modulePath='jh-server/owner-setup/deployment/durable-mcp-workflow-patch.mjs';
+          const module=readFileSync(modulePath,'utf8');
+          const prior=execFileSync('git',['show','107e7660c6b3a206d41fb29c038fb379dc2f5173:'+modulePath],{encoding:'utf8'});
+          assert.equal(module,prior.replace('const result=await waitJob(j,15000);','const result=await waitJob(j,25000);'));
+          console.log('JH_INSTALLED_PACKAGE_MODULE_IDENTICAL_PLUS_BOUNDED_WAIT_FIX');
           JS
           git diff --exit-code 6c669cc7004182ed8fe9cf8d3aa3d074d4afff7d -- jh-server/server.mjs jh-server/package.json jh-server/owner-setup/published-baseline jh-server/owner-setup/trusted-server jh-server/owner-setup/deployment/published-host-router.mjs jh-server/owner-setup/deployment/durable-native-runtime-candidate.mjs jh-server/owner-setup/server-continuation
       - name: Existing dependencies and unchanged authentication regressions
