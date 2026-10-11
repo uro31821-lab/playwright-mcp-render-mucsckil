@@ -33,7 +33,7 @@ function patchExistingDurableReturnRoute56(input){
  once(memoriaImportOld,memoriaImportNew);
 
  const memoriaHelperOld='function sessionDigest56(x){return sha56(x.deviceDigest+"|"+SERVER_IDENTITY_DIGEST56+"|PUBLIC_HTTPS_PROXY|unified-dev-checkpoint.56|"+SECURE56_TOOL_CATALOG_DIGEST+"|56|"+x.sessionId+"|"+x.expiresAt);}';
- const memoriaHelperNew=memoriaHelperOld+String.raw'
+ const memoriaHelperNew=memoriaHelperOld+String.raw`
 const MEMORIA_READ_ENDPOINT56="https://memoria-cloud.onrender.com/mcp";
 async function memoriaRead56(a,deviceId,operation,args){
   const current=()=>active56(deviceId)===a;
@@ -59,11 +59,11 @@ async function memoriaRead56(a,deviceId,operation,args){
     throw new Error("memoria_operation_not_allowed");
   }finally{port.close();}
 }
-';
+`;
  once(memoriaHelperOld,memoriaHelperNew);
 
  const memoriaPollOld='  if(req.method==="GET" && url.pathname==="/device/poll"){';
- const memoriaPollNew=String.raw'  if(req.method==="POST" && url.pathname==="/device/memoria/read"){
+ const memoriaPollNew=String.raw`  if(req.method==="POST" && url.pathname==="/device/memoria/read"){
     let chunks=[],total=0;
     for await(const ch of req){
       const q=Buffer.from(ch);total+=q.length;
@@ -101,7 +101,7 @@ async function memoriaRead56(a,deviceId,operation,args){
     return;
   }
 
-'+memoriaPollOld;
+`+memoriaPollOld;
  once(memoriaPollOld,memoriaPollNew);
  const helper=String.raw`
   // Dispatch explicit JH previous-app returns to the EXISTING Android open_url.
