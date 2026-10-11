@@ -19,6 +19,12 @@ export const sourceInsertion56 = String.raw`
     return ['READY','OPENED','VERIFIED'].includes(w.phase)&&
       !w.jobs.some(x=>!x||x.code==='ISSUED');
   }
+  async function jhScreenSettle56(){
+    // A signed open action can finish while Android accessibility still exposes
+    // outgoing and incoming windows together. Wait once before the independent
+    // read-only verification; the action itself is never replayed.
+    await new Promise(r=>setTimeout(r,1500));
+  }
   function jhWorkflowView56(w){
     return {workflowId:w.id,planDigest:w.plan,phase:w.phase,initialPackage:w.initialPackage,
       deviceDigest:sha56(w.device),jobs:w.jobs.slice(),durableAcrossRestart:jhWorkflowDurable56,
@@ -151,10 +157,12 @@ export const sourceInsertion56 = String.raw`
     try{
       if(mode==='OPEN_KAKAO_T'){
         await jhWorkflowStep56(w,'step_1','open_url',{target:'카카오T',url:'카카오T'});
+        await jhScreenSettle56();
         await jhWorkflowStep56(w,'step_2','agent_snapshot',{},'com.kakao.taxi');
         w.phase='OPENED';jhPersistWorkflows56();
       }else{
         await jhWorkflowStep56(w,'step_3','open_url',{target:'previous_work_app',url:''});
+        await jhScreenSettle56();
         await jhWorkflowStep56(w,'step_4','agent_snapshot',{},w.initialPackage);
         w.phase='VERIFIED';jhPersistWorkflows56();
       }
