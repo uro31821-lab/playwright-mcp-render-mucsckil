@@ -1,0 +1,56 @@
+name: JH installed-v141 MCP workflow release check
+on:
+  push:
+    branches: ['jh-mcp-workflow-link-staging-20261011', 'jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/deployment/durable-live-release.mjs'
+      - 'jh-server/owner-setup/deployment/durable-mcp-workflow-patch.mjs'
+      - 'jh-server/verification/mcp-workflow-live-link-http.mjs'
+      - '.github/workflows/jh-mcp-workflow-link-release.yml'
+permissions:
+  contents: read
+jobs:
+  installed-adapter:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Verify exact supplied module and two-line existing startup change
+        run: |
+          node --check jh-server/owner-setup/deployment/durable-mcp-workflow-patch.mjs
+          node --check jh-server/owner-setup/deployment/durable-live-release.mjs
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import {readFileSync} from 'node:fs';
+          import {createHash} from 'node:crypto';
+          import {execFileSync} from 'node:child_process';
+          const base='6c669cc7004182ed8fe9cf8d3aa3d074d4afff7d';
+          const target='jh-server/owner-setup/deployment/durable-live-release.mjs';
+          const original=execFileSync('git',['show',base+':'+target],{encoding:'utf8'});
+          const current=readFileSync(target,'utf8');
+          const entry="import {patchDurableMcpWorkflow56} from './durable-mcp-workflow-patch.mjs';\n";
+          const from='const output=patchExistingDurableReturnRoute56(input);';
+          const to='const output=patchDurableMcpWorkflow56(patchExistingDurableReturnRoute56(input));';
+          assert.equal(current,entry+original.replace(from,to));
+          const module=readFileSync('jh-server/owner-setup/deployment/durable-mcp-workflow-patch.mjs');
+          assert.equal(createHash('sha256').update(module).digest('hex'),'c664203d659cbdc8a474a4b50e4389859ab26eba7504f5ce595b960d55f4de84');
+          console.log('JH_INSTALLED_PACKAGE_MODULE_IDENTICAL_AND_TWO_LINE_HOST_LINK');
+          JS
+          git diff --exit-code 6c669cc7004182ed8fe9cf8d3aa3d074d4afff7d -- jh-server/server.mjs jh-server/package.json jh-server/owner-setup/published-baseline jh-server/owner-setup/trusted-server jh-server/owner-setup/deployment/published-host-router.mjs jh-server/owner-setup/deployment/durable-native-runtime-candidate.mjs jh-server/owner-setup/server-continuation
+      - name: Existing dependencies and unchanged authentication regressions
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Real local MCP and signed HTTP workflow link
+        working-directory: jh-server
+        run: timeout 125s node verification/mcp-workflow-live-link-http.mjs
+      - name: Preserve prior Durable startup and storage boundaries
+        working-directory: jh-server
+        run: node --test verification/durable-live-release.test.mjs
+      - name: No automatic deployment or phone operation
+        run: echo JH_WORKFLOW_RELEASE_CHECK_ONLY_NO_DEPLOY_NO_REAL_PHONE
