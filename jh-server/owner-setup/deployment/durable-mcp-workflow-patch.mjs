@@ -48,6 +48,10 @@ export const sourceInsertion56 = String.raw`
     }
     return {workflow:w};
   }
+  function jhAndroidPackageName56(v){
+    return typeof v==='string'&&/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$/.test(v)&&
+      !v.startsWith('com.koreanlifehub.bridge');
+  }
   async function jhWorkflowStep56(w,stepId,type,payload,expectedPackage=null){
     if(w.jobs.some(x=>x.stepId===stepId))throw Error('workflow_step_already_issued_no_replay');
     const actionDigest=sha56('jh-mcp-workflow-step-v1|'+w.id+'|'+w.plan+'|'+stepId+'|'+type+'|'+JSON.stringify(payload));
@@ -73,8 +77,7 @@ export const sourceInsertion56 = String.raw`
       let rows;
       try{rows=JSON.parse(result.result.url);if(!Array.isArray(rows))throw Error('bad');}
       catch{log.code='SNAPSHOT_INVALID';jhPersistWorkflows56();throw Error('workflow_screen_readback_invalid');}
-      const packages=[...new Set(rows.map(x=>x?.package).filter(x=>typeof x==='string'&&
-        /^(com\.|org\.)[A-Za-z0-9_.]+$/.test(x)&&!x.startsWith('com.koreanlifehub.bridge')))];
+      const packages=[...new Set(rows.map(x=>x?.package).filter(jhAndroidPackageName56))];
       if(packages.length!==1||(expectedPackage&&packages[0]!==expectedPackage)){
         log.code='SCREEN_NOT_UNAMBIGUOUS';jhPersistWorkflows56();throw Error('workflow_screen_readback_mismatch');
       }
@@ -97,8 +100,7 @@ export const sourceInsertion56 = String.raw`
        echoed.jobId!==j.id)return false;
     let rows;
     try{rows=JSON.parse(j.result.url);if(!Array.isArray(rows))return false;}catch{return false;}
-    const packages=[...new Set(rows.map(x=>x?.package).filter(x=>typeof x==='string'&&
-      /^(com\.|org\.)[A-Za-z0-9_.]+$/.test(x)&&!x.startsWith('com.koreanlifehub.bridge')))];
+    const packages=[...new Set(rows.map(x=>x?.package).filter(jhAndroidPackageName56))];
     if(packages.length!==1||packages[0]!==expectedPackage)return false;
     log.code='SCREEN_READBACK_VERIFIED_LATE';
     w.lastPackage=packages[0];jhPersistWorkflows56();
@@ -133,13 +135,13 @@ export const sourceInsertion56 = String.raw`
          typeof auth.deviceDigest!=='string'||!/^[0-9a-f]{64}$/.test(auth.deviceDigest))
         return textResult({ok:false,code:'active_trusted_secure56_device_required'});
       const id='jh_mcp_'+randomBytes(16).toString('hex');
-      const plan=sha56('jh-mcp-chrome-kakaot-return-v2|'+id+'|'+auth.trustId+'|'+auth.ownerDigest+'|'+auth.deviceDigest);
+      const plan=sha56('jh-mcp-foreground-kakaot-return-v3|'+id+'|'+auth.trustId+'|'+auth.ownerDigest+'|'+auth.deviceDigest);
       const w={id,plan,device,sessionId:auth.sessionId,trustId:auth.trustId,
         ownerDigest:auth.ownerDigest,secureDeviceDigest:auth.deviceDigest,sessionRebindCount:0,lastSessionReboundAt:null,
         createdAt:Date.now(),expiresAt:Date.now()+jhWorkflowTtl56,phase:'BEGIN',initialPackage:null,lastPackage:null,jobs:[]};
       jhMcpWorkflows56.set(id,w);jhPersistWorkflows56();
       try{
-        const original=await jhWorkflowStep56(w,'step_0','agent_snapshot',{},'com.android.chrome');
+        const original=await jhWorkflowStep56(w,'step_0','agent_snapshot',{});
         w.initialPackage=original;w.phase='READY';jhPersistWorkflows56();
         return textResult({ok:true,...jhWorkflowView56(w)});
       }catch(e){w.phase='NEEDS_REVIEW';jhPersistWorkflows56();return textResult({ok:false,code:String(e?.message||'workflow_begin_unconfirmed'),...jhWorkflowView56(w)});}
