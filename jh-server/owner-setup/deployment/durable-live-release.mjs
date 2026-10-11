@@ -1,3 +1,4 @@
+import {patchDurableMcpWorkflow56} from './durable-mcp-workflow-patch.mjs';
 /** Explicit operator release. Reuses the saved-owner operational entry and its exact
  * authentication/storage checks. Initial preparation is a separately selected mode.
  * After first activation the operator must select SERVE_READY_V1; a missing journal
@@ -136,7 +137,7 @@ export function buildDurableRoutedRuntime(root){
  if(parent.productionEnabled!==false)fail('JH_DURABLE_ROUTE_PARENT_CHANGED');
  const input=readFileSync(parent.file,'utf8');
  if(sha256(input)!==parent.candidateSha256)fail('JH_DURABLE_ROUTE_PARENT_DIGEST');
- const output=patchExistingDurableReturnRoute56(input);
+ const output=patchDurableMcpWorkflow56(patchExistingDurableReturnRoute56(input));
  const file=path.join(root,'server-integration/server-durable-native-return-route56.mjs');
  writeChecked(file,output);
  if(sha256(readFileSync(file))!==sha256(output))fail('JH_DURABLE_ROUTE_READBACK');
