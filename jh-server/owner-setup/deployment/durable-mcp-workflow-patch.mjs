@@ -30,7 +30,7 @@ export const sourceInsertion56 = String.raw`
     if(j.targetDeviceId!==w.device||!j.secureSessionId||j.secureSessionId!==w.sessionId||j.status!=='queued'){
       log.code='NOT_DISPATCHED';throw Error('workflow_signed_dispatch_unavailable');
     }
-    const result=await waitJob(j,15000);
+    const result=await waitJob(j,25000);
     if(!result||result.status!=='complete'||result.result?.ok!==true){
       log.code=result?.result?.code||result?.error||'device_result_unconfirmed';throw Error('workflow_device_result_unconfirmed');
     }
