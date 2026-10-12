@@ -53,7 +53,7 @@ export class TrustedBridgeSessionAuthority {
       if(j.status==='in_progress'&&j.secureRequestedEffect!=='READ_ONLY')uncertain++;
     }
     const frameBusy=[...this.#bridge.frameWaiters.values()].some(w=>w?.deviceId===d);
-    if(activeSessions===1&&pendingSessions===0&&pendingJobs===0&&uncertain===0&&
+    if(activeSessions===1&&pendingSessions===0&&pendingJobs===0&&
        r.unusedChallenges===0&&r.redeemableProofs===0&&!frameBusy){
       const a=st?.active,m=this.#bridge.devices.get(d),lastSeen=Number(m?.lastSeen),n=this.#time();
       const stale=Number.isSafeInteger(lastSeen)&&lastSeen>=0&&n>=lastSeen&&n-lastSeen>=15_000;
@@ -65,11 +65,16 @@ export class TrustedBridgeSessionAuthority {
         console.log("JH_TRUST_RECOVERY_STALE_SESSION_CLEARED",JSON.stringify({device:true,trustBound:!!a.trustId,staleMs:n-lastSeen}));
       }
     }
-    const clear=activeSessions===0&&pendingSessions===0&&pendingJobs===0&&uncertain===0&&
+    // Already-dispatched uncertain writes remain immutable evidence and are never replayed.
+    // Quarantine only removes them from the transport-recovery blocker set when every
+    // live/pending session, queue, challenge/proof and frame blocker is clear.
+    const liveClear=activeSessions===0&&pendingSessions===0&&pendingJobs===0&&
       r.unusedChallenges===0&&r.redeemableProofs===0&&!frameBusy;
-    return {version:1,code:clear?'RECOVERY_CLEAR':'RECOVERY_WAIT',purpose:'SESSION_STATE_RECONCILE_ONLY',...r,
+    const quarantined=liveClear&&uncertain>0;
+    if(quarantined)console.log("JH_TRUST_RECOVERY_UNCERTAIN_QUARANTINED",JSON.stringify({count:uncertain,recordsPreserved:true,automaticReplayAllowed:false}));
+    return {version:1,code:liveClear?(quarantined?'RECOVERY_CLEAR_UNCERTAIN_QUARANTINED':'RECOVERY_CLEAR'):'RECOVERY_WAIT',purpose:'SESSION_STATE_RECONCILE_ONLY',...r,
       activeSessions,pendingSessions,pendingJobs,dispatchedJobsUncertain:uncertain,
-      safeToStartNewAttempt:clear,sessionActive:false,actionApprovalGranted:false,screenConsentGranted:false};
+      safeToStartNewAttempt:liveClear,sessionActive:false,actionApprovalGranted:false,screenConsentGranted:false};
   }
   begin(input){
     fields(input,['deviceId','proof']);const d=this.#device(input.deviceId),c=input.proof?.challenge;if(!c)fail('INVALID_PROOF');
