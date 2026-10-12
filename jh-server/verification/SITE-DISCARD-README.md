@@ -15,3 +15,7 @@ Validation:
 - No production deployment or real-phone end-to-end test has been performed for this change.
 
 This is logical task-data deletion, not forensic storage sanitization. It does not reverse an external transaction already completed before cancellation.
+
+## FIX2 update: new user instruction priority
+
+The follow-up changes use the same cancellation and queue owners for new user instructions as well as direct site selection. Read `NEW-COMMAND-PRIORITY.md` for the required BEGIN_COMMAND/command_id caller contract, persistent cancellation semantics, scope and new validation results. Prior FIX1 counts in this file are historical, not the FIX2 validation count.
