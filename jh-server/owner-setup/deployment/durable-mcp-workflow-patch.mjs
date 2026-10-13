@@ -124,7 +124,152 @@ export const sourceInsertion56 = String.raw`
   }
   registerOAuthTool('life_android_workflow_link',{
     title:'JH verified Android workflow correlation',
-    description:'On every NEW user instruction call ��="25onRebindCount<0)w.sessionRebindCount=0;if(w.lastSessionReboundAt!==null&&w.lastSessionReboundAt!==undefined&&!Number.isSafeInteger(w.lastSessionReboundAt))throw Error('workflow_state_invalid');m.set(w.id,w);}return m;}
+    description:'On every NEW user instruction call BEGIN_COMMAND with one stable random 32-hex request_id; cancels unfinished previous work. Use returned commandId as command_id on all subsequent Android/web tools; never fetch a new token for an old task. BEGIN also starts a new correlated test workflow. OPEN_KAKAO_T / RETURN_PREVIOUS / STATUS continue its workflow_id. Each actual signed MCP job is linked to one server-assigned workflow and separately screen-verified. No automatic replay, approval bypass, or arbitrary URL/script.',
+    inputSchema:{mode:z.enum(['BEGIN_COMMAND','BEGIN','OPEN_KAKAO_T','RETURN_PREVIOUS','STATUS']),workflow_id:z.string().optional(),request_id:z.string().optional()},
+    annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}
+  },async({mode,workflow_id,request_id})=>{
+    if(mode==='BEGIN_COMMAND'||mode==='BEGIN'){
+      if(workflow_id)return textResult({ok:false,code:'begin_cannot_accept_external_workflow_id'});
+      if(jhMcpWorkflows56.size>=8){for(const [k,v] of jhMcpWorkflows56)if(Date.now()>=v.expiresAt)jhMcpWorkflows56.delete(k);}
+      const device=chooseDevice();const auth=device&&active56(device);const meta=device&&devices.get(device);
+      if(!device||!auth||meta?.secureBridgeVersion!==56||meta?.deviceDigest!==auth.deviceDigest||
+         typeof auth.trustId!=='string'||!/^[A-Za-z0-9_-]{24,128}$/.test(auth.trustId)||
+         typeof auth.ownerDigest!=='string'||!/^[0-9a-f]{64}$/.test(auth.ownerDigest)||
+         typeof auth.deviceDigest!=='string'||!/^[0-9a-f]{64}$/.test(auth.deviceDigest))
+        return textResult({ok:false,code:'active_trusted_secure56_device_required'});
+      if(mode==='BEGIN_COMMAND'&&!/^[a-f0-9]{32}$/.test(request_id||''))return textResult({ok:false,code:'new_command_request_id_required'});
+      const commandId=jhStartCommand56(device,request_id||randomBytes(16).toString('hex'));
+      if(mode==='BEGIN_COMMAND')return textResult({ok:true,commandId,activeTasks:1,replayAllowed:false});
+      const existing=[...jhMcpWorkflows56.values()].find(x=>x.device===device&&x.commandId===commandId);
+      if(existing)return textResult({ok:true,...jhWorkflowView56(existing)});
+      if(jhMcpWorkflows56.size>=8)return textResult({ok:false,code:'workflow_capacity_no_replay'});
+      const id='jh_mcp_'+randomBytes(16).toString('hex');
+      const plan=sha56('jh-mcp-foreground-kakaot-return-v3|'+id+'|'+auth.trustId+'|'+auth.ownerDigest+'|'+auth.deviceDigest);
+      const w={id,plan,device,commandId,sessionId:auth.sessionId,trustId:auth.trustId,
+        ownerDigest:auth.ownerDigest,secureDeviceDigest:auth.deviceDigest,sessionRebindCount:0,lastSessionReboundAt:null,
+        createdAt:Date.now(),expiresAt:Date.now()+jhWorkflowTtl56,phase:'BEGIN',initialPackage:null,lastPackage:null,jobs:[]};
+      jhMcpWorkflows56.set(id,w);jhPersistWorkflows56();
+      try{
+        const original=await jhWorkflowStep56(w,'step_0','agent_snapshot',{});
+        jhRequireWorkflow56(w);w.initialPackage=original;w.phase='READY';jhPersistWorkflows56();
+        return textResult({ok:true,...jhWorkflowView56(w)});
+      }catch(e){if(jhMcpWorkflows56.get(w.id)!==w)return textResult({ok:false,code:'site_switch_discarded'});w.phase='NEEDS_REVIEW';jhPersistWorkflows56();return textResult({ok:false,code:String(e?.message||'workflow_begin_unconfirmed'),...jhWorkflowView56(w)});}
+    }
+    if(!workflow_id||!/^jh_mcp_[a-f0-9]{32}$/.test(workflow_id))return textResult({ok:false,code:'workflow_id_required'});
+    const read=jhFindWorkflow56(workflow_id,mode==='STATUS');
+    if(read.error)return textResult({ok:false,code:read.error});
+    const w=read.workflow;
+    const context=jhCommandContext56.getStore();
+    if(context&&w.commandId)context.commandId=w.commandId;
+    if(mode==='STATUS'){
+      const reconciled=jhReconcileLateWorkflow56(w);
+      return textResult({ok:true,reconciled,...jhWorkflowView56(w)});
+    }
+    if(mode==='OPEN_KAKAO_T'&&w.phase!=='READY')return textResult({ok:false,code:'workflow_phase_mismatch',...jhWorkflowView56(w)});
+    if(mode==='RETURN_PREVIOUS'&&w.phase!=='OPENED')return textResult({ok:false,code:'workflow_phase_mismatch',...jhWorkflowView56(w)});
+    if(mode!=='OPEN_KAKAO_T'&&mode!=='RETURN_PREVIOUS')return textResult({ok:false,code:'workflow_mode_invalid'});
+    w.phase='RUNNING';jhPersistWorkflows56();
+    try{
+      if(mode==='OPEN_KAKAO_T'){
+        await jhWorkflowStep56(w,'step_1','open_url',{target:'카카오T',url:'카카오T'});
+        await jhScreenSettle56();
+        await jhWorkflowStep56(w,'step_2','agent_snapshot',{},'com.kakao.taxi');
+        jhRequireWorkflow56(w);w.phase='OPENED';jhPersistWorkflows56();
+      }else{
+        await jhWorkflowStep56(w,'step_3','open_url',{target:'previous_work_app',url:''});
+        await jhScreenSettle56();
+        await jhWorkflowStep56(w,'step_4','agent_snapshot',{},w.initialPackage);
+        jhRequireWorkflow56(w);w.phase='VERIFIED';jhPersistWorkflows56();
+      }
+      return textResult({ok:true,...jhWorkflowView56(w)});
+    }catch(e){if(jhMcpWorkflows56.get(w.id)!==w)return textResult({ok:false,code:'site_switch_discarded'});w.phase='NEEDS_REVIEW';jhPersistWorkflows56();return textResult({ok:false,code:String(e?.message||'workflow_step_unconfirmed'),...jhWorkflowView56(w)});}
+  });
+
+`;
+
+
+export const siteDiscardRoute56 = String.raw`
+  if(req.method==="POST" && url.pathname==="/device/discard-work"){
+    const chunks=[];let total=0;
+    for await(const ch of req){total+=ch.length;if(total>2048){res.writeHead(413).end();return;}chunks.push(Buffer.from(ch));}
+    const raw=Buffer.concat(chunks);chunks.forEach(x=>x.fill(0));
+    let body;try{body=JSON.parse(raw.toString('utf8'));}catch{raw.fill(0);res.writeHead(400).end();return;}
+    if(!body||!['deviceId,eventId','deviceId,eventId,previousCommandId'].includes(Object.keys(body).sort().join(','))||typeof body.deviceId!=='string'||
+       body.deviceId.length>160||! /^[a-f0-9]{32}$/.test(body.eventId)||(body.previousCommandId!==undefined&&!/^[a-f0-9]{32}$/.test(body.previousCommandId))){
+      raw.fill(0);res.writeHead(400).end();return;
+    }
+    const a=active56(body.deviceId),sid=String(req.headers['x-jh-session']||''),dev=String(req.headers['x-jh-device']||''),
+      nonce=String(req.headers['x-jh-nonce']||''),exp=Number(req.headers['x-jh-expires']||0),
+      digest=String(req.headers['x-jh-body-digest']||''),mac=String(req.headers['x-jh-mac']||'');
+    const actual=sha56(raw);raw.fill(0);
+    if(!a||sid!==a.sessionId||dev!==a.deviceDigest||digest!==actual||!validToken56(nonce)||
+       !Number.isSafeInteger(exp)||exp<Date.now()||exp-Date.now()>60000||
+       !eqHex56(mac,hmac56(a.secret,'discard|'+sid+'|'+dev+'|'+nonce+'|'+exp+'|'+digest))||
+       !seen56(a.seenDiscard||(a.seenDiscard=new Set()),nonce)){
+      res.writeHead(401).end();return;
+    }
+    try{
+      jhDiscardDeviceWork56(body.deviceId,body.eventId,body.previousCommandId);
+      res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'})
+        .end(JSON.stringify({ok:true,code:'SITE_SWITCH_DISCARDED',eventId:body.eventId}));
+    }catch{res.writeHead(503,{'cache-control':'no-store'}).end();}
+    return;
+  }
+`;
+
+export function patchDurableMcpWorkflow56(source) {
+  if(typeof source!=='string')throw Error('workflow_source_required');
+  const anchor='  registerOAuthTool("life_status",{';
+  const scope='function createMcp(){';
+  if(source.split(anchor).length!==2||source.split(scope).length!==2||
+      source.includes('life_android_workflow_link')||source.includes('jhMcpWorkflows56'))
+    throw Error('workflow_runtime_anchor_changed');
+  // MCP creates a fresh tool-handler instance for EVERY HTTP request. Both
+  // workflow state and its TTL therefore belong to the enclosing server scope.
+  const imports="import {AsyncLocalStorage as JhAsyncLocalStorage56} from 'node:async_hooks';\nimport {existsSync as jhExists56,readFileSync as jhReadFile56,writeFileSync as jhWriteFile56,renameSync as jhRename56,mkdirSync as jhMkdir56,openSync as jhOpen56,fsyncSync as jhFsync56,closeSync as jhClose56} from 'node:fs';\nimport jhPath56 from 'node:path';\n";
+  const shared=String.raw`const jhCommandContext56=new JhAsyncLocalStorage56();
+const jhBlockedCommands56=new Set();
+function jhStartCommand56(device,eventId){
+  jhDiscardDeviceWork56(device,eventId);
+  if(jhCommandVersion56(device)!==eventId)throw Error('old_command_cannot_restart');
+  const context=jhCommandContext56.getStore();
+  if(!context)throw Error('authenticated_command_context_required');
+  context.device=device;context.commandId=eventId;context.version=eventId;
+  return eventId;
+}
+function jhRequireCommand56(device,workflowId=null){
+  const context=jhCommandContext56.getStore();
+  const workflow=workflowId?jhMcpWorkflows56.get(workflowId):null;
+  const token=workflow?.commandId||context?.commandId;
+  if(!context||!device||device!==context.device||jhBlockedCommands56.has(device)||
+      !token||token!==jhCommandVersion56(device)||context.version!==jhCommandVersion56(device))
+    throw Error('new_command_binding_required_or_discarded');
+  context.used=true;
+  return token;
+}
+function jhCommandTool56(name,config,handler){
+  return {config:{...config,inputSchema:{...config.inputSchema,command_id:z.string().optional()},
+    description:(config.description||'')+' Start each NEW user instruction with life_android_workflow_link BEGIN_COMMAND; reuse command_id within that instruction.'},
+    handler:async(args,extra)=>{
+      const device=chooseDevice(args?.device_id||null);
+      const context={device,commandId:args?.command_id||null,version:device?jhCommandVersion56(device):null,used:false};
+      const input={...args};delete input.command_id;
+      return jhCommandContext56.run(context,async()=>{
+        try{
+          const result=await handler(input,extra);
+          if(context.used)jhRequireCommand56(context.device);
+          return result;
+        }catch(e){return textResult({ok:false,code:String(e?.message||'command_unconfirmed'),replayAllowed:false});}
+      });
+    }};
+}
+const jhWorkflowTtl56=10*60*1000;
+const jhWorkflowRuntimeDigest56=sha56('jh-workflow-runtime-v1|'+randomBytes(32).toString('hex'));
+const jhWorkflowStateDir56=(process.env.JH_WORKFLOW_STATE_DIR||'').trim();
+const jhWorkflowDurable56=!!jhWorkflowStateDir56;
+const jhWorkflowStateFile56=jhWorkflowDurable56?jhPath56.join(jhWorkflowStateDir56,'jh-mcp-workflows-v1.json'):null;
+function jhWorkflowSerializable56(w){return {id:w.id,plan:w.plan,device:w.device,commandId:w.commandId??null,sessionId:w.sessionId,trustId:w.trustId??null,ownerDigest:w.ownerDigest??null,secureDeviceDigest:w.secureDeviceDigest??null,sessionRebindCount:Number(w.sessionRebindCount||0),lastSessionReboundAt:w.lastSessionReboundAt??null,createdAt:w.createdAt,expiresAt:w.expiresAt,phase:w.phase,initialPackage:w.initialPackage,lastPackage:w.lastPackage,jobs:w.jobs};}
+function jhLoadWorkflows56(){const m=new Map();if(!jhWorkflowDurable56)return m;jhMkdir56(jhWorkflowStateDir56,{recursive:true});if(!jhExists56(jhWorkflowStateFile56))return m;let rows;try{rows=JSON.parse(jhReadFile56(jhWorkflowStateFile56,'utf8'));}catch{throw Error('workflow_state_unreadable');}if(!Array.isArray(rows)||rows.length>8)throw Error('workflow_state_invalid');for(const w of rows){if(!w||!/^jh_mcp_[a-f0-9]{32}$/.test(w.id)||typeof w.plan!=='string'||!Array.isArray(w.jobs)||w.jobs.length>8||typeof w.sessionId!=='string'||typeof w.expiresAt!=='number'||!['BEGIN','READY','RUNNING','OPENED','VERIFIED','NEEDS_REVIEW'].includes(w.phase))throw Error('workflow_state_invalid');for(const x of w.jobs){if(!x||typeof x.stepId!=='string'||typeof x.jobId!=='string'||typeof x.jobDigest!=='string'||!/^[0-9a-f]{64}$/.test(x.jobDigest)||(x.runtimeDigest!==undefined&&x.runtimeDigest!==null&&!/^[0-9a-f]{64}$/.test(x.runtimeDigest)))throw Error('workflow_state_invalid');}if(Date.now()>=w.expiresAt)continue;const bindingOk=typeof w.trustId==='string'&&/^[A-Za-z0-9_-]{24,128}$/.test(w.trustId)&&typeof w.ownerDigest==='string'&&/^[0-9a-f]{64}$/.test(w.ownerDigest)&&typeof w.secureDeviceDigest==='string'&&/^[0-9a-f]{64}$/.test(w.secureDeviceDigest);const bindingAbsent=[w.trustId,w.ownerDigest,w.secureDeviceDigest].every(v=>v===undefined||v===null);if(!bindingOk&&!bindingAbsent)throw Error('workflow_state_invalid');if(bindingAbsent){w.trustId=null;w.ownerDigest=null;w.secureDeviceDigest=null;w.phase='NEEDS_REVIEW';}if(w.phase==='RUNNING'||w.phase==='BEGIN')w.phase='NEEDS_REVIEW';if(!Number.isSafeInteger(w.sessionRebindCount)||w.sessionRebindCount<0)w.sessionRebindCount=0;if(w.lastSessionReboundAt!==null&&w.lastSessionReboundAt!==undefined&&!Number.isSafeInteger(w.lastSessionReboundAt))throw Error('workflow_state_invalid');m.set(w.id,w);}return m;}
 const jhMcpWorkflows56=jhLoadWorkflows56();
 
 function jhRequireWorkflow56(w){if(jhMcpWorkflows56.get(w.id)!==w)throw Error('site_switch_discarded');}

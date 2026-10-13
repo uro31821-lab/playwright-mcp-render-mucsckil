@@ -58,5 +58,5 @@ export async function main(){
  const {main:start}=await import('./published-service-entry.mjs');return start();
 }
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
- main().catch(e=>{const raw=String(e?.code||e?.message||'PUBLISHED_HOST_START_FAILED');const safe=/^[A-Za-z0-9_:-]{3,120}$/.test(raw)?raw:'PUBLISHED_HOST_START_FAILED';console.error('PUBLISHED_HOST_START_FAILED:'+safe);process.exitCode=1;});
+ main().catch(e=>{console.error(typeof e?.code==='string'&&/^[A-Z_]{3,80}$/.test(e.code)?e.code:'PUBLISHED_HOST_START_FAILED');process.exitCode=1;});
 }
