@@ -139,7 +139,8 @@ export const sourceInsertion56 = String.raw`
         return textResult({ok:false,code:'active_trusted_secure56_device_required'});
       if(mode==='BEGIN_COMMAND'&&!/^[a-f0-9]{32}$/.test(request_id||''))return textResult({ok:false,code:'new_command_request_id_required'});
       const commandId=jhStartCommand56(device,request_id||randomBytes(16).toString('hex'));
-      if(mode==='BEGIN_COMMAND')return textResult({ok:true,commandId,activeTasks:1,replayAllowed:false});
+      if(mode==='BEGIN_COMMAND'||(mode==='BEGIN'&&!request_id))
+        return textResult({ok:true,commandId,activeTasks:1,replayAllowed:false,compatibilityMode:mode==='BEGIN'?'BEGIN_COMMAND':null});
       const existing=[...jhMcpWorkflows56.values()].find(x=>x.device===device&&x.commandId===commandId);
       if(existing)return textResult({ok:true,...jhWorkflowView56(existing)});
       if(jhMcpWorkflows56.size>=8)return textResult({ok:false,code:'workflow_capacity_no_replay'});
@@ -252,7 +253,9 @@ function jhCommandTool56(name,config,handler){
     description:(config.description||'')+' Start each NEW user instruction with life_android_workflow_link BEGIN_COMMAND; reuse command_id within that instruction.'},
     handler:async(args,extra)=>{
       const device=chooseDevice(args?.device_id||null);
-      const context={device,commandId:args?.command_id||null,version:device?jhCommandVersion56(device):null,used:false};
+      const current=device?jhCommandVersion56(device):null;
+      const supplied=args?.command_id||null;
+      const context={device,commandId:supplied||current,version:current,used:false};
       const input={...args};delete input.command_id;
       return jhCommandContext56.run(context,async()=>{
         try{
