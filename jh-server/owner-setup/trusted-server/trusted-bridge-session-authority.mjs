@@ -26,6 +26,24 @@ export class TrustedBridgeSessionAuthority {
   #device(d){if(typeof d!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(d))fail('INVALID_DEVICE_ID');return d;}
   #purge(st){const n=this.#time();if(st.active&&st.active.expiresAt<=n){st.active.secret.fill(0);st.active=null;}for(const [id,p]of st.pending)if(p.expiresAt<=n||(p.trustId&&p.activationDeadline<=n)){p.secret.fill(0);st.pending.delete(id);}}
   #preflight(d,t){this.#scope(t,d);const st=this.#bridge.states.get(d);if(st){this.#purge(st);if(st.active)fail('BRIDGE_ALREADY_ACTIVE');if(st.pending.size)fail('PAIRING_IN_PROGRESS');}}
+  #quarantinePriorSessionJobs(d,currentSessionId){
+    const n=this.#time(),completedAt=new Date(n).toISOString();let queued=0,inProgress=0;
+    for(const j of this.#bridge.jobs.values()){
+      if(j.targetDeviceId!==d||!j.secureSessionId||j.secureSessionId===currentSessionId)continue;
+      if(j.status==='queued'||j.status==='in_progress'){
+        const sent=j.status==='in_progress';j.status='expired';
+        j.error=sent?'DISPATCH_OUTCOME_UNKNOWN_NO_AUTO_REPLAY':'STALE_SECURE_SESSION_BEFORE_DISPATCH';
+        j.trustDispatchedOutcomeUncertain=sent;j.completedAt=completedAt;
+        for(const k of ['textValue','actionApprovalGrantToken','screenGrantToken','localActionApprovalDigest','screenConsentDigest','secureMac','secureNonce','securePayloadDigest'])delete j[k];
+        if(sent)inProgress++;else queued++;
+      }
+    }
+    const q=this.#bridge.queues.get(d);if(q)this.#bridge.queues.set(d,q.filter(id=>this.#bridge.jobs.get(id)?.status==='queued'));
+    for(const [k,v]of this.#bridge.recentJobs){const j=v?.v;if(j?.targetDeviceId===d&&j.secureSessionId&&j.secureSessionId!==currentSessionId)this.#bridge.recentJobs.delete(k);}
+    for(const [k,w]of this.#bridge.frameWaiters)if(w?.deviceId===d){this.#bridge.frameWaiters.delete(k);try{w.resolve(null);}catch{}}
+    if(queued||inProgress)console.log('JH_TRUST_SESSION_OLD_JOBS_QUARANTINED',JSON.stringify({queued,inProgress,recordsPreserved:true,automaticReplayAllowed:false}));
+    return {queued,inProgress};
+  }
   challenge(input){
     fields(input,['trustId','clientNonce','deviceId']);const d=this.#device(input.deviceId),t=this.#trust(input.trustId);this.#preflight(d,t);
     return this.#registry.challenge(t.trustId,input.clientNonce);
@@ -53,21 +71,26 @@ export class TrustedBridgeSessionAuthority {
       if(j.status==='in_progress'&&j.secureRequestedEffect!=='READ_ONLY')uncertain++;
     }
     const frameBusy=[...this.#bridge.frameWaiters.values()].some(w=>w?.deviceId===d);
-    if(activeSessions===1&&pendingSessions===0&&pendingJobs===0&&
+    if(activeSessions===1&&pendingSessions===0&&
        r.unusedChallenges===0&&r.redeemableProofs===0&&!frameBusy){
       const a=st?.active,m=this.#bridge.devices.get(d),lastSeen=Number(m?.lastSeen),n=this.#time();
       const stale=Number.isSafeInteger(lastSeen)&&lastSeen>=0&&n>=lastSeen&&n-lastSeen>=15_000;
       const sameDevice=a?.deviceDigest===r.deviceDigest;
       const trustCompatible=!a?.trustId||a.trustId===r.trustId;
       if(stale&&sameDevice&&trustCompatible){
-        a.secret.fill(0);st.active=null;activeSessions=0;
-        if(m)this.#bridge.devices.set(d,{...m,secureActive:false});
-        console.log("JH_TRUST_RECOVERY_STALE_SESSION_CLEARED",JSON.stringify({device:true,trustBound:!!a.trustId,staleMs:n-lastSeen}));
+        this.#quarantinePriorSessionJobs(d,'');
+        pendingJobs=0;
+        for(const j of this.#bridge.jobs.values())if(j.trustBindingId===r.trustId&&j.status==='queued')pendingJobs++;
+        if(pendingJobs===0){
+          a.secret.fill(0);st.active=null;activeSessions=0;
+          if(m)this.#bridge.devices.set(d,{...m,secureActive:false});
+          console.log("JH_TRUST_RECOVERY_STALE_SESSION_CLEARED",JSON.stringify({device:true,trustBound:!!a.trustId,staleMs:n-lastSeen}));
+        }
       }
     }
-    // Already-dispatched uncertain writes remain immutable evidence and are never replayed.
-    // Quarantine only removes them from the transport-recovery blocker set when every
-    // live/pending session, queue, challenge/proof and frame blocker is clear.
+    // Already-dispatched uncertain writes are preserved as immutable evidence and
+    // are never replayed. They may be quarantined from transport recovery only
+    // when every live/pending session, queue, challenge/proof and frame blocker is clear.
     const liveClear=activeSessions===0&&pendingSessions===0&&pendingJobs===0&&
       r.unusedChallenges===0&&r.redeemableProofs===0&&!frameBusy;
     const quarantined=liveClear&&uncertain>0;
@@ -108,6 +131,7 @@ export class TrustedBridgeSessionAuthority {
     this.#trust(p.trustId);
     for(const [id,other]of st.pending)if(id!==p.sessionId)other.secret.fill(0);
     st.active={...p,seenPoll:new Set(),seenComplete:new Set(),seenFrame:new Set()};st.pending.clear();
+    this.#quarantinePriorSessionJobs(d,p.sessionId);
     const m=this.#bridge.devices.get(d);this.#bridge.devices.set(d,{...m,secureActive:true,lastSeen:n});
     const r={version:1,code:'TRUSTED_SESSION_ACTIVE',purpose:PURPOSE,trustId:p.trustId,challengeId:p.challengeId,
       redemptionId:p.redemptionId,sessionId:p.sessionId,deviceDigest:p.deviceDigest,sessionDigest:p.sessionDigest,
