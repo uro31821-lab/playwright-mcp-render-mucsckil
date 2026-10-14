@@ -58,7 +58,8 @@ jobs:
           if(JSON.stringify(registered)!==JSON.stringify(tools))
             throw Error('MULTISTEP_CATALOG_MISMATCH_'+JSON.stringify(registered));
           if(!src.includes('OAUTH_STATE_FILE56'))throw Error('OAUTH_DURABLE_STATE_MISSING');
-          if(!src.includes('automaticApprovalRetryAllowed:false') && !src.includes('automaticApprovalRetryAllowed: false'))throw Error('SENSITIVE_APPROVAL_FENCE_MISSING');
+          const multiSrc=fs.readFileSync('./owner-setup/multistep/multi-step.mjs','utf8');
+          if(!multiSrc.includes("USER_APPROVAL_REQUIRED"))throw Error('SENSITIVE_APPROVAL_FENCE_MISSING');
           if(!src.includes('replayAllowed:false') && !src.includes('replayAllowed: false'))throw Error('NO_REPLAY_FENCE_MISSING');
           console.log('JH161_MULTISTEP_GENERATED_PASS '+JSON.stringify({
             toolCount:registered.length,oauthDurable:true,approvalFence:true,noReplayFence:true,
