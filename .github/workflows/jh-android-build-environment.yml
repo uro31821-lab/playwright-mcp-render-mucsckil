@@ -8,25 +8,58 @@ permissions:
 jobs:
   environment:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           ref: jh161-multistep-live-verify-20261014
           fetch-depth: 1
-      - name: Verify staged JH161 multistep bundle
+      - name: Verify and apply complete JH161 multistep overlay
         shell: bash
         run: |
           set -euo pipefail
-          cat .jh161-stage/part* > /tmp/jh161.b64
-          base64 -d /tmp/jh161.b64 > /tmp/jh161.tgz
-          gzip -t /tmp/jh161.tgz
-          mkdir -p /tmp/jh161
-          tar -xzf /tmp/jh161.tgz -C /tmp/jh161
-          echo "ARCHIVE_OK"
-          find /tmp/jh161 -type f -printf '%P\n' | sort
-          test "$(find /tmp/jh161 -type f -name 'jh155-multistep-patch.mjs' | wc -l)" -eq 1
-          test "$(find /tmp/jh161 -type f -name 'multi-step.mjs' | wc -l)" -ge 1
-          test "$(find /tmp/jh161 -type f -name 'jh155-mcp-tools.mjs' | wc -l)" -ge 1
-          test "$(find /tmp/jh161 -type f -name 'durable-payment-clean-restart-patch.mjs' | wc -l)" -eq 1
-          echo "MULTISTEP_STAGE_PASS"
+          cat .jh161-overlay/part* > /tmp/jh161-overlay.b64
+          base64 -d /tmp/jh161-overlay.b64 > /tmp/jh161-overlay.tgz
+          gzip -t /tmp/jh161-overlay.tgz
+          mkdir -p /tmp/overlay
+          tar -xzf /tmp/jh161-overlay.tgz -C /tmp/overlay
+          test "$(find /tmp/overlay -type f -name 'jh155-multistep-patch.mjs' | wc -l)" -eq 1
+          test "$(find /tmp/overlay -type f -name 'multi-step.mjs' | wc -l)" -eq 1
+          test "$(find /tmp/overlay -type f -name 'jh155-mcp-tools.mjs' | wc -l)" -eq 1
+          test "$(find /tmp/overlay -type f -name 'durable-payment-clean-restart-patch.mjs' | wc -l)" -eq 1
+          cp -a /tmp/overlay/. jh-server/owner-setup/
+          echo "OVERLAY_APPLIED"
+          find /tmp/overlay -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
+          cd jh-server
+          npm install
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import {pathToFileURL} from 'node:url';
+          import {buildCleanRestartRelease56} from './owner-setup/deployment/durable-clean-restart-release.mjs';
+          const built=buildCleanRestartRelease56();
+          const mod=await import(pathToFileURL(built.file).href+'?verify='+Date.now());
+          const routed=mod.buildDurableRoutedRuntime(path.resolve('owner-setup'));
+          const src=fs.readFileSync(routed.file,'utf8');
+          const tools=[
+            'life_multistep_start','life_multistep_next','life_multistep_progress',
+            'life_multistep_replan','life_multistep_cancel','life_multistep_report'
+          ];
+          for(const name of tools){
+            if(!src.includes(name))throw Error('MISSING_TOOL_'+name);
+          }
+          if(!src.includes('OAUTH_STATE_FILE56'))throw Error('OAUTH_DURABLE_STATE_MISSING');
+          if(!src.includes('automaticApprovalRetryAllowed:false') && !src.includes('automaticApprovalRetryAllowed: false')){
+            throw Error('SENSITIVE_APPROVAL_FENCE_MISSING');
+          }
+          if(!src.includes('replayAllowed:false') && !src.includes('replayAllowed: false')){
+            throw Error('NO_REPLAY_FENCE_MISSING');
+          }
+          console.log('JH161_MULTISTEP_GENERATED_PASS',JSON.stringify({
+            tools:tools.length,
+            oauthDurable:true,
+            approvalFence:true,
+            noReplayFence:true,
+            runtime:routed.file
+          }));
+          NODE
