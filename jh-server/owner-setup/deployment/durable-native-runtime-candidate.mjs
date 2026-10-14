@@ -6,7 +6,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {assertFunctionalReleaseRuntime} from './functional-release-runtime.mjs';
 const sha=x=>createHash('sha256').update(x).digest('hex');
-const PIN='fdf101f9e08c146cada768c2e30eea2b2f23835083b0c6e0d9f342e170e69a47';
+const PIN='d899c0b2ead9c5c9c8e4a2ae1857b15239960e0ec3933b34ff63b9dfe84625c5';
 const PREFIX='import {createDurableNativeHooks} from "../deployment/durable-native-host.mjs";\nimport {existsSync,mkdirSync,readFileSync as readOAuthFile56,writeFileSync as writeOAuthFile56,renameSync as renameOAuthFile56,chmodSync as chmodOAuthFile56} from "node:fs";\nimport {dirname as oauthDirname56} from "node:path";\nlet durableNativeHooks56=null;\n';
 const AUDIT_IMPORT='import {auditSecureCompletionRejection,getSecureCompletion401Summary} from "../deployment/secure-complete-401-audit.mjs";\n';
 const install=`
@@ -68,9 +68,7 @@ function persistOAuth56(){
       refresh:[...oauthRefresh56].filter(validOAuthStateRow56)});
     const tmp=OAUTH_STATE_FILE56+"."+process.pid+".tmp";
     writeOAuthFile56(tmp,payload,{encoding:"utf8",mode:0o600});
-    chmodOAuthFile56(tmp,0o600);
-    renameOAuthFile56(tmp,OAUTH_STATE_FILE56);
-    chmodOAuthFile56(OAUTH_STATE_FILE56,0o600);
+    chmodOAuthFile56(tmp,0o600);renameOAuthFile56(tmp,OAUTH_STATE_FILE56);chmodOAuthFile56(OAUTH_STATE_FILE56,0o600);
     return true;
   }catch(e){console.error("JH_OAUTH_STATE_PERSIST_FAILED",String(e?.message||e));return false;}
 }
@@ -79,10 +77,8 @@ function loadOAuth56(){
   try{
     const parsed=JSON.parse(readOAuthFile56(OAUTH_STATE_FILE56,"utf8")),now=Date.now();
     if(parsed?.version!==1)throw Error("schema");
-    for(const row of Array.isArray(parsed.access)?parsed.access:[])
-      if(validOAuthStateRow56(row)&&row[1].expiresAt>now)oauthAccess56.set(row[0],row[1]);
-    for(const row of Array.isArray(parsed.refresh)?parsed.refresh:[])
-      if(validOAuthStateRow56(row)&&row[1].expiresAt>now)oauthRefresh56.set(row[0],row[1]);
+    for(const row of Array.isArray(parsed.access)?parsed.access:[])if(validOAuthStateRow56(row)&&row[1].expiresAt>now)oauthAccess56.set(row[0],row[1]);
+    for(const row of Array.isArray(parsed.refresh)?parsed.refresh:[])if(validOAuthStateRow56(row)&&row[1].expiresAt>now)oauthRefresh56.set(row[0],row[1]);
     console.log("JH_OAUTH_STATE_LOADED",JSON.stringify({access:oauthAccess56.size,refresh:oauthRefresh56.size,durable:true}));
   }catch(e){console.error("JH_OAUTH_STATE_LOAD_FAILED",String(e?.message||e));}
 }

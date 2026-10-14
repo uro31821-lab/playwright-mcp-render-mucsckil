@@ -1,3 +1,4 @@
+import {inspectSplitEvidence} from './split-screen-evidence.mjs';
 /** Bounded accessibility readback. Never dispatches/replays an Android action. */
 const isObject=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const bool=x=>x===true||x==='true';
@@ -30,9 +31,11 @@ export function inspectNativeReadback(job,expected=null){
   if(g.ok===false&&temporary.has(g.code))return decision(false,'WORK_WINDOW_NOT_READY',true);
   if(g.ok===false&&g.code!=='native_accessibility_only'&&!temporary.has(g.code))return decision(false,'SNAPSHOT_ACCESS_OR_METADATA_BLOCKED');
  }
+ const pair=inspectSplitEvidence(r,nodes,expected);
+ if(!pair.ok)return decision(false,pair.reason,false);
  const packages=[...new Set(nodes.filter(n=>packageName(n.package)&&!ignored.has(n.package)&&n.kind!=='snapshot_status'&&
   [n.text,n.className,n.viewId].some(v=>typeof v==='string'&&v.trim().length>0)).map(n=>n.package))];
- if(!packages.length)return decision(false,'WORK_WINDOW_NOT_READY',true);
+ if(packages.length!==1||packages[0]!==pair.workPackage)return decision(false,'WORK_WINDOW_NOT_READY',true);
  if(expected&&!packages.includes(expected))return decision(false,'EXPECTED_APP_NOT_READY',true);
  return decision(true,'NATIVE_SCREEN_READABLE',false,{observedPackages:packages.slice(0,8),targetMatched:expected?true:null,
   partial:nodes.some(n=>bool(n.partial))});
@@ -45,6 +48,7 @@ export async function runNativeReadback({action,requestSnapshot,waitSnapshot,bin
  const ended=Date.parse(action?.completedAt);
  if(action?.status!=='complete'||action?.result?.ok!==true||!Number.isFinite(ended))return result();
  const started=now(),deadline=started+20000;const seen=new Set();
+ const perAttemptMs=6500;
  for(let index=0;index<3;index++){
   if(!bindingValid()){state=decision(false,'DEVICE_OR_SESSION_CHANGED');break;}
   if(index>0)await sleep(Math.min(index*250,Math.max(0,deadline-now())));
@@ -54,14 +58,14 @@ export async function runNativeReadback({action,requestSnapshot,waitSnapshot,bin
   try{job=requestSnapshot();attempts++;
    if(!job||typeof job.id!=='string'){state=decision(false,'SNAPSHOT_JOB_INVALID');break;}
    if(seen.has(job.id)){state=decision(false,'STALE_SNAPSHOT_REUSED');break;}
-   seen.add(job.id);snapshot=await waitSnapshot(job,Math.max(1,deadline-now()));
+   seen.add(job.id);snapshot=await waitSnapshot(job,Math.min(perAttemptMs,Math.max(1,deadline-now())));
   }catch{state=decision(false,'SNAPSHOT_TRANSPORT_FAILED');break;}
   if(!bindingValid()||snapshot?.targetDeviceId!==action.targetDeviceId||
      (action.secureSessionId&&snapshot?.secureSessionId!==action.secureSessionId)){
    snapshot=null;state=decision(false,'DEVICE_OR_SESSION_CHANGED');break;
   }
   if(now()>deadline){state=decision(false,'READBACK_DEADLINE');break;}
-  if(snapshot?.status!=='complete'){state=decision(false,'SNAPSHOT_NOT_COMPLETED');break;}
+  if(snapshot?.status!=='complete'){state=decision(false,'SNAPSHOT_NOT_COMPLETED',true);continue;}
   if(!Number.isFinite(snapshot.createdAtMs)||snapshot.createdAtMs<ended||
      !Number.isFinite(Date.parse(snapshot.completedAt))||Date.parse(snapshot.completedAt)<snapshot.createdAtMs){
    state=decision(false,'STALE_OR_UNTIMED_SNAPSHOT',true);
@@ -99,7 +103,7 @@ const CACHEGET_TIMEOUT_OLD='function cacheGet(m,k){const x=m.get(k);if(!x)return
 const CACHEGET_TIMEOUT_NEW='function cacheGet(m,k){const x=m.get(k);if(!x)return null;const pending=x.v?.status==="queued"||x.v?.status==="in_progress";const uncertain=x.v?.status==="error"&&x.v?.error==="DISPATCH_OUTCOME_UNKNOWN_NO_AUTO_REPLAY"&&jobs.get(x.v.id)===x.v;if(Date.now()-x.t>DEDUPE_MS&&!pending&&!uncertain){m.delete(k);return null;}return x.v;}';
 const CACHEGET_OLD='function cacheGet(m,k){const x=m.get(k);if(!x)return null;if(Date.now()-x.t>DEDUPE_MS){m.delete(k);return null;}return x.v;}';
 const CACHEGET_NEW='function cacheGet(m,k){const x=m.get(k);if(!x)return null;const pending=x.v?.status==="queued"||x.v?.status==="in_progress";if(Date.now()-x.t>DEDUPE_MS&&!pending){m.delete(k);return null;}return x.v;}';
-const CACHE_NEW='cleanupJobs();\n  const old=cacheGet(recentJobs,key);\n  const currentSessionId=active56(targetDeviceId)?.sessionId??null;\n  // A delivered operation whose result is unknown is NEVER an automatic retry.\n  if(old?.status==="error"&&old.error==="DISPATCH_OUTCOME_UNKNOWN_NO_AUTO_REPLAY")return old;\n  // A dispatched job from an earlier session has an uncertain outcome: never replace it by retry.\n  if(old?.status==="in_progress"&&(old.secureSessionId??null)!==currentSessionId)return old;\n  if(old && (old.secureSessionId??null)===currentSessionId && !(type==="agent_snapshot" && ["complete","error","expired"].includes(old.status))) return old;';
+const CACHE_NEW='cleanupJobs();\n  let old=cacheGet(recentJobs,key);\n  const currentSessionId=active56(targetDeviceId)?.sessionId??null;\n  // Snapshot is read-only. If its completion relay is lost, fence that stale observation\n  // after a bounded wait and allow ONE fresh snapshot job; never replay a UI action.\n  if(type==="agent_snapshot"&&old&&["queued","in_progress"].includes(old.status)){const born=Number(old.createdAtMs||old.startedAtMs||Date.now());if(Date.now()-born>6500){old.status="expired";old.error="SNAPSHOT_READBACK_SUPERSEDED";old.completedAt=new Date().toISOString();const q=queues.get(targetDeviceId);if(q)queues.set(targetDeviceId,q.filter(id=>id!==old.id));recentJobs.delete(key);old=null;}}\n  // A delivered operation whose result is unknown is NEVER an automatic retry.\n  if(old?.status==="error"&&old.error==="DISPATCH_OUTCOME_UNKNOWN_NO_AUTO_REPLAY")return old;\n  // A dispatched job from an earlier session has an uncertain outcome: never replace it by retry.\n  if(old?.status==="in_progress"&&(old.secureSessionId??null)!==currentSessionId)return old;\n  if(old && (old.secureSessionId??null)===currentSessionId && !(type==="agent_snapshot" && ["complete","error","expired"].includes(old.status))) return old;';
 const WRAPPER=`async function boundedNativeReadback(action){
  const d=action?.targetDeviceId;
  const bindingValid=()=>{
