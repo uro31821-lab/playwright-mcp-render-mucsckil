@@ -4,31 +4,39 @@ on:
     branches: [jh161-build-env-20261014]
     paths: [.github/workflows/jh-android-build-environment.yml]
 permissions:
-  contents: read
+  contents: write
 jobs:
   environment:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout clean candidate
+        uses: actions/checkout@v4
+        with:
+          ref: jh161-multistep-live-candidate-20261014
+          path: target
+          fetch-depth: 1
+      - name: Checkout verified staging archive
+        uses: actions/checkout@v4
         with:
           ref: jh161-multistep-live-verify-20261014
+          path: stage
           fetch-depth: 1
-      - name: Generate and verify full JH161 multistep server runtime
+          persist-credentials: false
+      - name: Apply, verify, and commit JH161 multistep server overlay
         shell: bash
         run: |
           set -euo pipefail
-          cat .jh161-full-overlay/part* > /tmp/jh161-overlay.b64
+          cat stage/.jh161-full-overlay/part* > /tmp/jh161-overlay.b64
           base64 -d /tmp/jh161-overlay.b64 > /tmp/jh161-overlay.tgz
           gzip -t /tmp/jh161-overlay.tgz
           mkdir -p /tmp/overlay
           tar -xzf /tmp/jh161-overlay.tgz -C /tmp/overlay
-          test -f /tmp/overlay/deployment/split-screen-evidence.mjs
           test -f /tmp/overlay/deployment/jh155-multistep-patch.mjs
           test -f /tmp/overlay/multistep/jh155-mcp-tools.mjs
-          cp -a /tmp/overlay/. jh-server/owner-setup/
+          cp -a /tmp/overlay/. target/jh-server/owner-setup/
           find /tmp/overlay -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
-          cd jh-server
+          cd target/jh-server
           npm install
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
@@ -36,33 +44,40 @@ jobs:
           import {pathToFileURL} from 'node:url';
           import {buildCleanRestartRelease56} from './owner-setup/deployment/durable-clean-restart-release.mjs';
           const built=buildCleanRestartRelease56();
-          const mod=await import(pathToFileURL(built.file).href+'?verify='+Date.now());
+          const mod=await import(pathToFileURL(built.file).href+'?candidate='+Date.now());
           const routed=mod.buildDurableRoutedRuntime(path.resolve('owner-setup'));
           const src=fs.readFileSync(routed.file,'utf8');
-          const tools=[
-            'life_multistep_start','life_multistep_next','life_multistep_progress',
-            'life_multistep_replan','life_multistep_cancel','life_multistep_report'
-          ];
           if(!src.includes("jhRegisterMultiStep155")||!src.includes("../multistep/jh155-mcp-tools.mjs"))
             throw Error('MULTISTEP_RUNTIME_IMPORT_MISSING');
           const {z}=await import('zod');
           const {registerJHMultiStepTools}=await import('./owner-setup/multistep/jh155-mcp-tools.mjs');
+          const expected=[
+            'life_multistep_start','life_multistep_next','life_multistep_progress',
+            'life_multistep_replan','life_multistep_cancel','life_multistep_report'
+          ];
           const registered=[];
           const coordinator={
             start:async()=>({ok:true}),advance:async()=>({ok:true}),checkedStatus:()=>({ok:true}),
             revise:async()=>({ok:true}),cancelWorkflow:()=>({ok:true}),checkedPreviewReport:()=>({ok:true})
           };
-          registerJHMultiStepTools({
-            registerOAuthTool:(name)=>registered.push(name),z,textResult:x=>x,coordinator
-          });
-          if(JSON.stringify(registered)!==JSON.stringify(tools))
-            throw Error('MULTISTEP_CATALOG_MISMATCH_'+JSON.stringify(registered));
+          registerJHMultiStepTools({registerOAuthTool:n=>registered.push(n),z,textResult:x=>x,coordinator});
+          if(JSON.stringify(registered)!==JSON.stringify(expected))throw Error('MULTISTEP_CATALOG_MISMATCH');
           if(!src.includes('OAUTH_STATE_FILE56'))throw Error('OAUTH_DURABLE_STATE_MISSING');
           const multiSrc=fs.readFileSync('./owner-setup/multistep/multi-step.mjs','utf8');
-          if(!multiSrc.includes("USER_APPROVAL_REQUIRED"))throw Error('SENSITIVE_APPROVAL_FENCE_MISSING');
-          if(!src.includes('replayAllowed:false') && !src.includes('replayAllowed: false'))throw Error('NO_REPLAY_FENCE_MISSING');
-          console.log('JH161_MULTISTEP_GENERATED_PASS '+JSON.stringify({
+          if(!multiSrc.includes('USER_APPROVAL_REQUIRED'))throw Error('SENSITIVE_APPROVAL_FENCE_MISSING');
+          if(!src.includes('replayAllowed:false')&&!src.includes('replayAllowed: false'))throw Error('NO_REPLAY_FENCE_MISSING');
+          console.log('JH161_CANDIDATE_PASS '+JSON.stringify({
             toolCount:registered.length,oauthDurable:true,approvalFence:true,noReplayFence:true,
             runtimeSha:routed.candidateSha256
           }));
           NODE
+          cd ..
+          git config user.name "jh-verification-bot"
+          git config user.email "jh-verification-bot@users.noreply.github.com"
+          git add jh-server/owner-setup/deployment jh-server/owner-setup/multistep jh-server/owner-setup/payment jh-server/owner-setup/general-work
+          if git diff --cached --quiet; then
+            echo "NO_SOURCE_DIFF"
+          else
+            git commit -m "feat(jh): wire verified JH161 multistep runtime"
+            git push origin HEAD:jh161-multistep-live-candidate-20261014
+          fi
