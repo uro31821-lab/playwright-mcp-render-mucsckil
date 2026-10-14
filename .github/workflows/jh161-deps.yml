@@ -1,0 +1,76 @@
+name: JH161 dependency cache
+on:
+  push:
+    branches: [jh161-build-env-20261014]
+    paths: [.github/workflows/jh161-deps.yml]
+permissions:
+  contents: read
+jobs:
+  deps:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Warm exact JH161 public dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          export GRADLE_USER_HOME="$RUNNER_TEMP/jh161-gradle"
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          mkdir -p "$RUNNER_TEMP/g" "$RUNNER_TEMP/p/app/src/main/java/com/example/warm"
+          cd "$RUNNER_TEMP/g"
+          curl --fail --location --retry 2 --max-time 180 https://services.gradle.org/distributions/gradle-8.9-bin.zip -o gradle.zip
+          unzip -q gradle.zip
+          if [ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" ]; then
+            sdkmanager_path="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | sort -V | tail -1)"
+            "$sdkmanager_path" 'platforms;android-35'
+          fi
+          cd "$RUNNER_TEMP/p"
+          cat > settings.gradle.kts <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name="JH161Deps"
+          include(":app")
+          EOF
+          cat > build.gradle.kts <<'EOF'
+          plugins {
+            id("com.android.application") version "8.7.3" apply false
+            id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+          }
+          EOF
+          cat > app/build.gradle.kts <<'EOF'
+          plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
+          android {
+            namespace="com.example.warm"; compileSdk=35
+            defaultConfig { applicationId="com.example.warm"; minSdk=26; targetSdk=35; versionCode=1; versionName="1" }
+            compileOptions { sourceCompatibility=JavaVersion.VERSION_17; targetCompatibility=JavaVersion.VERSION_17 }
+            kotlinOptions { jvmTarget="17" }
+          }
+          dependencies {
+            implementation("androidx.credentials:credentials:1.5.0")
+            implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+            implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+            implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+            testImplementation("junit:junit:4.13.2")
+          }
+          EOF
+          printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8\nkotlin.code.style=official\n' > gradle.properties
+          mkdir -p app/src/main
+          printf '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application /></manifest>\n' > app/src/main/AndroidManifest.xml
+          printf 'package com.example.warm\nclass Warm\n' > app/src/main/java/com/example/warm/Warm.kt
+          "$RUNNER_TEMP/g/gradle-8.9/bin/gradle" --no-daemon --console=plain :app:compileDebugKotlin
+          cd "$RUNNER_TEMP"
+          find "$GRADLE_USER_HOME/caches/modules-2" -name '*.lock' -delete
+          tar -czf jh161-deps-cache.tar.gz -C "$GRADLE_USER_HOME/caches" modules-2
+          sha256sum jh161-deps-cache.tar.gz > jh161-deps-cache.sha256
+          du -h jh161-deps-cache.tar.gz
+      - name: Upload dependency cache
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh161-deps-cache
+          path: |
+            ${{ runner.temp }}/jh161-deps-cache.tar.gz
+            ${{ runner.temp }}/jh161-deps-cache.sha256
+          retention-days: 1
+          compression-level: 0
