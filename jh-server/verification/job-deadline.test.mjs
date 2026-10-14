@@ -10,7 +10,7 @@ const oldSource=readFileSync(path.join(root,'verification-output/original/server
 const newSource=readFileSync(path.join(root,'verification-output/candidate/server.mjs'),'utf8');
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const hmac=(k,x)=>createHmac('sha256',k).update(x).digest('hex');
-assert.equal(sha(newSource),'65144d22e38f036cebe6f5d886458127f1ae69c782dd849d85f65daf611ba2b7');
+assert.equal(sha(newSource),'952390b3d78547cc694566745f4aa4d5e4ad90d6c1fa35a156037cb50ce9f435');
 function signer(source){
  const start=source.indexOf('function signJob56('),end=source.indexOf('\nfunction safeJobView56(',start);
  assert.ok(start>=0&&end>start);return source.slice(start,end);
