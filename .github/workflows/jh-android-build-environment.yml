@@ -1,7 +1,7 @@
 name: JH isolated Android build environment
 on:
   push:
-    branches: [jh-android-build-env-20261004]
+    branches: [jh161-build-env-20261014]
     paths: [.github/workflows/jh-android-build-environment.yml]
 permissions:
   contents: read
