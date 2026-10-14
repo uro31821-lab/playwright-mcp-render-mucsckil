@@ -80,12 +80,46 @@ jobs:
           cd jh-output
           sha256sum jh-android35-build-env.tar.gz > SHA256SUMS.txt
           du -h jh-android35-build-env.tar.gz
-      - name: Preserve environment and exact warm-up results
+          split -b 240m -d -a 2 jh-android35-build-env.tar.gz jh-env-part-
+          sha256sum jh-env-part-* > PART-SHA256SUMS.txt
+          rm jh-android35-build-env.tar.gz
+      - name: Upload Android build environment part 00
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: jh-android35-build-env
-          path: ${{ runner.temp }}/jh-output/
+          name: jh-android35-build-env-part-00
+          path: ${{ runner.temp }}/jh-output/jh-env-part-00
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+      - name: Upload Android build environment part 01
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-android35-build-env-part-01
+          path: ${{ runner.temp }}/jh-output/jh-env-part-01
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+      - name: Upload Android build environment part 02
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-android35-build-env-part-02
+          path: ${{ runner.temp }}/jh-output/jh-env-part-02
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+      - name: Upload Android build environment manifests
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jh-android35-build-env-manifests
+          path: |
+            ${{ runner.temp }}/jh-output/environment.txt
+            ${{ runner.temp }}/jh-output/dependency-warm-build.log
+            ${{ runner.temp }}/jh-output/SHA256SUMS.txt
+            ${{ runner.temp }}/jh-output/PART-SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
