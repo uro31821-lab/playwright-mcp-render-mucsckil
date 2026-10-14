@@ -1,8 +1,6 @@
 
 import { createServer } from "node:http";
 import { randomBytes, createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, chmodSync } from "node:fs";
-import { dirname } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
@@ -61,63 +59,11 @@ const OAUTH_REFRESH_MS56=30*24*60*60*1000;
 const oauthCodes56=new Map();
 const oauthAccess56=new Map();
 const oauthRefresh56=new Map();
-// OAuth access/refresh tokens are random bearer values held by ChatGPT.  Only
-// their SHA-256 digests and expiries are persisted.  This lets an already
-// connected ChatGPT client refresh automatically after a Render restart without
-// storing the bearer tokens themselves or weakening the OAuth boundary.
-const OAUTH_STATE_FILE56=String(process.env.JH_OAUTH_STATE_FILE||(
-  existsSync("/var/data")?"/var/data/jh-oauth56-state.json":""
-));
-function validOAuthStateRow56(row){
-  return Array.isArray(row)&&row.length===2&&validHex56(row[0])&&row[1]&&
-    Number.isSafeInteger(row[1].expiresAt)&&row[1].expiresAt>0&&row[1].scope===OAUTH_SCOPE56;
-}
-function persistOAuth56(){
-  if(!OAUTH_STATE_FILE56)return false;
-  try{
-    mkdirSync(dirname(OAUTH_STATE_FILE56),{recursive:true,mode:0o700});
-    const payload=JSON.stringify({
-      version:1,
-      savedAt:Date.now(),
-      access:[...oauthAccess56].filter(validOAuthStateRow56),
-      refresh:[...oauthRefresh56].filter(validOAuthStateRow56)
-    });
-    const tmp=OAUTH_STATE_FILE56+"."+process.pid+".tmp";
-    writeFileSync(tmp,payload,{encoding:"utf8",mode:0o600});
-    chmodSync(tmp,0o600);
-    renameSync(tmp,OAUTH_STATE_FILE56);
-    chmodSync(OAUTH_STATE_FILE56,0o600);
-    return true;
-  }catch(e){
-    console.error("JH_OAUTH_STATE_PERSIST_FAILED",String(e?.message||e));
-    return false;
-  }
-}
-function loadOAuth56(){
-  if(!OAUTH_STATE_FILE56||!existsSync(OAUTH_STATE_FILE56))return {loaded:false,access:0,refresh:0};
-  try{
-    const parsed=JSON.parse(readFileSync(OAUTH_STATE_FILE56,"utf8"));
-    if(parsed?.version!==1)throw new Error("schema");
-    const now=Date.now();
-    for(const row of Array.isArray(parsed.access)?parsed.access:[]){
-      if(validOAuthStateRow56(row)&&row[1].expiresAt>now)oauthAccess56.set(row[0],row[1]);
-    }
-    for(const row of Array.isArray(parsed.refresh)?parsed.refresh:[]){
-      if(validOAuthStateRow56(row)&&row[1].expiresAt>now)oauthRefresh56.set(row[0],row[1]);
-    }
-    console.log("JH_OAUTH_STATE_LOADED",JSON.stringify({access:oauthAccess56.size,refresh:oauthRefresh56.size,durable:true}));
-    return {loaded:true,access:oauthAccess56.size,refresh:oauthRefresh56.size};
-  }catch(e){
-    console.error("JH_OAUTH_STATE_LOAD_FAILED",String(e?.message||e));
-    return {loaded:false,access:0,refresh:0};
-  }
-}
 function purgeOAuth56(){
-  const now=Date.now();let changed=false;
-  for(const [k,v] of oauthCodes56)if(now>v.expiresAt){oauthCodes56.delete(k);changed=true;}
-  for(const [k,v] of oauthAccess56)if(now>v.expiresAt){oauthAccess56.delete(k);changed=true;}
-  for(const [k,v] of oauthRefresh56)if(now>v.expiresAt){oauthRefresh56.delete(k);changed=true;}
-  if(changed)persistOAuth56();
+  const now=Date.now();
+  for(const [k,v] of oauthCodes56)if(now>v.expiresAt)oauthCodes56.delete(k);
+  for(const [k,v] of oauthAccess56)if(now>v.expiresAt)oauthAccess56.delete(k);
+  for(const [k,v] of oauthRefresh56)if(now>v.expiresAt)oauthRefresh56.delete(k);
 }
 function oauthAccessAuthorized56(token){
   if(typeof token!=="string"||token.length<20)return false;
@@ -125,7 +71,6 @@ function oauthAccessAuthorized56(token){
   const x=oauthAccess56.get(sha56("oauth-access|"+token));
   return !!x&&x.expiresAt>Date.now()&&x.scope===OAUTH_SCOPE56;
 }
-loadOAuth56();
 function validChatGptClient56(v){
   return v==="https://chatgpt.com/oauth/client.json"||/^https:\/\/chatgpt\.com\/oauth\/[A-Za-z0-9_-]+\/client\.json$/.test(String(v||""));
 }
@@ -143,7 +88,6 @@ function oauthTokenResponse56(){
   const access="at56_"+token56(32),refresh="rt56_"+token56(32),now=Date.now();
   oauthAccess56.set(sha56("oauth-access|"+access),{expiresAt:now+OAUTH_ACCESS_MS56,scope:OAUTH_SCOPE56});
   oauthRefresh56.set(sha56("oauth-refresh|"+refresh),{expiresAt:now+OAUTH_REFRESH_MS56,scope:OAUTH_SCOPE56});
-  persistOAuth56();
   return {access_token:access,token_type:"Bearer",expires_in:Math.floor(OAUTH_ACCESS_MS56/1000),refresh_token:refresh,scope:OAUTH_SCOPE56};
 }
 const SERVER_IDENTITY_DIGEST56=sha56((PUBLIC_BASE_URL||"https://unset.invalid")+"/mcp|jh-secure-bridge56");
