@@ -1,0 +1,34 @@
+name: JH161 multistep bridge verify
+on:
+  push:
+    branches: [jh161-build-env-20261014]
+    paths: [.github/workflows/jh161-multistep-bridge-verify.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: jh161-multistep-live-verify-20261014
+          fetch-depth: 1
+      - name: Reassemble staged JH161 multistep bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .jh161-stage/part* > /tmp/jh161.b64
+          base64 -d /tmp/jh161.b64 > /tmp/jh161.tgz
+          gzip -t /tmp/jh161.tgz
+          mkdir -p /tmp/jh161
+          tar -xzf /tmp/jh161.tgz -C /tmp/jh161
+          echo "=== ARCHIVE OK ==="
+          find /tmp/jh161 -type f -printf '%P\n' | sort
+          echo "=== REQUIRED FILES ==="
+          find /tmp/jh161 -type f \( -name 'jh155-multistep-patch.mjs' -o -name 'multi-step.mjs' -o -name 'jh155-mcp-tools.mjs' -o -name 'durable-payment-clean-restart-patch.mjs' -o -name 'published-host-router.mjs' \) -print
+          test "$(find /tmp/jh161 -type f -name 'jh155-multistep-patch.mjs' | wc -l)" -eq 1
+          test "$(find /tmp/jh161 -type f -name 'multi-step.mjs' | wc -l)" -ge 1
+          test "$(find /tmp/jh161 -type f -name 'jh155-mcp-tools.mjs' | wc -l)" -ge 1
+          test "$(find /tmp/jh161 -type f -name 'durable-payment-clean-restart-patch.mjs' | wc -l)" -eq 1
+          echo "MULTISTEP_STAGE_PASS"
