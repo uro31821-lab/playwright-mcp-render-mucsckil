@@ -1,0 +1,28 @@
+name: JH161 multistep staged bundle verify
+on:
+  push:
+    branches: [jh161-multistep-live-verify-20261014]
+    paths: [.github/workflows/jh161-multistep-stage-verify.yml]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reassemble staged bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .jh161-stage/part* > /tmp/jh161.b64
+          base64 -d /tmp/jh161.b64 > /tmp/jh161.tgz
+          gzip -t /tmp/jh161.tgz
+          mkdir -p /tmp/jh161
+          tar -xzf /tmp/jh161.tgz -C /tmp/jh161
+          echo "ARCHIVE_OK"
+          find /tmp/jh161 -type f -printf '%P\n' | sort | tee /tmp/files.txt
+          grep -q 'jh155-multistep-patch.mjs' /tmp/files.txt
+          grep -q 'multistep/multi-step.mjs' /tmp/files.txt
+          grep -q 'multistep/jh155-mcp-tools.mjs' /tmp/files.txt
+          echo "MULTISTEP_FILES_OK"
