@@ -14,21 +14,19 @@ jobs:
         with:
           ref: jh161-multistep-live-verify-20261014
           fetch-depth: 1
-      - name: Verify and apply complete JH161 multistep overlay
+      - name: Generate and verify full JH161 multistep server runtime
         shell: bash
         run: |
           set -euo pipefail
-          cat .jh161-overlay/part* > /tmp/jh161-overlay.b64
+          cat .jh161-full-overlay/part* > /tmp/jh161-overlay.b64
           base64 -d /tmp/jh161-overlay.b64 > /tmp/jh161-overlay.tgz
           gzip -t /tmp/jh161-overlay.tgz
           mkdir -p /tmp/overlay
           tar -xzf /tmp/jh161-overlay.tgz -C /tmp/overlay
-          test "$(find /tmp/overlay -type f -name 'jh155-multistep-patch.mjs' | wc -l)" -eq 1
-          test "$(find /tmp/overlay -type f -name 'multi-step.mjs' | wc -l)" -eq 1
-          test "$(find /tmp/overlay -type f -name 'jh155-mcp-tools.mjs' | wc -l)" -eq 1
-          test "$(find /tmp/overlay -type f -name 'durable-payment-clean-restart-patch.mjs' | wc -l)" -eq 1
+          test -f /tmp/overlay/deployment/split-screen-evidence.mjs
+          test -f /tmp/overlay/deployment/jh155-multistep-patch.mjs
+          test -f /tmp/overlay/multistep/jh155-mcp-tools.mjs
           cp -a /tmp/overlay/. jh-server/owner-setup/
-          echo "OVERLAY_APPLIED"
           find /tmp/overlay -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
           cd jh-server
           npm install
@@ -45,21 +43,12 @@ jobs:
             'life_multistep_start','life_multistep_next','life_multistep_progress',
             'life_multistep_replan','life_multistep_cancel','life_multistep_report'
           ];
-          for(const name of tools){
-            if(!src.includes(name))throw Error('MISSING_TOOL_'+name);
-          }
+          for(const name of tools)if(!src.includes(name))throw Error('MISSING_TOOL_'+name);
           if(!src.includes('OAUTH_STATE_FILE56'))throw Error('OAUTH_DURABLE_STATE_MISSING');
-          if(!src.includes('automaticApprovalRetryAllowed:false') && !src.includes('automaticApprovalRetryAllowed: false')){
-            throw Error('SENSITIVE_APPROVAL_FENCE_MISSING');
-          }
-          if(!src.includes('replayAllowed:false') && !src.includes('replayAllowed: false')){
-            throw Error('NO_REPLAY_FENCE_MISSING');
-          }
-          console.log('JH161_MULTISTEP_GENERATED_PASS',JSON.stringify({
-            tools:tools.length,
-            oauthDurable:true,
-            approvalFence:true,
-            noReplayFence:true,
-            runtime:routed.file
+          if(!src.includes('automaticApprovalRetryAllowed:false') && !src.includes('automaticApprovalRetryAllowed: false'))throw Error('SENSITIVE_APPROVAL_FENCE_MISSING');
+          if(!src.includes('replayAllowed:false') && !src.includes('replayAllowed: false'))throw Error('NO_REPLAY_FENCE_MISSING');
+          console.log('JH161_MULTISTEP_GENERATED_PASS '+JSON.stringify({
+            toolCount:tools.length,oauthDurable:true,approvalFence:true,noReplayFence:true,
+            runtimeSha:routed.candidateSha256
           }));
           NODE
