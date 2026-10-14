@@ -6,7 +6,7 @@ const here=path.dirname(fileURLToPath(import.meta.url));
 const root=path.resolve(here,'..');
 const baseline=readFileSync(path.join(root,'server.mjs'),'utf8');
 const gitBlob=createHash('sha1').update(`blob ${Buffer.byteLength(baseline)}\0`).update(baseline).digest('hex');
-if(gitBlob!=='3208b72e741a90920b17c8fa3fa33cedcc3ca6ad') throw Error('Unexpected baseline: refusing approximate patch');
+if(gitBlob!=='2c4fc54d0c2789b8c02e825c3946b9777e14a694') throw Error('Unexpected baseline: refusing approximate patch');
 const oldEntry='if(secureHeaderPresent&&(!dm||dm.secureBridgeVersion!==56||!active56(d)))';
 const newEntry='if(secureHeaderPresent&&(pollProbe.reject("device_record_missing",!dm)||pollProbe.reject("secure_metadata_mismatch",dm.secureBridgeVersion!==56)||pollProbe.reject("session_not_active",!active56(d))))';
 const oldGate='if(!a||sid!==a.sessionId||dev!==a.deviceDigest||!validToken56(nonce)||exp<Date.now()||exp-Date.now()>60000||!eqHex56(mac,hmac56(a.secret,"poll|"+sid+"|"+dev+"|"+nonce+"|"+exp))||!seen56(a.seenPoll,nonce)){res.writeHead(401).end("secure poll required");return;}';
