@@ -43,12 +43,25 @@ jobs:
             'life_multistep_start','life_multistep_next','life_multistep_progress',
             'life_multistep_replan','life_multistep_cancel','life_multistep_report'
           ];
-          for(const name of tools)if(!src.includes(name))throw Error('MISSING_TOOL_'+name);
+          if(!src.includes("jhRegisterMultiStep155")||!src.includes("../multistep/jh155-mcp-tools.mjs"))
+            throw Error('MULTISTEP_RUNTIME_IMPORT_MISSING');
+          const {z}=await import('zod');
+          const {registerJHMultiStepTools}=await import('./owner-setup/multistep/jh155-mcp-tools.mjs');
+          const registered=[];
+          const coordinator={
+            start:async()=>({ok:true}),advance:async()=>({ok:true}),checkedStatus:()=>({ok:true}),
+            revise:async()=>({ok:true}),cancelWorkflow:()=>({ok:true}),checkedPreviewReport:()=>({ok:true})
+          };
+          registerJHMultiStepTools({
+            registerOAuthTool:(name)=>registered.push(name),z,textResult:x=>x,coordinator
+          });
+          if(JSON.stringify(registered)!==JSON.stringify(tools))
+            throw Error('MULTISTEP_CATALOG_MISMATCH_'+JSON.stringify(registered));
           if(!src.includes('OAUTH_STATE_FILE56'))throw Error('OAUTH_DURABLE_STATE_MISSING');
           if(!src.includes('automaticApprovalRetryAllowed:false') && !src.includes('automaticApprovalRetryAllowed: false'))throw Error('SENSITIVE_APPROVAL_FENCE_MISSING');
           if(!src.includes('replayAllowed:false') && !src.includes('replayAllowed: false'))throw Error('NO_REPLAY_FENCE_MISSING');
           console.log('JH161_MULTISTEP_GENERATED_PASS '+JSON.stringify({
-            toolCount:tools.length,oauthDurable:true,approvalFence:true,noReplayFence:true,
+            toolCount:registered.length,oauthDurable:true,approvalFence:true,noReplayFence:true,
             runtimeSha:routed.candidateSha256
           }));
           NODE
