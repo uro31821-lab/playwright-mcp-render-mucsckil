@@ -54,13 +54,29 @@ const helper=String.raw`
     if(read?.status!=='complete'||read.result?.ok!==true||!before.ok)return textResult({ok:false,code:before.reason});
     const job=mk('open_url',{target:'original_chatgpt',url:''},device),reply=await waitJob(job,12000);
     if(jhRequireCommand56(device)!==command)throw Error('split_command_changed');
-    const after=jhInspectSplitEvidence155(reply?.result);
-    const ok=reply?.status==='complete'&&reply.result?.ok===true&&reply.result?.originWindowVerified===true&&after.ok&&
-      before.chatWindowId===after.chatWindowId&&before.chatPackage===after.chatPackage&&
-      before.workWindowId===after.workWindowId&&before.workPackage===after.workPackage;
+    // open_url is an action receipt, not a split-screen snapshot. Never demand
+    // splitScreenRequired from reply.result (it cannot carry that proof).
+    // Obtain a NEW signed agent_snapshot on the same device/session instead.
+    const postJob=mk('agent_snapshot',{},device),post=await waitJob(postJob,25000);
+    if(jhRequireCommand56(device)!==command)throw Error('split_command_changed');
+    let postRows=null;try{postRows=JSON.parse(post?.result?.url);}catch{}
+    const sameSession=read?.secureSessionId===auth.sessionId &&
+      reply?.secureSessionId===auth.sessionId && post?.secureSessionId===auth.sessionId &&
+      read?.targetDeviceId===device && reply?.targetDeviceId===device && post?.targetDeviceId===device;
+    const after=post?.status==='complete'&&post?.result?.ok===true &&
+      Array.isArray(postRows) ? jhInspectSplitEvidence155(post.result,postRows,before.workPackage) :
+      {ok:false,reason:'RETURN_POST_SNAPSHOT_UNCONFIRMED'};
+    const nativeVerified=reply?.status==='complete'&&reply.result?.ok===true&&
+      reply.result?.originWindowVerified===true;
+    const samePane=after.ok && before.chatWindowId===after.chatWindowId &&
+      before.chatPackage===after.chatPackage && before.workWindowId===after.workWindowId &&
+      before.workPackage===after.workPackage;
+    const ok=!!(sameSession&&nativeVerified&&samePane);
     return textResult({ok,code:ok?'ORIGINAL_SPLIT_CHAT_WINDOW_VERIFIED':'ORIGINAL_CHAT_RETURN_UNVERIFIED',
       originWindowVerified:ok,conversationVerified:false,pageOrScrollRestored:false,taskResultVerified:false,
-      resultScreen:rows,automaticReplay:false});
+      nativeReturnCode:reply?.result?.code||null,
+      postSplitProofCode:after.reason||null,sessionMatched:sameSession,automaticReplay:false,
+      resultScreen:rows});
   });
 `;
 export function patchJH155SplitIntegration(source){
@@ -71,7 +87,7 @@ export function patchJH155SplitIntegration(source){
   once('    const taskDigest=sha56(\'jh-split-screen-assistant-v2|\'+type+\'|\'+JSON.stringify(payload));',
     "    const commandId=jhRequireCommand56(device);\n    const dispatch=async()=>{\n    const taskDigest=sha56('jh-split-screen-assistant-v2|'+type+'|'+JSON.stringify(payload));");
   once('    return {...result,jobDigest:sha56(j.id),taskDigest};',
-    "    if(jhRequireCommand56(device)!==commandId)throw Error('split_command_changed');\n    if(type!=='split_screen_session_cancel' && result.ok===true){const proof=jhInspectSplitEvidence155(result);if(!proof.ok)return {ok:false,code:proof.reason,resultVerified:false};}\n    return {...result,jobDigest:sha56(j.id),taskDigest};\n    };\n    return type==='split_screen_session_followup' ? jhSplitScreenOnce155(device,commandId,type,payload,dispatch) : dispatch();");
+    "    if(jhRequireCommand56(device)!==commandId)throw Error('split_command_changed');\n    if(type!=='split_screen_session_cancel' && result.ok===true){\n      let proof=jhInspectSplitEvidence155(result);\n      const readOnlyComfort=['split_comfort_status','split_comfort_manual_handoff',\n        'split_comfort_keyboard_advice','split_comfort_restore_info'].includes(type);\n      if(!proof.ok && proof.reason==='SPLIT_PROOF_REQUIRED' && readOnlyComfort){\n        const scopeJob=mk('agent_snapshot',{},device),scopeRead=await waitJob(scopeJob,25000);\n        if(jhRequireCommand56(device)!==commandId)throw Error('split_command_changed');\n        let scopeRows=null;try{scopeRows=JSON.parse(scopeRead?.result?.url);}catch{}\n        if(scopeRead?.status!=='complete'||scopeRead?.result?.ok!==true ||\n          scopeRead?.secureSessionId!==auth.sessionId || scopeRead?.targetDeviceId!==device ||\n          !Array.isArray(scopeRows))return {ok:false,code:'SPLIT_SCOPE_READBACK_UNCONFIRMED',resultVerified:false};\n        proof=jhInspectSplitEvidence155(scopeRead.result,scopeRows);\n        if(proof.ok)return {...result,scopeVerified:true,resultVerified:false,\n          jobDigest:sha56(j.id),taskDigest};\n      }\n      if(!proof.ok)return {ok:false,code:proof.reason,resultVerified:false};\n    }\n    return {...result,jobDigest:sha56(j.id),taskDigest};\n    };\n    return type==='split_screen_session_followup' ? jhSplitScreenOnce155(device,commandId,type,payload,dispatch) : dispatch();");
   once("      context_id:z.string().optional(),goal:z.string().optional(),", "      context_id:z.string().optional(),request_id:z.string().optional(),goal:z.string().optional(),");
   once("      contextId:args.context_id,command:args.command,targetItemRef:args.target_item_ref||'',\n      action:effectiveAction", "      contextId:args.context_id,requestId:args.request_id,command:args.command,targetItemRef:args.target_item_ref||'',\n      action:effectiveAction");
   once("    if(mode!=='FOLLOW_UP')return textResult({ok:false,code:'split_screen_mode_invalid'});", "    if(mode!=='FOLLOW_UP')return textResult({ok:false,code:'split_screen_mode_invalid'});\n    if(!/^[a-f0-9]{32}$/.test(args.request_id||''))return textResult({ok:false,code:'split_request_id_required'});");
