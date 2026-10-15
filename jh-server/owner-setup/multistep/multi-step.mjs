@@ -309,14 +309,15 @@ export class JHMultiStepCoordinator {
           output={...job.paymentStatus,bankApiVerified:job.paymentStatus.paymentVerified===true};break;
         }
         case 'GPT_REPORT': {
-          const result=this.makeReport(job);
+          const draft=this.makeReport(job);
           // JH tool response is itself a GPT-visible report. An optional host callback
           // can also deliver it through JH's existing result router.
           if(typeof this.ports.reportToGpt==='function'){
-            const sent=await this.ports.reportToGpt(ctx,result);
+            const sent=await this.ports.reportToGpt(ctx,draft);
             await this.assertCurrent(job);
             if(sent?.delivered!==true)raise('GPT_REPORT_DELIVERY_UNCONFIRMED');
           }
+          const result=this.makeReport(job,{reportDelivered:true});
           job.report=clone(result);output=result;break;
         }
         default:raise('UNSUPPORTED_STEP');
@@ -333,7 +334,11 @@ export class JHMultiStepCoordinator {
       return {ok:false,code,step:step.kind,phase:job.phase,automaticReplay:false,paymentId:job.paymentId};
     }finally{job.busy=false;}
   }
-  makeReport(j){
+  makeReport(j,{reportDelivered=false}={}){
+    const choiceReady=!!j.decision?.recommendation?.items?.length&&!!j.totals&&!!j.why&&
+      j.steps.filter(s=>s.kind!=='GPT_REPORT').every(s=>s.status==='VERIFIED');
+    const compareCompletion=choiceReady?
+      (reportDelivered||j.phase==='COMPLETED'?'CHOICE_AND_TOTAL_REPORTED':'CHOICE_AND_TOTAL_READY'):'INCOMPLETE';
     return {workflowId:j.id,goal:j.goal,mode:j.mode,commandId:j.ctx.commandId,
       selected:j.decision?.recommendation?.items?.map(x=>({title:x.title,id:x.id}))||[],
       alternative:j.why?.alternatives||[],
@@ -343,9 +348,10 @@ export class JHMultiStepCoordinator {
         knownSubtotal:j.totals.knownSubtotal,total:j.totals.total,unknown:j.totals.unknown||[],kind:j.totals.kind}:null,
       checkoutHandoffReported:!!j.paymentId,checkoutQuoteVerified:!!j.paymentApproval,
       payment:j.mode==='PURCHASE'?(j.paymentStatus||{outcome:'PAYMENT_NOT_CONFIRMED'}):null,
-      completion:j.mode==='PURCHASE'?(j.paymentStatus?.outcome==='MERCHANT_SUCCESS_OBSERVED'?'MERCHANT_SUCCESS_OBSERVED':'UNCONFIRMED'):'CHOICE_AND_TOTAL_REPORTED',
+      completion:j.mode==='PURCHASE'?(j.paymentStatus?.outcome==='MERCHANT_SUCCESS_OBSERVED'?'MERCHANT_SUCCESS_OBSERVED':'UNCONFIRMED'):compareCompletion,
       bankApiVerified:j.paymentStatus?.paymentVerified===true,
-      caveat:j.mode==='PURCHASE'?'판매처 완료 화면 관찰과 금융기관 API 검증은 다릅니다.':'총액은 조회 당시 확인된 항목 기준이며 미확인 항목은 제외됩니다.',
+      caveat:j.mode==='PURCHASE'?'판매처 완료 화면 관찰과 금융기관 API 검증은 다릅니다.':
+        j.totals?'총액은 조회 당시 확인된 항목 기준이며 미확인 항목은 제외됩니다.':'총액 계산이 아직 완료되지 않았습니다.',
       automaticReplay:false};
   }
   /** Read-only status/report; useful if the user cancels before final reporting. */
