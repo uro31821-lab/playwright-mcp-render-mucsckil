@@ -2,7 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {mkdtempSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {generateKeyPairSync,randomBytes,sign,createHmac} from 'node:crypto';
 import {TrustedDeviceRegistry,PURPOSE,sha256,canonicalChallenge} from './trusted-device-registry.mjs';
-import {TrustedBridgeSessionAuthority,activationMaterial} from './trusted-bridge-session-authority.mjs';
+import {TrustedBridgeSessionAuthority,activationMaterial,receiptMaterial} from './trusted-bridge-session-authority.mjs';
 import {TrustedSettingsService} from './trusted-settings-service.mjs';
 function fixture(){
  const dir=mkdtempSync(join(tmpdir(),'jh-session-')),ctx=Object.freeze({});let now=1_800_000_000_000;
@@ -69,4 +69,52 @@ test('renewal refuses extra approval or lifetime fields',()=>check(f=>{
  const o=f.begin();f.authority.activate(f.activation(o));const q=renewal(f,o);
  assert.throws(()=>f.authority.renew({...q,actionApprovalGranted:true}),/INVALID_FIELDS/);
  assert.throws(()=>f.authority.renew({...q,expiresAt:f.now+86400000}),/INVALID_FIELDS/);
+}));
+
+function processActivation(f,o,epoch='android-process-epoch-001'){
+ const a={...f.activation(o),processEpoch:epoch,restartDisposition:'DISCARD_PREVIOUS'};
+ a.mac=createHmac('sha256',Buffer.from(o.secureSessionSecret,'base64url')).update(activationMaterial(a)).digest('hex');return a;
+}
+test('real device proof plus V2 activation binds process and echoes authenticated receipt',()=>check(f=>{
+ const o=f.begin(),a=processActivation(f,o),r=f.authority.activate(a);
+ assert.equal(r.version,2);assert.equal(r.processEpoch,a.processEpoch);assert.equal(r.restartDisposition,'DISCARD_PREVIOUS');
+ assert.equal(f.bridge.devices.get(f.d).processEpoch,a.processEpoch);
+ assert.equal(f.bridge.states.get(f.d).active.processEpoch,a.processEpoch);
+ assert.equal(r.mac,createHmac('sha256',Buffer.from(o.secureSessionSecret,'base64url')).update(receiptMaterial(r)).digest('hex'));
+ assert.equal(r.actionApprovalGranted,false);assert.equal(r.screenConsentGranted,false);
+ assert.throws(()=>f.authority.activate(a),/TRUSTED_PENDING_MISSING/);
+ f.advance(1000);f.authority.renew(renewal(f,o));assert.equal(f.bridge.devices.get(f.d).processEpoch,a.processEpoch);
+}));
+test('process identity tampering and downgrade fail before activation',()=>check(f=>{
+ const o=f.begin(),a=processActivation(f,o);
+ assert.throws(()=>f.authority.activate({...a,processEpoch:'android-process-epoch-other'}),/ACTIVATION_MAC_INVALID/);
+ const {processEpoch,restartDisposition,...stripped}=a;
+ assert.throws(()=>f.authority.activate(stripped),/ACTIVATION_MAC_INVALID/);
+ assert.equal(f.bridge.devices.get(f.d).processEpoch,null);assert.equal(f.bridge.states.get(f.d).active,null);
+ assert.equal(f.authority.activate(a).version,2);
+}));
+test('process activation rejects partial, malformed and resume fields',()=>check(f=>{
+ const o=f.begin(),a=processActivation(f,o),{restartDisposition,...partial}=a;
+ assert.throws(()=>f.authority.activate(partial),/INVALID_FIELDS/);
+ for(const p of [{processEpoch:''},{processEpoch:'x\ninject'},{processEpoch:null},{restartDisposition:'RESUME_PREVIOUS'},{processEpoch:'x'.repeat(161)}])
+  assert.throws(()=>f.authority.activate({...a,...p}),/ACTIVATION_PROCESS_INVALID/);
+ assert.throws(()=>f.authority.activate({...a,actionApprovalGranted:true}),/INVALID_FIELDS/);
+ assert.equal(f.bridge.states.get(f.d).active,null);
+}));
+test('legacy reconnect clears old process identity without granting work identity',()=>check(f=>{
+ f.bridge.devices.set(f.d,{processEpoch:'obsolete-process-epoch',secureActive:false});
+ const o=f.begin();assert.equal(f.bridge.devices.get(f.d).processEpoch,null);
+ // Even stale metadata introduced between the two phases must not be inherited.
+ f.bridge.devices.get(f.d).processEpoch='obsolete-process-epoch';
+ const r=f.authority.activate(f.activation(o));assert.equal(r.version,1);assert.equal(Object.hasOwn(r,'processEpoch'),false);
+ assert.equal(f.bridge.devices.get(f.d).processEpoch,null);assert.equal(f.bridge.states.get(f.d).active.processEpoch,null);
+}));
+test('new process activation fences old dispatched work and retains uncertain evidence',()=>check(f=>{
+ const first=f.begin();f.authority.activate(processActivation(f,first));
+ const j={id:'job_1',targetDeviceId:f.d,status:'in_progress',secureSessionId:first.secureSessionId,trustBindingId:first.trustId,secureRequestedEffect:'MUTATION'};
+ f.bridge.jobs.set(j.id,j);f.advance(1_800_001);
+ const second=f.begin(),a=processActivation(f,second,'android-process-epoch-002');f.authority.activate(a);
+ assert.equal(f.bridge.devices.get(f.d).processEpoch,a.processEpoch);
+ assert.equal(j.status,'expired');assert.equal(j.error,'DISPATCH_OUTCOME_UNKNOWN_NO_AUTO_REPLAY');assert.equal(j.trustDispatchedOutcomeUncertain,true);
+ assert.equal(f.bridge.queues.get(f.d).length,0);
 }));

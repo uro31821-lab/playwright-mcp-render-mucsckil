@@ -7,7 +7,11 @@ const readTools=new Map([
  ['computer_use_inspect','life_android_computer_inspect'],
  ['computer_use_action_prepare','life_android_computer_prepare'],
  ['computer_use_action_approval_status','life_android_action_approval_status'],
- ['computer_use_screen_consent_status','life_android_screen_consent_status']
+ ['computer_use_screen_consent_status','life_android_screen_consent_status'],
+ ['split_comfort_status','life_android_capture_work_window'],
+ ['split_comfort_manual_handoff','life_android_capture_work_window'],
+ ['split_comfort_keyboard_advice','life_android_capture_work_window'],
+ ['split_comfort_restore_info','life_android_capture_work_window']
 ]);
 const controlTools=new Map([
  ['computer_use_action_approval_request','life_android_action_approval_request'],

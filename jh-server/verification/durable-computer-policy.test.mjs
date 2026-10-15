@@ -25,6 +25,20 @@ for(const action of ['CLICK','DOUBLE_CLICK','SCROLL','TYPE','KEYPRESS','DRAG','M
 test('screenshot remains protected and never gains consent',()=>{assert.equal(policy(execJob(),execute('SCREENSHOT')).kind,'DENY');const p=policy(execJob(),execute('SCREENSHOT',{screenGrantToken:'synthetic-consent'}));assert.equal(p.kind,'PROTECTED_READ');assert.equal(p.screenConsentGranted,false)});
 test('frame upload requires complete original scope',()=>{const j=job('computer_use_capture_frame','life_android_capture_work_window','READ_ONLY');assert.equal(policy(j,{}).kind,'DENY');assert.equal(policy(j,{leaseToken:'lease',screenGrantToken:'consent',frameUploadLease:'frame'}).kind,'PROTECTED_READ')});
 test('unknown or secret-bearing requests fail closed',()=>{assert.equal(policy(job('unknown','unknown','READ_ONLY'),{}).kind,'DENY');assert.equal(policy(execJob(),execute('TYPE',{dataClass:'SECRET'})).kind,'DENY');assert.equal(policy(execJob(),execute('EXECUTE_SHELL')).kind,'DENY')});
+for(const type of ['split_comfort_status','split_comfort_manual_handoff','split_comfort_keyboard_advice','split_comfort_restore_info']){
+ test(type+' is admitted only as the exact nonmutating phone route',()=>{
+  const j=job(type,'life_android_capture_work_window','READ_ONLY');
+  assert.equal(policy(j,{}).kind,'READ');
+  assert.equal(policy({...j,mcpToolName:'life_android_execute_computer_action'},{}).kind,'DENY');
+  assert.equal(policy({...j,secureRequestedEffect:'REVERSIBLE_WRITE'},{}).kind,'DENY');
+  assert.equal(policy(j,{containsCredential:true}).kind,'DENY');
+ });
+}
+test('split reads do not admit scroll or zoom writes',()=>{
+ for(const type of ['split_comfort_scroll_once','split_comfort_zoom','split_comfort_zoom_reset'])
+  for(const effect of ['READ_ONLY','REVERSIBLE_WRITE','MUTATION'])
+   assert.equal(policy(job(type,'life_android_capture_work_window',effect),{}).kind,'DENY');
+});
 test('new task, grant, lease and expiry cannot bypass unknown identical Computer Use action',()=>{
  const dir=mkdtempSync(path.join(tmpdir(),'jh-cu-policy-')),options={file:path.join(dir,'journal.sqlite'),key:Buffer.alloc(32,12),namespace:sha('synthetic-cu-owner')};
  let hooks=createDurableNativeHooks({...options,mode:'EXPLICIT_ONE_TIME'});

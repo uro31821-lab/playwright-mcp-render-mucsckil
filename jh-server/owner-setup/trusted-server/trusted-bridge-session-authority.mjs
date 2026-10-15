@@ -10,8 +10,12 @@ const hex=x=>typeof x==='string'&&/^[0-9a-f]{64}$/.test(x);
 const eq=(a,b)=>hex(a)&&hex(b)&&timingSafeEqual(Buffer.from(a,'hex'),Buffer.from(b,'hex'));
 const fail=c=>{throw Object.assign(new Error(c),{code:c});};
 function fields(x,names){if(!x||Array.isArray(x)||typeof x!=='object'||Object.keys(x).length!==names.length||names.some(k=>!Object.hasOwn(x,k)))fail('INVALID_FIELDS');}
-export const activationMaterial=x=>['JH_TRUST_ACTIVATE_V1',PURPOSE,x.trustId,x.challengeId,x.redemptionId,x.sessionId,x.deviceDigest,x.sessionDigest,x.nonce,String(x.expiresAt)].join('\n');
-export const receiptMaterial=x=>['JH_TRUST_ACTIVE_V1',PURPOSE,x.trustId,x.challengeId,x.redemptionId,x.sessionId,x.deviceDigest,x.sessionDigest,x.nonce,String(x.expiresAt)].join('\n');
+// V2 binds the actual Android process lifetime to the authenticated handshake.
+// V1 remains connectable, but cannot inherit an earlier process's work identity.
+const processFields=x=>x!==null&&typeof x==='object'&&(Object.hasOwn(x,'processEpoch')||Object.hasOwn(x,'restartDisposition'));
+const sessionMaterial=(prefix,x)=>[prefix+(processFields(x)?'2':'1'),PURPOSE,x.trustId,x.challengeId,x.redemptionId,x.sessionId,x.deviceDigest,x.sessionDigest,x.nonce,String(x.expiresAt),...(processFields(x)?[x.processEpoch,x.restartDisposition]:[])].join('\n');
+export const activationMaterial=x=>sessionMaterial('JH_TRUST_ACTIVATE_V',x);
+export const receiptMaterial=x=>sessionMaterial('JH_TRUST_ACTIVE_V',x);
 export class TrustedBridgeSessionAuthority {
   #registry;#bridge;#now;#window=0;#requests=0;
   constructor({registry,bridge,now=Date.now}){
@@ -112,7 +116,7 @@ export class TrustedBridgeSessionAuthority {
       challengeId:c.challengeId,activationDeadline:Math.min(expiresAt,n+CHALLENGE_MS),seenActivate:new Set()};
     p.sessionDigest=this.#bridge.sessionDigest(p);
     const st=this.#bridge.states.get(d)||{active:null,pending:new Map()};st.pending.set(p.sessionId,p);this.#bridge.states.set(d,st);
-    this.#bridge.devices.set(d,{...(this.#bridge.devices.get(d)||{}),secureBridgeVersion:56,deviceDigest:p.deviceDigest,secureActive:false,lastSeen:n});
+    this.#bridge.devices.set(d,{...(this.#bridge.devices.get(d)||{}),secureBridgeVersion:56,deviceDigest:p.deviceDigest,secureActive:false,processEpoch:null,lastSeen:n});
     if(!this.#bridge.queues.has(d))this.#bridge.queues.set(d,[]);
     return {version:1,code:'TRUSTED_SESSION_PENDING',purpose:PURPOSE,trustId:t.trustId,
       challengeId:c.challengeId,clientNonce:c.clientNonce,redemptionId:claim.redemptionId,
@@ -122,7 +126,9 @@ export class TrustedBridgeSessionAuthority {
       sessionActive:false,actionApprovalGranted:false,screenConsentGranted:false};
   }
   activate(input){
-    fields(input,['deviceId','trustId','challengeId','redemptionId','sessionId','deviceDigest','sessionDigest','nonce','expiresAt','mac']);
+    const boundProcess=processFields(input);
+    fields(input,['deviceId','trustId','challengeId','redemptionId','sessionId','deviceDigest','sessionDigest','nonce','expiresAt','mac',...(boundProcess?['processEpoch','restartDisposition']:[])]);
+    if(boundProcess&&(typeof input.processEpoch!=='string'||!/^[A-Za-z0-9_-]{16,160}$/.test(input.processEpoch)||input.restartDisposition!=='DISCARD_PREVIOUS'))fail('ACTIVATION_PROCESS_INVALID');
     const d=this.#device(input.deviceId),st=this.#bridge.states.get(d),n=this.#time();if(!st)fail('TRUSTED_PENDING_MISSING');this.#purge(st);
     const p=st.pending.get(input.sessionId);if(!p?.trustId)fail('TRUSTED_PENDING_MISSING');const t=this.#trust(p.trustId);this.#scope(t,d);if(st.active)fail('BRIDGE_ALREADY_ACTIVE');
     if(p.trustId!==input.trustId||p.challengeId!==input.challengeId||p.redemptionId!==input.redemptionId||p.deviceDigest!==input.deviceDigest||p.sessionDigest!==input.sessionDigest)fail('ACTIVATION_SCOPE_MISMATCH');
@@ -130,12 +136,13 @@ export class TrustedBridgeSessionAuthority {
     if(!eq(input.mac,mac(p.secret,activationMaterial(input))))fail('ACTIVATION_MAC_INVALID');if(p.seenActivate.has(input.nonce))fail('ACTIVATION_REPLAY');p.seenActivate.add(input.nonce);
     this.#trust(p.trustId);
     for(const [id,other]of st.pending)if(id!==p.sessionId)other.secret.fill(0);
-    st.active={...p,seenPoll:new Set(),seenComplete:new Set(),seenFrame:new Set()};st.pending.clear();
+    st.active={...p,processEpoch:boundProcess?input.processEpoch:null,seenPoll:new Set(),seenComplete:new Set(),seenFrame:new Set()};st.pending.clear();
     this.#quarantinePriorSessionJobs(d,p.sessionId);
-    const m=this.#bridge.devices.get(d);this.#bridge.devices.set(d,{...m,secureActive:true,lastSeen:n});
-    const r={version:1,code:'TRUSTED_SESSION_ACTIVE',purpose:PURPOSE,trustId:p.trustId,challengeId:p.challengeId,
+    const m=this.#bridge.devices.get(d);this.#bridge.devices.set(d,{...m,secureActive:true,processEpoch:boundProcess?input.processEpoch:null,lastSeen:n});
+    const r={version:boundProcess?2:1,code:'TRUSTED_SESSION_ACTIVE',purpose:PURPOSE,trustId:p.trustId,challengeId:p.challengeId,
       redemptionId:p.redemptionId,sessionId:p.sessionId,deviceDigest:p.deviceDigest,sessionDigest:p.sessionDigest,
-      nonce:input.nonce,expiresAt:p.expiresAt,actionApprovalGranted:false,screenConsentGranted:false};
+      nonce:input.nonce,expiresAt:p.expiresAt,actionApprovalGranted:false,screenConsentGranted:false,
+      ...(boundProcess?{processEpoch:input.processEpoch,restartDisposition:input.restartDisposition}:{})};
     r.mac=mac(p.secret,receiptMaterial(r));return r;
   }
   /** Extends only an existing trusted session while its enrolled device is in use.
