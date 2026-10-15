@@ -12,6 +12,7 @@ import {initializeOwnerStorage,acquireOwnerRuntimeLock} from '../owner-setup/dep
 import {initializeOwnerDurableStorage} from '../owner-setup/deployment/durable-owner-storage.mjs';
 import {prepareDurableCutover,verifyDurableCutover,installCutoverReadyCircuit} from '../owner-setup/deployment/durable-cutover.mjs';
 import {buildCutoverStartupCandidate} from '../owner-setup/deployment/durable-cutover-startup-candidate.mjs';
+import {snapshotRegistry,assertOnlyAuthenticatedCutoffAdded} from './registry-preservation-assertions.mjs';
 const ROOT=fileURLToPath(new URL('../owner-setup/',import.meta.url));
 const KEY=Buffer.alloc(32,31),confirmation='EXPLICIT_OFFLINE_CUTOVER_PRESERVE_UNKNOWN_HISTORY';
 const sha=x=>createHash('sha256').update(x).digest('hex');
@@ -48,7 +49,8 @@ test('first preparation requires explicit offline confirmation',()=>fixture(f=>{
 }));
 test('56 legacy unknown dispatches are preserved and never copied as completed new work',()=>fixture(f=>{
  seedLegacy(f);const before=history(f);
- const protectedFiles=['owner-intents.sqlite','trusted-devices.sqlite','volume-identity.json'];
+ const protectedFiles=['owner-intents.sqlite','volume-identity.json'];
+ const registryFile=path.join(f.config.stateDir,'trusted-devices.sqlite'),registryBefore=snapshotRegistry(registryFile);
  const hashes=protectedFiles.map(n=>sha(readFileSync(path.join(f.config.stateDir,n))));
  const r=prepareDurableCutover(f.params);
  assert.equal(r.prepared,true);assert.equal(r.legacyTrackedAtCutover,56);assert.equal(r.legacyUnresolvedAtCutover,56);
@@ -57,7 +59,9 @@ test('56 legacy unknown dispatches are preserved and never copied as completed n
  assert.deepEqual(history(f),before);assert.deepEqual(protectedFiles.map(n=>sha(readFileSync(path.join(f.config.stateDir,n)))),hashes);
  const db=new DatabaseSync(f.file,{readOnly:true});try{assert.equal(db.prepare('SELECT COUNT(*) n FROM circuit_actions').get().n,0)}finally{db.close()}
  assert.equal(readFileSync(f.ready).includes('fixture-trust-not-actual'),false);
- assert.equal(verifyDurableCutover(f.params).ready,true);assert.equal(existsSync(f.marker),false);
+ const verified=verifyDurableCutover(f.params);
+ assert.equal(verified.ready,true);assert.equal(existsSync(f.marker),false);
+ assertOnlyAuthenticatedCutoffAdded(registryBefore,snapshotRegistry(registryFile),verified.cutoverCreatedAtMs);
 }));
 test('an active owner runtime prevents initial cutover',()=>fixture(f=>{
  const lock=acquireOwnerRuntimeLock(f.config);

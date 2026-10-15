@@ -4,7 +4,9 @@ import {installReceiptSchema,pendingReceiptCount,insertDeviceReceipt,digest} fro
 import {installCompletionObserver} from './completion-observer.mjs';
 function fixture(){
  const dir=mkdtempSync(join(tmpdir(),'jh-receipt-')),db=new DatabaseSync(join(dir,'r.db'));
- db.exec(`PRAGMA foreign_keys=ON; CREATE TABLE trusts(id TEXT PRIMARY KEY,owner TEXT,device TEXT,server TEXT,catalog TEXT,revoked INTEGER,expires INTEGER);
+ db.exec(`PRAGMA foreign_keys=ON;
+ CREATE TABLE meta(k TEXT PRIMARY KEY,v TEXT NOT NULL);
+ CREATE TABLE trusts(id TEXT PRIMARY KEY,owner TEXT,device TEXT,server TEXT,catalog TEXT,revoked INTEGER,expires INTEGER);
  CREATE TABLE trusted_dispatches(job_digest TEXT PRIMARY KEY,trust_id TEXT REFERENCES trusts(id),created INTEGER);
  CREATE TABLE redemptions(trust_id TEXT,max_session_expires INTEGER);`);installReceiptSchema(db);
  const tid='t'.repeat(32),now=1800000000000,sel={ownerDigest:digest('o'),deviceDigest:digest('d'),serverDigest:digest('s'),catalogDigest:digest('c'),cutoffMs:now-2000000,expectedCount:56,now};

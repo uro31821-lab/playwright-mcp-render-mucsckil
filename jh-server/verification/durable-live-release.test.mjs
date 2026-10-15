@@ -9,6 +9,7 @@ import {createHash} from 'node:crypto';
 import {validateOwnerConfiguration,EXPECTED_ORIGIN,EXPECTED_CATALOG} from '../owner-setup/deployment/owner-config.mjs';
 import {initializeOwnerStorage,acquireOwnerRuntimeLock} from '../owner-setup/deployment/owner-storage.mjs';
 import {prepareOrVerifyDurableRelease,buildDurableOperationalEntrypoint,validateDurableReleaseMode,INITIAL_MODE,READY_MODE} from '../owner-setup/deployment/durable-live-release.mjs';
+import {snapshotRegistry,assertOnlyAuthenticatedCutoffAdded} from './registry-preservation-assertions.mjs';
 const ROOT=fileURLToPath(new URL('../owner-setup/',import.meta.url));
 const KEY=Buffer.alloc(32,29),sha=x=>createHash('sha256').update(x).digest('hex');
 function fixture(fn){
@@ -28,12 +29,14 @@ test('ordinary release start cannot initialize missing history',()=>fixture(f=>{
  assert.throws(()=>prepareOrVerifyDurableRelease({...f,mode:READY_MODE}),/CUTOVER_RECEIPT_REQUIRED/);assert.equal(fs.existsSync(f.file),false);
 }));
 test('explicit first activation preserves old identity and original databases',()=>fixture(f=>{
- const names=['trusted-devices.sqlite','owner-intents.sqlite','volume-identity.json'];
+ const names=['owner-intents.sqlite','volume-identity.json'];
+ const registryFile=path.join(f.config.stateDir,'trusted-devices.sqlite'),registryBefore=snapshotRegistry(registryFile);
  const before=names.map(n=>sha(fs.readFileSync(path.join(f.config.stateDir,n))));
  const result=prepareOrVerifyDurableRelease({...f,mode:INITIAL_MODE});
  assert.equal(result.initializedNow,true);assert.equal(result.ready,true);assert.equal(result.existingHistoryReconciled,false);
  assert.deepEqual(names.map(n=>sha(fs.readFileSync(path.join(f.config.stateDir,n)))),before);
  const state=prepareOrVerifyDurableRelease({...f,mode:READY_MODE});assert.equal(state.initializedNow,false);assert.equal(state.activationId,result.activationId);
+ assertOnlyAuthenticatedCutoffAdded(registryBefore,snapshotRegistry(registryFile),state.cutoverCreatedAtMs);
 }));
 test('repeating operator mode verifies same generation, never resets it',()=>fixture(f=>{
  const a=prepareOrVerifyDurableRelease({...f,mode:INITIAL_MODE}),b=prepareOrVerifyDurableRelease({...f,mode:INITIAL_MODE});
