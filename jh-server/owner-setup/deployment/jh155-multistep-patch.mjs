@@ -4,9 +4,10 @@ const helpers=String.raw`
     if(signal?.aborted)throw Error('WORK_CANCELLED');
     if(jhRequireCommand56(ctx.deviceId)!==ctx.commandId)throw Error('MULTISTEP_COMMAND_CHANGED');
     const binding=jhPaymentLifecycle.captureBinding({device_id:ctx.deviceId}),auth=active56(ctx.deviceId);
-    const read=await waitJob(mk('agent_snapshot',{},ctx.deviceId),15000);
+    const read=await waitJob(mk('agent_snapshot',{},ctx.deviceId),30000);
     jhPaymentLifecycle.assertBinding({command_binding:binding});
     if(signal?.aborted||jhRequireCommand56(ctx.deviceId)!==ctx.commandId)throw Error('MULTISTEP_COMMAND_CHANGED');
+    if(read?.status!=='complete')throw Error('SIGNED_SCREEN_READBACK_UNCONFIRMED');
     let rows;try{rows=JSON.parse(read?.result?.url);}catch{throw Error('SIGNED_SCREEN_UNAVAILABLE');}
     const proof=jhInspectSplitEvidence155(read?.result,rows,app);
     if(read?.status!=='complete'||read.result?.ok!==true||read.secureSessionId!==auth?.sessionId||

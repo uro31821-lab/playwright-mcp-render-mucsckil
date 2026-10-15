@@ -1,0 +1,25 @@
+name: JH FIX3 bounded readback verification
+on:
+  push:
+    branches: [jh-fix3-readback-budget-20261015]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '26.11.1'
+      - name: Install and run existing authentication build gates
+        working-directory: jh-server
+        run: npm install --no-audit --no-fund
+      - name: Readback behavior, existing coordinator and generated runtime checks
+        working-directory: jh-server
+        run: node --test --test-concurrency=1 owner-setup/deployment/readback-budget.test.mjs owner-setup/multistep/*.test.mjs verification/durable-live-release.test.mjs
+      - name: No sealed host edits
+        run: git diff --exit-code 0d8738d596b8f28becabd7f796cea941f11630e6 -- jh-server/server.mjs jh-server/auth-diagnostics-entry.mjs jh-server/package.json jh-server/owner-setup/server-integration jh-server/owner-setup/trusted-server jh-server/owner-setup/owner-enrollment

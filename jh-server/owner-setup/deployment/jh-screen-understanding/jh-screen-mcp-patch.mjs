@@ -22,7 +22,7 @@ export function patchScreenUnderstandMcp56(source){
     const trust=active56(device);
     if(!trust||!trust.trustId||!trust.sessionId)return textResult({ok:false,code:'active_trust_binding_required'});
     const job=mk('agent_snapshot',{},device);
-    const done=await waitJob(job,15000);
+    const done=await waitJob(job,30000);
     jhRequireCommand56(device);
     if(!done||done.status!=='complete'||done.result?.ok!==true||!done.secureSessionId||done.secureSessionId!==trust.sessionId)
       return textResult({ok:false,code:'signed_screen_readback_unconfirmed',state:done?.status||'unavailable'});

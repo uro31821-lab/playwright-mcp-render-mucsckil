@@ -8,7 +8,7 @@ const recoveryHelper=String.raw`
     if(jhRequireCommand56(device)!==commandId)return false;
     const binding=jhPaymentLifecycle.captureBinding({device_id:device});
     const auth=active56(device);
-    const read=await waitJob(mk('agent_snapshot',{},device),15000);
+    const read=await waitJob(mk('agent_snapshot',{},device),30000);
     jhPaymentLifecycle.assertBinding({command_binding:binding});
     if(jhRequireCommand56(device)!==commandId)return false;
     let rows;try{rows=JSON.parse(read?.result?.url);}catch{return false;}
