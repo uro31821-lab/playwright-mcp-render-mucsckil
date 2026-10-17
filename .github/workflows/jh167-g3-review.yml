@@ -1,0 +1,82 @@
+name: JH167 G3 review - no deploy
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/deployment/durable-clean-restart-release.mjs'
+      - 'jh-server/owner-setup/deployment/guide13-reservation-composition-patch.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch*'
+      - 'jh-server/owner-setup/deployment/reservation-link-assistant-patch.mjs'
+      - 'jh-server/owner-setup/guide-13/**'
+      - 'jh-server/owner-setup/reservation-link/**'
+      - '.github/workflows/jh167-g3-review.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Verify base and allowed changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=d41926860067bdb779e7823cb234ea659844a7a1
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE" HEAD | while IFS= read -r f; do
+            case "$f" in
+              'jh-server/owner-setup/deployment/durable-clean-restart-release.mjs'|\
+              'jh-server/owner-setup/deployment/guide13-reservation-composition-patch.mjs'|\
+              'jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.mjs'|\
+              'jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.test.mjs'|\
+              'jh-server/owner-setup/deployment/jh167-g4-isolated-mcp.test.mjs'|\
+              'jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs'|\
+              'jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs'|\
+              'jh-server/owner-setup/deployment/reservation-link-assistant-patch.mjs'|\
+              'jh-server/owner-setup/guide-13/'*|\
+              'jh-server/owner-setup/reservation-link/'*|\
+              '.github/workflows/jh167-g3-review.yml') ;;
+              *) echo "OUT_OF_SCOPE_CHANGED_FILE: $f"; exit 1;;
+            esac
+          done
+          git diff --exit-code "$BASE" HEAD -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/payment \
+            jh-server/owner-setup/deployment/durable-live-release.mjs \
+            jh-server/owner-setup/deployment/durable-payment-clean-restart-patch.mjs \
+            jh-server/owner-setup/deployment/jh155-all-modules-patch.mjs \
+            jh-server/owner-setup/deployment/jh155-split-integration-patch.mjs
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check jh-server/owner-setup/deployment/durable-clean-restart-release.mjs
+          node --check jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.mjs
+          node --check jh-server/owner-setup/deployment/reservation-link-assistant-patch.mjs
+          find jh-server/owner-setup/guide-13 jh-server/owner-setup/reservation-link -name '*.mjs' -print0 | xargs -0 -n1 node --check
+      - name: Install test dependencies without lifecycle scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: G3 durable and guide reservation review tests
+        run: node --test jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.test.mjs
+      - name: G4 isolated MCP protocol and seven read-only calls
+        run: node --test jh-server/owner-setup/deployment/jh167-g4-isolated-mcp.test.mjs
+      - name: G5 real loopback HTTP protocol and auth boundary
+        run: node --test jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs
+      - name: G6 actual Durable owner startup and authenticated HTTP MCP
+        run: node --test jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs
+      - name: G7 preserved Durable restart and storage fence regressions
+        run: node --test jh-server/verification/durable-live-release.test.mjs
