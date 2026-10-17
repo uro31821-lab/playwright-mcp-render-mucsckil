@@ -78,3 +78,5 @@ jobs:
         run: node --test jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs
       - name: G6 actual Durable owner startup and authenticated HTTP MCP
         run: node --test jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs
+      - name: G7 preserved Durable restart and storage fence regressions
+        run: node --test jh-server/verification/durable-live-release.test.mjs
