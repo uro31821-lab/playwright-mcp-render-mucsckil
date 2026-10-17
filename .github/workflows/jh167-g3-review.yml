@@ -64,7 +64,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm ci --prefix jh-server --ignore-scripts --no-audit --no-fund
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
       - name: G3 durable and guide reservation review tests
         run: node --test jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.test.mjs
