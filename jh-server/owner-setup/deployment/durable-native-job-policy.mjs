@@ -27,6 +27,21 @@ export function durableNativeJobPolicy(job,payload){
  if(!object(job)||!object(payload))return deny('DURABLE_PAYLOAD_REQUIRED');
  if(payload.containsCredential===true||String(payload.dataClass||'NONE').toUpperCase()==='SECRET')return deny('DURABLE_SECRET_FORBIDDEN');
  if(job.type==='agent_snapshot')return answer('READ');
+ // JH167 phone-side session START only captures the current screen into an
+ // ephemeral in-memory guide context. STATUS reads it. Neither performs UI actions.
+ // Exact Secure56 route and fresh scoped IDs are mandatory; all other session
+ // transitions remain denied by this durable policy.
+ if(job.type==='split_screen_session_start'||job.type==='split_screen_session_status'){
+  const routeOk=job.secureRequestedEffect==='READ_ONLY'&&
+    job.mcpToolName==='life_android_capture_work_window';
+  const idOk=job.type==='split_screen_session_start'
+    ?typeof payload.workflowId==='string'&&/^jh_split_[a-f0-9]{32}$/.test(payload.workflowId)&&
+     (payload.goal===undefined||(typeof payload.goal==='string'&&payload.goal.length<=2000))
+    :typeof payload.contextId==='string'&&/^ssc_[a-f0-9]{32}$/.test(payload.contextId);
+  const actionFree=!['command','action','value','targetItemRef','inputGrantToken',
+    'approvalGrantToken','screenGrantToken','summaryText','comparisonText'].some(k=>Object.hasOwn(payload,k));
+  return routeOk&&idOk&&actionFree?answer('READ'):deny('DURABLE_EXACT_SPLIT_READ_SCOPE_REQUIRED');
+ }
  if(readTools.has(job.type))return job.secureRequestedEffect==='READ_ONLY'&&job.mcpToolName===readTools.get(job.type)
   ?answer('READ'):deny('DURABLE_EXACT_ROUTE_REQUIRED');
  if(controlTools.has(job.type))return job.secureRequestedEffect==='REVERSIBLE_WRITE'&&job.mcpToolName===controlTools.get(job.type)
