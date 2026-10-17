@@ -37,6 +37,7 @@ jobs:
               'jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.mjs'|\
               'jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.test.mjs'|\
               'jh-server/owner-setup/deployment/jh167-g4-isolated-mcp.test.mjs'|\
+              'jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs'|\
               'jh-server/owner-setup/deployment/reservation-link-assistant-patch.mjs'|\
               'jh-server/owner-setup/guide-13/'*|\
               'jh-server/owner-setup/reservation-link/'*|\
@@ -71,3 +72,5 @@ jobs:
         run: node --test jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.test.mjs
       - name: G4 isolated MCP protocol and seven read-only calls
         run: node --test jh-server/owner-setup/deployment/jh167-g4-isolated-mcp.test.mjs
+      - name: G5 real loopback HTTP protocol and auth boundary
+        run: node --test jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs
