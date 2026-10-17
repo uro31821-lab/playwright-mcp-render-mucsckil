@@ -38,6 +38,7 @@ jobs:
               'jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.test.mjs'|\
               'jh-server/owner-setup/deployment/jh167-g4-isolated-mcp.test.mjs'|\
               'jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs'|\
+              'jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs'|\
               'jh-server/owner-setup/deployment/reservation-link-assistant-patch.mjs'|\
               'jh-server/owner-setup/guide-13/'*|\
               'jh-server/owner-setup/reservation-link/'*|\
@@ -74,3 +75,5 @@ jobs:
         run: node --test jh-server/owner-setup/deployment/jh167-g4-isolated-mcp.test.mjs
       - name: G5 real loopback HTTP protocol and auth boundary
         run: node --test jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs
+      - name: G6 actual Durable owner startup and authenticated HTTP MCP
+        run: node --test jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs
