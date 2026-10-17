@@ -20,10 +20,10 @@ test('G6 actual Durable generated runtime has seven read-only registrations and 
   assert.equal(p.status,0,file+'\n'+p.stderr);
  }
  const src=fs.readFileSync(b.runtimeFile,'utf8');
- for(const name of ['life_guide13_catalog','life_guide13_plan',
-  'life_reservation_link_assistant','life_reservation_screen_guide',
-  'life_reservation_regional_handoff','life_reservation_provider_status',
-  'life_reservation_live_search'])assert(src.includes("'"+name+"'"),name);
+ // MCP tool names are registered by imported modules, not inlined as literals.
+ // The second test independently verifies their actual names via HTTP tools/list.
+ for(const registrar of ['jhRegisterReservationLinkTools','jhRegisterGuide13Tools'])
+  assert(src.includes(registrar),'missing live runtime registrar '+registrar);
  for(const gate of ['jhRequireCommand56','jhOwnerAdmission155','jhDiscardPayments56',
   'jhInspectSplitEvidence155','jhResultVerificationGuard56'])
   assert(src.includes(gate),gate);
