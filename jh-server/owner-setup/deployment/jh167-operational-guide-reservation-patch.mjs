@@ -14,13 +14,29 @@ export const JH167_READONLY_NAMES=Object.freeze([
   'life_reservation_live_search'
 ]);
 
+/** Preserve the JH155 signed pair verifier. Only START/STATUS may use its
+ * existing fresh signed agent_snapshot fallback; no follow-up or UI mutation
+ * is added to this read-only recovery path.
+ */
+export function patchJH167SplitSessionReadback56(source){
+  const before="const readOnlyComfort=['split_comfort_status','split_comfort_manual_handoff',\n        'split_comfort_keyboard_advice','split_comfort_restore_info'].includes(type);";
+  const after="const readOnlyComfort=['split_comfort_status','split_comfort_manual_handoff',\n        'split_comfort_keyboard_advice','split_comfort_restore_info',\n        'split_screen_session_start','split_screen_session_status'].includes(type);";
+  if(typeof source!=='string'||source.split(before).length!==2||source.includes(after))
+    throw Error('JH167_SPLIT_READBACK_SCOPE_CHANGED');
+  const out=source.replace(before,after);
+  if(out.replace(after,before)!==source||!out.includes('SPLIT_SCOPE_READBACK_UNCONFIRMED')||
+     !out.includes('jhInspectSplitEvidence155(scopeRead.result,scopeRows)'))
+    throw Error('JH167_SIGNED_READBACK_GUARD_CHANGED');
+  return out;
+}
+
 export function applyJH167ReadOnlyRegistry56(previous){
   if(typeof previous!=='string'||
      !previous.includes('  jhRegisterGeneralWorkTools({registerOAuthTool,z,textResult});')||
      previous.includes('jhRegisterReservationLinkTools(')||
      previous.includes('jhRegisterGuide13Tools('))
     throw Error('JH167_ACTIVE_HOST_COMPATIBILITY_REVIEW_REQUIRED');
-  const next=patchJH167GuideAndReservation(previous);
+  const next=patchJH167GuideAndReservation(patchJH167SplitSessionReadback56(previous));
   const sentinel=[
     "import {registerGeneralWorkTools as jhRegisterGeneralWorkTools}",
     "import {registerReservationLinkTools as jhRegisterReservationLinkTools",
