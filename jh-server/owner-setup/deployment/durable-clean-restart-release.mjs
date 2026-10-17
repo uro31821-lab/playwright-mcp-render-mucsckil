@@ -19,16 +19,16 @@ export function buildCleanRestartRelease56(){
   const original=readFileSync(SOURCE,'utf8');
   let next=one(original,
     "import {patchDurableMcpWorkflow56} from './durable-mcp-workflow-patch.mjs';",
-    "import {patchDurableMcpWorkflowCleanRestartPayment56} from './durable-payment-clean-restart-patch.mjs';",
+    "import {patchJH167OperationalReadOnly56} from './jh167-operational-guide-reservation-patch.mjs';",
     'CLEAN_RESTART_RELEASE_IMPORT_ANCHOR');
   next=one(next,
     'const output=patchDurableMcpWorkflow56(patchExistingDurableReturnRoute56(input));',
-    'const output=patchDurableMcpWorkflowCleanRestartPayment56(patchExistingDurableReturnRoute56(input));',
+    'const output=patchJH167OperationalReadOnly56(patchExistingDurableReturnRoute56(input));',
     'CLEAN_RESTART_RELEASE_CALL_ANCHOR');
   const selfOld="./durable-live-release.mjs",selfNew="./"+GENERATED_NAME;
   const refs=count(next,selfOld);if(refs<3)throw Error('CLEAN_RESTART_RELEASE_SELF_REFERENCE_ANCHOR');
   next=next.split(selfOld).join(selfNew);
-  if(next===original||!next.includes('patchDurableMcpWorkflowCleanRestartPayment56'))throw Error('CLEAN_RESTART_RELEASE_NOT_APPLIED');
+  if(next===original||!next.includes('patchJH167OperationalReadOnly56'))throw Error('CLEAN_RESTART_RELEASE_NOT_APPLIED');
   const tmp=GENERATED+'.tmp';writeFileSync(tmp,next,{encoding:'utf8',mode:0o600});renameSync(tmp,GENERATED);
   if(readFileSync(GENERATED,'utf8')!==next)throw Error('CLEAN_RESTART_RELEASE_READBACK');
   return Object.freeze({file:GENERATED,sha256:sha(next),sourceSha256:sha(original),selfReferencesRewritten:refs});
