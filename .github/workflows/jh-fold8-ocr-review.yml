@@ -1,41 +1,46 @@
-name: JH Fold8 OCR review (safe offline CI)
+name: JH Fold8 OCR — real Durable offline CI
 on:
   pull_request:
     branches:
       - jh-fix3-secure-server
     paths:
-      - 'jh-server/owner-setup/deployment/ocr-review-runtime-addon.mjs'
-      - 'jh-server/owner-setup/deployment/ocr-review-runtime-addon.test.mjs'
-      - 'jh-server/owner-setup/deployment/owner-service-entry.mjs'
+      - 'jh-server/owner-setup/deployment/durable-clean-restart-release.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-durable-ocr-review-patch*'
       - 'jh-server/owner-setup/server-integration/jh-visual-ocr-*.mjs'
       - 'jh-server/owner-setup/server-integration/tests/jh-visual-ocr-review.test.mjs'
       - '.github/workflows/jh-fold8-ocr-review.yml'
 permissions:
   contents: read
 jobs:
-  source-and-contracts:
+  actual-durable-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Build pinned owner runtime (no startup, no keys)
+      - name: Verify pinned Owner source without app startup or secrets
         run: node jh-server/owner-setup/verification/build-owner-runtime.mjs
-      - name: Build pinned unified runtime (no startup)
+      - name: Generate verified Unified baseline
         run: node jh-server/owner-setup/deployment/unified-runtime-build.mjs
-      - name: Verify Functional baseline, no listener
+      - name: Generate verified Functional baseline
         run: |
           cd jh-server/owner-setup
           node --input-type=module -e 'import {assertFunctionalReleaseRuntime} from "./deployment/functional-release-runtime.mjs"; console.log(assertFunctionalReleaseRuntime(process.cwd()));'
-      - name: Assert default-off OCR addon and split proofs
+      - name: Test actual Durable Clean Restart source generation, default-off rollback, native OCR review evidence
         run: |
           cd jh-server/owner-setup
-          node --test deployment/ocr-review-runtime-addon.test.mjs server-integration/tests/jh-visual-ocr-review.test.mjs
-          node --check deployment/owner-service-entry.mjs
-      - name: Build optional OCR runtime for syntax check only
+          node --test deployment/jh167-durable-ocr-review-patch.test.mjs server-integration/tests/jh-visual-ocr-review.test.mjs
+      - name: Syntax and protected owner identity
         run: |
           cd jh-server/owner-setup
-          node --input-type=module -e 'import {buildOcrReviewRuntime} from "./deployment/ocr-review-runtime-addon.mjs"; import path from "node:path"; buildOcrReviewRuntime(process.cwd(),path.resolve("server-integration/server-functional.mjs"));'
-          node --check server-integration/server-functional-ocr.mjs
+          node --check deployment/durable-clean-restart-release.mjs
+          node --check deployment/jh167-durable-ocr-review-patch.mjs
+          node --check server-integration/jh-visual-ocr-split-proof.mjs
+          node --check server-integration/jh-visual-ocr-review-bridge.mjs
+          node --check server-integration/server-durable-native-return-route56.mjs
+      - name: Verify production Owner baseline still untouched
+        run: |
+          cd jh-server/owner-setup
+          node --input-type=module -e 'import {readFileSync} from "node:fs"; import {createHash} from "node:crypto"; const s=readFileSync("./deployment/owner-service-entry.mjs"); const b=createHash("sha1").update("blob "+s.length+"\0").update(s).digest("hex"); if(b!=="de6022b1a9b984cfa46e3be5f96093966d5a1ff2")process.exit(1);'
