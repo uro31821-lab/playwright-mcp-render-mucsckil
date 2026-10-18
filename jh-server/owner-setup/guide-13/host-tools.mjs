@@ -30,7 +30,7 @@ export function registerJHGuide13Tools({registerOAuthTool,z,textResult,getHostCo
  });
  registerOAuthTool('life_guide13_plan',{
   title:'JH 실생활 13개 공통 가이드 계획 — 실행 없음',
-  description:'말씀하신 요청을 13가지 실생활 작업 중 하나로 분류하고 기존 검색·비교·화면·예약 도구와 사용자 직접 다음 행동을 제안합니다. “어디 눌러?” “계속”은 설명만 하며, 실행 요청도 기존 JH의 별도 승인과 현재 작업번호 검증 없이는 절대 실행하지 않습니다. 해당 도구는 실제 현재 화면·가격·재고를 읽지 않으므로 확인했다고 주장하지 않습니다.',
+  description:'13가지 실생활 가이드 작업을 분류합니다. 기사 전체 요약은 먼저 원문 URL을 확인하고 웹에서 전체 본문을 읽으세요. JH Playwright 접근이 HTTP 403·CAPTCHA로 막히면 ChatGPT 웹 검색/원문 열기로 재확인하고, 전체 내용 미확보 시 반드시 부분 요약이라고 표시하세요. 이 계획 도구 자체는 웹을 열거나 기사를 읽지 않습니다. “어디 눌러?”·“계속”은 설명만 하며 클릭·예약·결제 등은 수행하지 않습니다.',
   inputSchema:{request:z.string().min(1).max(2000),hint:z.enum(SCENARIOS.map(x=>x.key)).optional(),previousMode:z.enum(['GUIDE','DELEGATION_REQUESTED']).optional()},
   annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}
  },async ({request,hint,previousMode})=>{

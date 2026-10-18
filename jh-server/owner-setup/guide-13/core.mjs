@@ -8,7 +8,7 @@ export const EXTERNAL_EFFECT_STATUS='NOT_EXECUTED';
 const MAX_REQUEST_LENGTH=2000;
 const scenario=(id,key,title,port,manual,requires=[])=>Object.freeze({id,key,title,port,manual,requires});
 export const SCENARIOS=Object.freeze([
- scenario(1,'NEWS','기사·근거·논문·관련 영상·제품','life_web_snapshot','기사 원문 또는 관련 링크를 직접 열고 필요한 내용을 확인',['FRESH_WEB_SOURCE']),
+ scenario(1,'NEWS','기사·근거·논문·관련 영상·제품','life_web_navigate','원문 링크를 찾지 못했거나 접근이 막힌 경우에만 기사 URL 제공',['VERIFIED_ORIGINAL_ARTICLE_URL','FULL_ARTICLE_BODY_READBACK']),
  scenario(2,'RESTAURANT','식당 추천·정보·예약','life_choice_collect','예약 전용 페이지에서 직접 날짜·시간·인원을 선택',['CURRENT_BUSINESS_AND_BOOKING_EVIDENCE']),
  scenario(3,'PRODUCT','상품 검색·비교·구매 링크 및 계좌 문구','life_choice_recommend','판매처 페이지에서 옵션·주소·결제를 직접 진행',['PRODUCT_AND_PRICE_SOURCE']),
  scenario(4,'MEMORIA','메모리아 검색·저장','memory.search','저장 또는 검색 결과를 실제 서비스에서 확인',['MEMORIA_CONNECTION']),
@@ -22,6 +22,29 @@ export const SCENARIOS=Object.freeze([
  scenario(12,'KAKAO_SELF','송금 정보 정리·카카오톡 나에게 보내기','life_android_screen_understand','전송 내용을 확인하고 카카오톡 나에게 직접 붙여넣기',['VERIFIED_DOCUMENT_FIELDS']),
  scenario(13,'SCREEN','오른쪽 화면·스크린샷 설명·번역','life_android_screen_understand','확인된 버튼을 직접 누른 뒤 새 화면에서 안내 이어받기',['VERIFIED_RIGHT_SCREEN'])
 ]);
+/** News summaries are only complete after the original link AND full article have been read.
+ * The client orchestrates its existing URL search/open tools. This read-only planner
+ * does NOT fetch an article and MUST NOT claim to have done so.
+ */
+export const NEWS_FULL_ARTICLE_POLICY=Object.freeze({
+  mode:'ORIGINAL_ARTICLE_FULL_BODY_FIRST',
+  planner_does_not_fetch:true,
+  resolve_link_from:['USER_SUPPLIED_ARTICLE_URL','VERIFIED_RIGHT_PANE_ARTICLE_TITLE_AND_ORIGIN','TRUSTED_WEB_SEARCH_FOR_EXACT_TITLE'],
+  required_steps:[
+    'Identify the article title from the current right screen or user-provided context; do not treat an adjacent tab or search suggestion as the article.',
+    'Resolve and verify the original publication URL with a trusted web search/open result, using the page title and publisher. Do not invent a URL.',
+    'Open that URL and read the complete article body, including lower sections, across the available trusted web tools. Preferred JH tools: life_web_navigate then life_web_snapshot; use ChatGPT web search/open when JH Playwright returns HTTP 403, CAPTCHA, empty or partial content.',
+    'Verify that the fetched title and original URL correspond to the requested article and that the relevant full body/sections were accessible; separate the article claims from later independently verified facts.',
+    'Only after full-body verification, summarize the entire article in Korean and include the confirmed source link. Preserve dates, numerical claims, key arguments, conclusions and important caveats.',
+    'When URL or full body cannot be verified, label the result PARTIAL_SOURCE_ONLY and describe exactly what was read; never present visible screen excerpts as a complete article summary.'
+  ],
+  fallback_on_access_block:'TRY_INDEPENDENT_CHATGPT_WEB_SEARCH_OR_OPEN; OTHERWISE_REPORT_PARTIAL_SOURCE_ONLY',
+  full_summary_requires:['CONFIRMED_ORIGINAL_URL','FULL_BODY_ACCESSIBLE','BODY_MATCHES_ARTICLE'],
+  prohibited_full_sources:['VISIBLE_ANDROID_SCREEN_ONLY','SEARCH_SNIPPET_ONLY','BROWSER_403_CAPTCHA','UNVERIFIED_REPOST_OR_HEADLINE_ONLY'],
+  output_contract:['SOURCE_URL','ARTICLE_TITLE','SOURCE_DATE_IF_AVAILABLE','KEY_POINTS','ARTICLE_SCOPE','VERIFICATION_LIMITS'],
+  screen_role:'IDENTIFY_ARTICLE_AND_CONTEXT_NOT_FULL_TEXT',
+  external_effect_status:'NOT_EXECUTED'
+});
 const byKey=new Map(SCENARIOS.map(x=>[x.key,x]));
 const terms=[
  ['KAKAO_SELF',/카카오톡.*(?:나에게|송금|청구서)|(?:계좌번호|예금주|청구서).*(?:카톡|나에게)|송금.*나에게/i],
@@ -95,6 +118,15 @@ export function prepareGuide13({request,hint,hostContext,hostVerifiedSource=null
   suggested_existing_tool:scenario.port,
   required_capability:scenario.requires,
   next_user_action:scenario.manual,
+  ...(scenario.key==='NEWS'?{article_workflow:{
+    ...NEWS_FULL_ARTICLE_POLICY,
+    source_url:null,
+    original_link_verified:false,
+    full_body_readback_verified:false,
+    source_status:'AWAITING_LINK_RESOLUTION',
+    summary_scope:'NOT_YET_DETERMINED',
+    note:'This plan is NOT an article fetch or full-summary confirmation.'
+  }}:{}),
   guide_only:true,execution_authorized:false,perform_action:false,
   availability_verified:false,available:isBooking?null:undefined,
   price:isBooking?null:undefined,

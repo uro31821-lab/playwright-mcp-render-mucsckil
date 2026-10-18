@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE=86a7685161ff6fc3b63b9fd2128d9b9c1e99436b
+          BASE=b2e9fd22a42f87613d51364dda59a71e5666944a
           git merge-base --is-ancestor "$BASE" HEAD
           git diff --name-only "$BASE" HEAD | while IFS= read -r f; do
             case "$f" in
@@ -93,3 +93,5 @@ jobs:
         run: node --test jh-server/verification/trusted-process-runtime.test.mjs
       - name: G10 signed current right-pane evidence reaches guide without stale controls
         run: node --test jh-server/owner-setup/deployment/jh167-g10-guide-current-evidence.test.mjs
+      - name: G11 source-first complete article guide and browser-blocked fallback
+        run: node --test jh-server/owner-setup/guide-13/jh167-g11-source-first-news.test.mjs
