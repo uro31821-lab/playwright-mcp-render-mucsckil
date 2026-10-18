@@ -35,11 +35,12 @@ export function durableNativeJobPolicy(job,payload){
   const routeOk=job.secureRequestedEffect==='READ_ONLY'&&
     job.mcpToolName==='life_android_capture_work_window';
   const idOk=job.type==='split_screen_session_start'
-    ?typeof payload.workflowId==='string'&&/^jh_split_[a-f0-9]{32}$/.test(payload.workflowId)&&
+    ?typeof payload.splitSessionNonce==='string'&&/^jh_split_[a-f0-9]{32}$/.test(payload.splitSessionNonce)&&
      (payload.goal===undefined||(typeof payload.goal==='string'&&payload.goal.length<=2000))
     :typeof payload.contextId==='string'&&/^ssc_[a-f0-9]{32}$/.test(payload.contextId);
   const actionFree=!['command','action','value','targetItemRef','inputGrantToken',
-    'approvalGrantToken','screenGrantToken','summaryText','comparisonText'].some(k=>Object.hasOwn(payload,k));
+    'approvalGrantToken','screenGrantToken','summaryText','comparisonText',
+    'workflowId','workflowStepId','workflowPlanDigest','workflowActionDigest'].some(k=>Object.hasOwn(payload,k));
   return routeOk&&idOk&&actionFree?answer('READ'):deny('DURABLE_EXACT_SPLIT_READ_SCOPE_REQUIRED');
  }
  if(readTools.has(job.type))return job.secureRequestedEffect==='READ_ONLY'&&job.mcpToolName===readTools.get(job.type)

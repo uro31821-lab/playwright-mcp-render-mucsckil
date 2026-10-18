@@ -88,7 +88,12 @@ test('JH167 signed split START requires fresh authenticated right-pane pair proo
  const start=await pollJob('split_screen_session_start');
  assert.equal(start.secureRequestedEffect,'READ_ONLY');
  assert.equal(start.mcpToolName,'life_android_capture_work_window');
- assert.match(start.workflowId,/^jh_split_[a-f0-9]{32}$/);
+ assert.match(start.splitSessionNonce,/^jh_split_[a-f0-9]{32}$/);
+ // The installed JH167 rejects a lone workflowId as a partial signed jh_mcp receipt.
+ // Split sessions must not fill any of the four reserved MCP workflow fields.
+ for(const field of ['workflowId','workflowStepId','workflowPlanDigest','workflowActionDigest'])
+  assert.equal(Object.hasOwn(start,field),false,field+' must not be on split START');
+ assert.match(start.id,/^job_[0-9]+$/);
  const contextId='ssc_'+randomBytes(16).toString('hex');
  const native={result:{ok:true,code:'captured',contextId,feature:'JH_SPLIT_SCREEN_ASSISTANT_V2',
   rightPaneAutoRead:true,automaticReplay:false}};

@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE=6ad7e557b8a016a89a9207bbe6e955720be7c802
+          BASE=c2cdb593c62128094d0ddf09d2b23a98c4bfc345
           git merge-base --is-ancestor "$BASE" HEAD
           git diff --name-only "$BASE" HEAD | while IFS= read -r f; do
             case "$f" in
