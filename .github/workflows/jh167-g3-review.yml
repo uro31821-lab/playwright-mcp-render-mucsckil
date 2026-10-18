@@ -37,6 +37,7 @@ jobs:
               'jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.mjs'|\
               'jh-server/owner-setup/deployment/durable-native-job-policy.mjs'|\
               'jh-server/verification/jh167-split-session-durable-read.test.mjs'|\
+              'jh-server/verification/trusted-process-runtime.test.mjs'|\
               'jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.test.mjs'|\
               'jh-server/owner-setup/deployment/jh167-g4-isolated-mcp.test.mjs'|\
               'jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs'|\
@@ -86,3 +87,5 @@ jobs:
         run: node --test jh-server/verification/durable-live-release.test.mjs
       - name: G8 split START and STATUS exact durable read-only policy
         run: node --test jh-server/verification/jh167-split-session-durable-read.test.mjs jh-server/verification/durable-computer-policy.test.mjs
+      - name: G9 signed phone session START and refreshed split proof real HTTP
+        run: node --test jh-server/verification/trusted-process-runtime.test.mjs
