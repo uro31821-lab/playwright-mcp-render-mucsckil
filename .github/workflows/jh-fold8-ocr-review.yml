@@ -1,0 +1,41 @@
+name: JH Fold8 OCR review (safe offline CI)
+on:
+  pull_request:
+    branches:
+      - jh-fix3-secure-server
+    paths:
+      - 'jh-server/owner-setup/deployment/ocr-review-runtime-addon.mjs'
+      - 'jh-server/owner-setup/deployment/ocr-review-runtime-addon.test.mjs'
+      - 'jh-server/owner-setup/deployment/owner-service-entry.mjs'
+      - 'jh-server/owner-setup/server-integration/jh-visual-ocr-*.mjs'
+      - 'jh-server/owner-setup/server-integration/tests/jh-visual-ocr-review.test.mjs'
+      - '.github/workflows/jh-fold8-ocr-review.yml'
+permissions:
+  contents: read
+jobs:
+  source-and-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build pinned owner runtime (no startup, no keys)
+        run: node jh-server/owner-setup/verification/build-owner-runtime.mjs
+      - name: Build pinned unified runtime (no startup)
+        run: node jh-server/owner-setup/deployment/unified-runtime-build.mjs
+      - name: Verify Functional baseline, no listener
+        run: |
+          cd jh-server/owner-setup
+          node --input-type=module -e 'import {assertFunctionalReleaseRuntime} from "./deployment/functional-release-runtime.mjs"; console.log(assertFunctionalReleaseRuntime(process.cwd()));'
+      - name: Assert default-off OCR addon and split proofs
+        run: |
+          cd jh-server/owner-setup
+          node --test deployment/ocr-review-runtime-addon.test.mjs server-integration/tests/jh-visual-ocr-review.test.mjs
+          node --check deployment/owner-service-entry.mjs
+      - name: Build optional OCR runtime for syntax check only
+        run: |
+          cd jh-server/owner-setup
+          node --input-type=module -e 'import {buildOcrReviewRuntime} from "./deployment/ocr-review-runtime-addon.mjs"; import path from "node:path"; buildOcrReviewRuntime(process.cwd(),path.resolve("server-integration/server-functional.mjs"));'
+          node --check server-integration/server-functional-ocr.mjs
