@@ -30,12 +30,25 @@ jobs:
           node --input-type=module -e 'import {assertFunctionalReleaseRuntime} from "./deployment/functional-release-runtime.mjs"; console.log(assertFunctionalReleaseRuntime(process.cwd()));'
       - name: Install pinned Owner and enrollment dependencies (no lifecycle scripts)
         run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
       - name: Test actual Durable Clean Restart source generation, default-off rollback, native OCR review evidence
         run: |
           cd jh-server/owner-setup
           node --test deployment/jh167-durable-ocr-review-patch.test.mjs server-integration/tests/jh-visual-ocr-review.test.mjs
+      - name: Existing G3-G12 real Durable/security/guide regression suite (read-only CI)
+        run: |
+          node --test jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.test.mjs
+          node --test jh-server/owner-setup/deployment/jh167-g4-isolated-mcp.test.mjs
+          node --test jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs
+          node --test jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs
+          node --test jh-server/verification/durable-live-release.test.mjs
+          node --test jh-server/verification/jh167-split-session-durable-read.test.mjs jh-server/verification/durable-computer-policy.test.mjs
+          node --test jh-server/verification/trusted-process-runtime.test.mjs
+          node --test jh-server/owner-setup/deployment/jh167-g10-guide-current-evidence.test.mjs
+          node --test jh-server/owner-setup/guide-13/jh167-g11-source-first-news.test.mjs
+          node --test jh-server/owner-setup/guide-13/jh167-g12-signed-article-identity.test.mjs
       - name: Syntax and protected owner identity
         run: |
           cd jh-server/owner-setup
