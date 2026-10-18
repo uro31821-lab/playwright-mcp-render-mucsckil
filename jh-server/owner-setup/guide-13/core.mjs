@@ -101,13 +101,28 @@ function verifiedLinks(links,attestedDomains){
   return [{title:typeof x?.title==='string'?x.title.slice(0,150):'확인된 링크',url,verified_source:true,booking_page_verified:x?.booking_page_verified===true&&x?.booking_page_attested===true}]
  });
 }
-export function prepareGuide13({request,hint,hostContext,hostVerifiedSource=null,links=[],attestedDomains=[],previousMode='GUIDE'}={}){
+export function prepareGuide13({request,hint,hostContext,hostVerifiedSource=null,articleScreen=null,links=[],attestedDomains=[],previousMode='GUIDE'}={}){
  const scenario=identifyScenario(request,hint);const authority=validateHostContext(hostContext),instruction=distinguishRequest(request,previousMode);
  const currentSource=hostVerifiedSource?.verified===true && typeof hostVerifiedSource?.source_ref==='string' &&
    typeof hostVerifiedSource?.observed_at==='string'&&typeof hostVerifiedSource?.package==='string'
     ?{type:'CURRENT_RIGHT_SCREEN',source_ref:hostVerifiedSource.source_ref,observed_at:hostVerifiedSource.observed_at,package:hostVerifiedSource.package,partial:hostVerifiedSource.partial!==false}:null;
  const urlList=verifiedLinks(links,attestedDomains);
  const isBooking=scenario.key==='BOOKING'||scenario.key==='RESTAURANT';
+ // articleScreen may ONLY be supplied by the internal signed right-pane host
+ // callback; the MCP schema intentionally has no caller-supplied articleScreen.
+ const currentArticle=scenario.key==='NEWS'&&articleScreen&&typeof articleScreen==='object'
+  ?{status:String(articleScreen.status||'UNVERIFIED').slice(0,64),
+    title:articleScreen.screen_verified===true&&articleScreen.status==='ARTICLE_TITLE_IDENTIFIED'
+      ?String(articleScreen.title||'').slice(0,260):null,
+    screen_verified:articleScreen.screen_verified===true,
+    source_ref:articleScreen.screen_verified===true?articleScreen.source_ref??null:null,
+    observed_at:articleScreen.screen_verified===true?articleScreen.observed_at??null:null,
+    original_url:null,full_body_readback_verified:false}:null;
+ const articleSourceStatus=currentArticle?.status==='ARTICLE_TITLE_IDENTIFIED'
+  ?'CURRENT_ARTICLE_TITLE_IDENTIFIED_ORIGINAL_URL_REQUIRED'
+  :currentArticle?.status==='SEARCH_RESULTS_NOT_ARTICLE'?'SEARCH_RESULTS_NOT_ARTICLE'
+  :currentArticle?.status==='SIGNED_SCREEN_UNVERIFIED'?'SIGNED_SCREEN_UNVERIFIED'
+  :'AWAITING_LINK_RESOLUTION';
  return {
   ok:true, ...authority,scenario:{id:scenario.id,key:scenario.key,title:scenario.title},
   request_mode:instruction.mode,follow_up_meaning:instruction.meaning,
@@ -123,7 +138,8 @@ export function prepareGuide13({request,hint,hostContext,hostVerifiedSource=null
     source_url:null,
     original_link_verified:false,
     full_body_readback_verified:false,
-    source_status:'AWAITING_LINK_RESOLUTION',
+    source_status:articleSourceStatus,
+    current_article:currentArticle,
     summary_scope:'NOT_YET_DETERMINED',
     note:'This plan is NOT an article fetch or full-summary confirmation.'
   }}:{}),
