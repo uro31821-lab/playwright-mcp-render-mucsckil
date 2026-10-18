@@ -62,7 +62,7 @@ export function buildOcrCleanRestartRelease56(){
   if(sha(readFileSync(out))!==sha(next))fail('OCR_GENERATED_WRITE_READBACK_FAILED');
   if(sha(readFileSync(legacy.file))!==legacy.sha256)fail('OCR_LEGACY_FILE_CHANGED');
   return Object.freeze({file:out,sha256:sha(next),sourceSha256:legacy.sha256,
-    protectedLegacyUnchanged:true,defaultStartUnchanged:true,requiresSeparateOperatorApproval:true});
+    protectedLegacyUnchanged:true,defaultStartUnchanged:true,selfReferencesRewritten:occurrences,requiresSeparateOperatorApproval:true});
 }
 export async function main(env=process.env){
   assertOcrPublishedMode(env);
