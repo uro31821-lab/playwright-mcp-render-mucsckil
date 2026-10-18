@@ -29,7 +29,7 @@ const INVOKE=String.raw`
       const evidence=(understood.observed||[]).filter(x=>typeof x.quote==='string').slice(0,40)
         .map(x=>({id:x.id,quote:x.quote.slice(0,160)}));
       const selected_tab_titles=(understood.observed||[]).filter(x=>typeof x.quote==='string'&&
-        /,\\s*선택된\\s*탭\\s*$/.test(x.quote)).map(x=>x.quote.slice(0,320)).slice(0,3);
+        /,\s*선택된\s*탭\s*$/.test(x.quote)).map(x=>x.quote.slice(0,320)).slice(0,3);
       return {verified:true,command_id:commandId,
         source_ref:'JH_SIGNED_RIGHT:'+sha56([commandId,device,auth.sessionId,understood.screen.fingerprint].join('|')).slice(0,40),
         selected_tab_titles,
