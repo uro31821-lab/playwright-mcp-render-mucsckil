@@ -17,9 +17,36 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Exact OCR-only changed-file scope and preserved trust anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=a3b26cd5ca405e9592284663e206d9d8d94f59c9
+          test "${{ github.event.pull_request.base.sha }}" = "$BASE" || { echo "OCR_BASE_APPROVAL_EXPIRED"; exit 1; }
+          git merge-base --is-ancestor "$BASE" HEAD
+          while IFS= read -r f; do
+            case "$f" in
+              .github/workflows/jh-fold8-ocr-review.yml|\
+              jh-server/owner-setup/deployment/durable-clean-restart-release.mjs|\
+              jh-server/owner-setup/deployment/jh167-durable-ocr-review-patch.mjs|\
+              jh-server/owner-setup/deployment/jh167-durable-ocr-review-patch.test.mjs|\
+              jh-server/owner-setup/deployment/jh167-ocr-real-durable-http.test.mjs|\
+              jh-server/owner-setup/server-integration/jh-visual-ocr-review-bridge.mjs|\
+              jh-server/owner-setup/server-integration/jh-visual-ocr-split-proof.mjs|\
+              jh-server/owner-setup/server-integration/tests/jh-visual-ocr-review.test.mjs) ;;
+              *) echo "OCR_OUT_OF_SCOPE_CHANGED_FILE: $f"; exit 1;;
+            esac
+          done < <(git diff --name-only "$BASE" HEAD)
+          test "$(git hash-object jh-server/owner-setup/deployment/owner-service-entry.mjs)" = de6022b1a9b984cfa46e3be5f96093966d5a1ff2
+          test "$(git hash-object jh-server/owner-setup/server-integration/server.mjs)" = a9354981f1a79386788fd9d95e6393a8be857861
+          test "$(git hash-object jh-server/owner-setup/deployment/durable-live-release.mjs)" = c7e548b6d4e899463bf603587a2cd9f2172c282f || {
+            echo "OCR_DURABLE_LIVE_RELEASE_BLOB_UNCONFIRMED"; exit 1;
+          }
       - name: Verify pinned Owner source without app startup or secrets
         run: node jh-server/owner-setup/verification/build-owner-runtime.mjs
       - name: Generate verified Unified baseline
