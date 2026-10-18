@@ -5,7 +5,8 @@ import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {buildCleanRestartRelease56,buildOcrCleanRestartRelease56} from './durable-clean-restart-release.mjs';
+import {buildCleanRestartRelease56} from './durable-clean-restart-release.mjs';
+import {buildOcrCleanRestartRelease56,assertOcrPublishedMode} from './jh167-ocr-reviewed-published-entry.mjs';
 import {patchJH167OperationalOcrReview56} from './jh167-durable-ocr-review-patch.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -64,4 +65,12 @@ test('REAL Durable Clean Restart: exact legacy startup unchanged; optional sibli
 test('OCR review flag values fail closed before any runtime changes',()=>{
  assert.throws(()=>patchJH167OperationalOcrReview56('', 'enabled'),/JH_OCR_EXPLICIT_FLAG_INVALID/);
  assert.throws(()=>patchJH167OperationalOcrReview56('', 'true'),/JH_OCR_EXPLICIT_FLAG_INVALID/);
+});
+
+test('Explicit reviewed entry refuses missing opt-in and wrong Durable mode before service start',()=>{
+ assert.throws(()=>assertOcrPublishedMode({}),/OCR_REVIEW_EXPLICIT_OPT_IN_REQUIRED/);
+ assert.throws(()=>assertOcrPublishedMode({JH_FOLD8_OCR_REVIEW_ENABLED:'1'}),/OCR_DURABLE_READY_MODE_REQUIRED/);
+ const ok=assertOcrPublishedMode({JH_FOLD8_OCR_REVIEW_ENABLED:'1',JH_DURABLE_RELEASE:'SERVE_READY_V1'});
+ assert.equal(ok.ok,true);assert.equal(ok.existingPublishedHostValidated,true);
+ assert.equal(ok.productionDeployed,false);
 });
