@@ -49,6 +49,10 @@ jobs:
           node --test jh-server/owner-setup/deployment/jh167-g10-guide-current-evidence.test.mjs
           node --test jh-server/owner-setup/guide-13/jh167-g11-source-first-news.test.mjs
           node --test jh-server/owner-setup/guide-13/jh167-g12-signed-article-identity.test.mjs
+      - name: Actual authenticated Durable MCP loopback (synthetic keys, no devices)
+        run: |
+          cd jh-server/owner-setup
+          node --test deployment/jh167-ocr-real-durable-http.test.mjs
       - name: Syntax and protected owner identity
         run: |
           cd jh-server/owner-setup
