@@ -4,7 +4,7 @@ on:
     branches:
       - jh-fix3-secure-server
     paths:
-      - 'jh-server/owner-setup/deployment/durable-clean-restart-release.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-ocr-reviewed-published-entry.mjs'
       - 'jh-server/owner-setup/deployment/jh167-durable-ocr-review-patch*'
       - 'jh-server/owner-setup/server-integration/jh-visual-ocr-*.mjs'
       - 'jh-server/owner-setup/server-integration/tests/jh-visual-ocr-review.test.mjs'
@@ -32,7 +32,7 @@ jobs:
           while IFS= read -r f; do
             case "$f" in
               .github/workflows/jh-fold8-ocr-review.yml|\
-              jh-server/owner-setup/deployment/durable-clean-restart-release.mjs|\
+              jh-server/owner-setup/deployment/jh167-ocr-reviewed-published-entry.mjs|\
               jh-server/owner-setup/deployment/jh167-durable-ocr-review-patch.mjs|\
               jh-server/owner-setup/deployment/jh167-durable-ocr-review-patch.test.mjs|\
               jh-server/owner-setup/deployment/jh167-ocr-real-durable-http.test.mjs|\
@@ -44,6 +44,8 @@ jobs:
           done < <(git diff --name-only "$BASE" HEAD)
           test "$(git hash-object jh-server/owner-setup/deployment/owner-service-entry.mjs)" = de6022b1a9b984cfa46e3be5f96093966d5a1ff2
           test "$(git hash-object jh-server/owner-setup/server-integration/server.mjs)" = a9354981f1a79386788fd9d95e6393a8be857861
+          test "$(git hash-object jh-server/owner-setup/deployment/durable-clean-restart-release.mjs)" = e3e5db49a13d532b49074db408b810f6bcbc5968
+          test "$(git hash-object jh-server/owner-setup/deployment/published-host-router.mjs)" = 29505e0e3c77440f6662096824b71eb5a0e9382f
           test "$(git hash-object jh-server/owner-setup/deployment/durable-live-release.mjs)" = c7e548b6d4e899463bf603587a2cd9f2172c282f || {
             echo "OCR_DURABLE_LIVE_RELEASE_BLOB_UNCONFIRMED"; exit 1;
           }
@@ -84,6 +86,7 @@ jobs:
         run: |
           cd jh-server/owner-setup
           node --check deployment/durable-clean-restart-release.mjs
+          node --check deployment/jh167-ocr-reviewed-published-entry.mjs
           node --check deployment/jh167-durable-ocr-review-patch.mjs
           node --check server-integration/jh-visual-ocr-split-proof.mjs
           node --check server-integration/jh-visual-ocr-review-bridge.mjs
