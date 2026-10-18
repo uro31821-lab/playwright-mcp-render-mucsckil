@@ -65,7 +65,10 @@ test('G10 generated JH167 live host preserves signed readback and current eviden
  assert(!src.includes("jhScreenUnderstanding56.analyze({mode:'EXPLAIN',query:question,rows,"));
  for(const sentinel of ["jhRequireCommand56(device)!==commandId","jhInspectSplitEvidence155(done.result,rows)",
   "done.secureSessionId!==auth.sessionId","done.targetDeviceId!==device",
-  "SAFE_SCREEN_EVIDENCE_UNAVAILABLE","'life_reservation_screen_guide'"]){
+  "SAFE_SCREEN_EVIDENCE_UNAVAILABLE","jhRegisterReservationLinkTools"]){
   assert(src.includes(sentinel),'missing signed guard '+sentinel);
  }
+ const toolsSource=readFileSync(path.join(root,'reservation-link/host-tools.mjs'),'utf8');
+ assert(toolsSource.includes("registerOAuthTool('life_reservation_screen_guide',"),
+  'registered guide tool missing from its imported module');
 });
