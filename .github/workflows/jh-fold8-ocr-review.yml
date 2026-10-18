@@ -28,6 +28,10 @@ jobs:
         run: |
           cd jh-server/owner-setup
           node --input-type=module -e 'import {assertFunctionalReleaseRuntime} from "./deployment/functional-release-runtime.mjs"; console.log(assertFunctionalReleaseRuntime(process.cwd()));'
+      - name: Install pinned Owner and enrollment dependencies (no lifecycle scripts)
+        run: |
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
       - name: Test actual Durable Clean Restart source generation, default-off rollback, native OCR review evidence
         run: |
           cd jh-server/owner-setup
