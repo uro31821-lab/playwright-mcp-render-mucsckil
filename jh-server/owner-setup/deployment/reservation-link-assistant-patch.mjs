@@ -20,7 +20,10 @@ const INVOKE=String.raw`
       catch{return {verified:false,code:'SIGNED_ROWS_INVALID'};}
       const proof=jhInspectSplitEvidence155(done.result,rows);
       if(!proof.ok)return {verified:false,code:proof.reason};
-      const understood=jhScreenUnderstanding56.analyze({mode:'EXPLAIN',query:question,rows,
+      // EXPLAIN performs exact-text matching on the whole question and may return no hits.
+      // EVIDENCE without a query returns only the CURRENT signed right-pane nodes,
+      // unlike CONTINUE which can include items from earlier screens.
+      const understood=jhScreenUnderstanding56.analyze({mode:'EVIDENCE',query:'',rows,
         commandId,deviceKey:sha56(device),trustKey:sha56(auth.trustId+'|'+auth.sessionId),observedAt:Date.now()});
       if(!understood?.ok||understood.screen?.verifiedRightPane!==true||understood.screen.package!==proof.workPackage)
         return {verified:false,code:'SAFE_SCREEN_EVIDENCE_UNAVAILABLE'};
