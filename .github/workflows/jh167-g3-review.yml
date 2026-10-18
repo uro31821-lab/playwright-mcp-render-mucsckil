@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE=c2cdb593c62128094d0ddf09d2b23a98c4bfc345
+          BASE=86a7685161ff6fc3b63b9fd2128d9b9c1e99436b
           git merge-base --is-ancestor "$BASE" HEAD
           git diff --name-only "$BASE" HEAD | while IFS= read -r f; do
             case "$f" in
@@ -43,6 +43,7 @@ jobs:
               'jh-server/owner-setup/deployment/jh167-g5-loopback-http.test.mjs'|\
               'jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs'|\
               'jh-server/owner-setup/deployment/reservation-link-assistant-patch.mjs'|\
+              'jh-server/owner-setup/deployment/jh167-g10-guide-current-evidence.test.mjs'|\
               'jh-server/owner-setup/guide-13/'*|\
               'jh-server/owner-setup/reservation-link/'*|\
               '.github/workflows/jh167-g3-review.yml') ;;
@@ -67,6 +68,7 @@ jobs:
           node --check jh-server/verification/jh167-split-session-durable-read.test.mjs
           node --check jh-server/owner-setup/deployment/jh167-operational-guide-reservation-patch.mjs
           node --check jh-server/owner-setup/deployment/reservation-link-assistant-patch.mjs
+          node --check jh-server/owner-setup/deployment/jh167-g10-guide-current-evidence.test.mjs
           find jh-server/owner-setup/guide-13 jh-server/owner-setup/reservation-link -name '*.mjs' -print0 | xargs -0 -n1 node --check
       - name: Install test dependencies without lifecycle scripts
         shell: bash
@@ -89,3 +91,5 @@ jobs:
         run: node --test jh-server/verification/jh167-split-session-durable-read.test.mjs jh-server/verification/durable-computer-policy.test.mjs
       - name: G9 signed phone session START and refreshed split proof real HTTP
         run: node --test jh-server/verification/trusted-process-runtime.test.mjs
+      - name: G10 signed current right-pane evidence reaches guide without stale controls
+        run: node --test jh-server/owner-setup/deployment/jh167-g10-guide-current-evidence.test.mjs
