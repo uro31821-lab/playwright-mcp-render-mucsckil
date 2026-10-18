@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BASE=b2e9fd22a42f87613d51364dda59a71e5666944a
+          BASE=cc31e14affbd2ea305f9f640c25eea0afd50df86
           git merge-base --is-ancestor "$BASE" HEAD
           git diff --name-only "$BASE" HEAD | while IFS= read -r f; do
             case "$f" in
@@ -95,3 +95,5 @@ jobs:
         run: node --test jh-server/owner-setup/deployment/jh167-g10-guide-current-evidence.test.mjs
       - name: G11 source-first complete article guide and browser-blocked fallback
         run: node --test jh-server/owner-setup/guide-13/jh167-g11-source-first-news.test.mjs
+      - name: G12 signed current Chrome article identity and screen guard
+        run: node --test jh-server/owner-setup/guide-13/jh167-g12-signed-article-identity.test.mjs
