@@ -9,6 +9,7 @@ import {checkOwnerStorage,acquireOwnerRuntimeLock} from './owner-storage.mjs';
 import {installConfiguredOwnerHost} from '../owner-enrollment/owner-host-bootstrap.mjs';
 import {installConfiguredLifeRuntime} from './life-runtime-install.mjs';
 import {assertUnifiedRuntime} from './unified-runtime-build.mjs';
+import {buildOcrReviewRuntime} from './ocr-review-runtime-addon.mjs';
 import {assertFunctionalReleaseRuntime} from './functional-release-runtime.mjs';
 import {createRegisteredLifeBootstrap} from './life-registered-bootstrap.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
@@ -24,7 +25,12 @@ export async function startConfiguredOwnerServer({config,key,port=Number(process
   const identity=JSON.parse(readFileSync(path.join(root,'evidence/owner-runtime-identity.json'),'utf8'));
   let serverPath=path.join(root,'server-integration/server.mjs');
   if(identity.deferListenSupported!==true||identity.hostEnabledByDefault!==false||sha(readFileSync(serverPath))!==identity.candidate)fail('OWNER_RUNTIME_IDENTITY_MISMATCH');
-  if(runtimeMode==='unified')serverPath=assertFunctionalReleaseRuntime(root);
+  if(runtimeMode==='unified'){
+    const functionalPath=assertFunctionalReleaseRuntime(root);
+    // Explicit opt-in only, after existing Owner/Unified/Functional SHA validation.
+    serverPath=process.env.JH_FOLD8_OCR_REVIEW_ENABLED==='1'
+      ?buildOcrReviewRuntime(root,functionalPath):functionalPath;
+  }
   const runtimeLock=acquireOwnerRuntimeLock(config);
   startAttempted=true;
   // Only this internal, reviewed entry sets defer. Default historical startup remains unchanged.
