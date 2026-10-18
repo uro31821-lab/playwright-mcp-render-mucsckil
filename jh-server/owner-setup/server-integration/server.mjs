@@ -1,3 +1,5 @@
+import * as jhOcrReviewBridge from './jh-visual-ocr-review-bridge.mjs';
+import {inspectSplitEvidenceForOcr} from './jh-visual-ocr-split-proof.mjs';
 import {createLifeRuntimeSlot} from "../server-continuation/life-runtime-slot.mjs";
 import {TrustedBridgeSessionAuthority} from "../trusted-server/trusted-bridge-session-authority.mjs";
 import {makeRejectionProbe} from "./auth-rejection-probe.mjs";
@@ -605,6 +607,20 @@ function createMcp(){
   },async()=>{
     const j=mk("agent_snapshot");
     return jobResult(await waitJob(j));
+  });
+
+  // Review-only MCP tool, exact device-issued selector and fresh signed split proof.
+  // Consent/capture/OCR-start are intentionally NOT exposed.
+  registerOAuthTool("life_android_visual_ocr_review",{
+    title:"Review photo OCR availability (no capture)",
+    description:"Read-only review of a photo in the currently verified Android right pane; never consents, captures, starts OCR or transfers data.",
+    inputSchema:{},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}
+  },async()=>{
+    const snapshot=await waitJob(mk("agent_snapshot"),9000);
+    const review=jhOcrReviewBridge.readReviewCommand(snapshot,inspectSplitEvidenceForOcr);
+    if(!review.ok)return textResult({ok:false,code:review.code,capturePerformed:false,automaticRetry:false});
+    const result=await waitJob(mk("agent_step",review.args,snapshot.targetDeviceId),9000);
+    return textResult(jhOcrReviewBridge.safeOcrReviewOutcome(result));
   });
 
   registerOAuthTool("life_android_step",{
