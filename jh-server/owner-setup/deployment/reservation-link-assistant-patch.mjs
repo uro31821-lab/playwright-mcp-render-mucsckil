@@ -4,10 +4,9 @@
 const IMPORT="import {registerReservationLinkTools as jhRegisterReservationLinkTools,hostAllowlist as jhReservationHostAllowlist} from '../reservation-link/host-tools.mjs';\n";
 const ANCHOR='  jhRegisterGeneralWorkTools({registerOAuthTool,z,textResult});';
 const INVOKE=String.raw`
-  jhRegisterReservationLinkTools({registerOAuthTool,z,textResult,
-    allowedBookingHosts:jhReservationHostAllowlist(process.env.JH_RESERVATION_ALLOWED_BOOKING_HOSTS||''),
-    getHostContext:()=>{const device=chooseDevice();return {command_id:jhRequireCommand56(device)};},
-    readVerifiedRight:async(question,commandId)=>{
+  // Reuse one signed, scope-checked current right-screen reader for the
+  // reservation guide and the article-title guide. No second capture path.
+  const jhReadRightEvidence56=async(question,commandId)=>{
       const device=chooseDevice();
       const auth=device&&active56(device);
       if(!auth)return {verified:false,code:'SECURE_SESSION_UNAVAILABLE'};
@@ -29,10 +28,19 @@ const INVOKE=String.raw`
         return {verified:false,code:'SAFE_SCREEN_EVIDENCE_UNAVAILABLE'};
       const evidence=(understood.observed||[]).filter(x=>typeof x.quote==='string').slice(0,40)
         .map(x=>({id:x.id,quote:x.quote.slice(0,160)}));
-      return {verified:true,observation:{app:proof.workPackage,window_id:proof.workWindowId,
+      const selected_tab_titles=(understood.observed||[]).filter(x=>typeof x.quote==='string'&&
+        /,\\s*선택된\\s*탭\\s*$/.test(x.quote)).map(x=>x.quote.slice(0,320)).slice(0,3);
+      return {verified:true,command_id:commandId,
+        source_ref:'JH_SIGNED_RIGHT:'+sha56([commandId,device,auth.sessionId,understood.screen.fingerprint].join('|')).slice(0,40),
+        selected_tab_titles,
+        observation:{app:proof.workPackage,window_id:proof.workWindowId,
         observed_at:new Date(proof.observedAtMs).toISOString(),partial:understood.screen.partial!==false,
         visible_elements:evidence.map(x=>({label:x.quote,role:'observed',visible:true}))},evidence};
-    }
+    };
+  jhRegisterReservationLinkTools({registerOAuthTool,z,textResult,
+    allowedBookingHosts:jhReservationHostAllowlist(process.env.JH_RESERVATION_ALLOWED_BOOKING_HOSTS||''),
+    getHostContext:()=>{const device=chooseDevice();return {command_id:jhRequireCommand56(device)};},
+    readVerifiedRight:jhReadRightEvidence56
   });
 `;
 export function patchReservationLinkAssistant(source){
