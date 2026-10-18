@@ -30,13 +30,38 @@ export function patchJH167SplitSessionReadback56(source){
   return out;
 }
 
+/**
+ * The Android JH167 MCP workflow receipt binder reserves `workflowId` for a
+ * COMPLETE signed jh_mcp workflow: ID + step + plan digest + action digest.
+ * A split-only `jh_split_...` workflowId is a *partial* binder and the handset
+ * rejects it as workflow_binding_incomplete BEFORE its right-pane capture.
+ *
+ * Keep the split nonce in a distinct, non-authorizing field; the already
+ * authenticated job ID is the native RightPaneContextRuntime workflow fallback.
+ * No Android APK/receipt signature, payment, command or approval change.
+ */
+export function patchJH167SplitWorkflowNamespace56(source){
+  const before="const startPayload={workflowId,...(args.goal===undefined?{}:{goal:args.goal})};";
+  const after="const startPayload={splitSessionNonce:workflowId,...(args.goal===undefined?{}:{goal:args.goal})};";
+  if(typeof source!=='string'||source.split(before).length!==2||source.includes(after)||
+     !source.includes("const workflowId='jh_split_'+randomBytes(16).toString('hex');")||
+     !source.includes("jhSplitScreenJob56('split_screen_session_start'"))
+    throw Error('JH167_SPLIT_WORKFLOW_NAMESPACE_REVIEW_REQUIRED');
+  const out=source.replace(before,after);
+  if(out.replace(after,before)!==source||
+     !out.includes("jhRequireCommand56(device)")||
+     !out.includes("jhInspectSplitEvidence155"))
+    throw Error('JH167_SPLIT_WORKFLOW_NAMESPACE_SCOPE_CHANGED');
+  return out;
+}
+
 export function applyJH167ReadOnlyRegistry56(previous){
   if(typeof previous!=='string'||
      !previous.includes('  jhRegisterGeneralWorkTools({registerOAuthTool,z,textResult});')||
      previous.includes('jhRegisterReservationLinkTools(')||
      previous.includes('jhRegisterGuide13Tools('))
     throw Error('JH167_ACTIVE_HOST_COMPATIBILITY_REVIEW_REQUIRED');
-  const next=patchJH167GuideAndReservation(patchJH167SplitSessionReadback56(previous));
+  const next=patchJH167GuideAndReservation(patchJH167SplitWorkflowNamespace56(patchJH167SplitSessionReadback56(previous)));
   const sentinel=[
     "import {registerGeneralWorkTools as jhRegisterGeneralWorkTools}",
     "import {registerReservationLinkTools as jhRegisterReservationLinkTools",
