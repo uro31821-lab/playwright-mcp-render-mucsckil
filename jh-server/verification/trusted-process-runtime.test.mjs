@@ -70,3 +70,45 @@ test('production split status reaches signed phone route and accepts its reply',
  const result=await waiting;assert.notEqual(result.code,'DURABLE_OPERATION_NOT_SUPPORTED');
  assert.ok(JSON.stringify(result).includes('SYNTHETIC_NO_SPLIT_WINDOW'));
 });
+
+test('JH167 signed split START requires fresh authenticated right-pane pair proof',async()=>{
+ const waiting=call('life_android_split_screen_assistant',{mode:'START',goal:'Synthetic JH167 read-only guide'});
+ const pollJob=async expected=>{
+  for(let attempt=0;attempt<80;attempt++){
+   const poll=await request('/device/poll?deviceId='+d,undefined,signedHeaders('poll'));
+   if(poll.status===200){
+    assert.equal(poll.value.type,expected,'unexpected phone job '+JSON.stringify(poll.value));
+    return poll.value;
+   }
+   assert.equal(poll.status,204,JSON.stringify(poll.value));
+   await new Promise(r=>setTimeout(r,15));
+  }
+  throw Error('SIGNED_SPLIT_JOB_NOT_DELIVERED '+expected);
+ };
+ const start=await pollJob('split_screen_session_start');
+ assert.equal(start.secureRequestedEffect,'READ_ONLY');
+ assert.equal(start.mcpToolName,'life_android_capture_work_window');
+ assert.match(start.workflowId,/^jh_split_[a-f0-9]{32}$/);
+ const contextId='ssc_'+randomBytes(16).toString('hex');
+ const native={result:{ok:true,code:'captured',contextId,feature:'JH_SPLIT_SCREEN_ASSISTANT_V2',
+  rightPaneAutoRead:true,automaticReplay:false}};
+ assert.equal((await request('/job/'+start.id+'/complete',native,
+  signedHeaders('complete',start.id,native))).status,200);
+ const proofJob=await pollJob('agent_snapshot');
+ const proof={kind:'split_screen_evidence',version:'1',verified:'true',
+  layout:'LEFT_RIGHT',chatPackage:'com.openai.chatgpt',chatKind:'NATIVE',
+  chatWindowId:'481',chatBounds:'0,0,1200,1800',
+  workPackage:'com.android.chrome',workWindowId:'482',workBounds:'1200,0,2400,1800',
+  observedAtMs:String(Date.now())};
+ const rows=[proof,{package:'com.android.chrome',windowId:'482',kind:'accessibility',
+  text:'Synthetic Chrome search or address field'}];
+ const readback={result:{ok:true,splitScreenRequired:true,splitScreen:proof,url:JSON.stringify(rows)}};
+ assert.equal((await request('/job/'+proofJob.id+'/complete',readback,
+  signedHeaders('complete',proofJob.id,readback))).status,200);
+ const result=await waiting;
+ assert.equal(result.ok,true,JSON.stringify(result));
+ assert.equal(result.scopeVerified,true);
+ assert.equal(result.resultVerified,false);
+ assert.equal(result.contextId,contextId);
+ assert.notEqual(result.code,'DURABLE_OPERATION_NOT_SUPPORTED');
+});
