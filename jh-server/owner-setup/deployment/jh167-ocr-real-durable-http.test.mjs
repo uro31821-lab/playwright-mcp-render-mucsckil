@@ -9,7 +9,7 @@ import path from 'node:path';
 import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
-import {buildOcrCleanRestartRelease56} from './durable-clean-restart-release.mjs';
+import {buildOcrCleanRestartRelease56} from './jh167-ocr-reviewed-published-entry.mjs';
 
 const ROOT=path.resolve(import.meta.dirname,'..');
 const seven=['life_guide13_catalog','life_guide13_plan',
