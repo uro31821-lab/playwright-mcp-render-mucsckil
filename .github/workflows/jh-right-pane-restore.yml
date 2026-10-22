@@ -26,7 +26,7 @@ jobs:
           node --check jh-server/verification/right-pane-open-route.test.mjs
       - name: Install existing test dependencies without lifecycle scripts
         run: |
-          npm ci --prefix jh-server --ignore-scripts --no-audit --no-fund
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
       - name: Generated runtime right-pane route and preserved cloud research
