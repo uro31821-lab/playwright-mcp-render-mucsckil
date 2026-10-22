@@ -1,0 +1,35 @@
+name: JH right Chrome restore - review only
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/deployment/durable-live-release.mjs'
+      - 'jh-server/verification/right-pane-open-route.test.mjs'
+      - '.github/workflows/jh-right-pane-restore.yml'
+permissions:
+  contents: read
+jobs:
+  verify-right-pane:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Syntax
+        run: |
+          node --check jh-server/owner-setup/deployment/durable-live-release.mjs
+          node --check jh-server/verification/right-pane-open-route.test.mjs
+      - name: Install existing test dependencies without lifecycle scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Generated runtime right-pane route and preserved cloud research
+        run: node --test jh-server/verification/right-pane-open-route.test.mjs
+      - name: Existing durable release and security regressions
+        run: node --test jh-server/verification/durable-live-release.test.mjs

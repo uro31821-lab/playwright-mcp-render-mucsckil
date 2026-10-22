@@ -64,6 +64,38 @@ function patchExistingDurableReturnRoute56(input){
  const qNew='return textResult({route:"android",service:raw,queued:j.status==="queued",jobId:j.id,registeredDevices:devices.size});';
  if(piece.split(qOld).length!==2)fail('JH_ROUTE_QUEUE_ANCHOR');
  piece=piece.replace(qOld,qNew);
+ // Restore the September mobile split-screen behavior for explicit website opens.
+ // The native open_url with an explicit HTTPS URL uses the existing RIGHT Chrome
+ // address controller, not an ACTION_VIEW app takeover or a server Playwright tab.
+ const descOld='Browser-capable services use Playwright; native-only services use the selected Android device.';
+ const descNew='Website-open requests use the existing RIGHT Chrome via Android Bridge. Playwright remains available for explicit server-side browsing.';
+ if(piece.split(descOld).length!==2)fail('JH_RIGHT_OPEN_DESCRIPTION_ANCHOR');
+ piece=piece.replace(descOld,descNew);
+ const instagramOld='      [["라프텔","laftel"],"https://laftel.net"],';
+ const instagramNew=instagramOld+'\n      [["인스타그램","인스타","instagram"],"https://www.instagram.com/"],';
+ if(piece.split(instagramOld).length!==2)fail('JH_RIGHT_OPEN_INSTAGRAM_ANCHOR');
+ piece=piece.replace(instagramOld,instagramNew);
+ const existingWeb='return textResult({route:"playwright",service:raw,url,result:await browserTool("browser_navigate",{url})});';
+ const rightWeb=String.raw`const j=mk("open_url",{target:"chrome",url});
+        if(j.status!=="queued")return textResult({route:"android_right",service:raw,url,queued:false,code:j.error||"RIGHT_OPEN_NOT_QUEUED"});
+        const finished=await waitJob(j,22000);
+        return textResult({route:"android_right",service:raw,url,jobId:j.id,
+          rightAddressConfirmed:finished?.status==="complete"&&finished?.result?.rightAddressConfirmed===true,
+          job:jobResult(finished)});`;
+ if(piece.split(existingWeb).length!==2)fail('JH_RIGHT_OPEN_ROUTE_ANCHOR');
+ piece=piece.replace(existingWeb,rightWeb);
+ const webMarker='    const webMap=[';
+ const directWeb=String.raw`    if(/^https:\/\/\S+$/i.test(raw)){
+      const j=mk("open_url",{target:"chrome",url:raw});
+      if(j.status!=="queued")return textResult({route:"android_right",service:raw,url:raw,queued:false,code:j.error||"RIGHT_OPEN_NOT_QUEUED"});
+      const finished=await waitJob(j,22000);
+      return textResult({route:"android_right",service:raw,url:raw,jobId:j.id,
+        rightAddressConfirmed:finished?.status==="complete"&&finished?.result?.rightAddressConfirmed===true,
+        job:jobResult(finished)});
+    }
+    const webMap=[`;
+ if(piece.split(webMarker).length!==2)fail('JH_RIGHT_OPEN_DIRECT_URL_ANCHOR');
+ piece=piece.replace(webMarker,directWeb);
  edits.push([input.slice(start,end),piece]);input=input.slice(0,start)+piece+input.slice(end);
  const nativeStart='  registerOAuthTool("life_android_open",{';
  const nativeEnd='  const cuSchema56={';
