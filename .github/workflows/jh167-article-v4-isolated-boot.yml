@@ -33,4 +33,4 @@ jobs:
       - name: V4 synthetic full server boot and real MCP tools list
         run: node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-news-v4-real-boot.test.mjs
       - name: V6 synthetic signed-article original-source MCP handoff
-        run: node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-news-v6-synthetic-handoff.test.mjs
+        run: timeout --signal=TERM 45s node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-news-v6-synthetic-handoff.test.mjs

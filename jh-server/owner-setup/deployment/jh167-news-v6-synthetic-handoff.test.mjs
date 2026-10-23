@@ -74,7 +74,10 @@ async function fixture(){
   assert.notEqual(r.isError,true);
   return JSON.parse(r.content.find(x=>x.type==='text').text);
  },async close(){
-  await client.close();await new Promise(resolve=>http.close(resolve));
+  await client.close();
+  http.closeIdleConnections?.();
+  http.closeAllConnections?.();
+  await new Promise(resolve=>http.close(resolve));
   for(const x of instances){try{await x.transport.close()}catch{}try{await x.mcp.close()}catch{}}
  }};
 }
@@ -84,6 +87,7 @@ test('V6 real localhost MCP: signed-shaped article -> timeout -> independent com
   const blocked=await fetch(f.uri,{method:'POST',headers:{Accept:'application/json, text/event-stream',
    'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/list',params:{}})});
   assert.equal(blocked.status,401);
+  await blocked.text(); // Consume the response so loopback sockets close promptly.
   assert.equal(f.state.rejected,1);
   const list=await f.client.listTools();
   assert.equal(list.tools.length,1);
