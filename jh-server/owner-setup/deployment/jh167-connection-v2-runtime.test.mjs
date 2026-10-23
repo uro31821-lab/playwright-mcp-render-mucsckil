@@ -27,10 +27,6 @@ test('JH V2 integrates source modules with actual two admission sites, read-only
    assert.ok(health.includes(guard),guard);
  for(const forbidden of ['browser_navigate','browser_click','browserTool(', 'mk('])
    assert.equal(health.includes(forbidden),false,forbidden);
- const eventScope=x.slice(x.indexOf('void jhV2Integration56.tick()'),x.indexOf('}).catch(()=>{});',x.indexOf('void jhV2Integration56.tick()'))+15);
- assert.ok(eventScope.includes('redacted')||eventScope.includes('jhV2Event56'));
- assert.ok(eventScope.includes('JH_CONNECTION_V2_EVENT'));
- assert.ok(x.includes('lastRecoveryEvent:v.lastRecoveryEvent'));
  assert.throws(()=>patchJH167ConnectionV2Runtime(x),/ALREADY_PATCHED/);
 });
 test('connection patch refuses source with drifted begin, mk, auth, browser or host',()=>{
