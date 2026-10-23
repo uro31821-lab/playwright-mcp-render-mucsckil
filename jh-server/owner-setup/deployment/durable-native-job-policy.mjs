@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 /** Exact host-side routing policy. Does not grant phone approval, capture consent or a lease.
  * Operation identities exclude ephemeral authorization material, so a fresh token cannot
  * bypass a pending identical action. The sealed device still validates every grant.
@@ -42,6 +43,37 @@ export function durableNativeJobPolicy(job,payload){
     'approvalGrantToken','screenGrantToken','summaryText','comparisonText',
     'workflowId','workflowStepId','workflowPlanDigest','workflowActionDigest'].some(k=>Object.hasOwn(payload,k));
   return routeOk&&idOk&&actionFree?answer('READ'):deny('DURABLE_EXACT_SPLIT_READ_SCOPE_REQUIRED');
+ }
+ // Exact, journaled JH167 semantic CLICK on a verified right-pane context.
+ // This is NOT a blanket durable bypass. The existing Secure56 phone path
+ // still resolves the itemRef, validates the current split, and obtains a
+ // local one-shot approval for protected controls before making any click.
+ // Other FOLLOW_UP actions (AUTO, SET_TEXT, BACK, etc.) stay denied.
+ if(job.type==='split_screen_session_followup'){
+   const allowFields=new Set([
+     'contextId','requestId','action','command','targetItemRef',
+     'mcpToolName','secureRequestedEffect','taskDigest','targetDeviceDigest',
+     'secureInvocationExpiresAt','containsCredential','dataClass','commandId'
+   ]);
+   const exact=job.mcpToolName==='life_android_execute_computer_action' &&
+     job.secureRequestedEffect==='REVERSIBLE_WRITE' &&
+     (payload.mcpToolName===undefined||payload.mcpToolName===job.mcpToolName) &&
+     (payload.secureRequestedEffect===undefined||payload.secureRequestedEffect===job.secureRequestedEffect) &&
+     Object.keys(payload).every(k=>allowFields.has(k)) &&
+     typeof payload.contextId==='string' && /^ssc_[a-f0-9]{32}$/.test(payload.contextId) &&
+     typeof payload.requestId==='string' && /^[a-f0-9]{32}$/.test(payload.requestId) &&
+     payload.action==='CLICK' &&
+     typeof payload.targetItemRef==='string' && /^item_[a-f0-9]{16}$/.test(payload.targetItemRef) &&
+     typeof payload.command==='string' && payload.command.trim().length>0 &&
+     payload.command.length<=2000 && !Object.hasOwn(payload,'value') &&
+     (payload.commandId===undefined||
+       (typeof payload.commandId==='string'&&/^[a-f0-9]{32}$/.test(payload.commandId)));
+   if(!exact)return deny('DURABLE_OPERATION_NOT_SUPPORTED');
+   const commandDigest=createHash('sha256').update(payload.command,'utf8').digest('hex');
+   return answer('JOURNAL',{identityPayload:{
+     contextId:payload.contextId,requestId:payload.requestId,
+     action:'CLICK',targetItemRef:payload.targetItemRef,commandDigest
+   },approvalGranted:false,screenConsentGranted:false});
  }
  if(readTools.has(job.type))return job.secureRequestedEffect==='READ_ONLY'&&job.mcpToolName===readTools.get(job.type)
   ?answer('READ'):deny('DURABLE_EXACT_ROUTE_REQUIRED');
