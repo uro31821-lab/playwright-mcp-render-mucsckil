@@ -8,6 +8,7 @@ on:
       - 'jh-server/owner-setup/deployment/jh167-article-*.mjs'
       - 'jh-server/owner-setup/deployment/durable-clean-restart-news-review-entry.mjs'
       - 'jh-server/owner-setup/deployment/jh167-news-v4-real-boot.test.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-news-v6-synthetic-handoff.test.mjs'
 permissions:
   contents: read
 jobs:
@@ -31,3 +32,5 @@ jobs:
         run: node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs
       - name: V4 synthetic full server boot and real MCP tools list
         run: node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-news-v4-real-boot.test.mjs
+      - name: V6 synthetic signed-article original-source MCP handoff
+        run: node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-news-v6-synthetic-handoff.test.mjs
