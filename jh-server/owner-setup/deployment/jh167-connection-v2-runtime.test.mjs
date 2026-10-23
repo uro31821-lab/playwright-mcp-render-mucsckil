@@ -6,6 +6,7 @@ let durableNativeHooks56=null;
 const jhCommandContext56=new JhAsyncLocalStorage56();
 function jhStartCommand56(device,eventId){return eventId;}
 function mk(type,p={},deviceId=null) {return p;}
+function poll(){devices.set(d,{...dm,lastSeen:Date.now()});}
 function createMcp(){
 const registerOAuthTool=(name,config,handler)=>{const scoped=jhCommandTool56(name,config,handler);return server.registerTool(name,{...scoped.config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},scoped.handler);};
 return textResult({version:'x',completion401Summary:getSecureCompletion401Summary()});
@@ -17,11 +18,13 @@ test('JH V2 integrates source modules with actual two admission sites, read-only
  const x=patchJH167ConnectionV2Runtime(fixture);
  for(const s of ['jhV2CreateIntegration56','jhV2CreateBindings56','jhV2BeginAdmission56();','jhV2JobAdmission56();',
     'uncertainEffectsForMaintenance','connectionV2:jhV2Status56()', 'browserSession.probe()',
-    'jhV2Install56();','automaticTaskReplay:false'])assert.ok(x.includes(s),s);
+    'jhV2Install56();','automaticTaskReplay:false','jhV2RememberSignedPoll56(d,a)',
+    'SECURE56_MAC_VALIDATED_POLL','signedDevicePoll:async()=>jhV2SignedPollEvidence56()'])assert.ok(x.includes(s),s);
  assert.throws(()=>patchJH167ConnectionV2Runtime(x),/ALREADY_PATCHED/);
 });
 test('connection patch refuses source with drifted begin, mk, auth, browser or host',()=>{
  for(const marker of ['function jhStartCommand56(device,eventId){','function mk(type,p={},deviceId=null) {',
- 'return browserEventTransport.request(options);','durableNativeHooks56=createDurableNativeHooks(options);'])
+ 'return browserEventTransport.request(options);','durableNativeHooks56=createDurableNativeHooks(options);',
+ 'devices.set(d,{...dm,lastSeen:Date.now()});'])
    assert.throws(()=>patchJH167ConnectionV2Runtime(fixture.replace(marker,'')),/JH_V2_/);
 });
