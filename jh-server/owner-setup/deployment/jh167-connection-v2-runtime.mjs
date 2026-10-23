@@ -11,14 +11,14 @@ export function patchJH167ConnectionV2Runtime(input){
     if(input.split(oldText).length!==2||oldText===newText||input.includes(newText))throw Error(code);
     input=input.replace(oldText,newText);edits.push([oldText,newText]);
   }
-  const imports=`import {createJH167DiagnosticIntegration as jhV2CreateIntegration56} from '../connection-v2/jh167-v2-bridge.mjs';\nimport {createJH167OperationalHostBindings as jhV2CreateBindings56} from '../connection-v2/jh-operational-host-bindings.mjs';\n`;
+  const imports=`import {createJH167DiagnosticIntegration as jhV2CreateIntegration56} from '../connection-v2/jh167-v2-bridge.mjs';\nimport {createJH167OperationalHostBindings as jhV2CreateBindings56} from '../connection-v2/jh-operational-host-bindings.mjs';\nimport {redactedRecoveryEvent as jhV2Event56, recoveryEventKey as jhV2EventKey56} from '../connection-v2/jh-recovery-event.mjs';\n`;
   if(!input.startsWith('import '))throw Error('JH_V2_MODULE_SCOPE_REQUIRED');
   input=imports+input;edits.push(['',imports]);
   const shared=String.raw`
 // JH167 V2 binds the trusted, existing Secure56 owner; no new job authority.
 const jhV2State56={configured:process.env.JH_CONNECTION_V2_RECOVERY==='1',
   installed:false,activeMcpCalls:0,activeBrowserCalls:0,lastMcpAt:0,
-  lastBrowser:'unknown',lastSignedRead:null,lastVerifiedPoll:null,stopping:false,lastResult:null,timer:null};
+  lastBrowser:'unknown',lastSignedRead:null,lastVerifiedPoll:null,stopping:false,lastResult:null,lastRecoveryEvent:null,lastRecoveryEventKey:null,timer:null};
 let jhV2OwnerBindings56=null;
 let jhV2Integration56=null;
 let jhV2Admission56=null;
@@ -66,6 +66,7 @@ function jhV2Status56(){
     enabled:v.configured,active:v.installed&&v.configured,
     lastStatus:r?.status??'NOT_CHECKED',checks:Array.isArray(r?.checks)?r.checks:[],
     recoveryActions:Array.isArray(r?.recoveryActions)?r.recoveryActions:[],
+    lastRecoveryEvent:v.lastRecoveryEvent,
     manualRequired:r?.manualAction?.cause??null,
     notificationDelivery:r?.notificationDelivery??'NOT_CONFIGURED',
     replayPreviousCommand:false,canAlterPhone:false};
@@ -121,10 +122,19 @@ function jhV2Install56(){
   process.once('SIGTERM',stop);process.once('SIGINT',stop);
   if(state.configured){
     state.timer=setInterval(()=>{
-      void jhV2Integration56.tick().then(x=>{state.lastResult=x;
-        if(x.status==='MANUAL_REQUIRED')console.warn('JH_CONNECTION_V2_MANUAL '+JSON.stringify({
-          stage:x.failure?.id??'UNKNOWN',code:x.failure?.code??'UNKNOWN',
-          notification:'NOT_CONFIGURED',replay:false}));
+      void jhV2Integration56.tick().then(x=>{
+        state.lastResult=x;
+        const event=jhV2Event56(x);
+        if(event){
+          const key=jhV2EventKey56(event);
+          // Persist one redacted transition in Render logs, not job/session
+          // payloads. A later HEALTHY tick does not erase the last incident.
+          if(key!==state.lastRecoveryEventKey){
+            state.lastRecoveryEvent=event;
+            state.lastRecoveryEventKey=key;
+            console.warn('JH_CONNECTION_V2_EVENT '+JSON.stringify(event));
+          }
+        }else if(x.status==='HEALTHY')state.lastRecoveryEventKey=null;
       }).catch(()=>{});
     },60000);
     state.timer.unref?.();
