@@ -37,11 +37,12 @@ export function patchJH167OperationalArticleReview56(runtimeSource){
  for(const guard of [
    "process.env.JH_NEWS_FULLTEXT_CATALOG_SCOPE==='CI_SYNTHETIC_LOCAL_ONLY'",
    "process.env.RENDER_SERVICE_ID===undefined",
-   "process.env.JH_OWNER_DEFER_LISTEN==='1'",
    "if (jhNewsReviewRequested && !jhNewsReviewCatalogAuthorized)",
    "process.env.JH_DURABLE_RELEASE==='SERVE_READY_V1'",
    "process.env.RENDER_SERVICE_ID==='srv-db0fjl2d0e5s73be114g'"
  ]) requireOnce(candidate,guard,'JH167_NEWS_RELEASE_SCOPE_GUARD_MISSING');
+ if(candidate.split("process.env.JH_OWNER_DEFER_LISTEN==='1'").length!==3)
+   throw Error('JH167_NEWS_EXISTING_AND_RELEASE_OWNER_FENCE_MISSING');
  requireOnce(candidate,'jhRegisterArticleReadCandidate({enabled:true',
    'JH167_NEWS_TOOL_NOT_GATED');
  for(const needle of [secureCatalog, 'const registerOAuthTool=(name,config,handler)=>{',
