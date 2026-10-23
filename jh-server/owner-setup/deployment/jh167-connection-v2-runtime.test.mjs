@@ -20,6 +20,13 @@ test('JH V2 integrates source modules with actual two admission sites, read-only
     'uncertainEffectsForMaintenance','connectionV2:jhV2Status56()', 'browserSession.probe()',
     'jhV2Install56();','automaticTaskReplay:false','jhV2RememberSignedPoll56(d,a)',
     'SECURE56_MAC_VALIDATED_POLL','signedDevicePoll:async()=>jhV2SignedPollEvidence56()'])assert.ok(x.includes(s),s);
+ const health=x.slice(x.indexOf('browserStatus:async()=>{'),x.indexOf('androidDevices:async()=>'));
+ assert.ok(health.includes('await browserSession.probe()'));
+ for(const guard of ['owner.activeMcpCalls===0','owner.activeBrowserCalls===0',
+   'owner.activeWorkflows===0','owner.queuedJobs===0','owner.runningJobs===0'])
+   assert.ok(health.includes(guard),guard);
+ for(const forbidden of ['browser_navigate','browser_click','browserTool(', 'mk('])
+   assert.equal(health.includes(forbidden),false,forbidden);
  assert.throws(()=>patchJH167ConnectionV2Runtime(x),/ALREADY_PATCHED/);
 });
 test('connection patch refuses source with drifted begin, mk, auth, browser or host',()=>{

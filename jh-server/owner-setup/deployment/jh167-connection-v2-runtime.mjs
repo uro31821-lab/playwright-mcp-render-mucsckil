@@ -92,7 +92,20 @@ function jhV2Install56(){
   const probes={
     serverStatus:async()=>({version:'JH167_SECURE56_LIVE_OWNER'}),
     mcpProbe:async()=>({verified:(state.lastMcpAt>0&&Date.now()-state.lastMcpAt<900000)?true:null}),
-    browserStatus:async()=>({browser:state.lastBrowser}),
+    browserStatus:async()=>{
+      // A cached READY value cannot detect an idle-session transport outage.
+      // When the owner has no in-flight work, perform ONLY MCP tools/list via
+      // the existing BrowserSession. Never browse, click, log in, or replay.
+      const owner=jhV2OwnerSnapshot56();
+      const safeMetadataCheck=!!owner && owner.activeMcpCalls===0 &&
+        owner.activeBrowserCalls===0 && owner.activeWorkflows===0 &&
+        owner.queuedJobs===0 && owner.runningJobs===0;
+      if(safeMetadataCheck){
+        try{await browserSession.probe();state.lastBrowser='ready';}
+        catch{state.lastBrowser='unavailable';}
+      }
+      return {browser:state.lastBrowser};
+    },
     androidDevices:async()=>({devices:recentDevices().map(([d,m])=>({active:!!active56(d)&&Date.now()-m.lastSeen<90000}))}),
     signedDevicePoll:async()=>jhV2SignedPollEvidence56(),
     secureStatus:async()=>{
