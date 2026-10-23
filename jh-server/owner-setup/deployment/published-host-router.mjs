@@ -40,7 +40,7 @@ export async function main(){
  if(path.basename(sourceRoot)!=='owner-setup')fail('PUBLISHED_HOST_LAYOUT_REQUIRED');
  if(process.env.JH_DURABLE_RELEASE!==undefined){
   assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
-  const {main:durableMain}=await import('./durable-clean-restart-release.mjs');
+  const {main:durableMain}=await import('./durable-clean-restart-news-review-entry.mjs');
   return durableMain();
  }
  if(process.env.JH_OPERATIONAL_START!==undefined||process.env.JH_OPERATIONAL_ACCOUNT_DIGEST!==undefined){
