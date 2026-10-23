@@ -1,0 +1,31 @@
+name: JH167 Connection V2 guarded integration
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - '.github/workflows/jh167-connection-v2-ci.yml'
+      - 'jh-server/owner-setup/connection-v2/**'
+      - 'jh-server/owner-setup/deployment/jh167-connection-v2-*.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
+      - 'jh-server/owner-setup/deployment/durable-native-host.mjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  safe-connect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: JavaScript parse of read-only V2 and durable adapter
+        run: |
+          node --check jh-server/owner-setup/deployment/jh167-connection-v2-runtime.mjs
+          node --check jh-server/owner-setup/deployment/durable-native-host.mjs
+          node --check jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs
+      - name: Original V2 recovery unit tests and source-patch regressions
+        run: node --test jh-server/owner-setup/connection-v2/*.test.mjs jh-server/owner-setup/deployment/jh167-connection-v2-runtime.test.mjs
