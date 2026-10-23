@@ -3,7 +3,7 @@
  * candidate for the separately approved JH Secure56 server catalog.
  */
 import {identifyCurrentArticleFromSignedReadback} from './current-article.mjs';
-import {readCurrentNewsArticle} from './article-fulltext.mjs';
+import {readCurrentNewsArticle,verifiedPublicArticleUrl} from './article-fulltext.mjs';
 import {makeIndependentPublicArticleReader} from './article-fallback-http.mjs';
 
 export const ARTICLE_CANDIDATE_TOOL='life_article_fulltext_read';
@@ -61,6 +61,12 @@ export function registerJHArticleReadCandidate({enabled=false,registerOAuthTool,
    const proof=await readVerifiedRight('현재 열린 기사',ctx.command_id);
    if(!current())return reject('HOST_COMMAND_CHANGED_DURING_READ');
    const article=identifyCurrentArticleFromSignedReadback({readback:proof,commandId:ctx.command_id});
+   if(article.status!=='ARTICLE_TITLE_IDENTIFIED')return reject('CURRENT_ARTICLE_UNVERIFIED');
+   const requested=verifiedPublicArticleUrl(article_url,{allowedHosts});
+   if(!requested)return reject('ORIGINAL_URL_NOT_ALLOWED');
+   const nativeAddress=verifiedPublicArticleUrl(article.observed_chrome_url,{allowedHosts});
+   if(!nativeAddress)return reject('RIGHT_CHROME_URL_UNVERIFIED');
+   if(requested!==nativeAddress)return reject('RIGHT_CHROME_URL_MISMATCH');
    const result=await readCurrentNewsArticle({commandId:ctx.command_id,currentArticle:article,
      candidateUrl:article_url,primaryRead,fallbackRead,allowedHosts,timeoutMs:8000,
      isCommandActive:current});
@@ -76,6 +82,7 @@ export function registerJHArticleReadCandidate({enabled=false,registerOAuthTool,
    const firstAt=Date.parse(proof?.observation?.observed_at||'');
    const lastAt=Date.parse(finalProof?.observation?.observed_at||'');
    if(latest.status!=='ARTICLE_TITLE_IDENTIFIED' || latest.title!==article.title ||
+      verifiedPublicArticleUrl(latest.observed_chrome_url,{allowedHosts})!==nativeAddress ||
       !firstWindow || lastWindow!==firstWindow ||
       !Number.isFinite(firstAt) || !Number.isFinite(lastAt) || lastAt<firstAt)
      return reject('RIGHT_ARTICLE_CHANGED_DURING_READ');

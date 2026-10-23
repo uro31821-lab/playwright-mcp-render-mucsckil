@@ -36,7 +36,13 @@ function signedShape(state){
   selected_tab_titles:state.mode==='ambiguous'?[TITLE+', 선택된 탭','다른 기사, 선택된 탭']:
     [state.mode==='search'?'JH167 뉴스 검증 - Google 검색, 선택된 탭':TITLE+', 선택된 탭'],
   observation:{app:'com.android.chrome',window_id:'synthetic-window-1',
-   observed_at:'2026-10-23T14:00:00.000Z'}};
+   observed_at:'2026-10-23T14:00:00.000Z'},
+  browser_address_evidence:state.mode==='phone_url_missing'?null:{
+   source:'CHROME_NATIVE_ADDRESS_BAR_SIGNED',native_view_id:'com.android.chrome:id/url_bar',
+   focused:false,window_id:'synthetic-window-1',observed_at:'2026-10-23T14:00:00.000Z',
+   url:state.mode==='phone_url_mismatch'?
+    'https://www.hani.co.kr/arti/society/society_general/DIFFERENT.html':ARTICLE_URL
+  }};
 }
 async function fixture(){
  const state={mode:'valid',browser:0,html:0,screen:0,rejected:0,command:CMD,flipOnRead:0};
@@ -71,6 +77,9 @@ async function fixture(){
       return {...proof,verified:false};
      if(state.mode==='final_receipt_stale')
       return {...proof,observation:{...proof.observation,observed_at:'2026-10-22T14:00:00.000Z'}};
+     if(state.mode==='phone_url_switched_after_fetch')
+      return {...proof,browser_address_evidence:{...proof.browser_address_evidence,
+       url:'https://www.hani.co.kr/arti/society/society_general/DIFFERENT.html'}};
     }
     return proof;
    },
@@ -144,11 +153,21 @@ test('V6 real localhost MCP: signed-shaped article -> timeout -> independent com
   // A tab switch, changed right work window, stale final proof, or failed final
   // readback must all suppress full body even if original fetch was complete.
   for(const mode of ['tab_switched_after_fetch','window_switched_after_fetch',
-    'final_receipt_unverified','final_receipt_stale']){
+    'final_receipt_unverified','final_receipt_stale','phone_url_switched_after_fetch']){
    f.state.mode=mode;f.state.command=CMD;f.state.flipOnRead=f.state.screen+2;
    const changed=await f.call();
    assert.equal(changed.code,'RIGHT_ARTICLE_CHANGED_DURING_READ',mode);
    assert.equal(changed.article?.fullBody,undefined,mode);
+  }
+  f.state.command=CMD;
+  for(const [mode,code] of [['phone_url_missing','RIGHT_CHROME_URL_UNVERIFIED'],
+    ['phone_url_mismatch','RIGHT_CHROME_URL_MISMATCH']]){
+   f.state.mode=mode;f.state.command=CMD;
+   const before=[f.state.browser,f.state.html];
+   const rejected=await f.call();
+   assert.equal(rejected.code,code);
+   assert.equal(rejected.article?.fullBody,undefined);
+   assert.deepEqual([f.state.browser,f.state.html],before,'no browser or HTML fetch without attested matching phone URL');
   }
   f.state.command=CMD;
   for(const mode of ['unverified','changed_command','ambiguous','search']){
@@ -174,7 +193,8 @@ test('V6 real localhost MCP: signed-shaped article -> timeout -> independent com
   console.log('JH167_V6_SYNTHETIC_HANDOFF '+JSON.stringify({
    httpUnauthorized:blocked.status,mcpTools:list.tools.length,
    fullBodyWithValidSyntheticProof:true,timeoutFallbackOnce:true,
-   commandChangesDiscarded:2,postReadScreenChangesDiscarded:4,
+   commandChangesDiscarded:2,postReadScreenChangesDiscarded:5,
+   missingOrMismatchingPhoneUrlsBlocked:2,
    invalidScreenBlocked:4,unsafeUrlBlocked:2,wrongTitleBlocked:true,
    incompleteBodyBlocked:true,injectedProofBlocked:true,
    syntheticOnly:true,realPhone:false,productionDeploy:false}));

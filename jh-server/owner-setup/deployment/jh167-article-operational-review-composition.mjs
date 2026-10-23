@@ -6,6 +6,7 @@
 import {patchDurableMcpWorkflowCleanRestartPayment56} from './durable-payment-clean-restart-patch.mjs';
 import {applyJH167ReadOnlyRegistry56} from './jh167-operational-guide-reservation-patch.mjs';
 import {makeJH167ArticleReadReviewCandidate} from './jh167-article-review-composition-patch.mjs';
+import {patchJH167ChromeAddressEvidence56,restoreBeforeJH167ChromeAddressEvidence56} from './jh167-chrome-url-evidence-patch.mjs';
 
 const readbackAlreadyApplied = "const readOnlyComfort=['split_comfort_status','split_comfort_manual_handoff',\n        'split_comfort_keyboard_advice','split_comfort_restore_info',\n        'split_screen_session_start','split_screen_session_status'].includes(type);";
 const readbackOld = "const readOnlyComfort=['split_comfort_status','split_comfort_manual_handoff',\n        'split_comfort_keyboard_advice','split_comfort_restore_info'].includes(type);";
@@ -30,7 +31,10 @@ export function patchJH167OperationalArticleReview56(runtimeSource){
  // It fails closed if old anchors drift or patches were applied unexpectedly.
  const withGuides=applyJH167ReadOnlyRegistry56(existing);
  assertExistingSplitProtection56(withGuides);
- const candidate=makeJH167ArticleReadReviewCandidate(withGuides);
+ const withAddress=patchJH167ChromeAddressEvidence56(withGuides);
+ if(restoreBeforeJH167ChromeAddressEvidence56(withAddress)!==withGuides)
+   throw Error('JH167_CHROME_URL_EVIDENCE_SCOPE_CHANGED');
+ const candidate=makeJH167ArticleReadReviewCandidate(withAddress);
  assertExistingSplitProtection56(candidate);
  requireOnce(candidate, "if (jhNewsReviewRequested && jhNewsReviewCatalogAuthorized) {",
    'JH167_NEWS_CATALOG_GATE_MISSING');
@@ -57,7 +61,7 @@ export function patchJH167OperationalArticleReview56(runtimeSource){
  const importLine="import {registerJHArticleReadCandidate as jhRegisterArticleReadCandidate} from '../guide-13/article-host-readonly.mjs';\n";
  const withoutImport=candidate.slice(importLine.length);
  if(!candidate.startsWith(importLine)||
-    withoutImport.replace(/\n  \/\/ NEWS ADDON REVIEW-ONLY\.[\s\S]*?\n  }(?=\n)/,'')!==withGuides)
+    withoutImport.replace(/\n  \/\/ NEWS ADDON REVIEW-ONLY\.[\s\S]*?\n  }(?=\n)/,'')!==withAddress)
    throw Error('JH167_NEWS_COMPOSITION_SCOPE_CHANGED');
  return candidate;
 }
