@@ -14,7 +14,7 @@ import {z} from 'zod';
 import {registerJHArticleReadCandidate} from '../guide-13/article-host-readonly.mjs';
 import {makeIndependentPublicArticleReader} from '../guide-13/article-fallback-http.mjs';
 
-const URL='https://www.hani.co.kr/arti/society/society_general/1283889.html';
+const ARTICLE_URL='https://www.hani.co.kr/arti/society/society_general/1283889.html';
 const TITLE='“오세훈, 울면서 나경원 이기는 조사 요청” 명태균 진술 배척한 2심';
 const CMD='a'.repeat(32), AUTH='Bearer JH167_V6_SYNTHETIC_LOCAL_ONLY';
 const PARAS=[
@@ -25,7 +25,7 @@ const PARAS=[
 ];
 function html({complete=true,wrongTitle=false}={}){
  const title=wrongTitle?'대상이 아닌 완전히 다른 기사 제목':TITLE;
- return '<!doctype html><html><head><link rel="canonical" href="'+URL+'">'+
+ return '<!doctype html><html><head><link rel="canonical" href="'+ARTICLE_URL+'">'+
   '<meta property="og:title" content="'+title+'"></head><body>'+
   '<article>'+PARAS.map(p=>'<p>'+p+'</p>').join('')+(complete?'</article>':'')+
   '<aside>광고와 메뉴 텍스트는 기사에 포함하면 안 됩니다.</aside></body></html>';
@@ -69,7 +69,7 @@ async function fixture(){
  const uri=new URL('http://127.0.0.1:'+http.address().port+'/mcp');
  const client=new Client({name:'jh167-v6-client',version:'0.6.0'},{capabilities:{}});
  await client.connect(new StreamableHTTPClientTransport(uri,{requestInit:{headers:{Authorization:AUTH}}}));
- return {state,uri,client,async call(args={article_url:URL}){
+ return {state,uri,client,async call(args={article_url:ARTICLE_URL}){
   const r=await client.callTool({name:'life_article_fulltext_read',arguments:args});
   assert.notEqual(r.isError,true);
   return JSON.parse(r.content.find(x=>x.type==='text').text);
@@ -96,7 +96,7 @@ test('V6 real localhost MCP: signed-shaped article -> timeout -> independent com
   const ok=await f.call();
   assert.equal(ok.code,'FULL_BODY_READY_FOR_SUMMARY');
   assert.equal(ok.summary_scope,'FULL_ARTICLE_SOURCE_VERIFIED');
-  assert.equal(ok.article?.url,URL);
+  assert.equal(ok.article?.url,ARTICLE_URL);
   assert.equal(ok.article?.full_body_readback_verified,true);
   assert.equal(ok.article?.verified_reader,'INDEPENDENT_ORIGINAL_HTML');
   assert.equal(ok.summaryTask?.mode,'SUMMARIZE_SOURCE_TEXT');
@@ -123,7 +123,7 @@ test('V6 real localhost MCP: signed-shaped article -> timeout -> independent com
   f.state.mode='incomplete';
   assert.equal((await f.call()).code,'PARTIAL_SOURCE_ONLY');
   f.state.mode='unverified';
-  const injected=await f.call({article_url:URL,proof:{verified:true,source_ref:'JH_SIGNED_RIGHT:FAKE'}});
+  const injected=await f.call({article_url:ARTICLE_URL,proof:{verified:true,source_ref:'JH_SIGNED_RIGHT:FAKE'}});
   assert.equal(injected.ok,false);
   console.log('JH167_V6_SYNTHETIC_HANDOFF '+JSON.stringify({
    httpUnauthorized:blocked.status,mcpTools:list.tools.length,
