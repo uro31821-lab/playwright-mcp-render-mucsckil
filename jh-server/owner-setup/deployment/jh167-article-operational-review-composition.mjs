@@ -1,10 +1,10 @@
 /** JH167 NEWS offline/opt-in composition over the actual Secure56 patch order.
- * CleanRestartPayment applies JH155 split namespace and readback first.
+ * On pinned 2026-10-22 source, the existing JH167 official registrar applies the split namespace/readback patches exactly once.
  * Do not apply the legacy JH167 split fixes a second time.
  * No token/key/approval/host-catalog changes. New OAuth MCP tool is gated OFF.
  */
 import {patchDurableMcpWorkflowCleanRestartPayment56} from './durable-payment-clean-restart-patch.mjs';
-import {patchJH167GuideAndReservation} from './guide13-reservation-composition-patch.mjs';
+import {applyJH167ReadOnlyRegistry56} from './jh167-operational-guide-reservation-patch.mjs';
 import {makeJH167ArticleReadReviewCandidate} from './jh167-article-review-composition-patch.mjs';
 
 const readbackAlreadyApplied = "const readOnlyComfort=['split_comfort_status','split_comfort_manual_handoff',\n        'split_comfort_keyboard_advice','split_comfort_restore_info',\n        'split_screen_session_start','split_screen_session_status'].includes(type);";
@@ -26,8 +26,9 @@ export function assertExistingSplitProtection56(s){
 }
 export function patchJH167OperationalArticleReview56(runtimeSource){
  const existing=patchDurableMcpWorkflowCleanRestartPayment56(runtimeSource);
- assertExistingSplitProtection56(existing);
- const withGuides=patchJH167GuideAndReservation(existing);
+ // Reuse the deployed, reviewed JH167 split readback / nonce patch once.
+ // It fails closed if old anchors drift or patches were applied unexpectedly.
+ const withGuides=applyJH167ReadOnlyRegistry56(existing);
  assertExistingSplitProtection56(withGuides);
  const candidate=makeJH167ArticleReadReviewCandidate(withGuides);
  assertExistingSplitProtection56(candidate);
