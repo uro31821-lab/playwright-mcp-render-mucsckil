@@ -70,7 +70,7 @@ const timed=async(fn,timeoutMs)=>{
  * This returns trusted source evidence for the host's GPT summarizer, NOT a fabricated AI summary.
  */
 export async function readCurrentNewsArticle({commandId,currentArticle,candidateUrl,linkProof,
-  primaryRead,fallbackRead,allowedHosts=[],timeoutMs=9000}={}){
+  primaryRead,fallbackRead,allowedHosts=[],timeoutMs=9000,isCommandActive=null}={}){
   if(!/^[a-f0-9]{32}$/.test(commandId||''))return bad('HOST_COMMAND_REQUIRED');
   if(currentArticle?.screen_verified!==true||currentArticle?.status!=='ARTICLE_TITLE_IDENTIFIED'||
     !String(currentArticle.source_ref||'').startsWith('JH_SIGNED_RIGHT:')||!currentArticle.title)
@@ -86,8 +86,17 @@ export async function readCurrentNewsArticle({commandId,currentArticle,candidate
   const base={protocol_version:ARTICLE_READ_PROTOCOL,command_id:commandId,
     article:{title:clean(currentArticle.title,300),url,screen_source_ref:currentArticle.source_ref,original_link_verified:false},
     external_effect_status:'NOT_EXECUTED',read_only:true};
+  // The Secure56 host supplies a live command fence. If a new user command
+  // supersedes this one, discard the old article instead of fetching/returning it.
+  const stillActive=()=>{
+    if(isCommandActive===null)return true; // legacy unit-only callers
+    try{return typeof isCommandActive==='function'&&isCommandActive(commandId)===true;}
+    catch{return false;}
+  };
+  if(!stillActive())return bad('HOST_COMMAND_CHANGED_DURING_READ');
   const attempts=[];
   async function tryReader(kind,reader){
+    if(!stillActive())return null;
     if(typeof reader!=='function'){attempts.push({kind,code:'READER_NOT_CONFIGURED'});return null;}
     try{
       const v=await timed(({signal,timeoutMs:ms})=>reader({url,expectedTitle:currentArticle.title,signal,timeoutMs:ms}),timeoutMs);
@@ -97,7 +106,9 @@ export async function readCurrentNewsArticle({commandId,currentArticle,candidate
     }catch(e){attempts.push({kind,code:e?.name==='AbortError'?'READ_TIMEOUT':failureCode(e)});return null;}
   }
   const primary=await tryReader('PLAYWRIGHT',primaryRead);
+  if(!stillActive())return bad('HOST_COMMAND_CHANGED_DURING_READ');
   const ready=primary||await tryReader('INDEPENDENT_ORIGINAL',fallbackRead);
+  if(!stillActive())return bad('HOST_COMMAND_CHANGED_DURING_READ');
   if(ready){
     return {...base,ok:true,code:ARTICLE_READ_STATES.READY,summary_scope:'FULL_ARTICLE_SOURCE_VERIFIED',
       article:{...base.article,original_link_verified:true,articleDate:ready.articleDate,fullBody:ready.body,observedAt:ready.observedAt,verified_reader:ready.source,
