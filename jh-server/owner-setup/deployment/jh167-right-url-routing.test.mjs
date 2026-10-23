@@ -6,7 +6,7 @@ const body=`const keep='chrome-native-launch';
     title:"Open on phone",inputSchema:{}
   },async()=>{
     const j=mk("open_url",{target:"chrome",url});
-    const direct=mk("open_url",{target:"chrome",url:raw});
+    const j=mk("open_url",{target:"chrome",url:raw});
   });
   registerOAuthTool("life_naver_mail",{
     title:"Mail",inputSchema:{}
