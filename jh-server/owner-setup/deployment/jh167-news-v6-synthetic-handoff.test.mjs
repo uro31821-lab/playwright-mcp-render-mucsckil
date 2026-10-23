@@ -39,7 +39,7 @@ function signedShape(state){
    observed_at:'2026-10-23T14:00:00.000Z'}};
 }
 async function fixture(){
- const state={mode:'valid',browser:0,html:0,screen:0,rejected:0};
+ const state={mode:'valid',browser:0,html:0,screen:0,rejected:0,command:CMD,flipOnRead:0};
  const instances=[];
  const http=createServer(async(req,res)=>{
   if(req.url!=='/mcp'){res.writeHead(404).end();return;}
@@ -51,13 +51,34 @@ async function fixture(){
    title:meta.title,description:meta.description,inputSchema:meta.inputSchema,annotations:meta.annotations
   },async args=>({content:[{type:'text',text:JSON.stringify(await handler(args))}]}));
   const fallback=makeIndependentPublicArticleReader({allowedHosts:['www.hani.co.kr'],
-   readHtml:async()=>{state.html++;return html({complete:state.mode!=='incomplete',
-    wrongTitle:state.mode==='wrong_title'});}});
+   readHtml:async()=>{
+    state.html++;
+    if(state.mode==='command_changed_during_fallback')state.command='b'.repeat(32);
+    return html({complete:state.mode!=='incomplete',wrongTitle:state.mode==='wrong_title'});
+   }});
   registerJHArticleReadCandidate({
    enabled:true,registerOAuthTool,z,textResult:x=>x,
-   getHostContext:()=>({command_id:CMD}),
-   readVerifiedRight:async()=>{state.screen++;return signedShape(state)},
-   browserTool:async()=>{state.browser++;return {code:'browser_request_timeout_no_automatic_retry'}},
+   getHostContext:()=>({command_id:state.command}),
+   readVerifiedRight:async()=>{
+    state.screen++;
+    const proof=signedShape(state);
+    if(state.screen===state.flipOnRead){
+     if(state.mode==='tab_switched_after_fetch')
+      return {...proof,selected_tab_titles:['다른 기사의 제목은 이전 기사와 전혀 다릅니다, 선택된 탭']};
+     if(state.mode==='window_switched_after_fetch')
+      return {...proof,observation:{...proof.observation,window_id:'another-window'}};
+     if(state.mode==='final_receipt_unverified')
+      return {...proof,verified:false};
+     if(state.mode==='final_receipt_stale')
+      return {...proof,observation:{...proof.observation,observed_at:'2026-10-22T14:00:00.000Z'}};
+    }
+    return proof;
+   },
+   browserTool:async()=>{
+    state.browser++;
+    if(state.mode==='command_changed_during_primary')state.command='b'.repeat(32);
+    return {code:'browser_request_timeout_no_automatic_retry'};
+   },
    readFallback:fallback,allowedHosts:['www.hani.co.kr']
   });
   const transport=new StreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true});
@@ -105,6 +126,31 @@ test('V6 real localhost MCP: signed-shaped article -> timeout -> independent com
   assert.deepEqual(ok.attempts.map(x=>x.kind),['PLAYWRIGHT','INDEPENDENT_ORIGINAL']);
   assert.equal(f.state.browser,1);
   assert.equal(f.state.html,1);
+  assert.equal(f.state.screen,2,'one initial and one final signed-shaped right-pane readback');
+  // Same article, but command superseded during Playwright: no fallback network.
+  f.state.mode='command_changed_during_primary';
+  f.state.command=CMD;
+  const prePrimaryHtml=f.state.html;
+  const primaryCancelled=await f.call();
+  assert.equal(primaryCancelled.code,'HOST_COMMAND_CHANGED_DURING_READ');
+  assert.equal(f.state.html,prePrimaryHtml);
+  assert.equal(primaryCancelled.article?.fullBody,undefined);
+  // New command during fallback: never publish already-read old article text.
+  f.state.mode='command_changed_during_fallback';
+  f.state.command=CMD;
+  const duringFallback=await f.call();
+  assert.equal(duringFallback.code,'HOST_COMMAND_CHANGED_DURING_READ');
+  assert.equal(duringFallback.article?.fullBody,undefined);
+  // A tab switch, changed right work window, stale final proof, or failed final
+  // readback must all suppress full body even if original fetch was complete.
+  for(const mode of ['tab_switched_after_fetch','window_switched_after_fetch',
+    'final_receipt_unverified','final_receipt_stale']){
+   f.state.mode=mode;f.state.command=CMD;f.state.flipOnRead=f.state.screen+2;
+   const changed=await f.call();
+   assert.equal(changed.code,'RIGHT_ARTICLE_CHANGED_DURING_READ',mode);
+   assert.equal(changed.article?.fullBody,undefined,mode);
+  }
+  f.state.command=CMD;
   for(const mode of ['unverified','changed_command','ambiguous','search']){
    f.state.mode=mode;
    const before=[f.state.browser,f.state.html];
@@ -128,6 +174,7 @@ test('V6 real localhost MCP: signed-shaped article -> timeout -> independent com
   console.log('JH167_V6_SYNTHETIC_HANDOFF '+JSON.stringify({
    httpUnauthorized:blocked.status,mcpTools:list.tools.length,
    fullBodyWithValidSyntheticProof:true,timeoutFallbackOnce:true,
+   commandChangesDiscarded:2,postReadScreenChangesDiscarded:4,
    invalidScreenBlocked:4,unsafeUrlBlocked:2,wrongTitleBlocked:true,
    incompleteBodyBlocked:true,injectedProofBlocked:true,
    syntheticOnly:true,realPhone:false,productionDeploy:false}));
