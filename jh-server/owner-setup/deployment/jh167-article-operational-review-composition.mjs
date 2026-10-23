@@ -40,8 +40,7 @@ export function patchJH167OperationalArticleReview56(runtimeSource){
    "process.env.JH_OWNER_DEFER_LISTEN==='1'",
    "if (jhNewsReviewRequested && !jhNewsReviewCatalogAuthorized)",
    "process.env.JH_DURABLE_RELEASE==='SERVE_READY_V1'",
-   "process.env.RENDER_SERVICE_ID==='srv-db0fjl2d0e5s73be114g'",
-   "process.env.JH_OWNER_DEFER_LISTEN==='1'"
+   "process.env.RENDER_SERVICE_ID==='srv-db0fjl2d0e5s73be114g'"
  ]) requireOnce(candidate,guard,'JH167_NEWS_RELEASE_SCOPE_GUARD_MISSING');
  requireOnce(candidate,'jhRegisterArticleReadCandidate({enabled:true',
    'JH167_NEWS_TOOL_NOT_GATED');
