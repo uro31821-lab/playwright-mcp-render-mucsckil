@@ -1,0 +1,38 @@
+name: JH167 NEWS controlled release - isolated CI
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - '.github/workflows/jh167-news-controlled-release.yml'
+      - 'jh-server/owner-setup/guide-13/article-*.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-article-*.mjs'
+      - 'jh-server/owner-setup/deployment/durable-clean-restart-news-review-entry.mjs'
+      - 'jh-server/owner-setup/deployment/published-host-router.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-news-*.test.mjs'
+permissions:
+  contents: read
+jobs:
+  synthetic-owner-mcp:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Existing dependencies without postinstall
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Existing original right-pane route unchanged
+        run: node --test jh-server/verification/right-pane-open-route.test.mjs
+      - name: Existing G6 Secure56 owner startup and auth
+        run: node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs
+      - name: Review-only and pinned production catalog gates with real owner HTTP boot
+        run: node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-news-v4-real-boot.test.mjs
+      - name: Synthetic article full source fallback with title and command continuity
+        run: timeout --signal=TERM 45s node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-news-v6-synthetic-handoff.test.mjs
