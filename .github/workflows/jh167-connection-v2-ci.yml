@@ -27,5 +27,9 @@ jobs:
           node --check jh-server/owner-setup/deployment/jh167-connection-v2-runtime.mjs
           node --check jh-server/owner-setup/deployment/durable-native-host.mjs
           node --check jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs
-      - name: Original V2 recovery unit tests and source-patch regressions
-        run: node --test jh-server/owner-setup/connection-v2/*.test.mjs jh-server/owner-setup/deployment/jh167-connection-v2-runtime.test.mjs
+      - name: Install exact runtime dependencies for compiled startup verification
+        run: |
+          npm ci --prefix jh-server --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+      - name: Original V2 + real assembled operational startup regressions
+        run: node --test jh-server/owner-setup/connection-v2/*.test.mjs jh-server/owner-setup/deployment/jh167-connection-v2-runtime.test.mjs jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs
