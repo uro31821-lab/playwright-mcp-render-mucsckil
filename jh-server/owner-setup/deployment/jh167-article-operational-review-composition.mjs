@@ -60,6 +60,38 @@ export function patchJH167RightWebUrl56(source){
  return source.slice(0,begin)+patched+source.slice(finish);
 }
 
+
+/** Web-name restoration using the existing JH167 signed RIGHT Chrome route.
+ * Official KakaoTalk and KakaoT pages are information pages, not chat/booking.
+ * Explicit KakaoT APP launch still uses the original native route.
+ */
+export function patchJH167OfficialWebServiceNames56(source){
+ if(typeof source!=='string')throw Error('JH_WEB_NAMES_STRING_REQUIRED');
+ const start='  registerOAuthTool("life_open_service",{';
+ const end='  registerOAuthTool("life_naver_mail",{';
+ if(source.split(start).length!==2||source.split(end).length!==2)
+   throw Error('JH_WEB_NAMES_SCOPE_CHANGED');
+ const begin=source.indexOf(start),finish=source.indexOf(end,begin);
+ if(begin<0||finish<=begin)throw Error('JH_WEB_NAMES_ORDER_CHANGED');
+ const original=source.slice(begin,finish);
+ const oldMap='      [["라프텔","laftel"],"https://laftel.net"],';
+ const newMap=[
+  '      [["카카오톡","카톡","kakaotalk"],"https://www.kakaocorp.com/page/service/service/KakaoTalk"],',
+  '      [["카카오t","카카오티","카카오 티","kakao t"],"https://www.kakaocorp.com/page/service/service/KakaoT"],',
+  '      [["유튜브 뮤직","유튜브뮤직","youtube music","yt music","ytmusic"],"https://music.youtube.com/"],',
+  oldMap
+ ].join('\n');
+ const nativeOld='if(["카카오t","카카오티","kakao t","카카오 택시"].some(k=>s.includes(k))){';
+ const nativeNew='if(["카카오t","카카오티","kakao t","카카오 택시"].some(k=>s.includes(k)) && /(?:앱|native app)/.test(s)){';
+ if(original.split(oldMap).length!==2||original.includes('page/service/service/KakaoTalk')||
+    original.split(nativeOld).length!==2||original.includes(nativeNew))
+   throw Error('JH_WEB_NAMES_EXACT_SCOPE_CHANGED');
+ const patched=original.replace(oldMap,newMap).replace(nativeOld,nativeNew);
+ if(patched.replace(nativeNew,nativeOld).replace(newMap,oldMap)!==original)
+   throw Error('JH_WEB_NAMES_REVERSE_CHANGED');
+ return source.slice(0,begin)+patched+source.slice(finish);
+}
+
 export function patchJH167OperationalArticleReview56(runtimeSource){
  const existing=patchDurableMcpWorkflowCleanRestartPayment56(runtimeSource);
  // Reuse the deployed, reviewed JH167 split readback / nonce patch once.
@@ -98,5 +130,5 @@ export function patchJH167OperationalArticleReview56(runtimeSource){
  if(!candidate.startsWith(importLine)||
     withoutImport.replace(/\n  \/\/ NEWS ADDON REVIEW-ONLY\.[\s\S]*?\n  }(?=\n)/,'')!==withGuides)
    throw Error('JH167_NEWS_COMPOSITION_SCOPE_CHANGED');
- return patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate));
+ return patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate)));
 }
