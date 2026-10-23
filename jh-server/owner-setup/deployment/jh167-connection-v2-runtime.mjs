@@ -18,10 +18,28 @@ export function patchJH167ConnectionV2Runtime(input){
 // JH167 V2 binds the trusted, existing Secure56 owner; no new job authority.
 const jhV2State56={configured:process.env.JH_CONNECTION_V2_RECOVERY==='1',
   installed:false,activeMcpCalls:0,activeBrowserCalls:0,lastMcpAt:0,
-  lastBrowser:'unknown',lastSignedRead:null,stopping:false,lastResult:null,timer:null};
+  lastBrowser:'unknown',lastSignedRead:null,lastVerifiedPoll:null,stopping:false,lastResult:null,timer:null};
 let jhV2OwnerBindings56=null;
 let jhV2Integration56=null;
 let jhV2Admission56=null;
+// Called ONLY after the existing Secure56 poll MAC, binding, expiry and nonce
+// checks succeeded. No registration or unsigned activity supplies evidence.
+function jhV2RememberSignedPoll56(device,session){
+  if(device && session?.sessionId && session?.deviceDigest)
+    jhV2State56.lastVerifiedPoll={device,sessionId:session.sessionId,
+      deviceDigest:session.deviceDigest,atMs:Date.now()};
+}
+function jhV2SignedPollEvidence56(){
+  const d=chooseDevice(),p=jhV2State56.lastVerifiedPoll;
+  const active=d?active56(d):null,meta=d?devices.get(d):null;
+  const ageMs=p?Date.now()-p.atMs:-1;
+  const verified=!!(p && active && meta?.secureBridgeVersion===56 &&
+    meta?.secureActive===true && p.device===d &&
+    p.sessionId===active.sessionId && p.deviceDigest===active.deviceDigest &&
+    Number.isSafeInteger(ageMs) && ageMs>=0 && ageMs<=30000);
+  return verified?{source:'SECURE56_MAC_VALIDATED_POLL',verified:true,
+    sessionBound:true,serverVerified:true,ageMs}:{source:'NONE',verified:false};
+}
 function jhV2BeginAdmission56(){
   if(jhV2Admission56?.allowBeginCommand()===false)throw Error('JH_V2_MAINTENANCE_BUSY');
 }
@@ -76,6 +94,7 @@ function jhV2Install56(){
     mcpProbe:async()=>({verified:(state.lastMcpAt>0&&Date.now()-state.lastMcpAt<900000)?true:null}),
     browserStatus:async()=>({browser:state.lastBrowser}),
     androidDevices:async()=>({devices:recentDevices().map(([d,m])=>({active:!!active56(d)&&Date.now()-m.lastSeen<90000}))}),
+    signedDevicePoll:async()=>jhV2SignedPollEvidence56(),
     secureStatus:async()=>{
       const latest=[...jobs.values()].reverse().find(j=>j.type==='secure_device_status'&&j.status==='complete'
         &&j.completedAt&&Date.now()-Date.parse(j.completedAt)<90000&&j.secureSessionId
@@ -108,6 +127,10 @@ function jhV2Install56(){
   once(begin,begin+'\n  jhV2BeginAdmission56();','JH_V2_BEGIN_FENCE_ANCHOR');
   const mk='function mk(type,p={},deviceId=null) {';
   once(mk,mk+'\n  jhV2JobAdmission56();','JH_V2_DISPATCH_FENCE_ANCHOR');
+  const signedPollAnchor='devices.set(d,{...dm,lastSeen:Date.now()});';
+  // This is reached only after Secure56 authentication passes. Refuse source drift.
+  once(signedPollAnchor,signedPollAnchor+'jhV2RememberSignedPoll56(d,a);',
+    'JH_V2_VERIFIED_POLL_ANCHOR');
   const auth='return server.registerTool(name,{...scoped.config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},scoped.handler);';
   const monitoredAuth='return server.registerTool(name,{...scoped.config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},async(...a)=>{jhV2State56.activeMcpCalls++;try{const result=await scoped.handler(...a);jhV2State56.lastMcpAt=Date.now();return result;}finally{jhV2State56.activeMcpCalls--;}});';
   once(auth,monitoredAuth,'JH_V2_AUTH_ACCOUNTING_ANCHOR');
@@ -130,6 +153,6 @@ function jhV2Install56(){
     if(before===''){if(!reverse.startsWith(after))throw Error('JH_V2_IMPORT_REVERSAL');reverse=reverse.slice(after.length);}
     else {if(reverse.split(after).length!==2)throw Error('JH_V2_PATCH_REVERSAL');reverse=reverse.replace(after,before);}
   }
-  if(reverse!==arguments[0]||edits.length!==8)throw Error('JH_V2_SCOPE_MISMATCH');
+  if(reverse!==arguments[0]||edits.length!==9)throw Error('JH_V2_SCOPE_MISMATCH');
   return input;
 }
