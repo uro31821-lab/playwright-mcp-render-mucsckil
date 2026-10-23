@@ -48,6 +48,11 @@ test('ACTUAL protected owner composition generates parsable and importable runti
  assert.equal(route.split('target:"right_web_link",url:raw}').length-1,1);
  assert.equal(route.includes('target:"chrome",url}'),false);
  assert.equal(route.includes('target:"chrome",url:raw}'),false);
+ assert.ok(route.includes('page/service/service/KakaoTalk'));
+ assert.ok(route.includes('page/service/service/KakaoT'));
+ assert.ok(route.includes('music.youtube.com/'));
+ assert.ok(route.indexOf('music.youtube.com/')<route.indexOf('https://www.youtube.com'));
+ assert.ok(route.includes('&& /(?:앱|native app)/.test(s)'));
 
  // An import-time probe is closer to the actual production boot than checking
  // the patch-transformation source alone. The owner is explicitly DEFERRED.
