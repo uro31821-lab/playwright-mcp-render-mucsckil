@@ -50,11 +50,35 @@ export function registerJHArticleReadCandidate({enabled=false,registerOAuthTool,
   try{
    const ctx=getHostContext();
    if(!/^[a-f0-9]{32}$/.test(ctx?.command_id||''))return textResult({ok:false,code:'HOST_COMMAND_REQUIRED'});
+   const reject=code=>textResult({ok:false,code,summary_scope:'NOT_VERIFIED',
+     read_only:true,external_effect_status:'NOT_EXECUTED'});
+   // Recheck the authoritative Secure56 command from the host after every await.
+   // Do not trust a caller-supplied old command or a reused right-pane receipt.
+   const current=()=>{
+     try{return getHostContext()?.command_id===ctx.command_id;}catch{return false;}
+   };
    // This is the SAME signed-readback callback used by the existing JH guide13 planner.
    const proof=await readVerifiedRight('현재 열린 기사',ctx.command_id);
+   if(!current())return reject('HOST_COMMAND_CHANGED_DURING_READ');
    const article=identifyCurrentArticleFromSignedReadback({readback:proof,commandId:ctx.command_id});
    const result=await readCurrentNewsArticle({commandId:ctx.command_id,currentArticle:article,
-     candidateUrl:article_url,primaryRead,fallbackRead,allowedHosts,timeoutMs:8000});
+     candidateUrl:article_url,primaryRead,fallbackRead,allowedHosts,timeoutMs:8000,
+     isCommandActive:current});
+   if(!current())return reject('HOST_COMMAND_CHANGED_DURING_READ');
+   if(result.ok!==true)return textResult(result);
+   // An old article must not be delivered after the user changed Chrome tabs.
+   // Read ONE fresh signed right-pane snapshot, with no click, scroll or OCR.
+   const finalProof=await readVerifiedRight('현재 열린 기사 최종 확인',ctx.command_id);
+   if(!current())return reject('HOST_COMMAND_CHANGED_DURING_READ');
+   const latest=identifyCurrentArticleFromSignedReadback({readback:finalProof,commandId:ctx.command_id});
+   const firstWindow=String(proof?.observation?.window_id??'');
+   const lastWindow=String(finalProof?.observation?.window_id??'');
+   const firstAt=Date.parse(proof?.observation?.observed_at||'');
+   const lastAt=Date.parse(finalProof?.observation?.observed_at||'');
+   if(latest.status!=='ARTICLE_TITLE_IDENTIFIED' || latest.title!==article.title ||
+      !firstWindow || lastWindow!==firstWindow ||
+      !Number.isFinite(firstAt) || !Number.isFinite(lastAt) || lastAt<firstAt)
+     return reject('RIGHT_ARTICLE_CHANGED_DURING_READ');
    return textResult(result);
   }catch(e){return textResult({ok:false,code:'ARTICLE_READ_UNAVAILABLE',summary_scope:'NOT_VERIFIED',
     detail:'Do not retry an uncertain browser read. No private data or credentials were logged.'});}
