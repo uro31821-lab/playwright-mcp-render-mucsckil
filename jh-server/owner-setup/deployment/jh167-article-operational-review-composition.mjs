@@ -32,8 +32,14 @@ export function patchJH167OperationalArticleReview56(runtimeSource){
  assertExistingSplitProtection56(withGuides);
  const candidate=makeJH167ArticleReadReviewCandidate(withGuides);
  assertExistingSplitProtection56(candidate);
- requireOnce(candidate, "if (process.env.JH_NEWS_FULLTEXT_REVIEW_ENABLED==='1') {",
-   'JH167_NEWS_FEATURE_FLAG_MISSING');
+ requireOnce(candidate, "if (jhNewsReviewRequested && jhNewsReviewCatalogAuthorized) {",
+   'JH167_NEWS_CATALOG_GATE_MISSING');
+ for(const guard of [
+   "process.env.JH_NEWS_FULLTEXT_CATALOG_SCOPE==='CI_SYNTHETIC_LOCAL_ONLY'",
+   "process.env.RENDER_SERVICE_ID===undefined",
+   "process.env.JH_OWNER_DEFER_LISTEN==='1'",
+   "if (jhNewsReviewRequested && !jhNewsReviewCatalogAuthorized)"
+ ]) requireOnce(candidate,guard,'JH167_NEWS_RELEASE_SCOPE_GUARD_MISSING');
  requireOnce(candidate,'jhRegisterArticleReadCandidate({enabled:true',
    'JH167_NEWS_TOOL_NOT_GATED');
  for(const needle of [secureCatalog, 'const registerOAuthTool=(name,config,handler)=>{',
