@@ -25,6 +25,41 @@ export function assertExistingSplitProtection56(s){
  }
  return true;
 }
+/** Minimal server-only route repair; reuse the verified FIX4 right URL handler.
+ * A target of "chrome" in FIX4 activates the app/pane-only shortcut, skipping
+ * URL entry. A neutral target with an explicit HTTPS URL reaches openDirectWeb.
+ * Restrict to the existing life_open_service tool; no other execution path changes.
+ */
+export function patchJH167RightWebUrl56(source){
+ if(typeof source!=='string')throw Error('JH_RIGHT_URL_RUNTIME_REQUIRED');
+ const start='  registerOAuthTool("life_open_service",{';
+ const end='  registerOAuthTool("life_naver_mail",{';
+ if(source.split(start).length!==2||source.split(end).length!==2)
+   throw Error('JH_RIGHT_URL_SERVICE_SCOPE_CHANGED');
+ const begin=source.indexOf(start),finish=source.indexOf(end,begin);
+ if(begin<0||finish<=begin)throw Error('JH_RIGHT_URL_SERVICE_ORDER_CHANGED');
+ const original=source.slice(begin,finish);
+ let patched=original;
+ const swaps=[
+   ['const j=mk("open_url",{target:"chrome",url});',
+    'const j=mk("open_url",{target:"right_web_link",url});'],
+   ['const j=mk("open_url",{target:"chrome",url:raw});',
+    'const j=mk("open_url",{target:"right_web_link",url:raw});'],
+ ];
+ for(const [oldValue,newValue] of swaps){
+   if(patched.split(oldValue).length!==2||patched.includes(newValue))
+     throw Error('JH_RIGHT_URL_EXACT_ROUTE_MISMATCH');
+   patched=patched.replace(oldValue,newValue);
+ }
+ let reversed=patched;
+ for(const [oldValue,newValue] of swaps.slice().reverse()){
+   if(reversed.split(newValue).length!==2)throw Error('JH_RIGHT_URL_REVERSE_ANCHOR');
+   reversed=reversed.replace(newValue,oldValue);
+ }
+ if(reversed!==original)throw Error('JH_RIGHT_URL_OUT_OF_SCOPE');
+ return source.slice(0,begin)+patched+source.slice(finish);
+}
+
 export function patchJH167OperationalArticleReview56(runtimeSource){
  const existing=patchDurableMcpWorkflowCleanRestartPayment56(runtimeSource);
  // Reuse the deployed, reviewed JH167 split readback / nonce patch once.
@@ -63,5 +98,5 @@ export function patchJH167OperationalArticleReview56(runtimeSource){
  if(!candidate.startsWith(importLine)||
     withoutImport.replace(/\n  \/\/ NEWS ADDON REVIEW-ONLY\.[\s\S]*?\n  }(?=\n)/,'')!==withGuides)
    throw Error('JH167_NEWS_COMPOSITION_SCOPE_CHANGED');
- return patchJH167ConnectionV2Runtime(candidate);
+ return patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate));
 }

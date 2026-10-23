@@ -40,6 +40,15 @@ test('ACTUAL protected owner composition generates parsable and importable runti
  assert.ok(generated.includes('jhV2Install56();'));
  assert.ok(generated.includes('lastRecoveryEvent:v.lastRecoveryEvent'));
  assert.ok(generated.includes('JH_CONNECTION_V2_EVENT'));
+ const serviceStart=generated.indexOf('  registerOAuthTool("life_open_service",{');
+ const serviceEnd=generated.indexOf('  registerOAuthTool("life_naver_mail",{',serviceStart);
+ assert.ok(serviceStart>=0&&serviceEnd>serviceStart);
+ const route=generated.slice(serviceStart,serviceEnd);
+ assert.equal(route.split('target:"right_web_link",url}').length-1,1);
+ assert.equal(route.split('target:"right_web_link",url:raw}').length-1,1);
+ assert.equal(route.includes('target:"chrome",url}'),false);
+ assert.equal(route.includes('target:"chrome",url:raw}'),false);
+
  // An import-time probe is closer to the actual production boot than checking
  // the patch-transformation source alone. The owner is explicitly DEFERRED.
  const script='const s=await import('+JSON.stringify(pathToFileURL(compiled.runtimeFile).href)+');'+
