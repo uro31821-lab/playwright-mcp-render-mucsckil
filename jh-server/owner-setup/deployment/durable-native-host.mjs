@@ -18,6 +18,12 @@ export function createDurableNativeHooks({file,key,namespace,mode='read'}={}){
  let closed=false;
  const pass=p=>['READ','CONTROL','PROTECTED_READ'].includes(p?.kind);
  return Object.freeze({
+  /** Existing durable manual-circuit journal: uncertainty fence for transport-only maintenance. */
+  uncertainEffectsForMaintenance(){
+    if(closed)return null;
+    const v=journal.counts().uncertain;
+    return Number.isSafeInteger(v)&&v>=0?v:null;
+  },
   discardTransient(job){policies.delete(job);records.delete(job);},
   capture(job,payload){policies.set(job,durableNativeJobPolicy(job,payload));},
   beforeDispatch(job){
