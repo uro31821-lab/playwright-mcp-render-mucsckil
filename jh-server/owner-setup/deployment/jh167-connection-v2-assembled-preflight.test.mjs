@@ -52,7 +52,43 @@ test('ACTUAL protected owner composition generates parsable and importable runti
  assert.ok(route.includes('page/service/service/KakaoT'));
  assert.ok(route.includes('music.youtube.com/'));
  assert.ok(route.indexOf('music.youtube.com/')<route.indexOf('https://www.youtube.com'));
- assert.ok(route.includes('&& /(?:앱|native app)/.test(s)'));
+
+ // The actual assembled owner must NEVER select another session or native app
+ // for an ordinary website-open request, including Kakao-branded names.
+ assert.ok(route.includes('jhRightWebOpen56=async({service})'));
+ assert.ok(route.includes('RIGHT_WEB_URL_NOT_MAPPED'));
+ assert.ok(!route.includes('target:"카카오T"'));
+ assert.ok(!route.includes('browserTool("browser_navigate"'));
+ const mailStart=generated.indexOf('  registerOAuthTool("life_naver_mail",{');
+ const navigateStart=generated.indexOf('  registerOAuthTool("life_web_navigate",{',mailStart);
+ const mail=generated.slice(mailStart,navigateStart);
+ assert.ok(mail.includes('jhRightWebOpen56({service:"네이버 메일"})'));
+ assert.ok(!mail.includes('browserTool('));
+ const starterStart=generated.indexOf('  registerOAuthTool("life_android_open_and_snapshot",{');
+ const stepStart=generated.indexOf('  registerOAuthTool("life_android_step_and_snapshot",{',starterStart);
+ const starter=generated.slice(starterStart,stepStart);
+ assert.ok(starter.includes('jhRightWebOpen56({service:'));
+ assert.ok(!starter.includes('mk("open_url"'));
+ const androidStart=generated.indexOf('  registerOAuthTool("life_android_open",{');
+ const schemaStart=generated.indexOf('  const cuSchema56={',androidStart);
+ const android=generated.slice(androidStart,schemaStart);
+ assert.ok(android.includes('jhRightWebOpen56({service:raw})'));
+ assert.ok(!android.includes('browserTool('));
+ const routeStart=generated.indexOf('  registerOAuthTool("life_route",{');
+ const routeEnd=generated.indexOf('  registerOAuthTool("life_open_service",{',routeStart);
+ const routing=generated.slice(routeStart,routeEnd);
+ assert.ok(routing.includes('const nativeHints=[]'));
+ assert.ok(routing.includes('life_android_split_screen_assistant START'));
+ const clickStart=generated.indexOf('  registerOAuthTool("life_web_click",{');
+ const typeStart=generated.indexOf('  registerOAuthTool("life_web_type",{',clickStart);
+ const click=generated.slice(clickStart,typeStart);
+ assert.ok(click.includes('RIGHT_PHONE_ITEM_REQUIRES_ANDROID_COMPUTER_USE'));
+ assert.ok(click.includes('browserTool("browser_click",args)'));
+ assert.ok(generated.includes('registerOAuthTool("life_android_computer_prepare"'));
+ assert.ok(generated.includes('registerOAuthTool("life_android_execute_computer_action"'));
+ assert.ok(generated.includes('registerOAuthTool("life_android_split_screen_assistant"') ||
+   generated.includes("registerOAuthTool('life_android_split_screen_assistant'"));
+
 
  // An import-time probe is closer to the actual production boot than checking
  // the patch-transformation source alone. The owner is explicitly DEFERRED.
