@@ -7,6 +7,7 @@ on:
       - 'jh-server/owner-setup/connection-v2/**'
       - 'jh-server/owner-setup/deployment/jh167-connection-v2-*.mjs'
       - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-right-pane-orchestrator-repair.mjs'
       - 'jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs'
       - 'jh-server/owner-setup/deployment/durable-native-host.mjs'
       - 'jh-server/owner-setup/deployment/durable-native-job-policy.mjs'
@@ -30,6 +31,7 @@ jobs:
           node --check jh-server/owner-setup/deployment/jh167-connection-v2-runtime.mjs
           node --check jh-server/owner-setup/deployment/durable-native-host.mjs
           node --check jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs
+          node --check jh-server/owner-setup/deployment/jh167-right-pane-orchestrator-repair.mjs
       - name: Install exact runtime dependencies for compiled startup verification
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
