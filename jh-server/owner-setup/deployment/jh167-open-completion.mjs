@@ -26,11 +26,9 @@ export function describeOpenCompletion(job,{commandId,sessionId}={}){
   followUp:{tool:'life_job_status',arguments:{job_id:job.id,command_id:commandId},
    readOnly:true,instruction:'Read this existing job only. Do not call BEGIN_COMMAND or open the app again.'}};
  if(!received){
-  // A dispatched action with an absent receipt is never a failed launch.
-  const notDispatched=!Number.isFinite(job.startedAtMs)&&['error','expired'].includes(job.status);
-  return {...base,code:notDispatched?'OPEN_NOT_DISPATCHED':'OPEN_COMPLETION_UNKNOWN',
-   executionStatus:notDispatched?'NOT_EXECUTED':'EFFECT_UNKNOWN',
-   actionSucceeded:notDispatched?false:null};
+  // Even a missing dispatch timestamp cannot prove no execution occurred.
+  // Keep terminal-without-receipt outcomes unknown; never infer failure.
+  return base;
  }
  const result=job.result;
  const receivedAt=Date.parse(job.completedAt);

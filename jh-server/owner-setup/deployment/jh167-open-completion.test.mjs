@@ -52,9 +52,10 @@ for(const state of ['error','expired'])test(state+' after dispatch is unknown, n
  assert.equal(r.executionStatus,'EFFECT_UNKNOWN');assert.equal(r.actionSucceeded,null);
  assert.equal(r.followUp,null);assert.equal(r.automaticReplayAllowed,false);
 });
-test('known pre-dispatch rejection is not executed',()=>{
+test('missing dispatch timestamp cannot establish that no execution occurred',()=>{
  const j={...job(),status:'error'};delete j.startedAtMs;
- assert.equal(describeOpenCompletion(j,binding).executionStatus,'NOT_EXECUTED');
+ assert.equal(describeOpenCompletion(j,binding).executionStatus,'EFFECT_UNKNOWN');
+ assert.equal(describeOpenCompletion(j,binding).actionSucceeded,null);
 });
 for(const [name,change] of [
  ['missing address proof',j=>delete j.result.rightAddressConfirmed],
