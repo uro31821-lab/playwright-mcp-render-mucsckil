@@ -25,7 +25,7 @@ for _ in $(seq 1 50); do
     echo 'FAIL: owner-mode launcher exited unexpectedly' >&2
     docker logs "$NAME" | tail -70 >&2; exit 1
   fi
-  code="$(docker exec "$NAME" /bin/sh -c "curl -s --max-time 5 -o /tmp/jh-tunnel-response -w '%{http_code}' \
+  code="$(docker exec "$NAME" /bin/sh -c "curl -s --max-time 5 -D /tmp/jh-tunnel-headers -o /tmp/jh-tunnel-response -w '%{http_code}' \
     -X POST http://127.0.0.1:8932/mcp \
     -H 'Content-Type: application/json' \
     -H 'Accept: application/json, text/event-stream' \
@@ -43,3 +43,34 @@ docker exec "$NAME" sh -c "grep -q Playwright /tmp/jh-tunnel-response" || {
  echo 'FAIL: tunnel ingress did not carry MCP server info' >&2; exit 1;
 }
 echo 'PASS: owner mode trusted loopback tunnel reaches Playwright MCP despite its internal Host header'
+
+# Exercise the exact private tunnel tools/call path; initialize alone is not enough.
+docker exec "$NAME" /bin/sh -c '
+  set -eu
+  SESSION="$(tr -d "\r" </tmp/jh-tunnel-headers | awk "tolower(\$1)==\"mcp-session-id:\" {print \$2}")"
+  test -n "$SESSION"
+  curl -fsS --max-time 20 -X POST http://127.0.0.1:8932/mcp \
+    -H "mcp-session-id: $SESSION" \
+    -H "mcp-protocol-version: 2025-06-18" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json, text/event-stream" \
+    -d "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}" >/dev/null
+  curl -fsS --max-time 30 -X POST http://127.0.0.1:8932/mcp \
+    -H "mcp-session-id: $SESSION" \
+    -H "mcp-protocol-version: 2025-06-18" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json, text/event-stream" \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{\"name\":\"browser_navigate\",\"arguments\":{\"url\":\"data:text/html,<title>tunnel-auth-synthetic</title><h1>ok</h1>\"}}}" > /tmp/jh-tunnel-nav
+  grep -q tunnel-auth-synthetic /tmp/jh-tunnel-nav
+' || { echo 'FAIL: trusted tunnel MCP navigation failed' >&2; docker logs "$NAME" | tail -35 >&2; exit 1; }
+echo 'PASS: owner mode trusted tunnel navigates via MCP tools/call'
+# Public requests with a forged hostname must remain rejected despite a valid bearer.
+STATUS="$(docker exec "$NAME" sh -c "curl -s --max-time 8 -o /dev/null -w '%{http_code}' \
+  -X POST http://127.0.0.1:10000/mcp \
+  -H 'Host: attacker.invalid' \
+  -H 'Authorization: Bearer synthetic-ci-bearer' \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"forged-host\",\"version\":\"1\"}}}'" 2>/dev/null || true)"
+[[ "$STATUS" == 403 ]] || { echo "FAIL: forged public Host received HTTP $STATUS instead of 403" >&2; exit 1; }
+echo 'PASS: public DNS rebinding protection preserved'
