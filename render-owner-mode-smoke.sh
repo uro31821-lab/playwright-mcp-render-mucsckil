@@ -48,6 +48,18 @@ if [[ "$handshake" != OK ]]; then
   docker logs "$NAME" | tail -60 >&2
   exit 1
 fi
+# Real ChatGPT link taps add ?utm_source=chatgpt.com to the viewer path.
+# That GET must work without bearer authentication. Unknown query variations
+# must not bypass the strict owner routing or single-use POST claim gate.
+VIEW="$(curl -sS --max-time 8 -o "$TMP/view.html" -w '%{http_code}' "http://127.0.0.1:$PORT/owner/?utm_source=chatgpt.com")"
+[[ "$VIEW" == 200 ]] && grep -qi '<html' "$TMP/view.html" || {
+  echo "FAIL: ChatGPT-tagged owner viewer returned HTTP $VIEW" >&2; exit 1;
+}
+BAD_VIEW="$(curl -sS --max-time 8 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/owner/?utm_source=attacker.invalid")"
+[[ "$BAD_VIEW" == 403 ]] || {
+  echo "FAIL: unexpected owner viewer query returned HTTP $BAD_VIEW, expected 403" >&2; exit 1;
+}
+echo 'PASS: ChatGPT-tagged owner viewer opens, unexpected viewer queries rejected'
 echo 'PASS: owner mode authenticated MCP initialize'
 unauth="$(curl --max-time 5 -s -o /dev/null -w '%{http_code}' -X POST "$URL" \
   -H 'Content-Type: application/json' -d '{}' || true)"

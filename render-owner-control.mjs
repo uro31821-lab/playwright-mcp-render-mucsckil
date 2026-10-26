@@ -69,7 +69,12 @@ export function createOwnerControl({ origin, getPage, clock = Date.now }) {
     },
     async handle(req, res) {
       if (!req.url?.startsWith('/owner/')) return false;
-      if (req.url === '/owner/' && req.method === 'GET') {
+      // ChatGPT can append a harmless source tag before the URL fragment.
+      // Accept it ONLY on the static viewer GET; never as authentication.
+      // The one-use owner ticket remains in #fragment and claim still requires POST.
+      const viewerGet = req.method === 'GET' &&
+        (req.url === '/owner/' || req.url === '/owner/?utm_source=chatgpt.com');
+      if (viewerGet) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
           'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY',
           'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" });
