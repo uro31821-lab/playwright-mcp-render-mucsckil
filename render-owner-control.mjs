@@ -3,6 +3,9 @@ import { randomBytes, createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 const hash = value => createHash('sha256').update(value).digest('hex');
 const token = () => randomBytes(32).toString('base64url');
+// One-use URL transfer allowance: users may switch from desktop ChatGPT to phone.
+// 256-bit random token, one active offer, no persistence or token logging.
+export const OWNER_LINK_TTL_MS = 30 * 60 * 1000;
 const fail = code => { throw Error(code); };
 const JSON_HEADERS = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store',
   'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff' };
@@ -64,7 +67,7 @@ export function createOwnerControl({ origin, getPage, clock = Date.now }) {
     offer(targetId) {
       if (!/^[a-fA-F0-9]{32}$/.test(targetId) || session) fail('OWNER_TARGET_INVALID');
       const value = token();
-      ticket = { digest: hash(value), targetId, expires: clock() + 300000 };
+      ticket = { digest: hash(value), targetId, expires: clock() + OWNER_LINK_TTL_MS };
       return `${origin}/owner/#${value}`;
     },
     async handle(req, res) {

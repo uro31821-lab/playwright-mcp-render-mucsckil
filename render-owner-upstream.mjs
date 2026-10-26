@@ -1,5 +1,5 @@
 import http from 'node:http';
-import { createOwnerControl, parseRPC, readJSON } from './render-owner-control.mjs';
+import { createOwnerControl, parseRPC, readJSON, OWNER_LINK_TTL_MS } from './render-owner-control.mjs';
 
 export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
   if (cdpURL !== 'http://127.0.0.1:9222') throw Error('OWNER_CDP_CONFIG_INVALID');
@@ -96,7 +96,7 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
               const targetId = /### Result\s+"([A-Fa-f0-9]{32})"/.exec(text)?.[1];
               if (!info.response.ok || target.result?.isError || !targetId) throw Error('OWNER_TARGET_UNCONFIRMED');
               result.result.content.push({ type: 'text', text: JSON.stringify({
-                owner_view_url: owner.offer(targetId), expires_in_seconds: 300,
+                owner_view_url: owner.offer(targetId), expires_in_seconds: OWNER_LINK_TTL_MS / 1000,
                 same_playwright_page: true, user_action: '링크를 열고 직접 조작을 시작하세요. 완료 후 현재 화면을 다시 확인하세요.',
                 login_verified: false,
               }) });

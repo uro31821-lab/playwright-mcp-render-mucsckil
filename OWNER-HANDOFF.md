@@ -17,7 +17,7 @@ including its login popups, in the existing browser service.
    and verifies the intended service/account before continuing the authorized task.
    A user pressing Done is not proof of login success. Nothing is replayed automatically.
 
-Links last five minutes and are single-use. Manual access lasts ten minutes. Closing
+Links last thirty minutes and are single-use, allowing time to move from PC to phone. Manual access lasts ten minutes. Closing
 the tab leaves the browser paused until that limit; a subsequent explicit Done revokes
 it immediately. A new browser operation invalidates earlier unclaimed links. Refreshing
 the viewer requires a fresh link; capabilities are held only in page memory.

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
-import { createOwnerControl, parseRPC } from './render-owner-control.mjs';
+import { createOwnerControl, parseRPC, OWNER_LINK_TTL_MS } from './render-owner-control.mjs';
 const origin = 'https://owner.example';
 const targetId = 'A'.repeat(32);
 function fixture() {
@@ -55,11 +55,27 @@ test('ticket is one-use and does not grant MCP authorization', async () => {
   assert.equal((await f.request('claim', { ticket })).status, 403);
   assert.equal((await f.request('frame', {}, ticket)).status, 403);
 });
+test('desktop-to-phone transfer ticket stays valid for 30 minutes minus 1 ms', async () => {
+  const f = fixture(), ticket = f.offer();
+  assert.equal(OWNER_LINK_TTL_MS, 30 * 60 * 1000);
+  f.advance(OWNER_LINK_TTL_MS - 1);
+  const r = await f.request('claim', { ticket });
+  assert.equal(r.status, 200);
+  assert.equal((await f.request('claim', { ticket })).status, 403);
+});
 test('expired and superseded links cannot acquire control', async () => {
-  const f = fixture(), old = f.offer(); f.advance(300001);
+  const f = fixture(), old = f.offer(); f.advance(OWNER_LINK_TTL_MS);
   assert.equal((await f.request('claim', { ticket: old })).status, 403);
-  const second = f.offer(); f.control.beginMCP('new'); f.control.endMCP();
+  const second = f.offer();
+  // For safety, a new browser operation still invalidates a not-yet-claimed offer.
+  f.control.beginMCP('new'); f.control.endMCP();
   assert.equal((await f.request('claim', { ticket: second })).status, 403);
+});
+test('a newer issued link supersedes the first, even if both are under 30 minutes', async () => {
+  const f = fixture(), first = f.offer(), second = f.offer();
+  assert.notEqual(first, second);
+  assert.equal((await f.request('claim', { ticket: first })).status, 403);
+  assert.equal((await f.request('claim', { ticket: second })).status, 200);
 });
 test('cross-origin claim and input are refused', async () => {
   const f = fixture();
