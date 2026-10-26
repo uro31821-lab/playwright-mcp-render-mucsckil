@@ -77,6 +77,29 @@ test('a newer issued link supersedes the first, even if both are under 30 minute
   assert.equal((await f.request('claim', { ticket: first })).status, 403);
   assert.equal((await f.request('claim', { ticket: second })).status, 200);
 });
+test('pending ticket survives harmless browser snapshot while user switches from PC to phone', async () => {
+  const f = fixture(), ticket = f.offer();
+  f.advance(5 * 60 * 1000);
+  // Auto status/readback must not consume or revoke an unclaimed ticket.
+  f.control.beginMCP(null, false, { preserveOffer: true }); f.control.endMCP();
+  f.advance(12 * 60 * 1000);
+  f.control.beginMCP(null, false, { preserveOffer: true }); f.control.endMCP();
+  assert.equal((await f.request('claim', { ticket })).status, 200);
+  assert.equal((await f.request('claim', { ticket })).status, 403);
+});
+test('pending ticket is revoked on page-capable browser action but not pure readback', async () => {
+  const f = fixture(), ticket = f.offer();
+  f.control.beginMCP(null, false, { preserveOffer: true }); f.control.endMCP();
+  f.control.beginMCP(null); f.control.endMCP(); // e.g. navigation, click or code
+  assert.equal((await f.request('claim', { ticket })).status, 403);
+});
+test('new explicit command revokes stale ticket even if only reading page', async () => {
+  const f = fixture();
+  f.control.beginMCP('original', false, { preserveOffer: true }); f.control.endMCP();
+  const ticket = f.offer();
+  f.control.beginMCP('new-command', false, { preserveOffer: true }); f.control.endMCP();
+  assert.equal((await f.request('claim', { ticket })).status, 403);
+});
 test('cross-origin claim and input are refused', async () => {
   const f = fixture();
   assert.equal((await f.request('claim', { ticket: f.offer() }, null, { origin: 'https://evil.example' })).status, 403);
