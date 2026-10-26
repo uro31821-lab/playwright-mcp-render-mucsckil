@@ -73,3 +73,24 @@ if ! grep -q 'owner_view_url' <<<"$SCREEN"; then
   printf '%s\n' "$SCREEN" | head -c 1200 >&2; exit 1
 fi
 echo 'PASS: owner view URL offered by selected Playwright screenshot'
+
+# Android Chrome link handoff may append harmless query strings or omit slash.
+for path in '/owner/' '/owner/?source=chatgpt' '/owner/?app=android&split=true'; do
+  code="$(curl -sS --max-time 8 -o "$TMP/owner.html" -w '%{http_code}' "http://127.0.0.1:$PORT$path")"
+  [[ "$code" == 200 ]] || { echo "FAIL: owner viewer GET $path returned $code" >&2; exit 1; }
+  grep -qi 'text/html\|owner\|view.js' "$TMP/owner.html" || {
+    echo "FAIL: owner viewer GET returned non-HTML for $path" >&2; exit 1;
+  }
+done
+redirect="$(curl -sS --max-time 8 -o /dev/null -D "$TMP/redirect.txt" -w '%{http_code}' "http://127.0.0.1:$PORT/owner?from=chatgpt")"
+[[ "$redirect" == 308 ]] || { echo "FAIL: owner path slash redirect returned $redirect" >&2; exit 1; }
+grep -qi '^location: /owner/' "$TMP/redirect.txt" || { echo 'FAIL: owner redirect target' >&2; exit 1; }
+for asset in '/owner/view.js?v=2' '/owner/view.css?v=2'; do
+  code="$(curl -sS --max-time 8 -o "$TMP/owner-asset" -w '%{http_code}' "http://127.0.0.1:$PORT$asset")"
+  [[ "$code" == 200 ]] || { echo "FAIL: owner asset $asset returned $code" >&2; exit 1; }
+done
+bad="$(curl -sS --max-time 8 -o "$TMP/owner-bad" -w '%{http_code}' "http://127.0.0.1:$PORT/owner/claim?ticket=synthetic")"
+[[ "$bad" == 404 ]] && grep -q OWNER_VIEW_PATH_INVALID "$TMP/owner-bad" || {
+ echo "FAIL: invalid viewer navigation not handled safely ($bad)" >&2; exit 1;
+}
+echo 'PASS: Android Chrome owner navigation and GET path normalization'
