@@ -84,4 +84,8 @@ if ! grep -q 'owner_view_url' <<<"$SCREEN"; then
   echo 'FAIL: owner view URL not attached to screenshot' >&2
   printf '%s\n' "$SCREEN" | head -c 1200 >&2; exit 1
 fi
-echo 'PASS: owner view URL offered by selected Playwright screenshot'
+if ! grep -q 'expires_in_seconds' <<<"$SCREEN" || ! grep -q '1800' <<<"$SCREEN"; then
+  echo 'FAIL: screenshot owner link TTL differs from server 30-minute claim window' >&2
+  exit 1
+fi
+echo 'PASS: owner view URL offered with matching 30-minute transfer window'
