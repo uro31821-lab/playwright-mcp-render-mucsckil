@@ -14,7 +14,9 @@ PY
 mkdir -p "$TMP/disk"
 cleanup() {
   docker rm -f "$NAME" >/dev/null 2>&1 || true
-  rm -rf "$TMP"
+  # Chromium creates the test profile as root with mode 0700.
+  # This is an ephemeral mktemp directory; GitHub runner can remove it with sudo.
+  sudo rm -rf -- "$TMP"
 }
 trap cleanup EXIT
 docker run -d --name "$NAME" \
