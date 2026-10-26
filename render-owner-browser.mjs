@@ -18,7 +18,10 @@ export async function launchOwnerBrowser({ profile, port, persistent = true, exe
   await mkdir(profile, { recursive: true, mode: 0o700 });
   await chmod(profile, 0o700);
   return chromium.launchPersistentContext(profile, {
-    executablePath,
+    // The pinned Playwright MCP image contains full Chromium, not headless-shell.
+    // Use its installed new-headless channel. Explicit executablePath stays
+    // available only for isolated verified test runners.
+    ...(executablePath ? { executablePath } : { channel: 'chromium' }),
     headless: true, viewport: { width: 1280, height: 900 },
     args: ['--no-sandbox', '--remote-debugging-address=127.0.0.1',
       `--remote-debugging-port=${port}`, '--disable-save-password-bubble'],
