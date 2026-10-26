@@ -28,6 +28,7 @@ import { constants as osConstants } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { createFailureBudget } from './render-auth-limiter.mjs';
+import { createOwnerUpstream } from './render-owner-upstream.mjs';
 
 // Number() alone would turn a typo into NaN, and listen(NaN) silently binds a
 // random port — the failure would only surface as an unreachable service.
@@ -55,6 +56,12 @@ if (!TOKEN) {
 // the presented token's length (it throws otherwise, which would itself leak).
 const digest = value => createHash('sha256').update(value).digest();
 const EXPECTED = digest(TOKEN);
+
+// Feature activation requires the persistent browser launcher and a fixed HTTPS origin.
+const owner = process.env.JH_OWNER_VIEW === '1' ? await createOwnerUpstream({
+  origin: `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`,
+  upstreamPort: UPSTREAM_PORT, cdpURL: process.env.JH_OWNER_CDP_URL,
+}) : null;
 
 // The scheme is matched case-insensitively per RFC 7235; the token itself is not.
 const isAuthorized = header => {
@@ -119,7 +126,8 @@ const STRIP_FROM_RESPONSE = new Set(HOP_BY_HOP);
 const withoutHeaders = (headers, stripped) =>
   Object.fromEntries(Object.entries(headers).filter(([name]) => !stripped.has(name)));
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
+  if (owner && await owner.handle(req, res)) return;
   if (!isAuthorized(req.headers.authorization)) {
     // The budget is spent only by requests that were going to be refused anyway, so
     // a valid token never touches it and the operator can always get in. That is what
@@ -151,6 +159,8 @@ const server = http.createServer((req, res) => {
     res.end('Unauthorized\n');
     return;
   }
+
+  if (owner && await owner.mcp(req, res)) return;
 
   // Host is forwarded unchanged so upstream's --allowed-hosts DNS-rebinding
   // check still sees the hostname the client actually asked for.
@@ -199,6 +209,19 @@ const server = http.createServer((req, res) => {
   res.on('close', () => upstream.destroy());
 });
 
+// The optional authenticated Secure MCP Tunnel previously addressed the backend
+// directly. Give that trusted tunnel a loopback-only ingress through the SAME
+// owner fence. It exposes no viewer endpoints and accepts no public connections.
+const tunnelIngress = owner && process.env.CONTROL_PLANE_API_KEY && process.env.CONTROL_PLANE_TUNNEL_ID
+  ? http.createServer(async (req, res) => {
+    if (await owner.mcp(req, res)) return;
+    req.resume(); res.writeHead(405); res.end();
+  }) : null;
+if (tunnelIngress) {
+  tunnelIngress.on('error', () => { console.error('[owner] Tunnel ingress unavailable.'); child.kill('SIGTERM'); server.close(); process.exitCode = 1; });
+  tunnelIngress.listen(8932, '127.0.0.1');
+}
+
 // MCP's Streamable HTTP transport never upgrades a connection, and this gate does
 // not proxy one. Without a handler Node would leave the client waiting on a reply
 // that never comes, so answer it instead; no token is checked because the answer
@@ -220,6 +243,7 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
   process.on(signal, () => {
     child.kill(signal);
     server.close();
+    tunnelIngress?.close();
   });
 }
 
