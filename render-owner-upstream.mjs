@@ -1,3 +1,4 @@
+import http from 'node:http';
 import { createOwnerControl, parseRPC, readJSON } from './render-owner-control.mjs';
 
 export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
@@ -23,10 +24,36 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
   };
   const owner = createOwnerControl({ origin, getPage });
   const rpc = async (body, headers) => {
-    const response = await fetch(`http://127.0.0.1:${upstreamPort}/mcp`, {
-      method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
-    const raw = await response.text();
-    return { response, raw };
+    // Node's global fetch silently replaces a caller-supplied Host header with
+    // 127.0.0.1, defeating upstream --allowed-hosts for the Secure MCP Tunnel.
+    // Node's native HTTP client preserves the explicit Host instead.
+    const payload = JSON.stringify(body);
+    return new Promise((resolve, reject) => {
+      const request = http.request({
+        hostname: '127.0.0.1', port: upstreamPort, method: 'POST', path: '/mcp',
+        headers: { ...headers, 'content-length': Buffer.byteLength(payload) },
+      }, upstream => {
+        let raw = '';
+        upstream.setEncoding('utf8');
+        upstream.on('data', chunk => { raw += chunk; });
+        upstream.on('aborted', () => reject(Error('OWNER_UPSTREAM_TRUNCATED')));
+        upstream.on('error', reject);
+        upstream.on('end', () => {
+          const get = name => {
+            const value = upstream.headers[String(name).toLowerCase()];
+            return Array.isArray(value) ? value.join(', ') : (value ?? null);
+          };
+          const status = upstream.statusCode ?? 502;
+          resolve({ response: {
+            status, ok: status >= 200 && status < 300,
+            headers: { get, has: name => get(name) !== null },
+          }, raw });
+        });
+      });
+      request.setTimeout(15000, () => request.destroy(Error('OWNER_UPSTREAM_TIMEOUT')));
+      request.on('error', reject);
+      request.end(payload);
+    });
   };
   return {
     handle: owner.handle,
