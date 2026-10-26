@@ -23,7 +23,17 @@ PROXY_PID=$!
 cleanup() {
   kill "$PROXY_PID" 2>/dev/null || true
 }
-trap cleanup INT TERM EXIT
+# Render/docker stop sends SIGTERM to this PID 1 shell.
+# Treat only an explicit shutdown signal as success; still propagate
+# a spontaneous proxy/startup failure via the final wait below.
+shutdown() {
+  trap - INT TERM EXIT
+  cleanup
+  wait "$PROXY_PID" 2>/dev/null || true
+  exit 0
+}
+trap shutdown INT TERM
+trap cleanup EXIT
 
 # render-auth-proxy itself waits for the local MCP server before opening $PORT.
 # Wait for that public proxy port using Node (portable in /bin/sh; /dev/tcp is bash-only).
