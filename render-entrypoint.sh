@@ -9,11 +9,15 @@ export PORT UPSTREAM_PORT
 echo "[startup] Public MCP endpoint: https://${RENDER_EXTERNAL_HOSTNAME:-localhost:$PORT}/mcp"
 echo "[startup] Starting Playwright MCP on loopback and authenticated Render proxy"
 
-node /usr/local/bin/render-auth-proxy.mjs \
+if [ "${JH_OWNER_VIEW:-0}" = "1" ]; then
+  node /app/render-owner-browser.mjs &
+else
+  node /app/render-auth-proxy.mjs \
   node /app/cli.js \
   --headless --browser chromium --no-sandbox \
   --host 127.0.0.1 --port "$UPSTREAM_PORT" \
   --allowed-hosts "$ALLOWED_HOSTS" &
+fi
 PROXY_PID=$!
 
 cleanup() {
@@ -40,11 +44,15 @@ const deadline=Date.now()+65000;
 fi
 
 if [ -n "${CONTROL_PLANE_API_KEY:-}" ] && [ -n "${CONTROL_PLANE_TUNNEL_ID:-}" ]; then
+  TUNNEL_TARGET_PORT="$UPSTREAM_PORT"
+  if [ "${JH_OWNER_VIEW:-0}" = "1" ]; then
+    TUNNEL_TARGET_PORT=8932
+  fi
   echo "[tunnel] connecting OpenAI Secure MCP Tunnel"
   if tunnel-client runtimes connect \
       --alias playwright-cloud \
       --tunnel-id "$CONTROL_PLANE_TUNNEL_ID" \
-      --mcp-server-url "http://127.0.0.1:$UPSTREAM_PORT/mcp"; then
+      --mcp-server-url "http://127.0.0.1:$TUNNEL_TARGET_PORT/mcp"; then
     tunnel-client runtimes status playwright-cloud || true
   else
     echo "[tunnel] connection failed; public bearer-protected endpoint remains available" >&2
