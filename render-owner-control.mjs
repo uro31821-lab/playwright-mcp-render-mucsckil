@@ -54,14 +54,18 @@ export function createOwnerControl({ origin, getPage, clock = Date.now }) {
   return {
     locked,
     // All upstream requests with a body are serialized with manual interactions.
-    beginMCP(command, metadata = false) {
+    beginMCP(command, metadata = false, { preserveOffer = false } = {}) {
       expire();
       if (session && !metadata) fail('OWNER_CONTROL_ACTIVE');
       enter();
       if (metadata) return;
-      if (command && command !== lastCommand) { ticket = null; lastCommand = command; }
-      // A previously issued link must not take control after any later MCP operation.
-      ticket = null;
+      // A new explicit work command or any page-capable MCP action revokes an
+      // unclaimed link. Routine read-only browser_snapshot does not change the
+      // selected target and must not discard the user's desktop-to-phone ticket.
+      // Tickets still expire, remain single-use, and are superseded on offer().
+      const newCommand = !!command && lastCommand !== null && command !== lastCommand;
+      if (command) lastCommand = command;
+      if (newCommand || !preserveOffer) ticket = null;
     },
     endMCP: leave,
     offer(targetId) {

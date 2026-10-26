@@ -79,6 +79,10 @@ test('same-tab owner login, MCP pause/resume, persistent login and expiry', { ti
     }).find(c => c?.owner_view_url);
     assert.ok(offer, JSON.stringify(screenshot.content.filter(c => c.type === 'text')));
     const ticket = new URL(offer.owner_view_url).hash.slice(1);
+    // The JH self-diagnostic/readback may inspect the same page while the
+    // owner switches devices. It must not revoke the pending 30-minute link.
+    const interveningRead = await tool('browser_snapshot');
+    assert.ok(!interveningRead.isError, JSON.stringify(interveningRead));
     const { secret } = await api('claim', { ticket });
     assert.ok((await tool('browser_snapshot')).isError);
     const privateReply = await fetch('http://127.0.0.1:8932/mcp', { method: 'POST',
