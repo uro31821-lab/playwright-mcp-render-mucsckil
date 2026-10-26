@@ -22,10 +22,32 @@ function fixture() {
       end(data) { this.body = JSON.parse(data); } };
     await control.handle(req, res); return res;
   }
+  async function get(path) {
+    const req = { url: path, method: 'GET', headers: {} };
+    const res = { writeHead(status, headers) { this.status = status; this.headers = headers; },
+      end(data) { this.body = String(data); } };
+    const handled = await control.handle(req, res);
+    return { ...res, handled };
+  }
   const offer = () => control.offer(targetId).split('#')[1];
   const claim = async () => (await request('claim', { ticket: offer() })).body.secret;
-  return { control, request, offer, claim, actions, page, advance: ms => { now += ms; } };
+  return { control, request, get, offer, claim, actions, page, advance: ms => { now += ms; } };
 }
+test('GPT link-tracking query renders viewer without granting access', async () => {
+  const f = fixture();
+  const ticket = f.offer();
+  const page = await f.get('/owner/?utm_source=chatgpt.com');
+  assert.equal(page.handled, true);
+  assert.equal(page.status, 200);
+  assert.match(page.body, /<html/i);
+  assert.match(page.headers['Content-Security-Policy'], /default-src 'none'/);
+  assert.equal((await f.get('/owner/')).status, 200);
+  const unwanted = await f.get('/owner/?utm_source=unknown');
+  assert.equal(unwanted.status, 403);
+  assert.equal((await f.get('/owner/claim')).status, 403);
+  // Viewing the HTML does not consume the one-use credential.
+  assert.equal((await f.request('claim', { ticket })).status, 200);
+});
 test('ticket is one-use and does not grant MCP authorization', async () => {
   const f = fixture(), ticket = f.offer();
   const first = await f.request('claim', { ticket });
