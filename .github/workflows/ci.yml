@@ -34,7 +34,7 @@ jobs:
           node-version: 22
 
       - name: Test the auth gate
-        run: npm run test:wrapper
+        run: npm run test:wrapper && node --test render-owner-control.test.mjs
 
   smoke:
     name: Wrapper smoke test
@@ -52,3 +52,9 @@ jobs:
 
       - name: Build the image and smoke-test the auth gate
         run: ./render-smoke-test.sh
+
+      - name: Test owner handoff on the exact production image
+        run: docker run --rm --entrypoint node playwright-mcp-render:smoke --test /app/render-owner-integration.test.mjs
+
+      - name: Test browser profile persistence on the exact production image
+        run: docker run --rm --entrypoint node playwright-mcp-render:smoke --test /app/render-owner-browser.test.mjs

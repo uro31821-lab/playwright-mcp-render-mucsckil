@@ -1,0 +1,12 @@
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JH 작업 화면</title><link rel="stylesheet" href="/owner/view.css">
+<header><strong>JH 작업 화면</strong><span id="site"></span><button id="finish" disabled>완료 · GPT에 돌려주기</button></header>
+<main><p id="status" role="status">같은 Playwright 작업 창에 연결합니다. 직접 조작을 시작하면 GPT 작업이 잠시 멈춥니다.</p>
+<button id="start">화면 열고 직접 조작</button>
+<div id="viewport"><canvas id="screen" aria-label="현재 Playwright 화면"></canvas></div>
+<form id="entry" hidden><label for="text">화면에서 입력칸을 누른 뒤 여기에 입력하세요</label>
+<input id="text" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="입력할 내용 (전송 후 지워집니다)">
+<button>선택한 칸에 입력</button></form>
+<nav id="keys" hidden><button data-key="Tab">다음 칸</button><button data-key="ControlOrMeta+A">전체 선택</button><button data-key="Backspace">지우기</button><button data-key="Enter">Enter</button><button data-key="Escape">닫기</button><button data-scroll="-600">위로</button><button data-scroll="600">아래로</button><button id="refresh">새로 보기</button></nav>
+<p>화면을 확대하거나 좌우로 움직여 작은 글씨·QR을 볼 수 있습니다. 로그인 후 ‘완료’를 누르고 ChatGPT에 돌아가 ‘완료’라고 알려주세요.</p></main>
+<script src="/owner/view.js" defer></script></html>
