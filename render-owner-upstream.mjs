@@ -71,7 +71,17 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
         const metadata = ['initialize', 'notifications/initialized', 'tools/list', 'ping'].includes(body.method);
         // Metadata never touches a page and must not fail when the owner is typing.
         // This preserves the upstream session (and selected tab) during handoff.
-        if (!metadata) { owner.beginMCP(body.params?._meta?.jhCommandId); entered = true; }
+        if (!metadata) {
+          // A status/readback may run while the owner is moving to their
+          // phone. The built-in browser_snapshot only observes the current
+          // tab; all other browser commands continue to revoke pending links
+          // (or fail once the owner has claimed control).
+          const observeOnly = body.method === 'tools/call' &&
+            body.params?.name === 'browser_snapshot';
+          owner.beginMCP(body.params?._meta?.jhCommandId, false,
+            { preserveOffer: observeOnly });
+          entered = true;
+        }
         const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream',
           // The loopback-only, approved Secure MCP Tunnel ingress connects with
           // Host: 127.0.0.1:8932. The upstream allowed-hosts check must see
