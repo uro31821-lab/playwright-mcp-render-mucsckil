@@ -68,8 +68,18 @@ export function createOwnerControl({ origin, getPage, clock = Date.now }) {
       return `${origin}/owner/#${value}`;
     },
     async handle(req, res) {
-      if (!req.url?.startsWith('/owner/')) return false;
-      if (req.url === '/owner/' && req.method === 'GET') {
+      // Only navigation GETs may normalize their route. A ChatGPT-to-Chrome
+      // handoff can append benign query parameters or remove a trailing slash.
+      // Do not relax POST method, Origin, body type, token, or target validation.
+      const requestURL = req.url || '';
+      const route = requestURL.split('?')[0];
+      if (req.method === 'GET' && route === '/owner') {
+        res.writeHead(308, { Location: '/owner/', 'Cache-Control': 'no-store',
+          'Referrer-Policy': 'no-referrer' });
+        res.end(); return true;
+      }
+      if (!requestURL.startsWith('/owner/')) return false;
+      if (route === '/owner/' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
           'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY',
           'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" });
@@ -77,10 +87,18 @@ export function createOwnerControl({ origin, getPage, clock = Date.now }) {
       }
       const assets = { '/owner/view.js': ['render-owner-view.js', 'text/javascript'],
         '/owner/view.css': ['render-owner-view.css', 'text/css'] };
-      if (assets[req.url] && req.method === 'GET') {
-        const [name, type] = assets[req.url];
+      if (assets[route] && req.method === 'GET') {
+        const [name, type] = assets[route];
         res.writeHead(200, { ...JSON_HEADERS, 'Content-Type': type });
         res.end(await readFile(new URL(name, import.meta.url))); return true;
+      }
+      // Browser navigation to a POST-only endpoint or malformed viewer path
+      // must never be confused with a failed login or a successful handoff.
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+        res.end('OWNER_VIEW_PATH_INVALID: Open a fresh owner link from ChatGPT.');
+        return true;
       }
       let entered = false;
       try {
