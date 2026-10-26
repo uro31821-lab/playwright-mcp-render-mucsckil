@@ -30,7 +30,7 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
   };
   return {
     handle: owner.handle,
-    async mcp(req, res) {
+    async mcp(req, res, { trustedTunnel = false } = {}) {
       // The caller has already verified the EXISTING MCP bearer token.
       if (req.url !== '/mcp' || req.method !== 'POST') {
         // Legacy SSE message routes and DELETE must not bypass the owner lock.
@@ -46,7 +46,11 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
         // This preserves the upstream session (and selected tab) during handoff.
         if (!metadata) { owner.beginMCP(body.params?._meta?.jhCommandId); entered = true; }
         const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream',
-          host: req.headers.host };
+          // The loopback-only, approved Secure MCP Tunnel ingress connects with
+          // Host: 127.0.0.1:8932. The upstream allowed-hosts check must see
+          // our trusted Render hostname, not that internal tunnel transport.
+          // Public bearer-protected traffic still preserves its actual Host.
+          host: trustedTunnel ? new URL(origin).host : req.headers.host };
         for (const name of ['mcp-session-id', 'mcp-protocol-version'])
           if (req.headers[name]) headers[name] = req.headers[name];
         const { response, raw } = await rpc(body, headers);
