@@ -35,6 +35,12 @@ for _ in $(seq 1 50); do
 done
 if [[ "$code" != 200 ]]; then
   echo "FAIL: private JH tunnel ingress initialize returned HTTP ${code:-no-response}" >&2
+  echo 'Comparing direct upstream Host behavior (synthetic request only):' >&2
+  docker exec "$NAME" /bin/sh -c "curl -s --max-time 8 -o /tmp/jh-direct-host -w 'direct-canonical:%{http_code}\n' \\
+    -X POST http://127.0.0.1:8931/mcp -H 'Host: playwright-mcp-yzcy.onrender.com' \\
+    -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \\
+    -d '{\"jsonrpc\":\"2.0\",\"id\":99,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"direct-ci\",\"version\":\"1\"}}}'" >&2 || true
+  docker exec "$NAME" sh -c 'head -c 150 /tmp/jh-direct-host || true' >&2 || true
   docker exec "$NAME" sh -c 'head -c 450 /tmp/jh-tunnel-response || true' >&2 || true
   docker logs "$NAME" | tail -60 >&2
   exit 1
