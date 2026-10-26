@@ -26,6 +26,41 @@ function fixture() {
   const claim = async () => (await request('claim', { ticket: offer() })).body.secret;
   return { control, request, offer, claim, actions, page, advance: ms => { now += ms; } };
 }
+test('owner viewer GET tolerates ChatGPT browser query params without relaxing POST rules', async () => {
+  const f = fixture();
+  const get = async url => {
+    const req = Readable.from([]);
+    Object.assign(req, {url, method:'GET', headers:{}});
+    const res = { writeHead(status, headers) {this.status=status;this.headers=headers;},
+      end(data='') {this.body=Buffer.isBuffer(data)?data.toString('utf8'):String(data);} };
+    assert.equal(await f.control.handle(req,res),true);
+    return res;
+  };
+  for(const url of ['/owner/','/owner/?source=chatgpt','/owner/?via=android&layout=split']) {
+    const reply = await get(url);
+    assert.equal(reply.status,200,url);
+    assert.match(reply.headers['Content-Type'],/text\/html/);
+    assert.match(reply.body,/view\.js|owner\/view\.js/);
+    assert.equal(reply.headers['Referrer-Policy'],'no-referrer');
+  }
+  const redirect = await get('/owner?source=chatgpt');
+  assert.equal(redirect.status,308);
+  assert.equal(redirect.headers.Location,'/owner/');
+  for(const url of ['/owner/view.js?v=2','/owner/view.css?v=2']){
+    const reply=await get(url);
+    assert.equal(reply.status,200,url);
+    assert.ok(reply.body.length>40);
+  }
+  const invalid=await get('/owner/claim?ticket=synthetic');
+  assert.equal(invalid.status,404);
+  assert.match(invalid.body,/OWNER_VIEW_PATH_INVALID/);
+  assert.doesNotMatch(invalid.body,/synthetic/);
+  // Viewer GET has no power to claim a ticket or bypass Origin checks.
+  const ticket=f.offer();
+  const denied=await f.request('claim',{ticket},null,{origin:'https://untrusted.example'});
+  assert.equal(denied.status,403);
+  assert.equal((await f.request('claim',{ticket})).status,200);
+});
 test('ticket is one-use and does not grant MCP authorization', async () => {
   const f = fixture(), ticket = f.offer();
   const first = await f.request('claim', { ticket });
