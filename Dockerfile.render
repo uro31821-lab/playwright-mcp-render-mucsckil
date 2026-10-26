@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-c
     && rm -rf /var/lib/apt/lists/* /tmp/tunnel-client*
 
 COPY --chmod=0755 render-entrypoint.sh /usr/local/bin/render-entrypoint.sh
-COPY render-auth-proxy.mjs /usr/local/bin/render-auth-proxy.mjs
-COPY render-auth-limiter.mjs /usr/local/bin/render-auth-limiter.mjs
+COPY render-auth-proxy.mjs render-auth-limiter.mjs render-owner-*.mjs render-owner-view.* /app/
 
 ENTRYPOINT ["/usr/local/bin/render-entrypoint.sh"]
