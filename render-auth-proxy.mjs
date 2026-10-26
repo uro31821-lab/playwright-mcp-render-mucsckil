@@ -214,7 +214,9 @@ const server = http.createServer(async (req, res) => {
 // owner fence. It exposes no viewer endpoints and accepts no public connections.
 const tunnelIngress = owner && process.env.CONTROL_PLANE_API_KEY && process.env.CONTROL_PLANE_TUNNEL_ID
   ? http.createServer(async (req, res) => {
-    if (await owner.mcp(req, res)) return;
+    // Only the private 127.0.0.1 ingress may supply the verified upstream Host.
+    // The public bearer route always retains the caller-supplied Host.
+    if (await owner.mcp(req, res, { trustedTunnel: true })) return;
     req.resume(); res.writeHead(405); res.end();
   }) : null;
 if (tunnelIngress) {
