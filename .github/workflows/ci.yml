@@ -60,3 +60,5 @@ jobs:
         run: docker run --rm --entrypoint node playwright-mcp-render:smoke --test /app/render-owner-browser.test.mjs
       - name: Real MCP bearer and owner link regression in activated owner mode
         run: bash ./render-owner-mode-smoke.sh
+      - name: Secure tunnel loopback MCP ingress in activated owner mode
+        run: bash ./render-owner-tunnel-smoke.sh
