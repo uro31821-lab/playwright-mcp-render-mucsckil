@@ -29,6 +29,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 import { createFailureBudget } from './render-auth-limiter.mjs';
 import { createOwnerUpstream } from './render-owner-upstream.mjs';
+import { createVideoTransfer } from './render-video-transfer.mjs';
 
 // Number() alone would turn a typo into NaN, and listen(NaN) silently binds a
 // random port — the failure would only surface as an unreachable service.
@@ -58,9 +59,13 @@ const digest = value => createHash('sha256').update(value).digest();
 const EXPECTED = digest(TOKEN);
 
 // Feature activation requires the persistent browser launcher and a fixed HTTPS origin.
+const video = process.env.JH_OWNER_VIEW === '1' ? await createVideoTransfer({
+  origin: `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`,
+  root: process.env.JH_VIDEO_ROOT || '/var/data/jh-video-results', secret: TOKEN,
+}) : null;
 const owner = process.env.JH_OWNER_VIEW === '1' ? await createOwnerUpstream({
   origin: `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`,
-  upstreamPort: UPSTREAM_PORT, cdpURL: process.env.JH_OWNER_CDP_URL,
+  upstreamPort: UPSTREAM_PORT, cdpURL: process.env.JH_OWNER_CDP_URL, video,
 }) : null;
 
 // The scheme is matched case-insensitively per RFC 7235; the token itself is not.
@@ -127,6 +132,7 @@ const withoutHeaders = (headers, stripped) =>
   Object.fromEntries(Object.entries(headers).filter(([name]) => !stripped.has(name)));
 
 const server = http.createServer(async (req, res) => {
+  if (video && await video.handle(req, res)) return;
   if (owner && await owner.handle(req, res)) return;
   if (!isAuthorized(req.headers.authorization)) {
     // The budget is spent only by requests that were going to be refused anyway, so
@@ -246,6 +252,7 @@ for (const signal of ['SIGTERM', 'SIGINT']) {
     child.kill(signal);
     server.close();
     tunnelIngress?.close();
+    video?.close();
   });
 }
 
