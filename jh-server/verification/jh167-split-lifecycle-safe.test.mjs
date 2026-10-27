@@ -49,7 +49,8 @@ test('journal blocks an unresolved lifecycle across restarts without storing sum
  try{
   const initial={...job('split_screen_session_save_analysis'),id:'save-one'};
   hooks.capture(initial,save());
-  assert.equal(hooks.beforeDispatch(initial).allowed,true);
+  const admission=hooks.beforeDispatch(initial);
+  assert.equal(admission.allowed,true,JSON.stringify(admission));
   hooks.close();
   hooks=createDurableNativeHooks({...options,mode:'read'});
   const repeated={...job('split_screen_session_save_analysis'),id:'save-again'};
