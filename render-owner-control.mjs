@@ -29,11 +29,17 @@ export function parseRPC(body, id) {
   if (replies.length !== 1 || replies[0].jsonrpc !== '2.0') fail('OWNER_RPC_BINDING_FAILED');
   return replies[0];
 }
-export function createOwnerControl({ origin, getPage, clock = Date.now }) {
+export function createOwnerControl({ origin, getPage, clock = Date.now, audit = () => {} }) {
   if (new URL(origin).origin !== origin || !origin.startsWith('https://')) fail('OWNER_ORIGIN_INVALID');
   let ticket = null, session = null, busy = false, frame = null, lastCommand = null, generation = 0;
+  let lastTicketState = 'NONE', rejectionLogged = false;
+  // Fixed categories only: never emit tokens, command IDs, page URLs, inputs,
+  // request bodies, or raw errors. Limit rejected-claim logging to one per offer.
+  const record = code => { try { audit(code); } catch {} };
   const expire = () => {
-    if (ticket && clock() >= ticket.expires) ticket = null;
+    if (ticket && clock() >= ticket.expires) {
+      ticket = null; lastTicketState = 'TIMED_OUT'; record('LINK_TIMED_OUT');
+    }
     if (session && clock() >= session.expires) { session = null; frame = null; generation++; }
   };
   const locked = () => { expire(); return !!session; };
@@ -54,7 +60,7 @@ export function createOwnerControl({ origin, getPage, clock = Date.now }) {
   return {
     locked,
     // All upstream requests with a body are serialized with manual interactions.
-    beginMCP(command, metadata = false, { preserveOffer = false } = {}) {
+    beginMCP(command, metadata = false, { preserveOffer = false, operation = 'other' } = {}) {
       expire();
       if (session && !metadata) fail('OWNER_CONTROL_ACTIVE');
       enter();
@@ -65,13 +71,23 @@ export function createOwnerControl({ origin, getPage, clock = Date.now }) {
       // Tickets still expire, remain single-use, and are superseded on offer().
       const newCommand = !!command && lastCommand !== null && command !== lastCommand;
       if (command) lastCommand = command;
-      if (newCommand || !preserveOffer) ticket = null;
+      if (newCommand || !preserveOffer) {
+        if (ticket) {
+          lastTicketState = newCommand ? 'NEW_COMMAND' : 'MCP_ACTION';
+          const known = ['browser_snapshot', 'browser_tabs', 'browser_take_screenshot',
+            'browser_navigate', 'browser_click', 'browser_type', 'browser_press_key',
+            'browser_run_code_unsafe', 'browser_close', 'browser_wait_for'];
+          record('LINK_REVOKED_' + lastTicketState + ':' + (known.includes(operation) ? operation : 'other'));
+        }
+        ticket = null;
+      }
     },
     endMCP: leave,
     offer(targetId) {
       if (!/^[a-fA-F0-9]{32}$/.test(targetId) || session) fail('OWNER_TARGET_INVALID');
       const value = token();
       ticket = { digest: hash(value), targetId, expires: clock() + OWNER_LINK_TTL_MS };
+      lastTicketState = 'OFFERED'; rejectionLogged = false; record('LINK_OFFERED');
       // Public, independent nonce forces a new document when a phone reuses the
       // same tab. It is not a credential; authorization remains in the fragment.
       const view = randomBytes(16).toString('hex');
@@ -111,17 +127,25 @@ export function createOwnerControl({ origin, getPage, clock = Date.now }) {
         expire();
         if (req.url === '/owner/claim') {
           if (session || !ticket || typeof body.ticket !== 'string' ||
-              hash(body.ticket) !== ticket.digest) fail('OWNER_LINK_EXPIRED');
-          const pending = ticket; ticket = null;
+              hash(body.ticket) !== ticket.digest) {
+            if (!rejectionLogged) {
+              rejectionLogged = true;
+              record('LINK_REJECTED_' + (session ? 'SESSION_ACTIVE' : ticket ? 'TOKEN_MISMATCH' : lastTicketState));
+            }
+            fail('OWNER_LINK_EXPIRED');
+          }
+          const pending = ticket; ticket = null; lastTicketState = 'CONSUMED';
           await safePage(pending);
           const secret = token();
           session = { auth: hash(`Bearer ${secret}`), targetId: pending.targetId,
             expires: clock() + 600000, generation: ++generation };
+          record('LINK_CLAIMED');
           json(res, 200, { secret, expiresAt: session.expires });
         } else {
           const current = authorize(req);
           if (req.url === '/owner/finish') {
             session = null; frame = null; generation++;
+            record('CONTROL_RELEASED');
             json(res, 200, { state: 'RELEASED', loginVerified: false });
           } else if (req.url === '/owner/frame') {
             const page = await safePage(current);

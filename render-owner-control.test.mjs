@@ -2,16 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { createOwnerControl, parseRPC, OWNER_LINK_TTL_MS } from './render-owner-control.mjs';
+import { isOwnerObservation } from './render-owner-upstream.mjs';
 const origin = 'https://owner.example';
 const targetId = 'A'.repeat(32);
 function fixture() {
   let now = 1000;
-  const actions = [];
+  const actions = [], audit = [];
   const png = Buffer.alloc(24); png.writeUInt32BE(1280, 16); png.writeUInt32BE(900, 20);
   const page = { isClosed: () => false, url: () => 'https://login.example', screenshot: async () => png,
     mouse: { click: async (...args) => actions.push(['click', ...args]), wheel: async (...args) => actions.push(['scroll', ...args]) },
     keyboard: { insertText: async value => actions.push(['text', value]), press: async value => actions.push(['key', value]) } };
-  const control = createOwnerControl({ origin, clock: () => now, getPage: async id => {
+  const control = createOwnerControl({ origin, clock: () => now, audit: code => audit.push(code), getPage: async id => {
     assert.equal(id, targetId); return page;
   } });
   async function request(path, body, secret, extra = {}) {
@@ -31,8 +32,43 @@ function fixture() {
   }
   const offer = () => control.offer(targetId).split('#')[1];
   const claim = async () => (await request('claim', { ticket: offer() })).body.secret;
-  return { control, request, get, offer, claim, actions, page, advance: ms => { now += ms; } };
+  return { control, request, get, offer, claim, actions, audit, page, advance: ms => { now += ms; } };
 }
+test('tab-list availability checks preserve offers, while tab selection still revokes them', async () => {
+  const f = fixture();
+  const classify = (action, name = 'browser_tabs') => isOwnerObservation({ method: 'tools/call',
+    params: { name, arguments: { action } } });
+  const first = f.offer();
+  assert.equal(classify('list'), true);
+  f.control.beginMCP(null, false, { preserveOffer: classify('list') }); f.control.endMCP();
+  assert.equal((await f.request('claim', { ticket: first })).status, 200);
+  const g = fixture();
+  for (const action of ['new', 'select', 'close', undefined]) assert.equal(classify(action), false);
+  assert.equal(classify('list', 'browser_run_code_unsafe'), false);
+  const second = g.offer();
+  g.control.beginMCP(null, false, { preserveOffer: classify('select'), operation: 'browser_tabs' });
+  g.control.endMCP();
+  assert.equal((await g.request('claim', { ticket: second })).status, 403);
+  assert.deepEqual(g.audit, ['LINK_OFFERED', 'LINK_REVOKED_MCP_ACTION:browser_tabs', 'LINK_REJECTED_MCP_ACTION']);
+});
+test('claim diagnostics distinguish invalidation, timeout and token mismatch without logging credentials', async () => {
+  const f = fixture(), ticket = f.offer();
+  await f.request('claim', { ticket: 'private-invalid-ticket' });
+  await f.request('claim', { ticket: 'private-invalid-ticket' });
+  assert.deepEqual(f.audit, ['LINK_OFFERED', 'LINK_REJECTED_TOKEN_MISMATCH']);
+  const claim = await f.request('claim', { ticket });
+  await f.request('finish', {}, claim.body.secret);
+  assert.deepEqual(f.audit.slice(-2), ['LINK_CLAIMED', 'CONTROL_RELEASED']);
+  const second = f.offer(); f.advance(OWNER_LINK_TTL_MS);
+  await f.request('claim', { ticket: second });
+  assert.deepEqual(f.audit.slice(-2), ['LINK_TIMED_OUT', 'LINK_REJECTED_TIMED_OUT']);
+  f.offer();
+  f.control.beginMCP('private-command', false, { operation: 'private-operation' }); f.control.endMCP();
+  assert.equal(f.audit.at(-1), 'LINK_REVOKED_MCP_ACTION:other');
+  assert.ok(!JSON.stringify(f.audit).includes('private-'));
+  assert.ok(!JSON.stringify(f.audit).includes(ticket));
+  assert.ok(!JSON.stringify(f.audit).includes(claim.body.secret));
+});
 test('GPT link-tracking query renders viewer without granting access', async () => {
   const f = fixture();
   const ticket = f.offer();

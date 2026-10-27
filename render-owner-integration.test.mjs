@@ -79,6 +79,7 @@ test('same-tab owner login, MCP pause/resume, persistent login and expiry', { ti
     }).find(c => c?.owner_view_url);
     assert.ok(offer, JSON.stringify(screenshot.content.filter(c => c.type === 'text')));
     const ticket = new URL(offer.owner_view_url).hash.slice(1);
+    assert.ok(!(await tool('browser_tabs', { action: 'list' })).isError);
     // The JH self-diagnostic/readback may inspect the same page while the
     // owner switches devices. It must not revoke the pending 30-minute link.
     const interveningRead = await tool('browser_snapshot');
@@ -109,6 +110,10 @@ test('same-tab owner login, MCP pause/resume, persistent login and expiry', { ti
     const snapshot = await tool('browser_snapshot');
     assert.match(JSON.stringify(snapshot), /Fixture account A/);
     assert.ok(!logs.includes('synthetic-password-should-not-appear-in-logs'));
+    assert.ok(!logs.includes(ticket));
+    assert.ok(!logs.includes(secret));
+    assert.match(logs, /LINK_CLAIMED/);
+    assert.match(logs, /CONTROL_RELEASED/);
     proxy.kill('SIGTERM'); await new Promise(resolve => proxy.once('exit', resolve)); proxy = null;
     await context.close();
     context = await launchOwnerBrowser({ profile, port: 9222, persistent: false,
@@ -127,3 +132,4 @@ test('same-tab owner login, MCP pause/resume, persistent login and expiry', { ti
     await rm(profile, { recursive: true, force: true });
   }
 });
+

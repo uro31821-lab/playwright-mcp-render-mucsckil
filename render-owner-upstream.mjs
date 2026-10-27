@@ -1,6 +1,20 @@
 import http from 'node:http';
 import { createOwnerControl, parseRPC, readJSON, OWNER_LINK_TTL_MS } from './render-owner-control.mjs';
 
+// Tab inventory is used by availability checks and cannot change the selected
+// page. All other tab actions (new/select/close) still invalidate an offer.
+export function isOwnerObservation(body) {
+  return body.method === 'tools/call' && (body.params?.name === 'browser_snapshot' ||
+    (body.params?.name === 'browser_tabs' && body.params?.arguments?.action === 'list'));
+}
+
+function diagnosticOperation(body) {
+  const known = ['browser_snapshot', 'browser_tabs', 'browser_take_screenshot',
+    'browser_navigate', 'browser_click', 'browser_type', 'browser_press_key',
+    'browser_run_code_unsafe', 'browser_close', 'browser_wait_for'];
+  return body.method === 'tools/call' && known.includes(body.params?.name) ? body.params.name : 'other';
+}
+
 export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
   if (cdpURL !== 'http://127.0.0.1:9222') throw Error('OWNER_CDP_CONFIG_INVALID');
   const { chromium } = await import('playwright');
@@ -22,7 +36,8 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
     }
     return null;
   };
-  const owner = createOwnerControl({ origin, getPage });
+  const owner = createOwnerControl({ origin, getPage,
+    audit: code => console.error('[owner] ' + code) });
   const rpc = async (body, headers) => {
     // Node's global fetch silently replaces a caller-supplied Host header with
     // 127.0.0.1, defeating upstream --allowed-hosts for the Secure MCP Tunnel.
@@ -76,10 +91,9 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
           // phone. The built-in browser_snapshot only observes the current
           // tab; all other browser commands continue to revoke pending links
           // (or fail once the owner has claimed control).
-          const observeOnly = body.method === 'tools/call' &&
-            body.params?.name === 'browser_snapshot';
+          const observeOnly = isOwnerObservation(body);
           owner.beginMCP(body.params?._meta?.jhCommandId, false,
-            { preserveOffer: observeOnly });
+            { preserveOffer: observeOnly, operation: diagnosticOperation(body) });
           entered = true;
         }
         const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream',
@@ -128,3 +142,4 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
     },
   };
 }
+
