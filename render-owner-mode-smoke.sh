@@ -11,7 +11,12 @@ import socket
 s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()
 PY
 )"
-mkdir -p "$TMP/disk"
+# Simulate a Chromium singleton symlink left behind by the previous Render
+# disk-backed instance. Never use actual user credentials or profile data.
+mkdir -p "$TMP/disk/jh-browser-profile"
+ln -s 'old-render-hostname-999999' "$TMP/disk/jh-browser-profile/SingletonLock"
+ln -s '/tmp/old-render-singleton-socket' "$TMP/disk/jh-browser-profile/SingletonSocket"
+ln -s 'synthetic-cookie' "$TMP/disk/jh-browser-profile/SingletonCookie"
 cleanup() {
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   # Chromium creates the test profile as root with mode 0700.
@@ -48,6 +53,18 @@ if [[ "$handshake" != OK ]]; then
   docker logs "$NAME" | tail -60 >&2
   exit 1
 fi
+# The initial startup had a fake stale Chromium singleton. Recovery must
+# have archived it before successfully answering authenticated MCP traffic.
+if ! docker logs "$NAME" 2>&1 | grep -q 'OWNER_SINGLETON_ARCHIVED_FOR_RETRY'; then
+  echo 'FAIL: stale-profile lock recovery did not run' >&2; exit 1;
+fi
+if ! docker exec "$NAME" sh -c '
+  set -- /var/data/jh-browser-profile/.jh-archived-singletons/*/SingletonLock
+  test -L "$1"
+'; then
+  echo 'FAIL: old SingletonLock was not privately archived' >&2; exit 1;
+fi
+echo 'PASS: Render-style stale browser singleton archived without losing profile'
 # Real ChatGPT link taps add ?utm_source=chatgpt.com to the viewer path.
 # That GET must work without bearer authentication. Unknown query variations
 # must not bypass the strict owner routing or single-use POST claim gate.
