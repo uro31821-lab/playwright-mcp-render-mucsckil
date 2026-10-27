@@ -11,7 +11,12 @@ import socket
 s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1]);s.close()
 PY
 )"
-mkdir -p "$TMP/disk"
+# Simulate a Chromium singleton symlink left behind by the previous Render
+# disk-backed instance. Never use actual user credentials or profile data.
+mkdir -p "$TMP/disk/jh-browser-profile"
+ln -s 'old-render-hostname-999999' "$TMP/disk/jh-browser-profile/SingletonLock"
+ln -s '/tmp/old-render-singleton-socket' "$TMP/disk/jh-browser-profile/SingletonSocket"
+ln -s 'synthetic-cookie' "$TMP/disk/jh-browser-profile/SingletonCookie"
 cleanup() {
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   # Chromium creates the test profile as root with mode 0700.
