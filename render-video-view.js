@@ -1,4 +1,7 @@
 'use strict';
+// A same-tab fragment navigation does not re-run this script. Reload to bind
+// every request and file selection to the newly opened capability and role.
+addEventListener('hashchange', () => location.reload());
 const $ = id => document.getElementById(id);
 const fragment = new URLSearchParams(location.hash.slice(1));
 const purpose = fragment.has('upload') ? 'upload' : 'read';
