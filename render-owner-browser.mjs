@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { mkdir, chmod, readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { startupFailureCode } from './render-owner-startup-diagnostics.mjs';
 
 export async function requirePersistentMount(profile, mountInfo = '/proc/self/mountinfo') {
   if (profile !== '/var/data/jh-browser-profile') throw Error('OWNER_PROFILE_PATH_INVALID');
@@ -48,9 +49,10 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
     for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => void stop(signal));
     child.on('error', () => { void stop('SIGTERM'); process.exitCode = 1; });
     child.on('exit', async code => { await context.close(); process.exitCode = code ?? 1; });
-  } catch {
-    console.error('[owner] Persistent browser startup failed; verify the disk and configuration.');
+  } catch (error) {
+    console.error('[owner] Persistent browser startup failed: ' + startupFailureCode(error));
     await context?.close();
     process.exitCode = 1;
   }
 }
+
