@@ -39,6 +39,11 @@ async function fixture(t) {
       res.end('<!doctype html><title>Local fixture</title><label style="display:block;margin:30px">Fixture input<input id="fixture-input" style="display:block;width:300px;height:40px"></label>');
       return;
     }
+    // Chromium may request /favicon.ico while the target page is loading,
+    // before owner control is initialized. Only owner routes use that handler.
+    if (!req.url?.startsWith('/owner/')) {
+      res.writeHead(404); res.end(); return;
+    }
     if (req.url === '/owner/claim') requests.claim++;
     if (req.url === '/owner/finish') requests.finish++;
     if (req.url === '/owner/input') requests.input++;
