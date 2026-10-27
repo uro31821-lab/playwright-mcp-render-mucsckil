@@ -13,6 +13,7 @@ const fail = code => { throw Error(code); };
 // Keep the inode forever: deleting a flock file would allow two independent locks.
 // An inherited descriptor prevents following a substituted path in flock.
 export async function acquireProfileLease(profile) {
+  if (await realpath(profile) !== profile) fail('OWNER_PROFILE_UNSAFE');
   const file = await open(path.join(profile, '.jh-owner-lease'),
     constants.O_CREAT | constants.O_RDWR | constants.O_NOFOLLOW, 0o600);
   const stat = await file.stat();
@@ -107,7 +108,7 @@ export async function recoverProfileSingletons(profile, lease, {
   if (await realpath(archiveRoot) !== archiveRoot || !(await lstat(archiveRoot)).isDirectory()) fail('OWNER_PROFILE_UNSAFE');
   const archive = await mkdtemp(path.join(archiveRoot, 'recovery-'));
   // Keep SingletonLock until last, so a concurrent unmanaged Chromium cannot
-  // start while stale auxiliary links are being removed. Targets are untouched.
+  // start while stale auxiliary links are being archived. Targets are untouched.
   for (const entry of [entries[1], entries[2], lock].filter(Boolean)) {
     await unchanged(entry); lease.assertHeld();
     await rename(path.join(profile, entry.name), path.join(archive, entry.name));

@@ -45,3 +45,25 @@ echo 'PASS: graceful shutdown closes Chromium and releases its singleton'
 start third-render-instance
 ready
 echo 'PASS: next deployment starts with the same persistent profile'
+docker stop --time 15 "$NAME" >/dev/null
+docker rm "$NAME" >/dev/null
+
+# Hold startup before readiness. PID 1 must forward TERM without waiting for
+# the 65-second readiness deadline (Render's shutdown budget is shorter).
+cat > "$TMP/slow-start.mjs" <<'JS'
+import { writeFileSync } from 'node:fs';
+process.on('SIGTERM', () => { writeFileSync('/var/data/term-forwarded', 'ok'); process.exit(0); });
+writeFileSync('/var/data/slow-start-ready', 'ok');
+setInterval(() => {}, 1000);
+JS
+docker run -d --name "$NAME" -e JH_OWNER_VIEW=1 \
+  -v "$TMP/disk:/var/data" -v "$TMP/slow-start.mjs:/app/render-owner-browser.mjs:ro" "$IMAGE" >/dev/null
+for _ in $(seq 1 60); do
+  if [[ -f "$TMP/disk/slow-start-ready" ]]; then break; fi
+  sleep .1
+done
+[[ -f "$TMP/disk/slow-start-ready" ]]
+docker stop --time 5 "$NAME" >/dev/null
+[[ "$(docker inspect -f '{{.State.ExitCode}}' "$NAME")" == 0 ]]
+[[ -f "$TMP/disk/term-forwarded" ]]
+echo 'PASS: TERM reaches the owner process during readiness wait'
