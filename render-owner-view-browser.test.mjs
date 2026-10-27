@@ -10,7 +10,9 @@ import { chromium } from 'playwright';
 import { createOwnerControl, OWNER_LINK_TTL_MS } from './render-owner-control.mjs';
 
 let browser;
-before(async () => { browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] }); });
+// Match render-owner-browser.mjs: the production image ships full Chromium,
+// not the separate chromium-headless-shell binary used by the default launch.
+before(async () => { browser = await chromium.launch({ channel: 'chromium', headless: true, args: ['--no-sandbox'] }); });
 after(async () => { await browser?.close(); });
 const targetId = 'A'.repeat(32);
 
