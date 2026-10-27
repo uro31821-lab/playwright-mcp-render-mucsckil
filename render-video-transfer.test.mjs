@@ -36,6 +36,10 @@ test('upload, immutable result, download bytes and ranges survive restart', asyn
   assert.equal(result.state, 'READY'); assert.equal(result.durationSeconds, 10);
   assert.equal(result.bytes, bytes.length); assert.match(result.sha256, /^[a-f0-9]{64}$/);
   const url = f.local(result.downloadUrl);
+  assert.match((await fetch(url, { method: 'HEAD' })).headers.get('content-disposition'), /^attachment;/);
+  const playback = await fetch(f.local(result.playbackUrl), { method: 'HEAD' });
+  assert.match(playback.headers.get('content-disposition'), /^inline;/);
+  assert.equal(playback.headers.get('content-type'), 'video/mp4');
   assert.deepEqual(Buffer.from(await (await fetch(url)).arrayBuffer()), bytes);
   const partial = await fetch(url, { headers: { Range: 'bytes=4-7' } });
   assert.equal(partial.status, 206); assert.equal(await partial.text(), 'ftyp');
