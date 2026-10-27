@@ -101,7 +101,9 @@ export async function createVideoTransfer({ origin, root, secret, clock = Date.n
     state: active.has(r.id) ? 'UPLOADING' : r.state, maxBytes,
     uploadExpiresAt: r.uploadExpiresAt, expiresAt: r.expiresAt,
     ...(r.state === 'READY' ? { bytes: r.bytes, sha256: r.sha256, mime: r.mime,
-      durationSeconds: r.durationSeconds, downloadUrl: `${origin}/video-transfer/file/${cap(r, 'read')}/video.${r.extension}` } : {}) });
+      durationSeconds: r.durationSeconds,
+      playbackUrl: `${origin}/video-transfer/file/${cap(r, 'read')}/video.${r.extension}`,
+      downloadUrl: `${origin}/video-transfer/file/${cap(r, 'read')}/video.${r.extension}?download=1` } : {}) });
   const links = r => ({ ...status(r),
     uploadUrl: `${origin}/video-transfer/?view=${r.id}#upload=${cap(r, 'upload')}`,
     resultUrl: `${origin}/video-transfer/?view=${r.id}#result=${cap(r, 'read')}` });
@@ -202,7 +204,7 @@ export async function createVideoTransfer({ origin, root, secret, clock = Date.n
           if (!stat.isFile() || stat.size !== r.bytes) { await fd.close(); fail('VIDEO_FILE_UNAVAILABLE'); }
           res.writeHead(partial ? 206 : 200, { ...HEADERS, 'Content-Type': r.mime,
             'Content-Length': end - start + 1, 'Accept-Ranges': 'bytes',
-            'Content-Disposition': `attachment; filename="gemini-video.${r.extension}"`,
+            'Content-Disposition': `${url.searchParams.get('download') === '1' ? 'attachment' : 'inline'}; filename="gemini-video.${r.extension}"`,
             ...(partial ? { 'Content-Range': `bytes ${start}-${end}/${r.bytes}` } : {}) });
           if (req.method === 'HEAD') { await fd.close(); res.end(); }
           else await pipeline(fd.createReadStream({ start, end }), res);
@@ -222,6 +224,6 @@ export async function createVideoTransfer({ origin, root, secret, clock = Date.n
 export const VIDEO_TOOLS = [
   { name: 'browser_video_transfer_create', description: 'Create a private upload link for one existing phone video and a result link. Does not generate a video or upload without user file selection. Reuse task_id for retries. Links expire; return only to the requesting user.',
     inputSchema: { type: 'object', properties: { task_id: { type: 'string', pattern: '^[a-f0-9]{32}$' } }, required: ['task_id'], additionalProperties: false } },
-  { name: 'browser_video_transfer_status', description: 'Read this task’s video transfer. READY includes an expiring video download URL, actual bytes, digest and duration. WAITING is not a completed transfer.',
+  { name: 'browser_video_transfer_status', description: 'Read this task’s video transfer. READY includes playbackUrl for immediate browser viewing and a separate downloadUrl, actual bytes, digest and duration. Prefer playbackUrl in ChatGPT replies. WAITING is not a completed transfer.',
     inputSchema: { type: 'object', properties: { task_id: { type: 'string' }, transfer_id: { type: 'string' } }, required: ['task_id', 'transfer_id'], additionalProperties: false } },
 ];

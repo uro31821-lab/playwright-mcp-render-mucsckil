@@ -6,7 +6,7 @@ const $ = id => document.getElementById(id);
 const fragment = new URLSearchParams(location.hash.slice(1));
 const purpose = fragment.has('upload') ? 'upload' : 'read';
 const token = fragment.get(purpose === 'upload' ? 'upload' : 'result');
-let sending = false, ready = false, downloadUrl;
+let sending = false, ready = false, playbackUrl;
 const errors = { VIDEO_LINK_EXPIRED: '이 연결의 사용 기간이 끝났습니다. ChatGPT에서 새 영상 전달 링크를 요청하세요.',
   VIDEO_LINK_INVALID: 'ChatGPT에서 받은 영상 전달 링크를 열어주세요.', VIDEO_SIZE_INVALID: '64 MB 이하의 영상 하나를 선택하세요.',
   VIDEO_TYPE_INVALID: 'MP4 또는 WebM 영상만 보낼 수 있습니다.', VIDEO_INVALID: '재생 가능한 영상 파일인지 확인해 주세요.',
@@ -17,11 +17,13 @@ function show(s) {
   $('result').hidden = !ready;
   $('refresh').hidden = ready;
   if (ready) {
-    downloadUrl = s.downloadUrl;
+    playbackUrl = s.playbackUrl;
     $('status').textContent = '영상 파일을 받아 확인했습니다.';
-    $('download').href = downloadUrl;
+    $('download').href = s.downloadUrl;
+    $('watch').href = playbackUrl;
+    if ($('player').src !== playbackUrl) $('player').src = playbackUrl;
     $('details').textContent = `${s.durationSeconds.toFixed(1)}초 · ${(s.bytes / 1048576).toFixed(1)} MB`;
-    $('expiry').textContent = `다운로드 가능 시간: ${new Date(s.expiresAt).toLocaleString('ko-KR')}까지`;
+    $('expiry').textContent = `재생 가능 시간: ${new Date(s.expiresAt).toLocaleString('ko-KR')}까지`;
   } else $('status').textContent = s.state === 'UPLOADING' ? '영상 전송을 확인하고 있습니다.' : '영상 파일을 기다리고 있습니다.';
 }
 async function refresh() {
@@ -58,7 +60,7 @@ $('send').addEventListener('click', () => {
 });
 $('refresh').addEventListener('click', refresh);
 $('copy').addEventListener('click', async () => {
-  try { await navigator.clipboard.writeText(downloadUrl); $('copy').textContent = '링크를 복사했습니다'; }
-  catch { $('status').textContent = '영상 다운로드 버튼을 길게 눌러 링크를 복사할 수 있습니다.'; }
+  try { await navigator.clipboard.writeText(playbackUrl); $('copy').textContent = '재생 링크를 복사했습니다'; }
+  catch { $('status').textContent = '영상 크게 보기 버튼을 길게 눌러 재생 링크를 복사할 수 있습니다.'; }
 });
 refresh();

@@ -1,7 +1,7 @@
 # 휴대폰 영상 → ChatGPT 결과 링크
 
 Gemini에서 이미 만든 영상을 저장한 뒤 전용 페이지에서 파일 하나를 선택하면
-검증된 MP4/WebM 다운로드 링크를 돌려준다. Google 로그인, API 과금,
+검증된 MP4/WebM 재생 링크를 돌려준다. 링크를 열면 브라우저에서 재생하며, 결과 페이지에도 플레이어가 표시된다. Google 로그인, API 과금,
 휴대폰 전체 파일 접근, JH 중계 서버 변경, 새 APK 설치가 필요하지 않다.
 
 ## 사용 흐름
@@ -11,7 +11,8 @@ Gemini에서 이미 만든 영상을 저장한 뒤 전용 페이지에서 파일
 2. `uploadUrl`을 해당 사용자에게 표시한다. 휴대폰에서 저장한 영상 하나를 선택하고
    **영상 보내기**를 누르면 다운로드 링크가 생성된다.
 3. `browser_video_transfer_status({task_id,transfer_id})`에서 `READY`와 `downloadUrl`을
-   확인해 ChatGPT 답변에 링크로 표시한다. `WAITING`/`UPLOADING`은 완료가 아니다.
+   확인하되, ChatGPT 답변에는 즉시 재생하는 `playbackUrl`을 우선 표시한다.
+   `downloadUrl`은 명시적으로 파일 저장을 요청한 경우만 사용한다. `WAITING`/`UPLOADING`은 완료가 아니다.
 
 기존 JH 연결에 새 MCP 도구가 노출되지 않는 경우에도 동작한다.
 기존 `life_web_navigate`로 **이 서버의** `/video-transfer/?task=<task_id>`를 열면
