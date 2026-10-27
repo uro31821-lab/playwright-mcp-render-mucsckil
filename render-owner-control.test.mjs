@@ -48,6 +48,25 @@ test('GPT link-tracking query renders viewer without granting access', async () 
   // Viewing the HTML does not consume the one-use credential.
   assert.equal((await f.request('claim', { ticket })).status, 200);
 });
+test('every offer has a distinct nonsecret document URL, separate from its credential', async () => {
+  const f = fixture();
+  const first = new URL(f.control.offer(targetId));
+  const second = new URL(f.control.offer(targetId));
+  assert.match(second.searchParams.get('view') || '', /^[a-f0-9]{32}$/);
+  assert.notEqual(first.search, second.search);
+  assert.ok(!second.search.includes(second.hash.slice(1)));
+  assert.equal((await f.get(second.pathname + second.search)).status, 200);
+  assert.equal((await f.get(second.pathname + second.search + '&utm_source=chatgpt.com')).status, 200);
+  assert.equal((await f.request('claim', { ticket: second.searchParams.get('view') })).status, 403);
+  assert.equal((await f.request('claim', { ticket: second.hash.slice(1) })).status, 200);
+});
+test('viewer query accepts only bounded public routing fields, not credentials or duplicate fields', async () => {
+  const f = fixture(), view = 'a'.repeat(32);
+  for (const query of ['view=bad', `view=${view}&view=${view}`, `view=${view}&token=secret`,
+    `view=${view}&utm_source=unknown`, `utm_source=chatgpt.com&utm_source=chatgpt.com`]) {
+    assert.equal((await f.get('/owner/?' + query)).status, 403, query);
+  }
+});
 test('ticket is one-use and does not grant MCP authorization', async () => {
   const f = fixture(), ticket = f.offer();
   const first = await f.request('claim', { ticket });
