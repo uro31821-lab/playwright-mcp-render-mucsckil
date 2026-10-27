@@ -33,6 +33,7 @@ export function createOwnerControl({ origin, getPage, clock = Date.now, audit = 
   if (new URL(origin).origin !== origin || !origin.startsWith('https://')) fail('OWNER_ORIGIN_INVALID');
   let ticket = null, session = null, busy = false, frame = null, lastCommand = null, generation = 0;
   let lastTicketState = 'NONE', rejectionLogged = false;
+  const observedOperations = new Set();
   // Fixed categories only: never emit tokens, command IDs, page URLs, inputs,
   // request bodies, or raw errors. Limit rejected-claim logging to one per offer.
   const record = code => { try { audit(code); } catch {} };
@@ -71,15 +72,25 @@ export function createOwnerControl({ origin, getPage, clock = Date.now, audit = 
       // Tickets still expire, remain single-use, and are superseded on offer().
       const newCommand = !!command && lastCommand !== null && command !== lastCommand;
       if (command) lastCommand = command;
+      const known = ['browser_snapshot', 'browser_tabs', 'browser_take_screenshot',
+            'browser_navigate', 'browser_click', 'browser_type', 'browser_press_key',
+            'browser_run_code_unsafe', 'browser_close', 'browser_wait_for', 'browser_evaluate',
+            'browser_console_messages', 'browser_network_requests', 'browser_resize',
+            'browser_navigate_back', 'browser_handle_dialog', 'browser_install',
+            'browser_fill_form', 'browser_select_option', 'browser_drag', 'browser_hover',
+            'browser_file_upload', 'browser_pdf_save', 'resources/list', 'resources/templates/list',
+            'resources/read', 'resources/subscribe', 'resources/unsubscribe', 'prompts/list',
+            'prompts/get', 'notifications/cancelled'];
+      const safeOperation = known.includes(operation) ? operation : 'other';
       if (newCommand || !preserveOffer) {
         if (ticket) {
           lastTicketState = newCommand ? 'NEW_COMMAND' : 'MCP_ACTION';
-          const known = ['browser_snapshot', 'browser_tabs', 'browser_take_screenshot',
-            'browser_navigate', 'browser_click', 'browser_type', 'browser_press_key',
-            'browser_run_code_unsafe', 'browser_close', 'browser_wait_for'];
-          record('LINK_REVOKED_' + lastTicketState + ':' + (known.includes(operation) ? operation : 'other'));
+          record('LINK_REVOKED_' + lastTicketState + ':' + safeOperation);
         }
         ticket = null;
+      } else if (ticket && !observedOperations.has(safeOperation)) {
+        observedOperations.add(safeOperation);
+        record('LINK_PRESERVED:' + safeOperation);
       }
     },
     endMCP: leave,
@@ -87,7 +98,7 @@ export function createOwnerControl({ origin, getPage, clock = Date.now, audit = 
       if (!/^[a-fA-F0-9]{32}$/.test(targetId) || session) fail('OWNER_TARGET_INVALID');
       const value = token();
       ticket = { digest: hash(value), targetId, expires: clock() + OWNER_LINK_TTL_MS };
-      lastTicketState = 'OFFERED'; rejectionLogged = false; record('LINK_OFFERED');
+      lastTicketState = 'OFFERED'; rejectionLogged = false; observedOperations.clear(); record('LINK_OFFERED');
       // Public, independent nonce forces a new document when a phone reuses the
       // same tab. It is not a credential; authorization remains in the fragment.
       const view = randomBytes(16).toString('hex');

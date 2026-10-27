@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { createOwnerControl, parseRPC, OWNER_LINK_TTL_MS } from './render-owner-control.mjs';
-import { isOwnerObservation } from './render-owner-upstream.mjs';
+import { isOwnerObservation, diagnosticOperation } from './render-owner-upstream.mjs';
 const origin = 'https://owner.example';
 const targetId = 'A'.repeat(32);
 function fixture() {
@@ -68,6 +68,24 @@ test('claim diagnostics distinguish invalidation, timeout and token mismatch wit
   assert.ok(!JSON.stringify(f.audit).includes('private-'));
   assert.ok(!JSON.stringify(f.audit).includes(ticket));
   assert.ok(!JSON.stringify(f.audit).includes(claim.body.secret));
+});
+test('post-screenshot MCP resource retrieval/discovery cannot revoke the offered link', async () => {
+  const f = fixture(), ticket = f.offer();
+  for (const method of ['resources/read', 'resources/list', 'resources/templates/list',
+    'resources/subscribe', 'resources/unsubscribe', 'prompts/list', 'prompts/get', 'notifications/cancelled']) {
+    const body = { method, params: { uri: 'private-generated-resource', requestId: 'private-request' } };
+    assert.equal(isOwnerObservation(body), true);
+    f.control.beginMCP(null, false, { preserveOffer: isOwnerObservation(body), operation: diagnosticOperation(body) });
+    f.control.endMCP();
+  }
+  assert.equal((await f.request('claim', { ticket })).status, 200);
+  // Resource reads remain fenced after takeover: no relaxed manual-control lock.
+  assert.throws(() => f.control.beginMCP(null, false, { preserveOffer: true }), /OWNER_CONTROL_ACTIVE/);
+  assert.equal(isOwnerObservation({ method: 'unknown' }), false);
+  assert.equal(isOwnerObservation({ method: 'tools/call', params: { name: 'browser_evaluate' } }), false);
+  assert.equal(diagnosticOperation({ method: 'private-method', params: { name: 'private-key' } }), 'other');
+  assert.equal(diagnosticOperation({ method: 'resources/read', params: { uri: 'private-resource' } }), 'resources/read');
+  assert.equal(diagnosticOperation({ method: 'tools/call', params: { name: 'browser_evaluate', arguments: { code: 'private-code' } } }), 'browser_evaluate');
 });
 test('GPT link-tracking query renders viewer without granting access', async () => {
   const f = fixture();
