@@ -34,7 +34,7 @@ jobs:
           node-version: 22
 
       - name: Test the auth gate
-        run: npm run test:wrapper && node --test render-owner-control.test.mjs render-owner-view.test.mjs render-owner-http.test.mjs render-owner-startup.test.mjs render-owner-profile-lock.test.mjs
+        run: npm run test:wrapper && node --test render-owner-control.test.mjs render-owner-view.test.mjs render-owner-http.test.mjs render-owner-startup.test.mjs render-owner-profile-lock.test.mjs render-video-transfer.test.mjs
 
   smoke:
     name: Wrapper smoke test
@@ -65,3 +65,6 @@ jobs:
 
       - name: Real Chromium owner viewer navigation, input and handback
         run: docker run --rm --entrypoint node playwright-mcp-render:smoke --test /app/render-owner-view-browser.test.mjs
+
+      - name: Video handoff MCP compatibility and real browser upload/download
+        run: docker run --rm --entrypoint node playwright-mcp-render:smoke --test /app/render-video-mcp.test.mjs /app/render-video-browser.test.mjs
