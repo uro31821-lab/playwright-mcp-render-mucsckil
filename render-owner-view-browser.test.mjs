@@ -122,22 +122,24 @@ test('real viewer inputs into its target and queues Finish while a screenshot is
   await f.fixturePage.waitForFunction(() => document.activeElement.id === 'fixture-input');
   t.diagnostic('Target fixture input focused');
   await f.waitReady();
+  const inputFrameStarted = f.holdFrame();
+  await f.viewer.locator('#refresh').click(); await inputFrameStarted;
   await f.viewer.locator('#text').fill('local-fixture-text');
-  await f.viewer.locator('#entry button').click();
-  t.diagnostic(JSON.stringify({ requests: f.requests, viewer: await f.viewer.evaluate(() => ({
-    busy, hasFrame: Boolean(frame), inputLength: document.getElementById('text').value.length,
-    status: document.getElementById('status').textContent,
-  })), target: await f.fixturePage.evaluate(() => ({
-    activeId: document.activeElement.id, inputLength: document.getElementById('fixture-input').value.length,
-  })) }));
+  assert.equal(await f.viewer.locator('#send').isDisabled(), true);
+  assert.equal(f.requests.input, 1); // Only the earlier canvas click was sent.
+  assert.equal(await f.viewer.locator('#text').inputValue(), 'local-fixture-text');
+  f.releaseFrame(); await f.waitReady();
+  await f.viewer.locator('#send').click();
   await f.fixturePage.waitForFunction(() => document.getElementById('fixture-input').value === 'local-fixture-text');
   t.diagnostic('Target fixture input received text');
   await f.waitReady();
+  assert.equal(f.requests.input, 2); // Exactly one text submission, no replay.
   assert.throws(() => f.control.beginMCP(), /OWNER_CONTROL_ACTIVE/);
   const started = f.holdFrame();
   await f.viewer.locator('#refresh').click(); await started;
   t.diagnostic('Screenshot held pending Finish');
   await f.viewer.locator('#finish').click();
+  assert.equal(await f.viewer.locator('#send').isDisabled(), true);
   assert.equal(f.requests.finish, 0);
   assert.match(await f.viewer.locator('#status').textContent(), /완료 요청을 받았습니다/);
   f.releaseFrame();

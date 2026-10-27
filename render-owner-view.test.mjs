@@ -11,9 +11,9 @@ const bad = code => ({ ok: false, async json() { return { code }; } });
 const firstTicket = 'a'.repeat(43), secondTicket = 'b'.repeat(43);
 function fixture({ stallFrame = true, finishFailure = false, claimFailure = false,
   initialHash = '#' + firstTicket, search = '', stallClaim = false } = {}) {
-  const ids = ['status', 'start', 'finish', 'entry', 'keys', 'screen', 'site', 'text', 'refresh'];
+  const ids = ['status', 'start', 'finish', 'entry', 'keys', 'screen', 'site', 'text', 'refresh', 'send'];
   const elements = Object.fromEntries(ids.map(id => [id, {
-    textContent: '', disabled: id === 'finish', hidden: ['entry','keys'].includes(id),
+    textContent: '', disabled: ['finish', 'send'].includes(id), hidden: ['entry','keys'].includes(id),
     value: '', width: 1280, height: 900, onclick: null,
   }]));
   elements.screen.getContext = () => ({ drawImage() {}, clearRect() {} });
@@ -128,6 +128,26 @@ test('Finish stays unavailable before claim and becomes available on successful 
   assert.equal(f.elements.finish.disabled, false);
   assert.equal(f.elements.start.hidden, true);
   assert.match(f.elements.status.textContent, /직접 조작 중/);
+});
+
+test('text submission stays disabled during a frame and retains typed text until an explicit ready submission', async () => {
+  const f = fixture({ stallFrame: true });
+  const starting = f.elements.start.onclick();
+  await flush(); await flush();
+  f.elements.text.value = 'local-fixture-text';
+  assert.equal(f.elements.send.disabled, true);
+  f.elements.entry.onsubmit({ preventDefault() {} });
+  assert.equal(f.elements.text.value, 'local-fixture-text');
+  assert.equal(f.calls.filter(x => x.path === '/owner/input').length, 0);
+  f.resumeFrame(); await starting;
+  assert.equal(f.elements.send.disabled, false);
+  assert.equal(f.calls.filter(x => x.path === '/owner/input').length, 0);
+  f.elements.entry.onsubmit({ preventDefault() {} });
+  await flush(); await flush();
+  const inputs = f.calls.filter(x => x.path === '/owner/input');
+  assert.equal(inputs.length, 1);
+  assert.equal(inputs[0].body.text, 'local-fixture-text');
+  assert.equal(f.elements.text.value, '');
 });
 
 test('Finish tapped during a pending screenshot is queued once and returns control after frame', async () => {

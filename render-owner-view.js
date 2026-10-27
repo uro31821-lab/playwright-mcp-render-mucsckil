@@ -2,6 +2,12 @@
 let ticket = '', secret = '', frame = '', timer, busy = false, finishRequested = false, lifecycle = 0;
 const $ = id => document.getElementById(id);
 const status = message => { $('status').textContent = message; };
+const setBusy = value => {
+  busy = value;
+  // Preserve typed text while a screenshot is pending. Only offer submission
+  // when a current frame can authorize it; never queue or replay text input.
+  $('send').disabled = busy || !secret || !frame || finishRequested;
+};
 const api = async (path, body) => {
   const requestLifecycle = lifecycle;
   const response = await fetch('/owner/' + path, { method: 'POST', credentials: 'omit',
@@ -13,6 +19,7 @@ const api = async (path, body) => {
   return result;
 };
 const clearControls = () => {
+  $('send').disabled = true;
   $('finish').disabled = true; $('entry').hidden = true; $('keys').hidden = true;
   $('text').value = ''; $('site').textContent = ''; frame = '';
   $('screen').getContext('2d').clearRect(0, 0, $('screen').width, $('screen').height);
@@ -43,7 +50,7 @@ const explain = e => {
 };
 async function refresh() {
   if (!secret || busy || finishRequested) return;
-  busy = true;
+  setBusy(true);
   try {
     const result = await api('frame', {});
     const bytes = Uint8Array.from(atob(result.image), c => c.charCodeAt(0));
@@ -51,7 +58,7 @@ async function refresh() {
     const screen = $('screen'); screen.width = result.width; screen.height = result.height;
     screen.getContext('2d').drawImage(bitmap, 0, 0); bitmap.close();
     frame = result.frame; $('site').textContent = result.site;
-  } catch (e) { explain(e); } finally { busy = false; }
+  } catch (e) { explain(e); } finally { setBusy(false); }
   clearTimeout(timer);
   // A user-requested handback has priority over another polling cycle.
   if (finishRequested) { void finishOwner(); return; }
@@ -59,21 +66,21 @@ async function refresh() {
 }
 async function input(body) {
   if (!secret || !frame || busy || finishRequested) return;
-  clearTimeout(timer); busy = true;
+  clearTimeout(timer); setBusy(true);
   const currentFrame = frame; frame = '';
   try { await api('input', { ...body, frame: currentFrame }); }
   catch (e) { explain(e); }
-  finally { busy = false; if (finishRequested) void finishOwner(); else await refresh(); }
+  finally { setBusy(false); if (finishRequested) void finishOwner(); else await refresh(); }
 }
 $('start').onclick = async () => {
   if (!ticket || secret || busy) return;
   $('start').disabled = true;
-  const claimTicket = ticket; ticket = ''; busy = true;
+  const claimTicket = ticket; ticket = ''; setBusy(true);
   try {
     const result = await api('claim', { ticket: claimTicket }); secret = result.secret;
     $('start').hidden = true; $('finish').disabled = false; $('entry').hidden = false; $('keys').hidden = false;
     status('직접 조작 중입니다. GPT 작업은 일시정지되어 있습니다. 연결은 10분 후 만료됩니다.');
-  } catch (e) { explain(e); } finally { busy = false; }
+  } catch (e) { explain(e); } finally { setBusy(false); }
   if (secret) await refresh();
 };
 $('screen').onclick = event => {
@@ -83,7 +90,7 @@ $('screen').onclick = event => {
 };
 $('entry').onsubmit = event => {
   event.preventDefault();
-  if (busy || !frame) return;
+  if (busy || !secret || !frame || finishRequested) return;
   const text = $('text').value; $('text').value = '';
   void input({ type: 'text', text });
 };
@@ -94,7 +101,7 @@ $('keys').onclick = event => {
 $('refresh').onclick = () => void refresh();
 async function finishOwner() {
   if (!finishRequested || !secret || busy) return;
-  clearTimeout(timer); busy = true;
+  clearTimeout(timer); setBusy(true);
   try {
     // A successful release ACK is required before claiming control returned
     // to GPT. Never replay a previous browser input or login operation.
@@ -107,13 +114,14 @@ async function finishOwner() {
     finishRequested = false;
     explain(e);
     if (secret) status('제어권 반환이 확인되지 않았습니다. 이전 입력은 반복하지 않습니다. 완료 버튼을 다시 눌러 확인할 수 있습니다.');
-  } finally { busy = false; }
+  } finally { setBusy(false); }
 }
 $('finish').onclick = () => {
   if (!secret) return;
   // Mobile screenshot polling can overlap a tap; queue Finish once rather
   // than silently returning while busy.
   finishRequested = true;
+  $('send').disabled = true;
   clearTimeout(timer);
   status('완료 요청을 받았습니다. 진행 중인 화면 갱신이 끝나면 GPT에 제어권을 돌려줍니다.');
   void finishOwner();
