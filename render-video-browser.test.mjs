@@ -32,6 +32,12 @@ test('phone-width upload produces a verified download, survives reload and opens
   const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   await page.goto(offer.uploadUrl);
+  await page.locator('#upload').waitFor({ state: 'visible' });
+  // Phone browsers often reuse the same document when only #fragment changes.
+  await page.goto(offer.resultUrl);
+  await page.locator('#upload').waitFor({ state: 'hidden' });
+  await page.goto(offer.uploadUrl);
+  await page.locator('#upload').waitFor({ state: 'visible' });
   await page.locator('#file').setInputFiles(video);
   await page.locator('#send').click();
   await page.locator('#result').waitFor({ state: 'visible' });
