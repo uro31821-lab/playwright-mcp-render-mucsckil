@@ -6,6 +6,10 @@ on:
       - '.github/workflows/jh167-connection-v2-ci.yml'
       - 'jh-server/owner-setup/connection-v2/**'
       - 'jh-server/owner-setup/deployment/jh167-connection-v2-*.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-split-lifecycle-policy.mjs'
+      - 'jh-server/owner-setup/deployment/durable-native-job-policy.mjs'
+      - 'jh-server/verification/jh167-split-lifecycle-safe.test.mjs'
+      - 'jh-server/verification/durable-computer-policy.test.mjs'
       - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
       - 'jh-server/owner-setup/deployment/jh167-right-pane-orchestrator-repair.mjs'
       - 'jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs'
@@ -60,3 +64,8 @@ jobs:
             jh-server/verification/right-pane-open-route.test.mjs \
             jh-server/owner-setup/trusted-server/dispatch-receipts.test.mjs \
             jh-server/verification/jh167-open-completion-http.test.mjs
+      - name: Validate exact SAVE_ANALYSIS and FINISH durable admission
+        run: |
+          node --check jh-server/owner-setup/deployment/jh167-split-lifecycle-policy.mjs
+          node --check jh-server/owner-setup/deployment/durable-native-job-policy.mjs
+          node --test --test-concurrency=1 jh-server/verification/jh167-split-lifecycle-safe.test.mjs jh-server/verification/durable-computer-policy.test.mjs

@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {classifySplitLifecycleJob} from './jh167-split-lifecycle-policy.mjs';
 /** Exact host-side routing policy. Does not grant phone approval, capture consent or a lease.
  * Operation identities exclude ephemeral authorization material, so a fresh token cannot
  * bypass a pending identical action. The sealed device still validates every grant.
@@ -28,6 +29,8 @@ export function durableNativeJobPolicy(job,payload){
  if(!object(job)||!object(payload))return deny('DURABLE_PAYLOAD_REQUIRED');
  if(payload.containsCredential===true||String(payload.dataClass||'NONE').toUpperCase()==='SECRET')return deny('DURABLE_SECRET_FORBIDDEN');
  if(job.type==='agent_snapshot')return answer('READ');
+ const lifecycle=classifySplitLifecycleJob(job,payload);
+ if(lifecycle)return lifecycle;
  // JH167 phone-side session START only captures the current screen into an
  // ephemeral in-memory guide context. STATUS reads it. Neither performs UI actions.
  // Exact Secure56 route and fresh scoped IDs are mandatory; all other session
