@@ -44,6 +44,14 @@ test('same-tab owner login, MCP pause/resume, persistent login and expiry', { ti
     return parseRPC(raw, id);
   };
   const tool = async (name, args = {}) => (await mcp('tools/call', { name, arguments: args })).result;
+  const clientResponse = async () => {
+    const response = await fetch(base + '/mcp', { method: 'POST', headers: {
+      'content-type': 'application/json', accept: 'application/json, text/event-stream',
+      authorization: 'Bearer synthetic-mcp-test-token-not-real',
+      'mcp-session-id': session, 'mcp-protocol-version': '2025-03-26',
+    }, body: JSON.stringify({ jsonrpc: '2.0', id: 'synthetic-server-request', result: { roots: [] } }) });
+    assert.equal(response.status, 202, await response.text());
+  };
   const api = async (endpoint, body, secret) => {
     const response = await fetch(base + '/owner/' + endpoint, { method: 'POST',
       headers: { origin: 'https://owner.example', 'content-type': 'application/json',
@@ -86,11 +94,13 @@ test('same-tab owner login, MCP pause/resume, persistent login and expiry', { ti
     await mcp('resources/templates/list');
     await mcp('prompts/list');
     await mcp('unsupported_protocol_method');
+    await clientResponse();
     // The JH self-diagnostic/readback may inspect the same page while the
     // owner switches devices. It must not revoke the pending 30-minute link.
     const interveningRead = await tool('browser_snapshot');
     assert.ok(!interveningRead.isError, JSON.stringify(interveningRead));
     const { secret } = await api('claim', { ticket });
+    await clientResponse();
     assert.ok((await tool('browser_snapshot')).isError);
     const privateReply = await fetch('http://127.0.0.1:8932/mcp', { method: 'POST',
       headers: { 'content-type': 'application/json', 'mcp-session-id': session,

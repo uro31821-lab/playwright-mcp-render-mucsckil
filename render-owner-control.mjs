@@ -60,6 +60,11 @@ export function createOwnerControl({ origin, getPage, clock = Date.now, audit = 
   };
   return {
     locked,
+    observeProtocolResponse() {
+      if (ticket && !observedOperations.has('rpc_response')) {
+        observedOperations.add('rpc_response'); record('LINK_PRESERVED:rpc_response');
+      }
+    },
     // All upstream requests with a body are serialized with manual interactions.
     beginMCP(command, metadata = false, { preserveOffer = false, operation = 'other' } = {}) {
       expire();
