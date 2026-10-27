@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { createOwnerControl, parseRPC, OWNER_LINK_TTL_MS } from './render-owner-control.mjs';
-import { isOwnerObservation, diagnosticOperation } from './render-owner-upstream.mjs';
+import { isOwnerObservation, diagnosticOperation, isMCPResponse } from './render-owner-upstream.mjs';
 const origin = 'https://owner.example';
 const targetId = 'A'.repeat(32);
 function fixture() {
@@ -34,6 +34,19 @@ function fixture() {
   const claim = async () => (await request('claim', { ticket: offer() })).body.secret;
   return { control, request, get, offer, claim, actions, audit, page, advance: ms => { now += ms; } };
 }
+test('only valid response envelopes bypass the browser-command fence', async () => {
+  assert.equal(isMCPResponse({ jsonrpc: '2.0', id: 'server-request', result: { roots: [] } }), true);
+  assert.equal(isMCPResponse({ jsonrpc: '2.0', id: 1, error: { code: -32601, message: 'Unsupported' } }), true);
+  for (const invalid of [null, [], {}, { jsonrpc: '2.0', id: null, result: {} },
+    { jsonrpc: '2.0', id: 1, result: {}, method: 'tools/call' },
+    { jsonrpc: '2.0', id: 1, result: {}, params: { name: 'browser_click' } },
+    { jsonrpc: '2.0', id: 1, result: {}, error: {} },
+    { jsonrpc: '2.0', id: 1, error: {} }]) assert.equal(!!isMCPResponse(invalid), false);
+  const f = fixture(), ticket = f.offer();
+  f.control.observeProtocolResponse(); f.control.observeProtocolResponse();
+  assert.deepEqual(f.audit, ['LINK_OFFERED', 'LINK_PRESERVED:rpc_response']);
+  assert.equal((await f.request('claim', { ticket })).status, 200);
+});
 test('tab-list availability checks preserve offers, while tab selection still revokes them', async () => {
   const f = fixture();
   const classify = (action, name = 'browser_tabs') => isOwnerObservation({ method: 'tools/call',

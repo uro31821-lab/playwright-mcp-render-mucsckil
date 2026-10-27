@@ -1,6 +1,18 @@
 import http from 'node:http';
 import { createOwnerControl, parseRPC, readJSON, OWNER_LINK_TTL_MS } from './render-owner-control.mjs';
 
+// Replies to server-initiated MCP requests (for example roots/list) have an
+// ID and result/error, but no method. They cannot start browser execution.
+// Forward them even while a tool awaits that reply or the owner holds control.
+export function isMCPResponse(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || body.jsonrpc !== '2.0' ||
+      Object.hasOwn(body, 'method') || !(typeof body.id === 'string' || Number.isSafeInteger(body.id))) return false;
+  const result = Object.hasOwn(body, 'result'), error = Object.hasOwn(body, 'error');
+  if (result === error || Object.keys(body).some(key => !['jsonrpc', 'id', 'result', 'error'].includes(key))) return false;
+  return result || (body.error && typeof body.error === 'object' && Number.isInteger(body.error.code) &&
+    typeof body.error.message === 'string');
+}
+
 // Tab inventory is used by availability checks and cannot change the selected
 // page. All other tab actions (new/select/close) still invalidate an offer.
 export function isOwnerObservation(body) {
@@ -101,7 +113,9 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
       let entered = false, body;
       try {
         body = await readJSON(req);
-        const metadata = ['initialize', 'notifications/initialized', 'tools/list', 'ping'].includes(body.method);
+        const protocolResponse = isMCPResponse(body);
+        const metadata = protocolResponse || ['initialize', 'notifications/initialized', 'tools/list', 'ping'].includes(body.method);
+        if (protocolResponse) owner.observeProtocolResponse();
         // Metadata never touches a page and must not fail when the owner is typing.
         // This preserves the upstream session (and selected tab) during handoff.
         if (!metadata) {
