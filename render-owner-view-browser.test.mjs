@@ -32,7 +32,7 @@ async function fixture(t) {
   execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes',
     '-keyout', keyPath, '-out', certPath, '-days', '1', '-subj', '/CN=localhost'], { stdio: 'ignore' });
   let control, fixturePage, clock = Date.now(), holdNextFrame = false, releaseFrame, frameStarted;
-  const requests = { claim: 0, finish: 0 };
+  const requests = { claim: 0, finish: 0, input: 0 };
   server = https.createServer({ key: await readFile(keyPath), cert: await readFile(certPath) }, (req, res) => {
     if (req.url === '/fixture') {
       res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -41,6 +41,7 @@ async function fixture(t) {
     }
     if (req.url === '/owner/claim') requests.claim++;
     if (req.url === '/owner/finish') requests.finish++;
+    if (req.url === '/owner/input') requests.input++;
     void control.handle(req, res).then(handled => {
       if (!handled) { res.writeHead(404); res.end(); }
     }).catch(() => { res.writeHead(500); res.end('LOCAL_FIXTURE_ERROR'); });
@@ -123,6 +124,12 @@ test('real viewer inputs into its target and queues Finish while a screenshot is
   await f.waitReady();
   await f.viewer.locator('#text').fill('local-fixture-text');
   await f.viewer.locator('#entry button').click();
+  t.diagnostic(JSON.stringify({ requests: f.requests, viewer: await f.viewer.evaluate(() => ({
+    busy, hasFrame: Boolean(frame), inputLength: document.getElementById('text').value.length,
+    status: document.getElementById('status').textContent,
+  })), target: await f.fixturePage.evaluate(() => ({
+    activeId: document.activeElement.id, inputLength: document.getElementById('fixture-input').value.length,
+  })) }));
   await f.fixturePage.waitForFunction(() => document.getElementById('fixture-input').value === 'local-fixture-text');
   t.diagnostic('Target fixture input received text');
   await f.waitReady();
