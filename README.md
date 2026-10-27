@@ -213,3 +213,8 @@ Then re-verify the gate, since it depends on upstream's HTTP surface. `npm run t
 ---
 
 Based on [microsoft/playwright-mcp](https://github.com/microsoft/playwright-mcp) · Deploys on [Render](https://render.com).
+## Phone video result links
+
+The existing authenticated owner-mode service can receive one selected phone video
+and return a private, expiring download link to ChatGPT. See [JH-VIDEO-TRANSFER.md](JH-VIDEO-TRANSFER.md)
+for the existing JH navigation entry point, MCP tools, file limits and validation.
