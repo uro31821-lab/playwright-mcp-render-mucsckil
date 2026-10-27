@@ -8,7 +8,7 @@ import {createDurableNativeHooks} from '../owner-setup/deployment/durable-native
 import {durableNativeJobPolicy as policy} from '../owner-setup/deployment/durable-native-job-policy.mjs';
 
 const id='ssc_'+'1'.repeat(32), commandId='2'.repeat(32);
-const job=type=>({type,mcpToolName:'life_android_execute_computer_action',
+const job=type=>({type,status:'queued',mcpToolName:'life_android_execute_computer_action',
  secureRequestedEffect:'REVERSIBLE_WRITE',targetDeviceId:'synthetic-phone',
  secureSessionId:'synthetic-session',commandId});
 const base=()=>({contextId:id,mcpToolName:'life_android_execute_computer_action',
