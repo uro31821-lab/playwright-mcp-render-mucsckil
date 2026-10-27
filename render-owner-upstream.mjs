@@ -4,14 +4,27 @@ import { createOwnerControl, parseRPC, readJSON, OWNER_LINK_TTL_MS } from './ren
 // Tab inventory is used by availability checks and cannot change the selected
 // page. All other tab actions (new/select/close) still invalidate an offer.
 export function isOwnerObservation(body) {
+  // MCP clients fetch generated screenshot resources and discover resources/
+  // prompts after a tool result. These protocol requests cannot change a tab.
+  if (['resources/list', 'resources/templates/list', 'resources/read',
+    'resources/subscribe', 'resources/unsubscribe', 'prompts/list', 'prompts/get',
+    'notifications/cancelled'].includes(body.method)) return true;
   return body.method === 'tools/call' && (body.params?.name === 'browser_snapshot' ||
     (body.params?.name === 'browser_tabs' && body.params?.arguments?.action === 'list'));
 }
 
-function diagnosticOperation(body) {
+export function diagnosticOperation(body) {
+  const protocol = ['resources/list', 'resources/templates/list', 'resources/read',
+    'resources/subscribe', 'resources/unsubscribe', 'prompts/list', 'prompts/get',
+    'notifications/cancelled', 'initialize', 'notifications/initialized', 'tools/list', 'ping'];
+  if (protocol.includes(body.method)) return body.method;
   const known = ['browser_snapshot', 'browser_tabs', 'browser_take_screenshot',
     'browser_navigate', 'browser_click', 'browser_type', 'browser_press_key',
-    'browser_run_code_unsafe', 'browser_close', 'browser_wait_for'];
+    'browser_run_code_unsafe', 'browser_close', 'browser_wait_for', 'browser_evaluate',
+    'browser_console_messages', 'browser_network_requests', 'browser_resize',
+    'browser_navigate_back', 'browser_handle_dialog', 'browser_install',
+    'browser_fill_form', 'browser_select_option', 'browser_drag', 'browser_hover',
+    'browser_file_upload', 'browser_pdf_save'];
   return body.method === 'tools/call' && known.includes(body.params?.name) ? body.params.name : 'other';
 }
 
@@ -87,10 +100,9 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
         // Metadata never touches a page and must not fail when the owner is typing.
         // This preserves the upstream session (and selected tab) during handoff.
         if (!metadata) {
-          // A status/readback may run while the owner is moving to their
-          // phone. The built-in browser_snapshot only observes the current
-          // tab; all other browser commands continue to revoke pending links
-          // (or fail once the owner has claimed control).
+          // Protocol resource discovery/readback and tab inventory do not
+          // change the selected page. Page-capable tools still revoke offers;
+          // every nonmetadata request still fails during active manual control.
           const observeOnly = isOwnerObservation(body);
           owner.beginMCP(body.params?._meta?.jhCommandId, false,
             { preserveOffer: observeOnly, operation: diagnosticOperation(body) });

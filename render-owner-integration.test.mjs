@@ -80,6 +80,11 @@ test('same-tab owner login, MCP pause/resume, persistent login and expiry', { ti
     assert.ok(offer, JSON.stringify(screenshot.content.filter(c => c.type === 'text')));
     const ticket = new URL(offer.owner_view_url).hash.slice(1);
     assert.ok(!(await tool('browser_tabs', { action: 'list' })).isError);
+    // Client capability discovery may be unsupported upstream, but it still
+    // must not consume an already-issued owner link.
+    await mcp('resources/list');
+    await mcp('resources/templates/list');
+    await mcp('prompts/list');
     // The JH self-diagnostic/readback may inspect the same page while the
     // owner switches devices. It must not revoke the pending 30-minute link.
     const interveningRead = await tool('browser_snapshot');
