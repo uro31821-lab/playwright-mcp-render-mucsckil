@@ -62,7 +62,9 @@ async function fixture(t) {
     assert.equal(id, targetId); return fixturePage;
   } });
   const viewer = await context.newPage();
-  const waitReady = () => viewer.waitForFunction('!busy && Boolean(frame)');
+  // A function predicate works with the viewer's strict CSP; a string would
+  // require unsafe-eval and must not weaken the production security policy.
+  const waitReady = () => viewer.waitForFunction(() => !busy && Boolean(frame));
   const claim = async () => {
     await viewer.locator('#start').click();
     await viewer.waitForFunction(() => document.getElementById('finish').disabled === false);
