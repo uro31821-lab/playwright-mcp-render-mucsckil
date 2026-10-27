@@ -1,5 +1,8 @@
 # Playwright MCP on Render
 
+For the JH shared-browser owner handoff, phone controls, recovery behavior and
+test coverage, see [JH Playwright usage](./JH-PLAYWRIGHT.md).
+
 Deploy [Playwright MCP](https://github.com/microsoft/playwright-mcp) on Render in one click. Get a hosted, headless-Chromium [MCP](https://modelcontextprotocol.io) server your AI tools can drive over HTTP — no local browser install, no `npx` on every machine.
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/render-examples/playwright-mcp-render)

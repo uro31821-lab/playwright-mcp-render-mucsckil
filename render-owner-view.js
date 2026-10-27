@@ -1,5 +1,6 @@
 // Secrets stay in this tab's memory; no storage, query strings, or analytics.
 let ticket = '', secret = '', frame = '', timer, busy = false, finishRequested = false, lifecycle = 0;
+const REQUEST_TIMEOUT_MS = 12000;
 const $ = id => document.getElementById(id);
 const status = message => { $('status').textContent = message; };
 const setBusy = value => {
@@ -7,16 +8,28 @@ const setBusy = value => {
   // Preserve typed text while a screenshot is pending. Only offer submission
   // when a current frame can authorize it; never queue or replay text input.
   $('send').disabled = busy || !secret || !frame || finishRequested;
+  for (const button of $('keys').querySelectorAll('[data-key], [data-scroll]'))
+    button.disabled = busy || !secret || !frame || finishRequested;
+  $('refresh').disabled = busy || !secret || finishRequested;
+  $('screen').setAttribute('aria-busy', String(busy));
 };
 const api = async (path, body) => {
   const requestLifecycle = lifecycle;
-  const response = await fetch('/owner/' + path, { method: 'POST', credentials: 'omit',
-    headers: { 'Content-Type': 'application/json', ...(secret ? { Authorization: 'Bearer ' + secret } : {}) },
-    body: JSON.stringify(body), cache: 'no-store' });
-  const result = await response.json();
-  if (requestLifecycle !== lifecycle) throw Error('OWNER_VIEW_LEFT');
-  if (!response.ok) throw Error(result.code || 'OWNER_REQUEST_FAILED');
-  return result;
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch('/owner/' + path, { method: 'POST', credentials: 'omit',
+      headers: { 'Content-Type': 'application/json', ...(secret ? { Authorization: 'Bearer ' + secret } : {}) },
+      body: JSON.stringify(body), cache: 'no-store', signal: controller.signal });
+    const result = await response.json();
+    if (requestLifecycle !== lifecycle) throw Error('OWNER_VIEW_LEFT');
+    if (!response.ok) throw Error(result.code || 'OWNER_REQUEST_FAILED');
+    return result;
+  } catch (error) {
+    if (requestLifecycle !== lifecycle) throw Error('OWNER_VIEW_LEFT');
+    if (controller.signal.aborted) throw Error('OWNER_REQUEST_TIMEOUT');
+    throw error;
+  } finally { clearTimeout(deadline); }
 };
 const clearControls = () => {
   $('send').disabled = true;
@@ -46,15 +59,20 @@ const explain = e => {
     status(e.message === 'OWNER_LINK_EXPIRED' ?
       '이 링크를 사용할 수 없습니다. ChatGPT에서 발급된 최신 링크 전체를 열어 주세요.' :
       '직접 조작 연결이 종료되었습니다. ChatGPT에서 새 화면 링크를 받아주세요.');
+  } else if (e.message === 'OWNER_REQUEST_TIMEOUT') {
+    status('연결 응답이 늦어 대기를 멈췄습니다. 입력은 다시 보내지 않습니다. 새로 보기로 결과를 확인하거나 완료 버튼을 눌러 주세요.');
   } else status('요청 결과를 확인하지 못했습니다. 같은 입력은 자동으로 반복하지 않습니다. 새로 보기를 눌러 화면을 확인하세요.');
 };
 async function refresh() {
   if (!secret || busy || finishRequested) return;
+  const refreshLifecycle = lifecycle;
+  frame = '';
   setBusy(true);
   try {
     const result = await api('frame', {});
     const bytes = Uint8Array.from(atob(result.image), c => c.charCodeAt(0));
     const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+    if (refreshLifecycle !== lifecycle || !secret) { bitmap.close(); return; }
     const screen = $('screen'); screen.width = result.width; screen.height = result.height;
     screen.getContext('2d').drawImage(bitmap, 0, 0); bitmap.close();
     frame = result.frame; $('site').textContent = result.site;
@@ -105,7 +123,8 @@ async function finishOwner() {
   try {
     // A successful release ACK is required before claiming control returned
     // to GPT. Never replay a previous browser input or login operation.
-    await api('finish', {});
+    const result = await api('finish', {});
+    if (result.state !== 'RELEASED') throw Error('OWNER_REQUEST_FAILED');
     finishRequested = false; secret = ''; frame = ''; $('text').value = '';
     $('screen').getContext('2d').clearRect(0, 0, $('screen').width, $('screen').height);
     $('finish').disabled = true; $('entry').hidden = true; $('keys').hidden = true;

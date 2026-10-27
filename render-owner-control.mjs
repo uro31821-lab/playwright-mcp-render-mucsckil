@@ -32,12 +32,16 @@ export function parseRPC(body, id) {
 export function createOwnerControl({ origin, getPage, clock = Date.now, audit = () => {} }) {
   if (new URL(origin).origin !== origin || !origin.startsWith('https://')) fail('OWNER_ORIGIN_INVALID');
   let ticket = null, session = null, busy = false, frame = null, lastCommand = null, generation = 0;
+  // A lost Finish response may be checked again with the same credential.
+  // This short receipt grants no page access and is discarded on a new claim.
+  let released = null;
   let lastTicketState = 'NONE', rejectionLogged = false;
   const observedOperations = new Set();
   // Categories and bounded protocol/tool names only: never emit tokens, command IDs, page URLs, inputs,
   // request bodies, or raw errors. Limit rejected-claim logging to one per offer.
   const record = code => { try { audit(code); } catch {} };
   const expire = () => {
+    if (released && clock() >= released.expires) released = null;
     if (ticket && clock() >= ticket.expires) {
       ticket = null; lastTicketState = 'TIMED_OUT'; record('LINK_TIMED_OUT');
     }
@@ -154,13 +158,20 @@ export function createOwnerControl({ origin, getPage, clock = Date.now, audit = 
           const pending = ticket; ticket = null; lastTicketState = 'CONSUMED';
           await safePage(pending);
           const secret = token();
+          released = null;
           session = { auth: hash(`Bearer ${secret}`), targetId: pending.targetId,
             expires: clock() + 600000, generation: ++generation };
           record('LINK_CLAIMED');
           json(res, 200, { secret, expiresAt: session.expires });
         } else {
+          if (req.url === '/owner/finish' && !session && released &&
+              hash(req.headers.authorization || '') === released.auth) {
+            json(res, 200, { state: 'RELEASED', loginVerified: false });
+            return true;
+          }
           const current = authorize(req);
           if (req.url === '/owner/finish') {
+            released = { auth: current.auth, expires: clock() + 120000 };
             session = null; frame = null; generation++;
             record('CONTROL_RELEASED');
             json(res, 200, { state: 'RELEASED', loginVerified: false });

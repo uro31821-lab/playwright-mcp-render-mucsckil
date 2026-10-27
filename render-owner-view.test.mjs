@@ -10,15 +10,19 @@ const bad = code => ({ ok: false, async json() { return { code }; } });
 
 const firstTicket = 'a'.repeat(43), secondTicket = 'b'.repeat(43);
 function fixture({ stallFrame = true, finishFailure = false, claimFailure = false,
-  initialHash = '#' + firstTicket, search = '', stallClaim = false } = {}) {
+  initialHash = '#' + firstTicket, search = '', stallClaim = false,
+  stallInput = false, finishState = 'RELEASED' } = {}) {
   const ids = ['status', 'start', 'finish', 'entry', 'keys', 'screen', 'site', 'text', 'refresh', 'send'];
   const elements = Object.fromEntries(ids.map(id => [id, {
     textContent: '', disabled: ['finish', 'send'].includes(id), hidden: ['entry','keys'].includes(id),
     value: '', width: 1280, height: 900, onclick: null,
   }]));
   elements.screen.getContext = () => ({ drawImage() {}, clearRect() {} });
+  elements.screen.setAttribute = () => {};
+  elements.keys.querySelectorAll = () => [];
   elements.screen.getBoundingClientRect = () => ({ left: 0, top: 0, width: 1280, height: 900 });
-  const calls = [], listeners = {}, replacements = [];
+  const calls = [], listeners = {}, replacements = [], timers = new Map();
+  let nextTimer = 0;
   const location = { hash: initialHash, pathname: '/owner/', search };
   let resumeFrame;
   const frameResponse = ok({ image: '', frame: 'fake-frame', width: 1280,
@@ -32,24 +36,32 @@ function fixture({ stallFrame = true, finishFailure = false, claimFailure = fals
     if (path === '/owner/claim') return stallClaim ? waitClaim :
       claimFailure ? bad('OWNER_LINK_EXPIRED') : ok({ secret: 'synthetic-owner-secret' });
     if (path === '/owner/frame') return stallFrame ? waitFrame : frameResponse;
-    if (path === '/owner/finish') return finishFailure ? bad('OWNER_BUSY') : ok({ state: 'RELEASED' });
-    if (path === '/owner/input') return ok({ state: 'APPLIED' });
+    if (path === '/owner/finish') return finishFailure ? bad('OWNER_BUSY') : ok({ state: finishState });
+    if (path === '/owner/input') return stallInput ? new Promise(() => {}) : ok({ state: 'APPLIED' });
     throw Error('TEST_UNEXPECTED_FETCH');
   };
   vm.runInNewContext(source, {
     document: { getElementById: id => elements[id] },
     location,
     history: { replaceState(_state, _title, url) { replacements.push(url); location.hash = ''; } },
-    fetch: fakeFetch,
+    fetch: (path, options) => Promise.race([fakeFetch(path, options), new Promise((_, reject) => {
+      options.signal.addEventListener('abort', () => reject(Error('AbortError')), { once: true });
+    })]),
+    AbortController,
     atob: () => '',
     Uint8Array,
     Blob,
     createImageBitmap: async () => ({ close() {} }),
-    setTimeout: () => 1,
-    clearTimeout() {},
+    setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay }); return id; },
+    clearTimeout(id) { timers.delete(id); },
     addEventListener(name, callback) { listeners[name] = callback; },
   }, { filename: 'render-owner-view.js' });
   return { elements, calls, resumeFrame, resumeClaim, location, replacements,
+    timeoutRequest() {
+      for (const [id, timer] of timers) if (timer.delay === 12000) {
+        timers.delete(id); timer.callback();
+      }
+    },
     event(name, data = {}) { listeners[name]?.(data); },
     navigateHash(value) { location.hash = value; listeners.hashchange?.({}); } };
 }
@@ -178,4 +190,39 @@ test('an unacknowledged Finish is not replayed and does not falsely claim succes
   assert.equal(f.elements.finish.disabled, false);
   assert.match(f.elements.status.textContent, /제어권 반환이 확인되지 않았습니다/);
   assert.ok(!/직접 조작을 마쳤습니다/.test(f.elements.status.textContent));
+});
+
+test('a stalled frame times out and the queued Finish can release control without waiting forever', async () => {
+  const f = fixture();
+  const starting = f.elements.start.onclick();
+  await flush(); await flush();
+  f.elements.finish.onclick();
+  f.timeoutRequest();
+  await starting; await flush(); await flush();
+  assert.equal(f.calls.filter(x => x.path === '/owner/finish').length, 1);
+  assert.match(f.elements.status.textContent, /직접 조작을 마쳤습니다/);
+  // A late frame completion cannot restore an already released session.
+  f.resumeFrame(); await flush();
+  assert.equal(f.elements.send.disabled, true);
+});
+
+test('an uncertain text input times out once and reads back without replaying the text', async () => {
+  const f = fixture({ stallFrame: false, stallInput: true });
+  await f.elements.start.onclick();
+  f.elements.text.value = '한글 입력 검증';
+  f.elements.entry.onsubmit({ preventDefault() {} });
+  await flush(); f.timeoutRequest(); await flush(); await flush();
+  assert.equal(f.calls.filter(x => x.path === '/owner/input').length, 1);
+  assert.equal(f.calls.filter(x => x.path === '/owner/frame').length, 2);
+  assert.equal(f.elements.text.value, '');
+  assert.equal(f.elements.finish.disabled, false);
+  assert.match(f.elements.status.textContent, /입력은 다시 보내지 않습니다/);
+});
+
+test('an HTTP success without a RELEASED state cannot falsely confirm handback', async () => {
+  const f = fixture({ stallFrame: false, finishState: 'UNKNOWN' });
+  await f.elements.start.onclick(); f.elements.finish.onclick();
+  await flush(); await flush();
+  assert.equal(f.elements.finish.disabled, false);
+  assert.match(f.elements.status.textContent, /제어권 반환이 확인되지 않았습니다/);
 });

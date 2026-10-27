@@ -36,7 +36,14 @@ async function fixture(t) {
   server = https.createServer({ key: await readFile(keyPath), cert: await readFile(certPath) }, (req, res) => {
     if (req.url === '/fixture') {
       res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end('<!doctype html><title>Local fixture</title><label style="display:block;margin:30px">Fixture input<input id="fixture-input" style="display:block;width:300px;height:40px"></label>');
+      res.end(`<!doctype html><title>Local fixture</title><style>body{min-height:2400px}</style>
+        <form id="fixture-form"><label style="display:block;margin:30px">Fixture input
+        <input id="fixture-input" style="display:block;width:300px;height:40px"></label>
+        <button>Fixture submit</button></form><output id="fixture-result"></output>
+        <script>document.getElementById('fixture-form').onsubmit = event => {
+          event.preventDefault(); document.getElementById('fixture-result').textContent =
+            document.getElementById('fixture-input').value;
+        };</script>`);
       return;
     }
     // Chromium may request /favicon.ico while the target page is loading,
@@ -152,4 +159,44 @@ test('real viewer inputs into its target and queues Finish while a screenshot is
   assert.equal(f.requests.finish, 1); assert.equal(f.control.locked(), false);
   f.control.beginMCP(); f.control.endMCP();
   assert.equal(await f.viewer.locator('#finish').isDisabled(), true);
+});
+
+test('phone-width viewer clicks, enters Korean text, presses Enter and scrolls the same target', { timeout: 30000 }, async t => {
+  const f = await fixture(t);
+  await f.viewer.setViewportSize({ width: 390, height: 844 });
+  await f.viewer.goto(f.offer()); await f.claim();
+  const box = await f.fixturePage.locator('#fixture-input').boundingBox();
+  await f.viewer.locator('#screen').click({ position: { x: box.x + 20, y: box.y + 20 } });
+  await f.fixturePage.waitForFunction(() => document.activeElement.id === 'fixture-input');
+  await f.waitReady();
+  await f.viewer.locator('#text').fill('한글 입력 확인 123');
+  await f.viewer.locator('#send').click();
+  await f.fixturePage.waitForFunction(() => document.getElementById('fixture-input').value === '한글 입력 확인 123');
+  await f.waitReady();
+  await f.viewer.locator('[data-key="Enter"]').click();
+  await f.fixturePage.waitForFunction(() => document.getElementById('fixture-result').textContent === '한글 입력 확인 123');
+  await f.waitReady();
+  await f.viewer.locator('[data-scroll="600"]').click();
+  await f.fixturePage.waitForFunction(() => window.scrollY > 0);
+  await f.waitReady();
+  assert.equal(f.requests.input, 4);
+  await f.finish();
+});
+
+test('a dropped Finish response is recoverable by an explicit second tap without page-input replay', { timeout: 30000 }, async t => {
+  const f = await fixture(t); await f.viewer.goto(f.offer()); await f.claim();
+  await f.viewer.route('**/owner/finish', async route => {
+    const response = await route.fetch();
+    assert.equal(response.status(), 200);
+    await route.abort('failed'); // Server released control; the client lost the ACK.
+  });
+  await f.viewer.locator('#finish').click();
+  await f.viewer.waitForFunction(() => document.getElementById('status').textContent.includes('제어권 반환이 확인되지 않았습니다'));
+  assert.equal(f.control.locked(), false);
+  assert.equal(f.requests.finish, 1);
+  assert.equal(f.requests.input, 0);
+  await f.viewer.unroute('**/owner/finish');
+  await f.finish();
+  assert.equal(f.requests.finish, 2);
+  assert.equal(f.requests.input, 0);
 });
