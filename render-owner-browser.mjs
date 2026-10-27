@@ -4,6 +4,7 @@ import { mkdir, chmod, readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { startupFailureCode } from './render-owner-startup-diagnostics.mjs';
+import { archiveStaleChromiumSingletons } from './render-owner-profile-lock.mjs';
 
 export async function requirePersistentMount(profile, mountInfo = '/proc/self/mountinfo') {
   if (profile !== '/var/data/jh-browser-profile') throw Error('OWNER_PROFILE_PATH_INVALID');
@@ -18,15 +19,27 @@ export async function launchOwnerBrowser({ profile, port, persistent = true, exe
     throw Error('OWNER_BROWSER_CONFIG_INVALID');
   await mkdir(profile, { recursive: true, mode: 0o700 });
   await chmod(profile, 0o700);
-  return chromium.launchPersistentContext(profile, {
-    // The pinned Playwright MCP image contains full Chromium, not headless-shell.
-    // Use its installed new-headless channel. Explicit executablePath stays
-    // available only for isolated verified test runners.
+  const launchOptions = {
+    // Use the full Chromium bundled in the pinned production image.
     ...(executablePath ? { executablePath } : { channel: 'chromium' }),
     headless: true, viewport: { width: 1280, height: 900 },
     args: ['--no-sandbox', '--remote-debugging-address=127.0.0.1',
       `--remote-debugging-port=${port}`, '--disable-save-password-bubble'],
-  });
+  };
+  try {
+    return await chromium.launchPersistentContext(profile, launchOptions);
+  } catch (error) {
+    if (!persistent || startupFailureCode(error) !== 'OWNER_PROFILE_LOCKED') throw error;
+    // Chromium may leave its ProcessSingleton symlinks after an instance
+    // terminates. The Render disk is exclusively mounted by this instance.
+    // Verify no live Chromium uses this profile, then MOVE symlinks to
+    // a private archive (never remove cookies or the profile directory).
+    const recovery = await archiveStaleChromiumSingletons(profile);
+    console.error('[owner] ' + recovery.code);
+    if (!recovery.archived) throw error;
+    // Exactly one bounded retry. A second failure remains a startup error.
+    return chromium.launchPersistentContext(profile, launchOptions);
+  }
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
