@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, symlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { launchOwnerBrowser, requirePersistentMount } from './render-owner-browser.mjs';
@@ -51,12 +51,19 @@ test('real browser owner input retains valid site login across restart and detec
     await input({ type: 'text', text: 'fixture-password' });
     assert.equal(await page.locator('input').inputValue(), 'fixture-password');
     assert.equal(await unrelated.locator('input').inputValue(), '');
+    await assert.rejects(launchOwnerBrowser({ profile, port: 9223, persistent: false }), /OWNER_PROFILE_ACTIVE/);
+    assert.equal(await page.locator('input').inputValue(), 'fixture-password');
     assert.throws(() => control.beginMCP(), /OWNER_CONTROL_ACTIVE/);
     await input({ type: 'key', key: 'Enter' });
     await page.waitForSelector('h1');
     assert.equal((await api('finish', {}, secret)).loginVerified, false);
     control.beginMCP(); control.endMCP();
     await context.close();
+    // Model abrupt termination residue without modifying account data. The
+    // Docker restart regression separately covers real cross-host SIGKILL.
+    await symlink(`${os.hostname()}-2147483647`, path.join(profile, 'SingletonLock'));
+    await symlink(path.join(profile, 'missing-socket'), path.join(profile, 'SingletonSocket'));
+    await symlink('synthetic-singleton-cookie', path.join(profile, 'SingletonCookie'));
     context = await launchOwnerBrowser({ profile, port: 9222, persistent: false, executablePath: process.env.JH_TEST_CHROMIUM_PATH });
     const restored = context.pages()[0]; await restored.goto(url);
     assert.equal(await restored.locator('h1').textContent(), 'Account A');

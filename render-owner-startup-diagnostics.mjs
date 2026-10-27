@@ -2,6 +2,8 @@
 // command arguments, filesystem paths, and browser state. Never log raw errors.
 export function startupFailureCode(error) {
   const message = typeof error?.message === 'string' ? error.message : '';
+  if (/^OWNER_SINGLETON_(PATH_INVALID|BROWSER_STILL_RUNNING|UNEXPECTED_FILE|CHANGED_BEFORE_ARCHIVE|PROCESS_CHECK_UNAVAILABLE)$/.test(message)) return message;
+  if (/^OWNER_PROFILE_(ACTIVE|UNSAFE|REMOTE_LOCK|INSPECTION_FAILED|CHANGED|LEASE_UNAVAILABLE|LEASE_LOST)$/.test(message)) return message;
   if (/profile appears to be in use|ProcessSingleton|SingletonLock/i.test(message)) return 'OWNER_PROFILE_LOCKED';
   if (message === 'OWNER_PERSISTENT_DISK_REQUIRED') return message;
   if (/^OWNER_(PROFILE_PATH|BROWSER_CONFIG)_INVALID$/.test(message)) return message;
