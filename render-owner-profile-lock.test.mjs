@@ -10,6 +10,8 @@ async function fixture(t) {
   const profile = path.join(root, 'jh-browser-profile');
   const procRoot = path.join(root, 'proc');
   await mkdir(profile); await mkdir(procRoot);
+  await mkdir(path.join(procRoot, 'self'));
+  await writeFile(path.join(procRoot, 'self', 'stat'), `${process.pid} (node) R`);
   t.after(async () => { await rm(root, { recursive: true, force: true }); });
   return { root, profile, procRoot };
 }
@@ -28,7 +30,7 @@ test('archives ONLY three stale symlinks and preserves browser profile, cookies 
   await writeFile(path.join(f.profile, 'Local Storage', 'leveldb'), 'synthetic-local-storage');
   await writeFile(path.join(f.profile, 'Preferences'), 'synthetic-preferences');
 
-  const result = await archiveStaleChromiumSingletons(f.profile, { procRoot: f.procRoot });
+  const result = await archiveStaleChromiumSingletons(f.profile, { exclusiveHostMount: true, procRoot: f.procRoot });
   assert.deepEqual(result, { code: 'OWNER_SINGLETON_ARCHIVED_FOR_RETRY', archived: true, count: 3 });
   assert.equal(await readFile(path.join(f.profile, 'Default', 'Cookies'), 'utf8'), 'synthetic-auth-cookie-data');
   assert.equal(await readFile(path.join(f.profile, 'Local Storage', 'leveldb'), 'utf8'), 'synthetic-local-storage');
@@ -40,7 +42,7 @@ test('archives ONLY three stale symlinks and preserves browser profile, cookies 
   for (const name of ['SingletonLock','SingletonSocket','SingletonCookie'])
     assert.equal((await lstat(path.join(saved, name))).isSymbolicLink(), true);
   assert.equal(await readlink(path.join(saved, 'SingletonLock')), 'synthetic-hostname-999999');
-  assert.equal((await archiveStaleChromiumSingletons(f.profile, { procRoot:f.procRoot })).archived, false);
+  assert.equal((await archiveStaleChromiumSingletons(f.profile, { exclusiveHostMount: true, procRoot:f.procRoot })).archived, false);
 });
 
 test('never touches locks when a live Chromium process is using the exact profile', async t => {
@@ -50,7 +52,7 @@ test('never touches locks when a live Chromium process is using the exact profil
   await mkdir(pid);
   await writeFile(path.join(pid, 'cmdline'), Buffer.from(
     '/ms-playwright/chromium-123/chrome\0--headless\0--user-data-dir=' + f.profile + '\0'));
-  const result = await archiveStaleChromiumSingletons(f.profile, { procRoot:f.procRoot });
+  const result = await archiveStaleChromiumSingletons(f.profile, { exclusiveHostMount: true, procRoot:f.procRoot });
   assert.equal(result.code, 'OWNER_SINGLETON_BROWSER_STILL_RUNNING');
   assert.equal((await lstat(path.join(f.profile, 'SingletonLock'))).isSymbolicLink(), true);
   assert.equal((await lstat(path.join(f.profile, 'SingletonCookie'))).isSymbolicLink(), true);
@@ -59,7 +61,7 @@ test('never touches locks when a live Chromium process is using the exact profil
 test('never touches a non-symlink SingletonLock or unknown browser file', async t => {
   const f = await fixture(t);
   await writeFile(path.join(f.profile, 'SingletonLock'), 'MUST_REMAIN');
-  const r = await archiveStaleChromiumSingletons(f.profile, { procRoot:f.procRoot });
+  const r = await archiveStaleChromiumSingletons(f.profile, { exclusiveHostMount: true, procRoot:f.procRoot });
   assert.equal(r.code, 'OWNER_SINGLETON_UNEXPECTED_FILE');
   assert.equal(await readFile(path.join(f.profile, 'SingletonLock'), 'utf8'), 'MUST_REMAIN');
 });
@@ -68,7 +70,7 @@ test('fails closed when the running process list cannot be inspected', async t =
   const f = await fixture(t);
   await makeLocks(f.profile);
   const r = await archiveStaleChromiumSingletons(f.profile,
-    { procRoot:path.join(f.root, 'missing-proc') });
+    { exclusiveHostMount: true, procRoot:path.join(f.root, 'missing-proc') });
   assert.equal(r.code, 'OWNER_SINGLETON_PROCESS_CHECK_UNAVAILABLE');
   assert.equal((await lstat(path.join(f.profile, 'SingletonLock'))).isSymbolicLink(), true);
 });
@@ -76,7 +78,7 @@ test('fails closed when the running process list cannot be inspected', async t =
 test('requires an actual lock and refuses invalid paths', async t => {
   const f = await fixture(t);
   assert.equal((await archiveStaleChromiumSingletons(f.profile,
-    { procRoot:f.procRoot })).code, 'OWNER_SINGLETON_NO_LOCK');
+    { exclusiveHostMount: true, procRoot:f.procRoot })).code, 'OWNER_SINGLETON_NO_LOCK');
   assert.equal((await archiveStaleChromiumSingletons('relative-profile',
-    { procRoot:f.procRoot })).code, 'OWNER_SINGLETON_PATH_INVALID');
+    { exclusiveHostMount: true, procRoot:f.procRoot })).code, 'OWNER_SINGLETON_PATH_INVALID');
 });

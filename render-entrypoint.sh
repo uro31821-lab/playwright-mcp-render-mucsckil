@@ -19,8 +19,11 @@ else
   --allowed-hosts "$ALLOWED_HOSTS" &
 fi
 PROXY_PID=$!
+export PROXY_PID
+PROBE_PID=""
 
 cleanup() {
+  if [ -n "$PROBE_PID" ]; then kill "$PROBE_PID" 2>/dev/null || true; fi
   kill "$PROXY_PID" 2>/dev/null || true
 }
 # Render/docker stop sends SIGTERM to this PID 1 shell.
@@ -38,20 +41,27 @@ trap cleanup EXIT
 # render-auth-proxy itself waits for the local MCP server before opening $PORT.
 # Wait for that public proxy port using Node (portable in /bin/sh; /dev/tcp is bash-only).
 echo "[tunnel] waiting for local Playwright MCP"
-if ! node -e '
+node -e '
 const net=require("net");
+const fs=require("fs");
 const port=Number(process.env.PORT);
 const deadline=Date.now()+65000;
 (function probe(){
+  try { if (/^\d+ \(.*\) Z /.test(fs.readFileSync("/proc/"+process.env.PROXY_PID+"/stat","utf8"))) process.exit(1); }
+  catch { process.exit(1); }
   const s=net.connect(port,"127.0.0.1");
   s.once("connect",()=>{s.destroy();process.exit(0)});
   s.once("error",()=>{s.destroy(); if(Date.now()>deadline) process.exit(1); setTimeout(probe,250)});
   s.setTimeout(250,()=>{s.destroy(); if(Date.now()>deadline) process.exit(1); setTimeout(probe,250)});
-})();'; then
+})();' &
+PROBE_PID=$!
+# wait on a background child so PID 1 handles TERM immediately during startup.
+if ! wait "$PROBE_PID"; then
   echo "[tunnel] local MCP did not become ready in time" >&2
   wait "$PROXY_PID"
   exit 1
 fi
+PROBE_PID=""
 
 if [ -n "${CONTROL_PLANE_API_KEY:-}" ] && [ -n "${CONTROL_PLANE_TUNNEL_ID:-}" ]; then
   TUNNEL_TARGET_PORT="$UPSTREAM_PORT"

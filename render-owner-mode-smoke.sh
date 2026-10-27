@@ -27,6 +27,7 @@ trap cleanup EXIT
 docker run -d --name "$NAME" \
   -e MCP_TOKEN="$TOKEN" \
   -e JH_OWNER_VIEW=1 \
+  -e RENDER=true -e RENDER_SERVICE_ID=srv-citest \
   -e RENDER_EXTERNAL_HOSTNAME=localhost \
   -e PLAYWRIGHT_MCP_ALLOWED_HOSTS='*' \
   -v "$TMP/disk:/var/data" \

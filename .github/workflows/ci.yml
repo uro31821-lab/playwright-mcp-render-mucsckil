@@ -34,7 +34,12 @@ jobs:
           node-version: 22
 
       - name: Test the auth gate
-        run: npm run test:wrapper && node --test render-owner-control.test.mjs render-owner-view.test.mjs render-owner-http.test.mjs render-owner-startup.test.mjs render-owner-profile-lock.test.mjs
+        run: npm run test:wrapper && node --test render-owner-control.test.mjs render-owner-view.test.mjs render-owner-http.test.mjs render-owner-startup.test.mjs render-owner-profile.test.mjs render-owner-profile-lock.test.mjs
+
+      - name: Reproduce command invalidation without touching a live JH command
+        run: |
+          curl --fail --silent --show-error --location https://raw.githubusercontent.com/uro31821-lab/playwright-mcp-render-mucsckil/4fe398595f172f0e5a94a17992ca4d0bfb5da787/jh-server/owner-setup/deployment/durable-mcp-workflow-patch.mjs -o /tmp/jh-workflow-source.mjs
+          JH_DIAGNOSTIC_SOURCE=/tmp/jh-workflow-source.mjs node --test render-owner-command-binding.test.mjs
 
   smoke:
     name: Wrapper smoke test
@@ -48,7 +53,7 @@ jobs:
 
       # Preinstalled on GitHub's ubuntu runners, so no setup step.
       - name: Shellcheck
-        run: shellcheck render-entrypoint.sh render-smoke-test.sh
+        run: shellcheck render-entrypoint.sh render-smoke-test.sh render-owner-restart-smoke.sh
 
       - name: Build the image and smoke-test the auth gate
         run: ./render-smoke-test.sh
@@ -65,3 +70,6 @@ jobs:
 
       - name: Real Chromium owner viewer navigation, input and handback
         run: docker run --rm --entrypoint node playwright-mcp-render:smoke --test /app/render-owner-view-browser.test.mjs
+
+      - name: Abrupt instance replacement, stale locks and graceful shutdown
+        run: bash ./render-owner-restart-smoke.sh
