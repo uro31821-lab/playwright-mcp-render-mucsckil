@@ -72,15 +72,22 @@ export function createOwnerControl({ origin, getPage, clock = Date.now }) {
       if (!/^[a-fA-F0-9]{32}$/.test(targetId) || session) fail('OWNER_TARGET_INVALID');
       const value = token();
       ticket = { digest: hash(value), targetId, expires: clock() + OWNER_LINK_TTL_MS };
-      return `${origin}/owner/#${value}`;
+      // Public, independent nonce forces a new document when a phone reuses the
+      // same tab. It is not a credential; authorization remains in the fragment.
+      const view = randomBytes(16).toString('hex');
+      return `${origin}/owner/?view=${view}#${value}`;
     },
     async handle(req, res) {
       if (!req.url?.startsWith('/owner/')) return false;
       // ChatGPT can append a harmless source tag before the URL fragment.
       // Accept it ONLY on the static viewer GET; never as authentication.
       // The one-use owner ticket remains in #fragment and claim still requires POST.
-      const viewerGet = req.method === 'GET' &&
-        (req.url === '/owner/' || req.url === '/owner/?utm_source=chatgpt.com');
+      const viewerURL = new URL(req.url, origin);
+      const params = viewerURL.searchParams;
+      const viewerGet = req.method === 'GET' && viewerURL.pathname === '/owner/' &&
+        [...params.keys()].every(key => ['view', 'utm_source'].includes(key) && params.getAll(key).length === 1) &&
+        (!params.has('view') || /^[a-f0-9]{32}$/.test(params.get('view'))) &&
+        (!params.has('utm_source') || params.get('utm_source') === 'chatgpt.com');
       if (viewerGet) {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store',
           'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY',
