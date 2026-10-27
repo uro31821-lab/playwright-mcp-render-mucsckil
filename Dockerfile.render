@@ -2,7 +2,7 @@
 FROM mcr.microsoft.com/playwright/mcp:v0.0.78
 
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-certificates ffmpeg \
     && curl -fsSL -o /tmp/tunnel-client.zip https://github.com/openai/tunnel-client/releases/download/v0.0.14/tunnel-client-v0.0.14-linux-amd64.zip \
     && unzip /tmp/tunnel-client.zip -d /tmp/tunnel-client \
     && install -m 0755 /tmp/tunnel-client/tunnel-client /usr/local/bin/tunnel-client \
@@ -10,5 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-c
 
 COPY --chmod=0755 render-entrypoint.sh /usr/local/bin/render-entrypoint.sh
 COPY render-auth-proxy.mjs render-auth-limiter.mjs render-owner-*.mjs render-owner-view.* /app/
+COPY render-video-*.mjs render-video-view.* /app/
 
 ENTRYPOINT ["/usr/local/bin/render-entrypoint.sh"]
