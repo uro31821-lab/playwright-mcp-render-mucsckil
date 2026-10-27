@@ -135,7 +135,9 @@ test('real viewer inputs into its target and queues Finish while a screenshot is
   t.diagnostic('Target fixture input focused');
   await f.waitReady();
   const inputFrameStarted = f.holdFrame();
-  await f.viewer.locator('#refresh').click(); await inputFrameStarted;
+  // Let the regular poll enter the held frame. Clicking Refresh here races
+  // that poll and waits on a deliberately disabled button until timeout.
+  await inputFrameStarted;
   await f.viewer.locator('#text').fill('local-fixture-text');
   assert.equal(await f.viewer.locator('#send').isDisabled(), true);
   assert.equal(f.requests.input, 1); // Only the earlier canvas click was sent.
@@ -148,7 +150,7 @@ test('real viewer inputs into its target and queues Finish while a screenshot is
   assert.equal(f.requests.input, 2); // Exactly one text submission, no replay.
   assert.throws(() => f.control.beginMCP(), /OWNER_CONTROL_ACTIVE/);
   const started = f.holdFrame();
-  await f.viewer.locator('#refresh').click(); await started;
+  await started;
   t.diagnostic('Screenshot held pending Finish');
   await f.viewer.locator('#finish').click();
   assert.equal(await f.viewer.locator('#send').isDisabled(), true);
