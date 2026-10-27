@@ -36,6 +36,10 @@ export async function launchOwnerBrowser({ profile, port, persistent = true, exe
     // Use its installed new-headless channel. Explicit executablePath stays
     // available only for isolated verified test runners.
     ...(executablePath ? { executablePath } : { channel: 'chromium' }),
+    // Our supervisor owns shutdown. Playwright's default signal handler plus
+    // context.close() calls graceful close twice; its second call force-kills
+    // Chromium and can leave the profile singleton behind.
+    handleSIGTERM: false, handleSIGINT: false, handleSIGHUP: false,
     headless: true, timeout: 20000, viewport: { width: 1280, height: 900 },
     args: ['--no-sandbox', '--remote-debugging-address=127.0.0.1',
       `--remote-debugging-port=${port}`, '--disable-save-password-bubble'],
@@ -58,7 +62,7 @@ if (process.argv[1] === new URL(import.meta.url).pathname) {
     return closing;
   };
   // Register BEFORE launch; shutdown during startup must still close Chromium.
-  for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => { void stop(signal); });
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => { void stop(signal); });
   try {
     const port = 9222;
     context = await launchOwnerBrowser({ profile: '/var/data/jh-browser-profile', port });

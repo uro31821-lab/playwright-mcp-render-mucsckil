@@ -38,9 +38,10 @@ ready
 docker logs "$NAME" 2>&1 | grep -q OWNER_SINGLETON_ARCHIVED_FOR_RETRY
 echo 'PASS: stale previous-instance profile lock recovered on first startup'
 docker stop --time 15 "$NAME" >/dev/null
-[[ "$(docker inspect -f '{{.State.ExitCode}}' "$NAME")" == 0 ]]
+[[ "$(docker inspect -f '{{.State.ExitCode}}' "$NAME")" == 0 ]] || { echo 'FAIL: owner container did not exit cleanly' >&2; docker logs "$NAME" >&2; exit 1; }
+echo 'PASS: owner container exits cleanly on TERM'
 docker rm "$NAME" >/dev/null
-docker run --rm --entrypoint node -v "$TMP/disk:/var/data" "$IMAGE" -e 'const f=require("fs");try{f.lstatSync("/var/data/jh-browser-profile/SingletonLock");process.exit(1)}catch(e){if(e.code!=="ENOENT")throw e}'
+docker run --rm --entrypoint node -v "$TMP/disk:/var/data" "$IMAGE" -e 'const f=require("fs");try{f.lstatSync("/var/data/jh-browser-profile/SingletonLock");console.error("FAIL: singleton remained after graceful stop");process.exit(1)}catch(e){if(e.code!=="ENOENT")throw e}'
 echo 'PASS: graceful shutdown closes Chromium and releases its singleton'
 start third-render-instance
 ready
