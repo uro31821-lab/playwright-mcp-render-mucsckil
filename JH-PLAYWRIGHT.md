@@ -26,8 +26,10 @@ GPT가 같은 서버 브라우저에서 탐색·화면 읽기·클릭·입력을
   서버는 반환 확인용 해시만 2분간 기억하며, 이 정보로 화면을 보거나 입력할 수 없습니다.
 - 조작 중 탭을 닫으면 브라우저의 메모리 인증정보가 사라집니다. 자동으로 작업을 재실행하지 않으며,
   남은 조작 세션은 만료됩니다. 가능하면 먼저 **완료**를 누릅니다.
-- 프로필 잠금·디스크 부족·실행 파일 누락은 서로 다른 시작 오류로 기록합니다.
-  운영 로그인 프로필이나 잠금 파일을 임의 삭제하지 않습니다. 시작 실패의 완전 자동 복구는 지원 범위가 아닙니다.
+- 재배포 후 남은 Chromium 잠금은 전용 Render 디스크, 단일 실행 잠금, 프로세스·소켓 상태를 확인한 뒤 자동 정리합니다.
+  로그인 자료는 삭제하지 않으며, 사용 중이거나 상태가 불명확한 프로필은 시작을 거절합니다.
+  종료 신호는 시작 대기 중에도 즉시 전달하여 Chromium이 정상 종료되게 합니다.
+- 검증 중 작업 명령 해제는 [명령 진단 기록](COMMAND-BINDING-DIAGNOSIS.md)에 구분해 설명합니다.
 
 ## 구현과 보안 경계
 
@@ -46,13 +48,17 @@ JH 중계 서버·Android APK·계정 권한·요금제 변경은 이 모듈의 
 빠른 검사:
 
 ```sh
-node --test render-auth-*.test.mjs render-owner-control.test.mjs render-owner-view.test.mjs render-owner-http.test.mjs render-owner-startup.test.mjs
+node --test render-auth-*.test.mjs render-owner-control.test.mjs render-owner-view.test.mjs render-owner-http.test.mjs render-owner-startup.test.mjs render-owner-profile.test.mjs
 ```
 
 CI는 `Dockerfile.render`의 실제 배포 이미지에서 MCP 인증, 동일 페이지 인계,
 합성 로그인·프로필 유지, 휴대폰 너비 화면의 클릭·한글 입력·Enter·스크롤,
 화면 대기 중 완료 요청, 완료 응답 유실 후 수동 재확인과 제어권 반환을 검사합니다.
 모든 계정 입력은 테스트용이며 실제 계정 로그인 성공과 구분합니다.
+
+프로필 검사에는 동일 PID 네임스페이스의 Linux `/proc`와 Unix 소켓이 필요합니다.
+CI는 강제 종료 후 다른 호스트명의 컨테이너에서 동일 테스트 디스크로 재시작하고,
+정상 종료 후 잠금 제거와 다음 시작도 검사합니다. 실제 사용자의 작업 명령은 발행하지 않습니다.
 
 운영에서 확인한 사실은 배포 및 소스 ZIP의 검증 기록에 별도로 남깁니다.
 실제 사용자 계정 로그인, 메일 변경, 예약·결제 성공은 각 요청에서 별도로 결과를 확인해야 합니다.
