@@ -12,6 +12,8 @@ on:
       - 'jh-server/owner-setup/deployment/durable-native-host.mjs'
       - 'jh-server/owner-setup/deployment/durable-native-job-policy.mjs'
       - 'jh-server/verification/jh167-exact-right-click-durable.test.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-open-completion*.mjs'
+      - 'jh-server/verification/jh167-open-completion-http.test.mjs'
   workflow_dispatch:
 permissions:
   contents: read
@@ -39,3 +41,22 @@ jobs:
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
       - name: Original V2 + real assembled operational startup regressions
         run: node --test jh-server/owner-setup/connection-v2/*.test.mjs jh-server/owner-setup/deployment/jh167-connection-v2-runtime.test.mjs jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs jh-server/verification/jh167-exact-right-click-durable.test.mjs jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs
+      - name: OPEN completion new module syntax and pinned auth fixture
+        run: |
+          node --check jh-server/owner-setup/deployment/jh167-open-completion.mjs
+          node --check jh-server/owner-setup/deployment/jh167-open-completion.test.mjs
+          node --check jh-server/verification/jh167-open-completion-http.test.mjs
+          (cd jh-server && node verification/build-auth-candidate.mjs)
+      - name: OPEN completion full regression including signed local Secure56 HTTP (no real phone)
+        run: |
+          node --test --test-concurrency=1 \
+            jh-server/owner-setup/deployment/jh167-open-completion.test.mjs \
+            jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs \
+            jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs \
+            jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs \
+            jh-server/owner-setup/deployment/jh167-connection-v2-runtime.test.mjs \
+            jh-server/owner-setup/deployment/readback-budget.test.mjs \
+            jh-server/verification/job-deadline.test.mjs \
+            jh-server/verification/right-pane-open-route.test.mjs \
+            jh-server/owner-setup/trusted-server/dispatch-receipts.test.mjs \
+            jh-server/verification/jh167-open-completion-http.test.mjs
