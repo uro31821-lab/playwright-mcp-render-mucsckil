@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { createOwnerControl, parseRPC, readJSON, OWNER_LINK_TTL_MS } from './render-owner-control.mjs';
+import { VIDEO_TOOLS } from './render-video-transfer.mjs';
 
 // Replies to server-initiated MCP requests (for example roots/list) have an
 // ID and result/error, but no method. They cannot start browser execution.
@@ -45,7 +46,7 @@ export function diagnosticOperation(body) {
     ? 'rpc:' + body.method : 'other_protocol';
 }
 
-export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
+export async function createOwnerUpstream({ origin, upstreamPort, cdpURL, video = null }) {
   if (cdpURL !== 'http://127.0.0.1:9222') throw Error('OWNER_CDP_CONFIG_INVALID');
   const { chromium } = await import('playwright');
   let browser;
@@ -127,6 +128,19 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
             { preserveOffer: observeOnly, operation: diagnosticOperation(body) });
           entered = true;
         }
+        if (video && body.method === 'tools/call' && VIDEO_TOOLS.some(t => t.name === body.params?.name)) {
+          const args = body.params.arguments ?? {};
+          let result;
+          try {
+            const data = body.params.name === 'browser_video_transfer_create'
+              ? await video.create(args.task_id) : video.lookup(args.task_id, args.transfer_id);
+            result = { content: [{ type: 'text', text: JSON.stringify(data) }], structuredContent: data };
+          } catch (error) {
+            result = { isError: true, content: [{ type: 'text', text: /^VIDEO_[A-Z_]+$/.test(error.message) ? error.message : 'VIDEO_TRANSFER_FAILED' }] };
+          }
+          res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+          res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result })); return true;
+        }
         const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream',
           // The loopback-only, approved Secure MCP Tunnel ingress connects with
           // Host: 127.0.0.1:8932. The upstream allowed-hosts check must see
@@ -139,6 +153,36 @@ export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {
         const outgoing = { 'content-type': response.headers.get('content-type') || 'application/json', 'cache-control': 'no-store' };
         if (response.headers.has('mcp-session-id')) outgoing['mcp-session-id'] = response.headers.get('mcp-session-id');
         let output = raw;
+        if (video && response.ok && body.method === 'tools/list') {
+          const listed = parseRPC(raw, body.id);
+          if (Array.isArray(listed.result?.tools)) {
+            const names = new Set(listed.result.tools.map(t => t.name));
+            listed.result.tools.push(...VIDEO_TOOLS.filter(t => !names.has(t.name)));
+            output = JSON.stringify(listed); outgoing['content-type'] = 'application/json';
+          }
+        }
+        // Compatibility with the existing JH life_web_navigate tool: this fixed
+        // first-party page requests a handoff for an explicit task. No Google
+        // credentials, new JH relay endpoint, unsafe evaluation or APK required.
+        if (video && response.ok && body.method === 'tools/call' && body.params?.name === 'browser_navigate') {
+          let entry;
+          try { entry = new URL(body.params.arguments?.url); } catch {}
+          if (entry?.origin === origin && entry.pathname === '/video-transfer/' && !entry.hash &&
+              [...entry.searchParams.keys()].join(',') === 'task' && /^[a-f0-9]{32}$/.test(entry.searchParams.get('task'))) {
+            const result = parseRPC(raw, body.id);
+            if (result.result && !result.result.isError) {
+              try {
+                const data = await video.create(entry.searchParams.get('task'));
+                result.result.content ??= [];
+                result.result.content.push({ type: 'text', text: JSON.stringify({ videoTransfer: data }) });
+              } catch (error) {
+                result.result.content ??= [];
+                result.result.content.push({ type: 'text', text: /^VIDEO_[A-Z_]+$/.test(error.message) ? error.message : 'VIDEO_TRANSFER_FAILED' });
+              }
+              output = JSON.stringify(result); outgoing['content-type'] = 'application/json';
+            }
+          }
+        }
         if (response.ok && body.method === 'tools/call' && body.params?.name === 'browser_take_screenshot') {
           const result = parseRPC(raw, body.id);
           if (!result.result?.isError && result.result) {
