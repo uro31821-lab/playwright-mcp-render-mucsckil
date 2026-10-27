@@ -224,6 +224,31 @@ test('finish invalidates manual credential and permits fresh MCP read', async ()
   assert.equal((await f.request('frame', {}, secret)).status, 403);
   f.control.beginMCP(); f.control.endMCP();
 });
+
+test('a lost release response can be confirmed again without restoring page access or replaying input', async () => {
+  const f = fixture(), secret = await f.claim();
+  await f.request('finish', {}, secret);
+  const repeated = await f.request('finish', {}, secret);
+  assert.equal(repeated.status, 200);
+  assert.deepEqual(repeated.body, { state: 'RELEASED', loginVerified: false });
+  assert.equal(f.audit.filter(x => x === 'CONTROL_RELEASED').length, 1);
+  assert.equal((await f.request('frame', {}, secret)).status, 403);
+  assert.equal((await f.request('input', { type: 'text', text: 'never replay' }, secret)).status, 403);
+  assert.equal((await f.request('finish', {}, 'wrong-secret')).status, 403);
+  assert.equal((await f.request('finish', {}, secret, { origin: 'https://other.example' })).status, 403);
+  assert.deepEqual(f.actions, []);
+  f.advance(120000);
+  assert.equal((await f.request('finish', {}, secret)).status, 403);
+});
+
+test('an old Finish receipt cannot release a newer manual session', async () => {
+  const f = fixture(), old = await f.claim();
+  await f.request('finish', {}, old);
+  const current = await f.claim();
+  assert.equal((await f.request('finish', {}, old)).status, 403);
+  assert.equal(f.control.locked(), true);
+  assert.equal((await f.request('finish', {}, current)).status, 200);
+});
 test('abandoned sessions expire without replay', async () => {
   const f = fixture(), secret = await f.claim(); f.advance(600001);
   assert.equal(f.control.locked(), false);
