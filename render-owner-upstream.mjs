@@ -4,11 +4,11 @@ import { createOwnerControl, parseRPC, readJSON, OWNER_LINK_TTL_MS } from './ren
 // Tab inventory is used by availability checks and cannot change the selected
 // page. All other tab actions (new/select/close) still invalidate an offer.
 export function isOwnerObservation(body) {
-  // MCP clients fetch generated screenshot resources and discover resources/
-  // prompts after a tool result. These protocol requests cannot change a tab.
-  if (['resources/list', 'resources/templates/list', 'resources/read',
-    'resources/subscribe', 'resources/unsubscribe', 'prompts/list', 'prompts/get',
-    'notifications/cancelled'].includes(body.method)) return true;
+  // Browser execution is exposed only through tools/call. Protocol discovery,
+  // resource reads and lifecycle notifications must not invalidate a link.
+  // Unsupported protocol methods cannot execute a browser tool either.
+  // These requests still pass through the manual-control fence below.
+  if (typeof body.method === 'string' && body.method !== 'tools/call') return true;
   return body.method === 'tools/call' && (body.params?.name === 'browser_snapshot' ||
     (body.params?.name === 'browser_tabs' && body.params?.arguments?.action === 'list'));
 }
@@ -25,7 +25,12 @@ export function diagnosticOperation(body) {
     'browser_navigate_back', 'browser_handle_dialog', 'browser_install',
     'browser_fill_form', 'browser_select_option', 'browser_drag', 'browser_hover',
     'browser_file_upload', 'browser_pdf_save'];
-  return body.method === 'tools/call' && known.includes(body.params?.name) ? body.params.name : 'other';
+  if (body.method === 'tools/call') {
+    const name = body.params?.name;
+    return known.includes(name) || (typeof name === 'string' && /^browser_[a-z_]{1,60}$/.test(name)) ? name : 'other_tool';
+  }
+  return typeof body.method === 'string' && /^[a-z_]+(?:\/[a-z_]+)*$/.test(body.method) && body.method.length <= 72
+    ? 'rpc:' + body.method : 'other_protocol';
 }
 
 export async function createOwnerUpstream({ origin, upstreamPort, cdpURL }) {

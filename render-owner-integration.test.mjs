@@ -85,6 +85,7 @@ test('same-tab owner login, MCP pause/resume, persistent login and expiry', { ti
     await mcp('resources/list');
     await mcp('resources/templates/list');
     await mcp('prompts/list');
+    await mcp('unsupported_protocol_method');
     // The JH self-diagnostic/readback may inspect the same page while the
     // owner switches devices. It must not revoke the pending 30-minute link.
     const interveningRead = await tool('browser_snapshot');
