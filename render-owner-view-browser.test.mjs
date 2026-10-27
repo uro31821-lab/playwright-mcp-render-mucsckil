@@ -48,6 +48,7 @@ async function fixture(t) {
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   const origin = `https://127.0.0.1:${server.address().port}`;
   context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+  context.setDefaultTimeout(8000);
   fixturePage = await context.newPage(); await fixturePage.setViewportSize({ width: 1280, height: 900 });
   await fixturePage.goto(origin + '/fixture');
   const screenshot = fixturePage.screenshot.bind(fixturePage);
@@ -113,17 +114,22 @@ test('real browser accepts a fresh fragment in the same failed document without 
 
 test('real viewer inputs into its target and queues Finish while a screenshot is pending', { timeout: 30000 }, async t => {
   const f = await fixture(t); await f.viewer.goto(f.offer()); await f.claim();
+  t.diagnostic('Viewer claimed and first frame displayed');
   const box = await f.fixturePage.locator('#fixture-input').boundingBox();
   await f.viewer.locator('#screen').click({ position: { x: box.x + 20, y: box.y + 20 } });
+  t.diagnostic('Canvas click completed');
   await f.fixturePage.waitForFunction(() => document.activeElement.id === 'fixture-input');
+  t.diagnostic('Target fixture input focused');
   await f.waitReady();
   await f.viewer.locator('#text').fill('local-fixture-text');
   await f.viewer.locator('#entry button').click();
   await f.fixturePage.waitForFunction(() => document.getElementById('fixture-input').value === 'local-fixture-text');
+  t.diagnostic('Target fixture input received text');
   await f.waitReady();
   assert.throws(() => f.control.beginMCP(), /OWNER_CONTROL_ACTIVE/);
   const started = f.holdFrame();
   await f.viewer.locator('#refresh').click(); await started;
+  t.diagnostic('Screenshot held pending Finish');
   await f.viewer.locator('#finish').click();
   assert.equal(f.requests.finish, 0);
   assert.match(await f.viewer.locator('#status').textContent(), /완료 요청을 받았습니다/);
