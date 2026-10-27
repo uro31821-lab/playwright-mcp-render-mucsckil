@@ -34,7 +34,7 @@ export function createOwnerControl({ origin, getPage, clock = Date.now, audit = 
   let ticket = null, session = null, busy = false, frame = null, lastCommand = null, generation = 0;
   let lastTicketState = 'NONE', rejectionLogged = false;
   const observedOperations = new Set();
-  // Fixed categories only: never emit tokens, command IDs, page URLs, inputs,
+  // Categories and bounded protocol/tool names only: never emit tokens, command IDs, page URLs, inputs,
   // request bodies, or raw errors. Limit rejected-claim logging to one per offer.
   const record = code => { try { audit(code); } catch {} };
   const expire = () => {
@@ -81,7 +81,8 @@ export function createOwnerControl({ origin, getPage, clock = Date.now, audit = 
             'browser_file_upload', 'browser_pdf_save', 'resources/list', 'resources/templates/list',
             'resources/read', 'resources/subscribe', 'resources/unsubscribe', 'prompts/list',
             'prompts/get', 'notifications/cancelled'];
-      const safeOperation = known.includes(operation) ? operation : 'other';
+      const safeOperation = known.includes(operation) || (typeof operation === 'string' && operation.length <= 80 &&
+        /^(?:browser_[a-z_]+|rpc:[a-z_]+(?:\/[a-z_]+)*|other_tool|other_protocol)$/.test(operation)) ? operation : 'other';
       if (newCommand || !preserveOffer) {
         if (ticket) {
           lastTicketState = newCommand ? 'NEW_COMMAND' : 'MCP_ACTION';

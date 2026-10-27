@@ -81,9 +81,12 @@ test('post-screenshot MCP resource retrieval/discovery cannot revoke the offered
   assert.equal((await f.request('claim', { ticket })).status, 200);
   // Resource reads remain fenced after takeover: no relaxed manual-control lock.
   assert.throws(() => f.control.beginMCP(null, false, { preserveOffer: true }), /OWNER_CONTROL_ACTIVE/);
-  assert.equal(isOwnerObservation({ method: 'unknown' }), false);
+  assert.equal(isOwnerObservation({ method: 'notifications/roots/list_changed' }), true);
+  assert.equal(isOwnerObservation({ method: 'unsupported_protocol_method' }), true);
+  assert.equal(isOwnerObservation({}), false);
   assert.equal(isOwnerObservation({ method: 'tools/call', params: { name: 'browser_evaluate' } }), false);
-  assert.equal(diagnosticOperation({ method: 'private-method', params: { name: 'private-key' } }), 'other');
+  assert.equal(diagnosticOperation({ method: 'private-method', params: { name: 'private-key' } }), 'other_protocol');
+  assert.equal(diagnosticOperation({ method: 'notifications/roots/list_changed', params: { id: 'private-id' } }), 'rpc:notifications/roots/list_changed');
   assert.equal(diagnosticOperation({ method: 'resources/read', params: { uri: 'private-resource' } }), 'resources/read');
   assert.equal(diagnosticOperation({ method: 'tools/call', params: { name: 'browser_evaluate', arguments: { code: 'private-code' } } }), 'browser_evaluate');
 });
