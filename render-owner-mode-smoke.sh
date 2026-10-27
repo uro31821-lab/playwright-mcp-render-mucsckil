@@ -53,6 +53,18 @@ if [[ "$handshake" != OK ]]; then
   docker logs "$NAME" | tail -60 >&2
   exit 1
 fi
+# The initial startup had a fake stale Chromium singleton. Recovery must
+# have archived it before successfully answering authenticated MCP traffic.
+if ! docker logs "$NAME" 2>&1 | grep -q 'OWNER_SINGLETON_ARCHIVED_FOR_RETRY'; then
+  echo 'FAIL: stale-profile lock recovery did not run' >&2; exit 1;
+fi
+if ! docker exec "$NAME" sh -c '
+  set -- /var/data/jh-browser-profile/.jh-archived-singletons/*/SingletonLock
+  test -L "$1"
+'; then
+  echo 'FAIL: old SingletonLock was not privately archived' >&2; exit 1;
+fi
+echo 'PASS: Render-style stale browser singleton archived without losing profile'
 # Real ChatGPT link taps add ?utm_source=chatgpt.com to the viewer path.
 # That GET must work without bearer authentication. Unknown query variations
 # must not bypass the strict owner routing or single-use POST claim gate.
