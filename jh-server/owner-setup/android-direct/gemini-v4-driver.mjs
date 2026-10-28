@@ -28,7 +28,8 @@ export function createStage4GeminiNativeDriver({host,enabled=false,clock=Date.no
   if(!id(key))return fail('GEMINI_V4_TASK_ID_REQUIRED');
   if(q.mode==='GEMINI_START'&&(q.taskId!==undefined&&q.taskId!==q.request?.id||
    q.request?.id!==key))return fail('GEMINI_V4_START_ID_MISMATCH');
-  if(starting.has(key)||working.has(key))return fail('EXISTING_GEMINI_OPERATION_READ_STATUS');
+  if(starting.has(key)||q.mode==='GEMINI_STEP'&&working.has(key))
+   return fail('EXISTING_GEMINI_OPERATION_READ_STATUS');
   if(q.mode==='GEMINI_START'){
    if(tasks.has(key))return fail('EXISTING_REQUEST_USE_STATUS_NO_RECREATE');
    if(tasks.size>=64)return fail('V4_GEMINI_ACTIVE_TASK_CAPACITY_REVIEW_REQUIRED');
@@ -61,7 +62,9 @@ export function createStage4GeminiNativeDriver({host,enabled=false,clock=Date.no
   if(q.mode==='GEMINI_STATUS')return Object.freeze({ok:true,code:'GEMINI_MEMORY_STATUS_NOT_DURABLE_PROOF',
    taskId:key,phase:w.state.phase,pendingKind:w.state.pending?.kind??null,
    result:null,automaticReplay:false,automaticResume:false});
-  working.add(key);
+  // CANCEL is allowed while STEP awaits the phone: V4 cancel() immediately
+  // raises the no-further-send fence before waiting for the in-flight step.
+  if(q.mode==='GEMINI_STEP')working.add(key);
   try{
    const reply=q.mode==='GEMINI_CANCEL'?await w.cancel():await w.advance();
    if(await host.currentCommand()!==q.commandId)
@@ -71,7 +74,7 @@ export function createStage4GeminiNativeDriver({host,enabled=false,clock=Date.no
      result:null,fullReplyVerified:false,videoDelivered:false,
      automaticReplay:false,automaticResume:false});
   }catch{return fail('GEMINI_ORIGINAL_ACTION_RESULT_UNKNOWN_NO_REPLAY')}
-  finally{working.delete(key)}
+  finally{if(q.mode==='GEMINI_STEP')working.delete(key)}
  }
  return Object.freeze({run,capabilities:()=>Object.freeze({
   geminiNativeOnly:true,serverBrowserFallback:false,
