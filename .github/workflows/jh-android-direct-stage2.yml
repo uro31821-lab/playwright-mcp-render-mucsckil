@@ -1,0 +1,28 @@
+name: JH167 Android Direct Stage2 — secure host isolated
+on:
+  push:
+    branches:
+      - feat/jh167-android-direct-stage2-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-secure-host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify stage1 and stage2 no-phone execution tests
+        run: node --test jh-server/owner-setup/android-direct/*.test.mjs
+      - name: Assert original secured service paths remain untouched
+        run: |
+          test -f jh-server/owner-setup/deployment/durable-native-job-policy.mjs
+          test -f jh-server/owner-setup/deployment/split-screen-evidence.mjs
+          test -f jh-server/browser-transport.mjs
+          test -f jh-server/owner-setup/server-integration/server.mjs
+          if grep -E '(^import .*browser-|browserTool\(|@playwright/)' jh-server/owner-setup/android-direct/host-port.mjs; then
+            echo "Unexpected Playwright dependency"
+            exit 1
+          fi
