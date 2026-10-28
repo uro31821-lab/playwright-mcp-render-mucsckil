@@ -35,6 +35,29 @@ const deviceReceipt=(j,device,session,command,type)=>{
 };
 const validToken=x=>typeof x==='string'&&x.length>=8&&x.length<=512;
 const safeKind=x=>x==='READ_ONLY'||x==='REVERSIBLE_WRITE'||x==='MUTATION';
+/**
+ * The ACTUAL JH167-R5 AndroidComputerUseRuntime.mapPoint accepts work-window
+ * LOCAL pixels/viewport, not display-global coordinates. Only the trusted
+ * host can convert the signed foldable work box to that coordinate space.
+ */
+function workLocalArgs(args,proof,foldMode){
+  const a=structuredClone(args);
+  if(!foldMode)return a;
+  const b=proof?.workBounds;
+  if(!b||![b.left,b.top,b.right,b.bottom].every(Number.isSafeInteger))
+    throw Error('SIGNED_WORK_WINDOW_BOUNDS_REQUIRED');
+  const width=b.right-b.left,height=b.bottom-b.top;
+  if(width<100||height<100)throw Error('SIGNED_WORK_WINDOW_SIZE_INVALID');
+  a.viewport_width=width;
+  a.viewport_height=height;
+  if(['CLICK','SCROLL'].includes(a.action)){
+    a.x=a.x-b.left;a.y=a.y-b.top;
+    if(!Number.isSafeInteger(a.x)||!Number.isSafeInteger(a.y)||
+       a.x<0||a.y<0||a.x>=width||a.y>=height)
+      throw Error('GLOBAL_TO_WORK_POINT_INVALID');
+  }
+  return a;
+}
 
 function validInput(args) {
   if(!obj(args)||Object.keys(args).some(k=>!rawFields.has(k))||
@@ -66,8 +89,12 @@ function validInput(args) {
  * waitJob: original waitJob. getJob: original local jobs.get.
  * durableReady: existing installed durableNativeHooks status, not a new journal.
  *
- * Phone prepare response token fields must be confirmed on a real JH APK
- * before enabling this adapter. Missing tokens always block execution.
+ * Verified 2026-10-28 source inspection of actual R5 Android APK source:
+ * computer_use_action_prepare returns {ok,code:'READY',leaseToken,
+ * requiresFreshApproval}. It NEVER returns actionApprovalGrantToken.
+ * A normal SAFE action needs only the signed READY lease; protected actions
+ * still require separate local approval request/status/re-prepare, which this
+ * candidate intentionally blocks until wired. Never invent a grant.
  */
 export function createAndroidDirectSecure56Host({
   selectDevice,deviceMeta,activeSession,requireCommand,makeSnapshotJob,
@@ -135,7 +162,8 @@ export function createAndroidDirectSecure56Host({
         running.binding.commandId===commandId&&
         running.binding.sessionId===sessionId&&
         !!binding()&&validToken(running.leaseToken)&&
-        validToken(running.approvalToken);
+        running.originalPhonePreparedReady===true &&
+        running.requiresFreshApproval===false;
     },
     invokeExistingTool:async(name,args,b)=>{
       if(!binding()||binding().rightPaneDigest!==b.rightPaneDigest)
@@ -159,8 +187,11 @@ export function createAndroidDirectSecure56Host({
       if(name==='life_android_execute_computer_action') {
         if(!running||running.binding.rightPaneDigest!==b.rightPaneDigest||
            !validToken(args.lease_token)||
-           !validToken(args.action_approval_grant_token))
-          throw Error('EXISTING_PHONE_APPROVAL_NOT_BOUND');
+           args.lease_token!==running.leaseToken||
+           running.originalPhonePreparedReady!==true||
+           running.requiresFreshApproval!==false||
+           args.action_approval_grant_token!==undefined)
+          throw Error('EXISTING_PHONE_PREPARATION_NOT_BOUND');
         // Original exactEnvelope56 builds the Secure56 signed payload and
         // original durableNativeHooks enforce storage fencing before dispatch.
         const {job}=signedEnvelope(name,'computer_use_action_execute','MUTATION',
@@ -222,26 +253,37 @@ export function createAndroidDirectSecure56Host({
     const originalEpoch=cancelEpoch;
     preparing=true;
     try {
+      const phoneArgs=workLocalArgs(args,screen?.proof,
+        layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT);
       ({job}=signedEnvelope('life_android_computer_prepare',
-        'computer_use_action_prepare','READ_ONLY',args));
+        'computer_use_action_prepare','READ_ONLY',phoneArgs));
       done=await authenticatedJob(job,b,'computer_use_action_prepare');
       if(cancelEpoch!==originalEpoch)return fail('PHONE_PREPARATION_CANCELLED');
       if(!binding()||binding().rightPaneDigest!==b.rightPaneDigest)
         return fail('ANDROID_CONTEXT_CHANGED_DURING_PREPARE');
+      // R5 uses code READY and leaseToken. An approved protected action
+      // requires separate local approval status and a fresh prepare. This
+      // candidate does NOT dispatch protected actions, even if ok is true.
+      if(done.status==='complete'&&
+         (done.result?.code==='APPROVAL_REQUIRED'||
+          done.result?.requiresFreshApproval===true))
+        return fail('PHONE_LOCAL_APPROVAL_REQUIRED',{
+          deviceStatus:done.status,phoneCode:done.result?.code||null
+        });
       if(done.status!=='complete'||done.result?.ok!==true)
         return fail('PHONE_PREPARATION_OR_LOCAL_APPROVAL_REQUIRED',{
           deviceStatus:done.status,phoneCode:typeof done.result?.code==='string'
             ?done.result.code:null});
-      // Only the trusted original phone's signed preparation may yield these.
-      // NEVER create tokens or accept caller-provided tokens.
-      const lease=done.result.leaseToken,approval=done.result.actionApprovalGrantToken;
-      if(!validToken(lease)||!validToken(approval))
-        return fail('PHONE_LOCAL_GRANT_OR_LEASE_NOT_CONFIRMED');
+      if(done.result.code!=='READY'||done.result.requiresFreshApproval!==false)
+        return fail('PHONE_PREPARATION_CODE_NOT_VERIFIED');
+      const lease=done.result.leaseToken;
+      if(!validToken(lease))return fail('PHONE_ACTION_LEASE_NOT_CONFIRMED');
       const id=randomBytes(16).toString('hex');
       prepared={id,binding:b,screenEvidence:evidence(),
-        args:{...structuredClone(args),device_id:b.deviceId,
-          lease_token:lease,action_approval_grant_token:approval},
-        leaseToken:lease,approvalToken:approval,createdAtMs:now()};
+        globalArgs:structuredClone(args),
+        args:{...phoneArgs,device_id:b.deviceId,lease_token:lease},
+        leaseToken:lease,originalPhonePreparedReady:true,
+        requiresFreshApproval:false,createdAtMs:now()};
       return Object.freeze({ok:true,code:'SIGNED_PHONE_PREPARATION_READY',
         preparationId:id,dispatched:false,effectVerified:false,
         autoRetry:false});
@@ -286,7 +328,7 @@ export function createAndroidDirectSecure56Host({
             return fail('FOLD_ACTION_PRECHECK_STALE');
           if(paneDigest(proof,layoutMode)!==step.binding.rightPaneDigest)
             return fail('FOLD_LAYOUT_CHANGED_BEFORE_ACTION');
-          const gate=guardFoldAction(proof,step.args);
+          const gate=guardFoldAction(proof,step.globalArgs);
           if(!gate.ok)return fail(gate.code);
           if(!identity()||!['deviceId','sessionId','commandId']
             .every(k=>identity()?.[k]===step.binding[k]))
@@ -300,15 +342,17 @@ export function createAndroidDirectSecure56Host({
       }
       running={operationId,taskDigest:step.args.task_digest,
         binding:step.binding,leaseToken:step.leaseToken,
-        approvalToken:step.approvalToken};
+        originalPhonePreparedReady:step.originalPhonePreparedReady,
+        requiresFreshApproval:step.requiresFreshApproval};
       const answer=await executor.execute({operationId,args:step.args,
         expectedBinding:step.binding,screenEvidence:step.screenEvidence});
       // Device receipt is NOT proof that the requested site action succeeded.
       return Object.freeze({...answer,autoRetry:false,effectVerified:false});
     } finally {
       running=null;
-      step.leaseToken=null;step.approvalToken=null;
-      step.args.lease_token=null;step.args.action_approval_grant_token=null;
+      step.leaseToken=null;
+      step.args.lease_token=null;
+      step.globalArgs=null;
     }
   }
   async function status({operationId}={}) {
@@ -321,8 +365,7 @@ export function createAndroidDirectSecure56Host({
     if(preparing)return Object.freeze({ok:true,
       code:'PENDING_PREPARATION_CANCEL_REQUESTED_NO_ACTION'});
     if(prepared){prepared.args.lease_token=null;
-      prepared.args.action_approval_grant_token=null;
-      prepared.leaseToken=null;prepared.approvalToken=null;prepared=null;}
+      prepared.leaseToken=null;prepared.globalArgs=null;prepared=null;}
     return Object.freeze({ok:true,code:'LOCAL_PREPARATION_CANCELLED_NO_ACTION'});
   }
   return Object.freeze({capture,prepare,execute,status,cancelPreparation,
@@ -331,5 +374,7 @@ export function createAndroidDirectSecure56Host({
       layoutMode,workPaneSide:layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT?'LEFT':'RIGHT',
       physicalUnfoldVerified:false,
       originalDurableJournalReady:durableReady()===true,
-      phoneTokenSchemaConfirmed:false})});
+      phoneTokenSchemaConfirmed:true,
+      protectedApprovalFlowConnected:false,
+      globalToWorkWindowMappingVerifiedOnSynthetic:true})});
 }
