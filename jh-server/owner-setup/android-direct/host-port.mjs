@@ -1,0 +1,280 @@
+/**
+ * JH167 Android-direct phase 2: host-local Secure56 adapter.
+ *
+ * The original JH Secure56 host already owns the jobs map, signed
+ * completion verification, durable journal, local phone approvals and UI
+ * snapshot. Never use public MCP safeJobView56 (it redacts the job id and
+ * session). Plug in the EXISTING in-process functions only.
+ *
+ * IMPORTANT: isolated and disabled by default; not imported into production.
+ */
+import { createHash, randomBytes } from 'node:crypto';
+import { inspectSplitEvidence } from '../deployment/split-screen-evidence.mjs';
+import { createAndroidDirectStage1 } from './engine.mjs';
+
+const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+const hex32=x=>typeof x==='string'&&/^[0-9a-f]{32}$/.test(x);
+const hex64=x=>typeof x==='string'&&/^[0-9a-f]{64}$/.test(x);
+const sha=x=>createHash('sha256').update(String(x)).digest('hex');
+const actions=new Set(['CLICK','TYPE','SCROLL','KEYPRESS']);
+const rawFields=new Set(['task_digest','action','effect','data_class','x','y',
+  'viewport_width','viewport_height','scroll_x','scroll_y','keys','text_digest','text_value',
+  'based_on_screenshot_digest','current_screenshot_digest','index']);
+const fail=(code,extra={})=>Object.freeze({ok:false,code,dispatched:false,
+  effectVerified:false,autoRetry:false,...extra});
+const deviceReceipt=(j,device,session,command,type)=>{
+  return obj(j)&&typeof j.id==='string'&&j.id.length>0&&
+    j.type===type&&j.targetDeviceId===device&&
+    j.secureSessionId===session&&j.commandId===command;
+};
+const validToken=x=>typeof x==='string'&&x.length>=8&&x.length<=512;
+const safeKind=x=>x==='READ_ONLY'||x==='REVERSIBLE_WRITE'||x==='MUTATION';
+
+function validInput(args) {
+  if(!obj(args)||Object.keys(args).some(k=>!rawFields.has(k))||
+     !actions.has(args.action)||!hex64(args.task_digest)||
+     args.effect!=='REVERSIBLE_WRITE'||args.data_class!=='NON_SENSITIVE')
+    return false;
+  if(args.action==='CLICK')return Number.isSafeInteger(args.x)&&
+    Number.isSafeInteger(args.y)&&Number.isSafeInteger(args.viewport_width)&&
+    Number.isSafeInteger(args.viewport_height)&&args.x>=0&&args.y>=0&&
+    args.viewport_width>0&&args.viewport_height>0&&
+    args.x<args.viewport_width&&args.y<args.viewport_height;
+  if(args.action==='TYPE')return typeof args.text_value==='string'&&
+    args.text_value.length>0&&Buffer.byteLength(args.text_value,'utf8')<=2048&&
+    hex64(args.text_digest)&&sha(args.text_value)===args.text_digest;
+  if(args.action==='SCROLL')return Number.isSafeInteger(args.scroll_y)&&
+    args.scroll_y!==0&&Math.abs(args.scroll_y)<=3000&&
+    Number.isSafeInteger(args.viewport_height)&&args.viewport_height>0;
+  return Array.isArray(args.keys)&&args.keys.length>0&&args.keys.length<=4&&
+    args.keys.every(k=>typeof k==='string'&&/^[A-Z0-9_]{1,24}$/.test(k));
+}
+
+/**
+ * Host contracts must be passed by verified local server code, never by
+ * MCP input or a remote device request.
+ *
+ * selectDevice, deviceMeta, activeSession, requireCommand: existing JH.
+ * makeSnapshotJob: original mk('agent_snapshot',{},device).
+ * exactEnvelope: original exactEnvelope56 (creates signed, durable-gated job).
+ * waitJob: original waitJob. getJob: original local jobs.get.
+ * durableReady: existing installed durableNativeHooks status, not a new journal.
+ *
+ * Phone prepare response token fields must be confirmed on a real JH APK
+ * before enabling this adapter. Missing tokens always block execution.
+ */
+export function createAndroidDirectSecure56Host({
+  selectDevice,deviceMeta,activeSession,requireCommand,makeSnapshotJob,
+  exactEnvelope,waitJob,getJob,durableReady,enabled=false,clock=Date.now
+}={}) {
+  for(const fn of [selectDevice,deviceMeta,activeSession,requireCommand,
+    makeSnapshotJob,exactEnvelope,waitJob,getJob,durableReady,clock])
+    if(typeof fn!=='function')throw Error('JH_ORIGINAL_LOCAL_SECURE56_PORTS_REQUIRED');
+  let screen=null,prepared=null,running=null,capturing=false,preparing=false,cancelEpoch=0;
+  const now=()=>clock();
+  function identity() {
+    try {
+      const d=selectDevice(),meta=d&&deviceMeta(d),s=d&&activeSession(d);
+      const command=d&&requireCommand(d);
+      if(typeof d!=='string'||!d||!meta||meta.secureBridgeVersion!==56||
+        meta.secureActive!==true||!s?.sessionId||
+        typeof s.sessionId!=='string'||!hex32(command)||
+        now()-Number(meta.lastSeen)>90000||meta.deviceDigest!==s.deviceDigest)
+        return null;
+      return {deviceId:d,sessionId:s.sessionId,commandId:command};
+    } catch {return null}
+  }
+  function binding() {
+    const a=identity();
+    if(!a||!screen||screen.observedAtMs>now()||
+      now()-screen.observedAtMs>10000||
+      !['deviceId','sessionId','commandId'].every(k=>screen.binding[k]===a[k]))
+      return null;
+    return {...screen.binding,current:true,secure56:true,rightPaneVerified:true};
+  }
+  function evidence() {
+    const b=binding();if(!b)return null;
+    return {verifiedByExistingJH:true,readOnlySnapshot:true,
+      observedAtMs:screen.observedAtMs,binding:b};
+  }
+  function signedEnvelope(tool,type,effect,args,extra={}) {
+    if(!safeKind(effect))throw Error('EFFECT_NOT_ALLOWED');
+    const b=binding();if(!b)throw Error('RIGHT_PANE_BINDING_LOST');
+    const e=exactEnvelope(tool,type,effect,{...args,device_id:b.deviceId},extra);
+    if(e?.error||e?.deviceId!==b.deviceId||
+       !deviceReceipt(e?.job,b.deviceId,b.sessionId,b.commandId,type)||
+       e.job.status!=='queued')
+      throw Error('ORIGINAL_SECURE56_JOB_NOT_QUEUED');
+    return {binding:b,job:e.job};
+  }
+  async function authenticatedJob(job,b,type,maxMs=15000) {
+    const done=await waitJob(job,maxMs);
+    if(!deviceReceipt(done,b.deviceId,b.sessionId,b.commandId,type)||
+      done.id!==job.id)throw Error('JH_SIGNED_JOB_BINDING_CHANGED');
+    return done;
+  }
+
+  const executor=createAndroidDirectStage1({
+    enabled:enabled===true,
+    readBinding:binding,
+    clock:now,
+    authorizeExistingStep:async({operationId,deviceId,commandId,sessionId,taskDigest})=>{
+      return !!running&&running.operationId===operationId&&
+        running.taskDigest===taskDigest&&durableReady()===true&&
+        running.binding.deviceId===deviceId&&
+        running.binding.commandId===commandId&&
+        running.binding.sessionId===sessionId&&
+        !!binding()&&validToken(running.leaseToken)&&
+        validToken(running.approvalToken);
+    },
+    invokeExistingTool:async(name,args,b)=>{
+      if(!binding()||binding().rightPaneDigest!==b.rightPaneDigest)
+        throw Error('ANDROID_CONTEXT_CHANGED');
+      if(name==='life_job_status') {
+        const original=getJob(args.job_id);
+        if(!deviceReceipt(original,b.deviceId,b.sessionId,b.commandId,
+          'computer_use_action_execute'))throw Error('STATUS_JOB_NOT_BOUND');
+        return {job:original};
+      }
+      if(name==='life_android_snapshot') {
+        const j=makeSnapshotJob(b.deviceId);
+        if(!deviceReceipt(j,b.deviceId,b.sessionId,b.commandId,'agent_snapshot'))
+          throw Error('SNAPSHOT_JOB_NOT_BOUND');
+        return {job:await authenticatedJob(j,b,'agent_snapshot')};
+      }
+      if(name==='life_android_computer_inspect') {
+        const {job}=signedEnvelope(name,'computer_use_inspect','READ_ONLY',args);
+        return {job:await authenticatedJob(job,b,'computer_use_inspect')};
+      }
+      if(name==='life_android_execute_computer_action') {
+        if(!running||running.binding.rightPaneDigest!==b.rightPaneDigest||
+           !validToken(args.lease_token)||
+           !validToken(args.action_approval_grant_token))
+          throw Error('EXISTING_PHONE_APPROVAL_NOT_BOUND');
+        // Original exactEnvelope56 builds the Secure56 signed payload and
+        // original durableNativeHooks enforce storage fencing before dispatch.
+        const {job}=signedEnvelope(name,'computer_use_action_execute','MUTATION',
+          args,{leaseToken:args.lease_token,
+            localActionApprovalDigest:String(args.local_action_approval_digest||'')});
+        return {job:await authenticatedJob(job,b,'computer_use_action_execute')};
+      }
+      throw Error('MCP_TOOL_NOT_IN_ANDROID_DIRECT_ALLOWLIST');
+    }
+  });
+
+  async function capture() {
+    if(!enabled)return fail('ANDROID_DIRECT_DISABLED');
+    if(running||prepared||preparing||capturing)return fail('CANDIDATE_ACTION_IN_PROGRESS');
+    const a=identity();if(!a)return fail('ORIGINAL_SECURE56_DEVICE_REQUIRED');
+    let j,done,proof;
+    capturing=true;
+    try {
+      j=makeSnapshotJob(a.deviceId);
+      if(!deviceReceipt(j,a.deviceId,a.sessionId,a.commandId,'agent_snapshot'))
+        return fail('SNAPSHOT_SIGNATURE_SCOPE_INVALID');
+      done=await authenticatedJob(j,a,'agent_snapshot',25000);
+      if(done.status!=='complete'||done.result?.ok!==true||
+         typeof done.result.url!=='string'||
+         Buffer.byteLength(done.result.url,'utf8')>2*1024*1024)
+        return fail('SIGNED_ANDROID_SNAPSHOT_NOT_COMPLETED');
+      const nodes=JSON.parse(done.result.url);
+      proof=inspectSplitEvidence(done.result,nodes,null,now());
+      if(!proof.ok)return fail(proof.reason);
+      if(!identity()||!['deviceId','sessionId','commandId']
+        .every(k=>a[k]===identity()?.[k]))
+        return fail('SECURE56_SESSION_CHANGED_DURING_SNAPSHOT');
+      const paneDigest=sha([proof.chatPackage,proof.chatWindowId,
+        proof.workPackage,proof.workWindowId].join('|'));
+      screen={observedAtMs:proof.observedAtMs,
+        binding:{...a,rightPaneDigest:paneDigest}};
+      return Object.freeze({ok:true,code:'SIGNED_ANDROID_RIGHT_PANE_OBSERVED',
+        observedAtMs:proof.observedAtMs,workPackage:proof.workPackage,
+        rightPaneDigest:paneDigest,effectVerified:false,dispatched:false});
+    } catch {
+      screen=null;return fail('SIGNED_ANDROID_SNAPSHOT_UNAVAILABLE');
+    } finally { capturing=false; }
+  }
+
+  async function prepare({args}={}) {
+    if(!enabled)return fail('ANDROID_DIRECT_DISABLED');
+    if(running||prepared||preparing||capturing)return fail('CANDIDATE_ACTION_IN_PROGRESS');
+    const b=binding();if(!b)return fail('FRESH_SIGNED_ANDROID_SCREEN_REQUIRED');
+    if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
+    if(!validInput(args))return fail('ANDROID_ACTION_ARGUMENTS_INVALID');
+    let job,done;
+    const originalEpoch=cancelEpoch;
+    preparing=true;
+    try {
+      ({job}=signedEnvelope('life_android_computer_prepare',
+        'computer_use_action_prepare','READ_ONLY',args));
+      done=await authenticatedJob(job,b,'computer_use_action_prepare');
+      if(cancelEpoch!==originalEpoch)return fail('PHONE_PREPARATION_CANCELLED');
+      if(!binding()||binding().rightPaneDigest!==b.rightPaneDigest)
+        return fail('ANDROID_CONTEXT_CHANGED_DURING_PREPARE');
+      if(done.status!=='complete'||done.result?.ok!==true)
+        return fail('PHONE_PREPARATION_OR_LOCAL_APPROVAL_REQUIRED',{
+          deviceStatus:done.status,phoneCode:typeof done.result?.code==='string'
+            ?done.result.code:null});
+      // Only the trusted original phone's signed preparation may yield these.
+      // NEVER create tokens or accept caller-provided tokens.
+      const lease=done.result.leaseToken,approval=done.result.actionApprovalGrantToken;
+      if(!validToken(lease)||!validToken(approval))
+        return fail('PHONE_LOCAL_GRANT_OR_LEASE_NOT_CONFIRMED');
+      const id=randomBytes(16).toString('hex');
+      prepared={id,binding:b,screenEvidence:evidence(),
+        args:{...structuredClone(args),device_id:b.deviceId,
+          lease_token:lease,action_approval_grant_token:approval},
+        leaseToken:lease,approvalToken:approval,createdAtMs:now()};
+      return Object.freeze({ok:true,code:'SIGNED_PHONE_PREPARATION_READY',
+        preparationId:id,dispatched:false,effectVerified:false,
+        autoRetry:false});
+    } catch {
+      return fail('SIGNED_PHONE_PREPARATION_UNAVAILABLE');
+    } finally {preparing=false;}
+  }
+
+  async function execute({preparationId,operationId}={}) {
+    if(!enabled)return fail('ANDROID_DIRECT_DISABLED');
+    if(!prepared||prepared.id!==preparationId||!hex32(operationId))
+      return fail('PHONE_PREPARATION_NOT_FOUND');
+    if(running)return fail('CANDIDATE_ACTION_IN_PROGRESS');
+    const step=prepared;
+    prepared=null; // A preparation is single use, even when dispatch is uncertain.
+    if(now()-step.createdAtMs>10000||!binding()||
+      binding().rightPaneDigest!==step.binding.rightPaneDigest)
+      return fail('PHONE_PREPARATION_EXPIRED_OR_CONTEXT_CHANGED');
+    if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
+    running={operationId,taskDigest:step.args.task_digest,
+      binding:step.binding,leaseToken:step.leaseToken,
+      approvalToken:step.approvalToken};
+    try {
+      const answer=await executor.execute({operationId,args:step.args,
+        expectedBinding:step.binding,screenEvidence:step.screenEvidence});
+      // Never return original local grant, lease, raw UI or device identifier.
+      return Object.freeze({...answer,autoRetry:false,effectVerified:false});
+    } finally {
+      running=null;
+      step.leaseToken=null;step.approvalToken=null;
+      step.args.lease_token=null;step.args.action_approval_grant_token=null;
+    }
+  }
+  async function status({operationId}={}) {
+    if(!enabled)return fail('ANDROID_DIRECT_DISABLED');
+    return executor.status({operationId});
+  }
+  function cancelPreparation() {
+    if(running)return fail('CANNOT_CANCEL_AFTER_DISPATCH');
+    cancelEpoch++;
+    if(preparing)return Object.freeze({ok:true,
+      code:'PENDING_PREPARATION_CANCEL_REQUESTED_NO_ACTION'});
+    if(prepared){prepared.args.lease_token=null;
+      prepared.args.action_approval_grant_token=null;
+      prepared.leaseToken=null;prepared.approvalToken=null;prepared=null;}
+    return Object.freeze({ok:true,code:'LOCAL_PREPARATION_CANCELLED_NO_ACTION'});
+  }
+  return Object.freeze({capture,prepare,execute,status,cancelPreparation,
+    capabilities:()=>Object.freeze({...executor.capabilities(),
+      hostLocalOnly:true,realPhoneTested:false,
+      originalDurableJournalReady:durableReady()===true,
+      phoneTokenSchemaConfirmed:false})});
+}
