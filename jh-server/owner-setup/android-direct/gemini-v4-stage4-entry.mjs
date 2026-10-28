@@ -55,7 +55,16 @@ export function createStage4GeminiV4Entry({
  }
  async function run(req){
   if(!plain(req)||typeof req.mode!=='string')return no('UNIFIED_MODE_UNSUPPORTED');
-  if(!MODES.has(req.mode))return stage4.run(req);
+  if(!MODES.has(req.mode)){
+   // Existing production JH keeps GPT LEFT / Chrome RIGHT. Stage4's
+   // older experimental LEFT_WEB_RIGHT_GPT adapter MUST NOT silently become
+   // V4's web executor. Use the original RIGHT-work host when explicitly
+   // attached and independently proven; otherwise fail closed.
+   const hostSide=stage4.capabilities();
+   if(hostSide?.leftGptRightWork!==true||hostSide?.workPaneSide!=='RIGHT')
+    return no('V4_ORIGINAL_RIGHT_WORK_PORT_REQUIRED');
+   return stage4.run(req);
+  }
   if(!nativeReady())return no('V4_GEMINI_NATIVE_HOST_NOT_ATTACHED');
   if(!ID.test(req.taskId??req.request?.id??'')||!HEX32.test(req.commandId??''))
    return no('GEMINI_TASK_AND_COMMAND_REQUIRED');
@@ -106,6 +115,7 @@ export function createStage4GeminiV4Entry({
  return Object.freeze({run,capabilities:()=>Object.freeze({
   engine:'JH167_V4_ANDROID_SINGLE',androidLeftGptRightWork:true,
   stage4Unchanged:true,geminiNativeOnly:true,geminiHostAttached:nativeReady(),
+  defaultLayout:'LEFT_GPT_RIGHT_WORK',geminiWorkSide:'RIGHT',
   geminiModes:[...MODES],legacyPlaywrightPreserved:true,
   productionInstalled:false,automaticReplay:false,automaticResume:false
  })});
