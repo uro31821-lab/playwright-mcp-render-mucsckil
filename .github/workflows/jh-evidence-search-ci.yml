@@ -1,0 +1,21 @@
+name: JH Evidence Search isolated regression
+on:
+  pull_request:
+    paths:
+      - 'jh-server/owner-setup/evidence/perplexity-search*'
+      - 'jh-server/owner-setup/deployment/jh-perplexity-search-composition*'
+      - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
+      - '.github/workflows/jh-evidence-search-ci.yml'
+  workflow_dispatch:
+jobs:
+  isolated-search:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Standard Search API isolated regression (mocked, no API key)
+        run: node --test jh-server/owner-setup/evidence/perplexity-search.test.mjs jh-server/owner-setup/deployment/jh-perplexity-search-composition.test.mjs
