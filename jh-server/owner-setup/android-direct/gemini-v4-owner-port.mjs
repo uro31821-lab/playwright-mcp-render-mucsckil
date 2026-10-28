@@ -23,7 +23,7 @@ export function createV4GeminiSignedOwnerPort({androidHost,clock=Date.now}={}){
   return Object.freeze({singleOriginalSecure56:true,
    ready:c?.hostLocalOnly===true&&c?.existingSecure56Required===true&&
     c?.playwrightUsed===false&&c?.layoutMode==='LEFT_NATIVE_GEMINI_RIGHT_GPT'&&
-    c?.workPaneSide==='LEFT'&&c?.protectedApprovalFlowConnected===false,
+    c?.workPaneSide==='LEFT',
    geminiNativeOwnerOnly:true,geminiSubmitPermitted:false,
    automaticReplay:false,automaticResume:false});
  }
