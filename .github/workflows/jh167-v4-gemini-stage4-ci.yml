@@ -18,6 +18,11 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22'
+      - name: Reuse existing Stage4 host dependencies for full owner integration tests
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
       - name: Parse and test V4 Gemini native routing and durable read-only checkpoint
         run: |
           node --check jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.mjs
