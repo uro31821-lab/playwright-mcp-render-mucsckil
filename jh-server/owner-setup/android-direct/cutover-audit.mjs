@@ -40,7 +40,7 @@ const REQUIRED=Object.freeze([
   {
     file:'jh-server/owner-setup/deployment/jh167-right-pane-orchestrator-repair.mjs',
     id:'LEGACY_RIGHT_PANE_ROUTING',
-    markers:["target:\\"right_web_link\\"","registerOAuthTool(\\"life_web_navigate\\""]
+    markers:['target:"right_web_link"','registerOAuthTool("life_web_navigate"']
   }
 ]);
 export const CUTOVER_REQUIREMENTS=Object.freeze([
