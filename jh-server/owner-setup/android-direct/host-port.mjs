@@ -9,13 +9,19 @@
  * IMPORTANT: isolated and disabled by default; not imported into production.
  */
 import { createHash, randomBytes } from 'node:crypto';
-import { inspectSplitEvidence } from '../deployment/split-screen-evidence.mjs';
+import { inspectFoldPair,guardFoldAction,FOLD_LAYOUTS } from './fold-evidence.mjs';
 import { createAndroidDirectStage1 } from './engine.mjs';
 
 const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const hex32=x=>typeof x==='string'&&/^[0-9a-f]{32}$/.test(x);
 const hex64=x=>typeof x==='string'&&/^[0-9a-f]{64}$/.test(x);
 const sha=x=>createHash('sha256').update(String(x)).digest('hex');
+const paneDigest=(proof,mode)=>sha(JSON.stringify({
+  mode,workSide:proof.workSide,chatSide:proof.chatSide,
+  chatPackage:proof.chatPackage,workPackage:proof.workPackage,
+  chatWindowId:proof.chatWindowId,workWindowId:proof.workWindowId,
+  chatBounds:proof.chatBounds,workBounds:proof.workBounds
+}));
 const actions=new Set(['CLICK','TYPE','SCROLL','KEYPRESS']);
 const rawFields=new Set(['task_digest','action','effect','data_class','x','y',
   'viewport_width','viewport_height','scroll_x','scroll_y','keys','text_digest','text_value',
@@ -65,11 +71,13 @@ function validInput(args) {
  */
 export function createAndroidDirectSecure56Host({
   selectDevice,deviceMeta,activeSession,requireCommand,makeSnapshotJob,
-  exactEnvelope,waitJob,getJob,durableReady,enabled=false,clock=Date.now
+  exactEnvelope,waitJob,getJob,durableReady,enabled=false,clock=Date.now,
+  layoutMode=FOLD_LAYOUTS.LEGACY_LEFT_GPT_RIGHT_WORK
 }={}) {
   for(const fn of [selectDevice,deviceMeta,activeSession,requireCommand,
     makeSnapshotJob,exactEnvelope,waitJob,getJob,durableReady,clock])
     if(typeof fn!=='function')throw Error('JH_ORIGINAL_LOCAL_SECURE56_PORTS_REQUIRED');
+  if(!Object.values(FOLD_LAYOUTS).includes(layoutMode))throw Error('JH_FOLD_LAYOUT_MODE_INVALID');
   let screen=null,prepared=null,running=null,capturing=false,preparing=false,cancelEpoch=0;
   const now=()=>clock();
   function identity() {
@@ -90,7 +98,9 @@ export function createAndroidDirectSecure56Host({
       now()-screen.observedAtMs>10000||
       !['deviceId','sessionId','commandId'].every(k=>screen.binding[k]===a[k]))
       return null;
-    return {...screen.binding,current:true,secure56:true,rightPaneVerified:true};
+    return {...screen.binding,current:true,secure56:true,
+      rightPaneVerified:screen.proof.workSide==='RIGHT',
+      workPaneVerified:true,workPaneSide:screen.proof.workSide};
   }
   function evidence() {
     const b=binding();if(!b)return null;
@@ -178,18 +188,21 @@ export function createAndroidDirectSecure56Host({
          Buffer.byteLength(done.result.url,'utf8')>2*1024*1024)
         return fail('SIGNED_ANDROID_SNAPSHOT_NOT_COMPLETED');
       const nodes=JSON.parse(done.result.url);
-      proof=inspectSplitEvidence(done.result,nodes,null,now());
-      if(!proof.ok)return fail(proof.reason);
+      proof=inspectFoldPair(done.result,nodes,layoutMode,now());
+      if(!proof.ok)return fail(proof.code);
       if(!identity()||!['deviceId','sessionId','commandId']
         .every(k=>a[k]===identity()?.[k]))
         return fail('SECURE56_SESSION_CHANGED_DURING_SNAPSHOT');
-      const paneDigest=sha([proof.chatPackage,proof.chatWindowId,
-        proof.workPackage,proof.workWindowId].join('|'));
-      screen={observedAtMs:proof.observedAtMs,
-        binding:{...a,rightPaneDigest:paneDigest}};
-      return Object.freeze({ok:true,code:'SIGNED_ANDROID_RIGHT_PANE_OBSERVED',
+      const digest=paneDigest(proof,layoutMode);
+      screen={observedAtMs:proof.observedAtMs,lastJobId:j.id,proof,
+        binding:{...a,rightPaneDigest:digest}};
+      return Object.freeze({ok:true,
+        code:layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT
+          ?'SIGNED_LEFT_WEB_RIGHT_GPT_OBSERVED':'SIGNED_ANDROID_RIGHT_PANE_OBSERVED',
         observedAtMs:proof.observedAtMs,workPackage:proof.workPackage,
-        rightPaneDigest:paneDigest,effectVerified:false,dispatched:false});
+        workPaneSide:proof.workSide,chatPaneSide:proof.chatSide,
+        physicalUnfoldVerified:proof.physicalUnfoldVerified===true,
+        rightPaneDigest:digest,effectVerified:false,dispatched:false});
     } catch {
       screen=null;return fail('SIGNED_ANDROID_SNAPSHOT_UNAVAILABLE');
     } finally { capturing=false; }
@@ -201,6 +214,10 @@ export function createAndroidDirectSecure56Host({
     const b=binding();if(!b)return fail('FRESH_SIGNED_ANDROID_SCREEN_REQUIRED');
     if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
     if(!validInput(args))return fail('ANDROID_ACTION_ARGUMENTS_INVALID');
+    if(layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT){
+      const gate=guardFoldAction(screen?.proof,args);
+      if(!gate.ok)return fail(gate.code);
+    }
     let job,done;
     const originalEpoch=cancelEpoch;
     preparing=true;
@@ -237,20 +254,56 @@ export function createAndroidDirectSecure56Host({
     if(!enabled)return fail('ANDROID_DIRECT_DISABLED');
     if(!prepared||prepared.id!==preparationId||!hex32(operationId))
       return fail('PHONE_PREPARATION_NOT_FOUND');
-    if(running)return fail('CANDIDATE_ACTION_IN_PROGRESS');
+    if(running||preparing||capturing)return fail('CANDIDATE_ACTION_IN_PROGRESS');
     const step=prepared;
-    prepared=null; // A preparation is single use, even when dispatch is uncertain.
-    if(now()-step.createdAtMs>10000||!binding()||
-      binding().rightPaneDigest!==step.binding.rightPaneDigest)
-      return fail('PHONE_PREPARATION_EXPIRED_OR_CONTEXT_CHANGED');
-    if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
-    running={operationId,taskDigest:step.args.task_digest,
-      binding:step.binding,leaseToken:step.leaseToken,
-      approvalToken:step.approvalToken};
+    prepared=null; // A preparation is single-use even if verification fails.
     try {
+      if(now()-step.createdAtMs>10000||!binding()||
+        binding().rightPaneDigest!==step.binding.rightPaneDigest)
+        return fail('PHONE_PREPARATION_EXPIRED_OR_CONTEXT_CHANGED');
+      if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
+      if(layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT) {
+        // Re-observe actual two-window geometry AFTER phone preparation.
+        // Never dispatch an old screen coordinate when the splitter moved,
+        // device rotated/folded or keyboard focus switched to ChatGPT.
+        capturing=true;
+        try {
+          const before=screen;
+          const snapshotJob=makeSnapshotJob(step.binding.deviceId);
+          if(!deviceReceipt(snapshotJob,step.binding.deviceId,
+            step.binding.sessionId,step.binding.commandId,'agent_snapshot')||
+            snapshotJob.id===before?.lastJobId)
+            return fail('FOLD_FRESH_SNAPSHOT_REQUIRED');
+          const done=await authenticatedJob(snapshotJob,step.binding,'agent_snapshot',25000);
+          if(done.status!=='complete'||done.result?.ok!==true||
+            typeof done.result.url!=='string'||
+            Buffer.byteLength(done.result.url,'utf8')>2*1024*1024)
+            return fail('FOLD_ACTION_PRECHECK_SNAPSHOT_MISSING');
+          const nodes=JSON.parse(done.result.url);
+          const proof=inspectFoldPair(done.result,nodes,layoutMode,now());
+          if(!proof.ok)return fail(proof.code);
+          if(proof.observedAtMs<=before.observedAtMs)
+            return fail('FOLD_ACTION_PRECHECK_STALE');
+          if(paneDigest(proof,layoutMode)!==step.binding.rightPaneDigest)
+            return fail('FOLD_LAYOUT_CHANGED_BEFORE_ACTION');
+          const gate=guardFoldAction(proof,step.args);
+          if(!gate.ok)return fail(gate.code);
+          if(!identity()||!['deviceId','sessionId','commandId']
+            .every(k=>identity()?.[k]===step.binding[k]))
+            return fail('FOLD_SECURE56_BINDING_CHANGED');
+          screen={...before,observedAtMs:proof.observedAtMs,proof,
+            lastJobId:snapshotJob.id};
+          step.screenEvidence=evidence();
+        } catch {
+          return fail('FOLD_ACTION_PRECHECK_UNAVAILABLE');
+        } finally {capturing=false;}
+      }
+      running={operationId,taskDigest:step.args.task_digest,
+        binding:step.binding,leaseToken:step.leaseToken,
+        approvalToken:step.approvalToken};
       const answer=await executor.execute({operationId,args:step.args,
         expectedBinding:step.binding,screenEvidence:step.screenEvidence});
-      // Never return original local grant, lease, raw UI or device identifier.
+      // Device receipt is NOT proof that the requested site action succeeded.
       return Object.freeze({...answer,autoRetry:false,effectVerified:false});
     } finally {
       running=null;
@@ -275,6 +328,8 @@ export function createAndroidDirectSecure56Host({
   return Object.freeze({capture,prepare,execute,status,cancelPreparation,
     capabilities:()=>Object.freeze({...executor.capabilities(),
       hostLocalOnly:true,realPhoneTested:false,
+      layoutMode,workPaneSide:layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT?'LEFT':'RIGHT',
+      physicalUnfoldVerified:false,
       originalDurableJournalReady:durableReady()===true,
       phoneTokenSchemaConfirmed:false})});
 }
