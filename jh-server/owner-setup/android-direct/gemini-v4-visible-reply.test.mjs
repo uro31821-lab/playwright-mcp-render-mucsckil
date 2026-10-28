@@ -111,9 +111,11 @@ test('more than eight candidate assistant fragments fails closed instead of clai
  const h=make();h.state.setRows([proof(),...Array.from({length:9},()=>assistantRow())]);
  assert.equal((await h.obs.read(req)).code,'GEMINI_VISIBLE_NODE_BUDGET_EXCEEDED');
 });
-test('nonmatching window and wrong package assistant nodes are never included',async()=>{
+test('nonmatching window and wrong package assistant nodes invalidate signed pane proof',async()=>{
  const h=make();h.state.setRows([proof(),assistantRow({windowId:'33'}),assistantRow({package:'com.android.chrome'})]);
- assert.equal((await h.obs.read(req)).code,'GEMINI_ASSISTANT_REPLY_NOT_VISIBLE');
+ // The original fold verifier rejects a mixed-package or wrong-window tree
+ // BEFORE any assistant text is examined. This is the stronger denial.
+ assert.equal((await h.obs.read(req)).code,'SIGNED_GEMINI_RIGHT_PANE_UNVERIFIED');
 });
 test('disabled and invalid task paths cannot reach original signed phone queue',async()=>{
  const h=make({enabled:false});
