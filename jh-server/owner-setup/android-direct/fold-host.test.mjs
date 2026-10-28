@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {createAndroidDirectSecure56Host} from './host-port.mjs';
 const h=x=>createHash('sha256').update(x).digest('hex');
 const now=1800000000000, rect=(a,b,c,d)=>[a,b,c,d].join(',');
-function make({browser='com.android.chrome',focus=false,reuse=false}={}){
+function make({browser='com.android.chrome',focus=false,reuse=false,layoutMode='LEFT_WEB_RIGHT_GPT'}={}){
  let t=now,split=1050,app=browser,input=focus,seq=0,session='secure-56';
  let command='a'.repeat(32);const jobs=[],phoneInputs=[];
  const proof=()=>({kind:'split_screen_evidence',version:'1',verified:'true',
@@ -21,7 +21,7 @@ function make({browser='com.android.chrome',focus=false,reuse=false}={}){
   targetDeviceId:'fold-phone',secureSessionId:session,commandId:command,
   status:'queued',result:body};jobs.push(j);return j};
  const api=createAndroidDirectSecure56Host({
-  enabled:true,layoutMode:'LEFT_WEB_RIGHT_GPT',clock:()=>t,
+  enabled:true,layoutMode,clock:()=>t,
   selectDevice:()=> 'fold-phone',
   deviceMeta:()=>({secureBridgeVersion:56,secureActive:true,deviceDigest:h('dev'),lastSeen:t-200}),
   activeSession:()=>({sessionId:session,deviceDigest:h('dev')}),
@@ -129,4 +129,58 @@ test('global fold coordinate is translated to REAL R5 work-local viewport before
  assert.equal(executed.args.x,270);
  assert.equal(executed.args.viewport_width,1050);
  assert.equal(executed.args.action_approval_grant_token,undefined);
+});
+
+test('V4 native Gemini host captures exact signed left-window/right-GPT without trusting a Gemini reply',async()=>{
+ const t=make({browser:'com.google.android.googlequicksearchbox',layoutMode:'LEFT_NATIVE_GEMINI_RIGHT_GPT'});
+ const result=await t.api.capture();
+ assert.equal(result.ok,true);
+ assert.equal(result.code,'SIGNED_LEFT_NATIVE_GEMINI_RIGHT_GPT_OBSERVED');
+ const owner=t.api.nativeOwnerEvidence();
+ assert.equal(owner.backend,'JH_ANDROID_NATIVE');
+ assert.equal(owner.deviceId,'fold-phone');
+ assert.equal(owner.workWindowId,31);
+ assert.equal(owner.chatWindowId,32);
+ assert.equal(owner.workPackage,'com.google.android.googlequicksearchbox');
+ assert.equal(owner.nativeGeminiWindowVerified,true);
+ assert.equal(owner.geminiSurfaceVerified,false);
+ assert.equal(owner.geminiAccountVerified,false);
+ assert.equal(t.api.verifyNativeOwnerEvidence(owner),true);
+ assert.equal(t.api.verifyNativeOwnerEvidence({...owner,workWindowId:32}),false);
+ assert.equal(t.api.verifyNativeOwnerEvidence({...owner,commandId:'f'.repeat(32)}),false);
+ assert.equal(t.api.verifyNativeOwnerEvidence({...owner,geminiSurfaceVerified:true}),false);
+});
+test('Gemini host refuses unrelated package and right-pane click without consuming action',async()=>{
+ const t=make({browser:'com.android.chrome',layoutMode:'LEFT_NATIVE_GEMINI_RIGHT_GPT'});
+ assert.equal((await t.api.capture()).code,'FOLD_LEFT_NATIVE_GEMINI_PACKAGE_REQUIRED');
+ assert.equal(t.api.nativeOwnerEvidence(),null);
+ const g=make({browser:'com.google.android.googlequicksearchbox',
+  layoutMode:'LEFT_NATIVE_GEMINI_RIGHT_GPT'});
+ assert.equal((await g.api.capture()).ok,true);
+ assert.equal((await g.api.prepare({args:g.action(1400)})).code,'FOLD_ACTION_OUTSIDE_LEFT_BROWSER');
+ assert.equal(g.jobs.filter(j=>j.type==='computer_use_action_prepare').length,0);
+ assert.equal(g.api.capabilities().protectedApprovalFlowConnected,false);
+});
+test('native Gemini signed owner becomes invalid on command or session change',async()=>{
+ const t=make({browser:'com.google.android.googlequicksearchbox',
+  layoutMode:'LEFT_NATIVE_GEMINI_RIGHT_GPT'});
+ await t.api.capture();const proof=t.api.nativeOwnerEvidence();
+ t.setCommand('f'.repeat(32));
+ assert.equal(t.api.nativeOwnerEvidence(),null);
+ assert.equal(t.api.verifyNativeOwnerEvidence(proof),false);
+ const s=make({browser:'com.google.android.googlequicksearchbox',
+  layoutMode:'LEFT_NATIVE_GEMINI_RIGHT_GPT'});
+ await s.api.capture();const old=s.api.nativeOwnerEvidence();
+ s.setSession('another-session');
+ assert.equal(s.api.verifyNativeOwnerEvidence(old),false);
+});
+test('native Gemini left window still requires a fresh second signed snapshot before a click',async()=>{
+ const t=make({browser:'com.google.android.googlequicksearchbox',
+  layoutMode:'LEFT_NATIVE_GEMINI_RIGHT_GPT'});
+ await t.api.capture();const p=await t.api.prepare({args:t.action(300)});
+ assert.equal(p.ok,true);
+ t.setSplit(800);
+ const effect=await t.api.execute({preparationId:p.preparationId,operationId:'e'.repeat(32)});
+ assert.equal(effect.code,'FOLD_LAYOUT_CHANGED_BEFORE_ACTION');
+ assert.equal(t.jobs.filter(j=>j.type==='computer_use_action_execute').length,0);
 });
