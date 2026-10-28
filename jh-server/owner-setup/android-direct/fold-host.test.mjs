@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {createAndroidDirectSecure56Host} from './host-port.mjs';
+import {createV4GeminiSignedOwnerPort} from './gemini-v4-owner-port.mjs';
 const h=x=>createHash('sha256').update(x).digest('hex');
 const now=1800000000000, rect=(a,b,c,d)=>[a,b,c,d].join(',');
 function make({browser='com.android.chrome',focus=false,reuse=false,layoutMode='LEFT_WEB_RIGHT_GPT'}={}){
@@ -183,4 +184,46 @@ test('native Gemini left window still requires a fresh second signed snapshot be
  const effect=await t.api.execute({preparationId:p.preparationId,operationId:'e'.repeat(32)});
  assert.equal(effect.code,'FOLD_LAYOUT_CHANGED_BEFORE_ACTION');
  assert.equal(t.jobs.filter(j=>j.type==='computer_use_action_execute').length,0);
+});
+
+test('V4 owner port consumes the ORIGINAL Secure56 signed fold host, not caller JSON',async()=>{
+ const t=make({browser:'com.google.android.googlequicksearchbox',
+  layoutMode:'LEFT_NATIVE_GEMINI_RIGHT_GPT'});
+ const port=createV4GeminiSignedOwnerPort({androidHost:t.api});
+ assert.equal(port.capabilities().ready,true);
+ assert.equal(port.read(),null);
+ const proof=await port.refresh();
+ assert.equal(proof.code,'ORIGINAL_SIGNED_GEMINI_WINDOW_CAPTURED');
+ assert.equal(proof.nativeGeminiWindowVerified,true);
+ assert.equal(proof.geminiDraftVerified,false);
+ assert.equal(proof.geminiAccountVerified,false);
+ assert.equal(t.jobs.filter(j=>j.type==='agent_snapshot').length,1);
+ assert.equal(t.jobs.filter(j=>j.type==='computer_use_action_execute').length,0);
+ const owner=port.read();
+ assert.equal(owner.workPackage,'com.google.android.googlequicksearchbox');
+ assert.equal(port.verify(owner,owner.commandId),true);
+ assert.equal(port.verify({...owner,workWindowId:33},owner.commandId),false);
+ assert.equal(port.verify({...owner,geminiSurfaceVerified:true},owner.commandId),false);
+});
+test('V4 Gemini status proof refuses old Chrome mode and revoked Secure56 command',async()=>{
+ const web=make(),w=createV4GeminiSignedOwnerPort({androidHost:web.api});
+ assert.equal(w.capabilities().ready,false);
+ assert.equal((await w.refresh()).code,'ORIGINAL_GEMINI_SIGNED_HOST_DISABLED');
+ const native=make({browser:'com.google.android.googlequicksearchbox',
+  layoutMode:'LEFT_NATIVE_GEMINI_RIGHT_GPT'});
+ const port=createV4GeminiSignedOwnerPort({androidHost:native.api});
+ await port.refresh();
+ const owner=port.read();
+ native.setCommand('e'.repeat(32));
+ assert.equal(port.read(),null);
+ assert.equal(port.verify(owner,owner.commandId),false);
+});
+test('V4 signed Gemini port cannot infer success when work pane changed to unrelated package',async()=>{
+ const t=make({browser:'com.google.android.googlequicksearchbox',
+  layoutMode:'LEFT_NATIVE_GEMINI_RIGHT_GPT'});
+ const p=createV4GeminiSignedOwnerPort({androidHost:t.api});
+ assert.equal((await p.refresh()).ok,true);
+ t.setApp('com.some.otherapp');
+ assert.equal((await p.refresh()).ok,false);
+ assert.equal(p.read(),null);
 });
