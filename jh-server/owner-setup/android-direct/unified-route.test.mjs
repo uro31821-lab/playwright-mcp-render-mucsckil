@@ -22,6 +22,9 @@ const observed=()=>({ok:true,workPaneSide:'LEFT',chatPaneSide:'RIGHT',
 function make(opt={}){
  const log=[];let cur=owner(),deviceCap=cap(),job=signed(),
   view=observed(),addr=true,nowMs=now;
+ let releaseCapability,releaseAddress;
+ const capGate=new Promise(resolve=>releaseCapability=resolve);
+ const addressGate=new Promise(resolve=>releaseAddress=resolve);
  const controller={
   capabilities:()=>({
    hostLocalOnly:true,existingSecure56Required:true,playwrightUsed:false,
@@ -38,11 +41,14 @@ function make(opt={}){
  };
  const router=createUnifiedAndroidRoute({
   controller,enabled:opt.enabled??true,clock:()=>nowMs,
-  readOwner:()=>cur,readSignedCapability:async()=>{log.push(['capability']);return deviceCap},
+  readOwner:()=>cur,readSignedCapability:async()=>{
+    log.push(['capability']);if(opt.capDelay)await capGate;return deviceCap
+  },
   openLeftWeb:async input=>{log.push(['open',input]);if(opt.openThrows)throw Error('link lost');return job},
   readOpenJob:async input=>{log.push(['open-status',input]);return job},
   readSignedAddress:async input=>{
    log.push(['address',input]);
+   if(opt.addressDelay)await addressGate;
    if(!addr)return null;
    return {verifiedByExistingSecure56:true,source:'SIGNED_ANDROID_ADDRESS_READBACK',
      deviceId:'synthetic-fold',sessionId:'signed-session',
@@ -54,6 +60,8 @@ function make(opt={}){
   router,log,req:(mode,rest={})=>({mode,commandId:id,...rest}),
   setCap:c=>{deviceCap=c},setOwner:x=>{cur=x},setJob:j=>{job=j},
   setView:x=>{view=x},setAddress:x=>{addr=x},tick:x=>{nowMs=x},
+  unblockCapability:()=>releaseCapability(),
+  unblockAddress:()=>releaseAddress(),
   io:()=>log.filter(x=>x[0]==='open')
  };
 }
@@ -198,4 +206,42 @@ test('source of action readiness must be phone LEFT web not legacy RIGHT work',a
  assert.equal((await s.router.run(s.req('OPEN_WEB',{target:'네이버',operationId:id2}))).code,
   'ANDROID_LEFT_WEB_ENGINE_NOT_READY');
  assert.equal(s.io().length,0);
+});
+
+
+test('two concurrent OPEN requests with same operationId cannot both create phone job',async()=>{
+ const s=make({capDelay:true});
+ const first=s.router.run(s.req('OPEN_WEB',{target:'네이버 메일',operationId:id2}));
+ try{
+  const duplicate=await s.router.run(s.req('OPEN_WEB',{target:'네이버 메일',operationId:id2}));
+  assert.equal(duplicate.code,'OPEN_PREFLIGHT_IN_PROGRESS');
+  assert.equal(duplicate.ok,false);
+  const status=await s.router.run(s.req('STATUS_OPEN',{operationId:id2}));
+  assert.equal(status.code,'OPEN_PREFLIGHT_IN_PROGRESS');
+  assert.equal(s.io().length,0);
+ }finally{s.unblockCapability()}
+ assert.equal((await first).code,'LEFT_BROWSER_ADDRESS_CONFIRMED');
+ assert.equal(s.io().length,1);
+});
+test('failed preflight without device capability does not reserve an irreversible dispatch',async()=>{
+ const s=make();s.setCap({...cap(),features:{}});
+ const first=await s.router.run(s.req('OPEN_WEB',{target:'네이버 메일',operationId:id2}));
+ assert.equal(first.code,'SIGNED_PHONE_LEFT_WEB_CAPABILITY_REQUIRED');
+ s.setCap(cap());
+ const next=await s.router.run(s.req('OPEN_WEB',{target:'네이버 메일',operationId:id2}));
+ assert.equal(next.code,'LEFT_BROWSER_ADDRESS_CONFIRMED');
+ assert.equal(s.io().length,1);
+});
+test('owner changed while signed address readback pending cannot confirm open',async()=>{
+ const s=make({addressDelay:true});
+ const first=s.router.run(s.req('OPEN_WEB',{target:'네이버 메일',operationId:id2}));
+ // Give the asynchronous device job/capture to enter address readback.
+ for(let i=0;i<20&&!s.log.some(x=>x[0]==='address');i++)await Promise.resolve();
+ assert.ok(s.log.some(x=>x[0]==='address'));
+ s.setOwner({...owner(),sessionId:'secure-new-session'});
+ s.unblockAddress();
+ const r=await first;
+ assert.equal(r.code,'OWNER_CHANGED_DURING_ADDRESS_READBACK');
+ assert.equal(r.ok,false);
+ assert.equal(s.io().length,1);
 });
