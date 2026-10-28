@@ -15,12 +15,18 @@ function harness(overrides={}){
   type:async()=>{effects.push('TYPE');return {ok:true}},
   submit:async()=>{effects.push('SUBMIT');return {ok:true}},
   openApp:async()=>{effects.push('OPEN_APP');return {ok:true}},
-  exportExistingVideo:async()=>{effects.push('EXPORT');return {ok:true}}};
+  exportExistingVideo:async()=>{effects.push('EXPORT');return {ok:true}},
+  lookupExport:async()=>null};
  const host={original,currentCommand:async()=>current,
   claimTask:async(key,state)=>{claimCount++;if(ledger.has(key))return false;ledger.set(key,state);return true},
   save:async(key,state)=>{if(!ledger.has(key))throw Error('ORIGINAL_RECORD_NOT_FOUND');ledger.set(key,state)},
   verifyObservation:async()=>{verifyCount++;return false},verifyReceipt:async()=>false,
-  delivery:{publish:async()=>{effects.push('PUBLISH');return null}},...overrides};
+  delivery:{publish:async()=>{effects.push('PUBLISH');return null},
+   lookup:async()=>null,verifyArtifact:async()=>false,playbackOrigins:['https://media.example.com']},
+  ...overrides};
+ if(overrides.original)host.original={...original,...overrides.original};
+ if(overrides.delivery)host.delivery={publish:async()=>null,lookup:async()=>null,
+  verifyArtifact:async()=>false,playbackOrigins:['https://media.example.com'],...overrides.delivery};
  return {host,driver:createStage4GeminiNativeDriver({host,enabled:true}),ledger,effects,device,
   current:set=>{current=set},counts:()=>({claimCount,observeCount,verifyCount})};
 }
@@ -110,5 +116,38 @@ test('real V4 driver joins Stage4 route without creating a second app executor',
  assert.equal((await route.run(start)).code,'GEMINI_NATIVE_REQUEST_CREATED_NOT_EXECUTED');
  assert.equal((await route.run(cmd('GEMINI_STEP'))).code,'FRESH_SIGNED_NATIVE_OBSERVATION_REQUIRED');
  assert.equal((await route.run(cmd('GEMINI_STATUS'))).phase,'READY');
+ assert.deepEqual(h.effects,[]);
+});
+
+test('missing native YouTube submit or ChatGPT delivery ports cannot create durable task',async()=>{
+ for(const patch of [{original:{submit:undefined}},{delivery:{lookup:undefined}}]){
+  const h=harness(patch);
+  const r=await h.driver.run(start);
+  assert.equal(r.code,'GEMINI_V4_MODE_PORTS_INCOMPLETE_BEFORE_CLAIM');
+  assert.equal(h.ledger.size,0);assert.deepEqual(h.effects,[]);
+ }
+});
+test('missing video file export/proof ports are rejected BEFORE a paid generation request',async()=>{
+ const video={...start,request:{id,mode:'VIDEO',instruction:'10초 동안 바다 위 배를 보여줘.'}};
+ for(const patch of [{original:{exportExistingVideo:undefined}},
+  {delivery:{verifyArtifact:undefined}},{delivery:{playbackOrigins:[]}}]){
+  const h=harness(patch);assert.equal((await h.driver.run(video)).code,
+   'GEMINI_V4_MODE_PORTS_INCOMPLETE_BEFORE_CLAIM');
+  assert.equal(h.ledger.size,0);assert.deepEqual(h.effects,[]);
+ }
+});
+test('missing direct Android app open port is not hidden behind a Gemini reply',async()=>{
+ const r={...start,request:{id,mode:'ANDROID',instruction:'계산기를 열어줘',
+  expectedTargetPackage:'com.sec.android.app.popupcalculator',
+  nativeAction:{kind:'OPEN_APP',label:'계산기',packageName:'com.sec.android.app.popupcalculator'}}};
+ const h=harness({original:{openApp:undefined}});
+ assert.equal((await h.driver.run(r)).code,'GEMINI_V4_MODE_PORTS_INCOMPLETE_BEFORE_CLAIM');
+ assert.equal(h.ledger.size,0);
+});
+test('loss of phone mode ports after valid START blocks STEP but not CANCEL',async()=>{
+ const h=harness();await h.driver.run(start);
+ h.host.original.submit=undefined;
+ assert.equal((await h.driver.run(cmd('GEMINI_STEP'))).code,'ORIGINAL_GEMINI_V4_PORTS_LOST_NO_REPLAY');
+ assert.match((await h.driver.run(cmd('GEMINI_CANCEL'))).code,/CANCELLED/);
  assert.deepEqual(h.effects,[]);
 });
