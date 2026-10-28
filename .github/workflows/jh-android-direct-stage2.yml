@@ -14,8 +14,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify stage1 and stage2 no-phone execution tests
-        run: node --test jh-server/owner-setup/android-direct/*.test.mjs
+      - name: Install verified JH owner runtime dependencies (without postinstall)
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Verify isolated Android, signed host and genuine assembled owner
+        run: node --test --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
       - name: Assert original secured service paths remain untouched
         run: |
           test -f jh-server/owner-setup/deployment/durable-native-job-policy.mjs
