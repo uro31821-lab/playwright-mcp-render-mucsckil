@@ -70,7 +70,7 @@ export function createAndroidDirectSecure56Host({
   for(const fn of [selectDevice,deviceMeta,activeSession,requireCommand,
     makeSnapshotJob,exactEnvelope,waitJob,getJob,durableReady,clock])
     if(typeof fn!=='function')throw Error('JH_ORIGINAL_LOCAL_SECURE56_PORTS_REQUIRED');
-  let screen=null,prepared=null,running=null;
+  let screen=null,prepared=null,running=null,capturing=false,preparing=false,cancelEpoch=0;
   const now=()=>clock();
   function identity() {
     try {
@@ -164,9 +164,10 @@ export function createAndroidDirectSecure56Host({
 
   async function capture() {
     if(!enabled)return fail('ANDROID_DIRECT_DISABLED');
-    if(running||prepared)return fail('CANDIDATE_ACTION_IN_PROGRESS');
+    if(running||prepared||preparing||capturing)return fail('CANDIDATE_ACTION_IN_PROGRESS');
     const a=identity();if(!a)return fail('ORIGINAL_SECURE56_DEVICE_REQUIRED');
     let j,done,proof;
+    capturing=true;
     try {
       j=makeSnapshotJob(a.deviceId);
       if(!deviceReceipt(j,a.deviceId,a.sessionId,a.commandId,'agent_snapshot'))
@@ -191,20 +192,23 @@ export function createAndroidDirectSecure56Host({
         rightPaneDigest:paneDigest,effectVerified:false,dispatched:false});
     } catch {
       screen=null;return fail('SIGNED_ANDROID_SNAPSHOT_UNAVAILABLE');
-    }
+    } finally { capturing=false; }
   }
 
   async function prepare({args}={}) {
     if(!enabled)return fail('ANDROID_DIRECT_DISABLED');
-    if(running||prepared)return fail('CANDIDATE_ACTION_IN_PROGRESS');
+    if(running||prepared||preparing||capturing)return fail('CANDIDATE_ACTION_IN_PROGRESS');
     const b=binding();if(!b)return fail('FRESH_SIGNED_ANDROID_SCREEN_REQUIRED');
     if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
     if(!validInput(args))return fail('ANDROID_ACTION_ARGUMENTS_INVALID');
     let job,done;
+    const originalEpoch=cancelEpoch;
+    preparing=true;
     try {
       ({job}=signedEnvelope('life_android_computer_prepare',
         'computer_use_action_prepare','READ_ONLY',args));
       done=await authenticatedJob(job,b,'computer_use_action_prepare');
+      if(cancelEpoch!==originalEpoch)return fail('PHONE_PREPARATION_CANCELLED');
       if(!binding()||binding().rightPaneDigest!==b.rightPaneDigest)
         return fail('ANDROID_CONTEXT_CHANGED_DURING_PREPARE');
       if(done.status!=='complete'||done.result?.ok!==true)
@@ -226,7 +230,7 @@ export function createAndroidDirectSecure56Host({
         autoRetry:false});
     } catch {
       return fail('SIGNED_PHONE_PREPARATION_UNAVAILABLE');
-    }
+    } finally {preparing=false;}
   }
 
   async function execute({preparationId,operationId}={}) {
@@ -260,6 +264,9 @@ export function createAndroidDirectSecure56Host({
   }
   function cancelPreparation() {
     if(running)return fail('CANNOT_CANCEL_AFTER_DISPATCH');
+    cancelEpoch++;
+    if(preparing)return Object.freeze({ok:true,
+      code:'PENDING_PREPARATION_CANCEL_REQUESTED_NO_ACTION'});
     if(prepared){prepared.args.lease_token=null;
       prepared.args.action_approval_grant_token=null;
       prepared.leaseToken=null;prepared.approvalToken=null;prepared=null;}
