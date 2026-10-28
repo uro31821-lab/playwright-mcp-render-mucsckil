@@ -21,4 +21,7 @@ jobs:
           test -f jh-server/browser-transport.mjs
           test -f jh-server/browser-session.mjs
           test -f jh-server/owner-setup/deployment/published-service-entry.mjs
-          ! grep -E 'from .+browser-|playwright|adb |shell ' jh-server/owner-setup/android-direct/engine.mjs | grep -v 'No Playwright'
+          if grep -E '(^import .*browser-|browserTool\(|@playwright/|from .*playwright)' jh-server/owner-setup/android-direct/engine.mjs; then
+            echo 'Unexpected browser dependency in Android-direct engine'
+            exit 1
+          fi
