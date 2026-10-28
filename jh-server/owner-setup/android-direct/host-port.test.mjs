@@ -19,10 +19,12 @@ const action=()=>({task_digest:sha('task'),action:'CLICK',
   effect:'REVERSIBLE_WRITE',data_class:'NON_SENSITIVE',
   x:610,y:300,viewport_width:1000,viewport_height:1000});
 function harness({enabled=true,approved=true,phoneSuccess=true,
-  validPane=true,durable=true,preparedTokens=true,latency=false}={}){
+  validPane=true,durable=true,preparedTokens=true,latency=false,prepareDelay=false}={}){
   let now=clock,commandId=command,secure=session,deviceMeta=meta();
   let phoneGrant=approved,phoneOK=phoneSuccess,ready=durable;
   const jobs=new Map(),invocations=[],pending=[];
+  let releasePrepare;
+  const prepareGate=new Promise(resolve=>{releasePrepare=resolve});
   let index=0;
   const mk=(type,bound,started='queued',body=null)=>{
     const j={id:'job_'+(++index),type,targetDeviceId:bound,
@@ -50,12 +52,15 @@ function harness({enabled=true,approved=true,phoneSuccess=true,
       }else body={ok:true};
       return {deviceId:'synthetic-galaxy',job:mk(type,args.device_id,'queued',body)};
     },
-    waitJob:async j=>{if(latency&&j.type==='computer_use_action_execute')return j;
-      j.status='complete';return j;},
+    waitJob:async j=>{
+      if(prepareDelay&&j.type==='computer_use_action_prepare')await prepareGate;
+      if(latency&&j.type==='computer_use_action_execute')return j;
+      j.status='complete';return j;
+    },
     getJob:id=>jobs.get(id),
     durableReady:()=>ready
   });
-  return {api,jobs,invocations,
+  return {api,jobs,invocations,unblockPrepare:()=>releasePrepare(),
     setTime:x=>now=x,setCommand:x=>commandId=x,
     setSecure:x=>secure=x,setMeta:x=>deviceMeta=x,
     setGrant:x=>phoneGrant=x,setDurable:x=>ready=x,pending};
@@ -160,4 +165,29 @@ test('no Playwright, ADB, browser cookies or replacement MCP auth in host capabi
  assert.equal(v.existingSecure56Required,true);
  assert.equal(v.originalDurableJournalReady,true);
  assert.equal(v.phoneTokenSchemaConfirmed,false);
+});
+
+test('concurrent prepare attempts never create duplicate signed jobs',async()=>{
+  const a=harness({prepareDelay:true});
+  await a.api.capture();
+  const first=a.api.prepare({args:action()});
+  assert.equal((await a.api.prepare({args:action()})).code,
+    'CANDIDATE_ACTION_IN_PROGRESS');
+  assert.equal((await a.api.capture()).code,'CANDIDATE_ACTION_IN_PROGRESS');
+  a.unblockPrepare();
+  assert.equal((await first).code,'SIGNED_PHONE_PREPARATION_READY');
+  assert.equal(a.invocations.filter(x=>x.type==='computer_use_action_prepare').length,1);
+  assert.equal(a.invocations.filter(x=>x.type==='computer_use_action_execute').length,0);
+});
+test('cancellation during signed phone preparation cannot re-enable mutation',async()=>{
+  const a=harness({prepareDelay:true});
+  await a.api.capture();
+  const first=a.api.prepare({args:action()});
+  assert.equal(a.api.cancelPreparation().code,
+    'PENDING_PREPARATION_CANCEL_REQUESTED_NO_ACTION');
+  a.unblockPrepare();
+  assert.equal((await first).code,'PHONE_PREPARATION_CANCELLED');
+  assert.equal((await a.api.execute({operationId:'a'.repeat(32),
+    preparationId:'from-cancelled-preparation'})).code,'PHONE_PREPARATION_NOT_FOUND');
+  assert.equal(a.invocations.filter(x=>x.type==='computer_use_action_execute').length,0);
 });
