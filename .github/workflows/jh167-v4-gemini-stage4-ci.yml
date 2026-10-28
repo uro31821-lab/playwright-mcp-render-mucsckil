@@ -1,0 +1,43 @@
+name: JH167 V4 Gemini native single-engine candidate
+on:
+  push:
+    branches: ['feat/jh167-v4-gemini-checkpoint-gate-20261028']
+  pull_request:
+    branches: ['feat/jh167-r5-real-android-contract-20261028']
+permissions:
+  contents: read
+jobs:
+  v4-native-stage4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Parse and test V4 Gemini native routing and durable read-only checkpoint
+        run: |
+          node --check jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-checkpoint.mjs
+          node --test --test-concurrency=1 jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.test.mjs jh-server/owner-setup/android-direct/gemini-v4-checkpoint.test.mjs
+      - name: Preserve original Stage4 regressions, native routes and no browser fallback
+        run: |
+          node --test --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
+          if grep -E '(browserTool\(|@playwright/|browser_navigate|new[[:space:]]+Browser)' jh-server/owner-setup/android-direct/gemini-v4-*.mjs; then
+            echo 'Unexpected browser fallback in Android V4' && exit 1
+          fi
+      - name: Verify V4 does not overwrite confirmed Stage4 or production executable
+        run: |
+          git diff --exit-code 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- \
+            jh-server/owner-setup/android-direct/engine.mjs \
+            jh-server/owner-setup/android-direct/fold-evidence.mjs \
+            jh-server/owner-setup/android-direct/host-port.mjs \
+            jh-server/owner-setup/android-direct/unified-route.mjs \
+            jh-server/owner-setup/android-direct/unified-owner-patch.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/server.mjs
+          test ! -f jh-server/owner-setup/android-direct/gemini-v4-stage4-owner-live.mjs
+          echo V4_CANDIDATE_ISOLATED_NO_APK_OR_PRODUCTION
