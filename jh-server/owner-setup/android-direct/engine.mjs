@@ -157,6 +157,14 @@ export function createAndroidDirectStage1({
     const b=current();
     if (!b || !sameBinding(b,expectedBinding))
       return deny('CURRENT_SIGNED_RIGHT_PANE_REQUIRED');
+    // Match the original JH MCP inspection schema before calling its port.
+    if (kind==='INSPECT' &&
+        (!hex64(args.task_digest) || !ACTIONS.has(args.action) ||
+         (args.device_id!==undefined && args.device_id!==b.deviceId) ||
+         args.data_class==='SECRET'))
+      return deny('ANDROID_INSPECT_ARGUMENTS_INVALID');
+    if (kind==='SNAPSHOT' && Object.keys(args).some(k=>k!=='command_id'))
+      return deny('ANDROID_SNAPSHOT_ARGUMENTS_INVALID');
     try {
       const reply=await invokeExistingTool(tool,structuredClone(args),b);
       if (!sameBinding(current(),b)) return deny('READ_CONTEXT_CHANGED');
