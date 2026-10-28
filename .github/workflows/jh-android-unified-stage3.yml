@@ -1,0 +1,32 @@
+name: JH167 Android Unified Stage3 — isolated
+on:
+  push:
+    branches:
+      - feat/jh167-unified-android-route-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unified-android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install current JH owner deps without production startup
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Regression: signed host, foldable, unified Android
+        run: node --test --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
+      - name: Verify no production runtime or browser removed
+        run: |
+          test -f jh-server/owner-setup/server-integration/server.mjs
+          test -f jh-server/owner-setup/deployment/durable-native-job-policy.mjs
+          test -f jh-server/browser-transport.mjs
+          node --check jh-server/owner-setup/android-direct/unified-route.mjs
+          if grep -E '(browserTool\(|@playwright/|browser_navigate|/mcp.*playwright)' jh-server/owner-setup/android-direct/unified-route.mjs; then
+            echo "Unexpected server browser dependency" && exit 1
+          fi
