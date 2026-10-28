@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import {inspectLegacyJHFiles,describeCutoverEvidence,CUTOVER_REQUIREMENTS}
   from './cutover-audit.mjs';
-const root=path.resolve(import.meta.dirname,'../../../..');
+const root=path.resolve(import.meta.dirname,'../../..');
 test('existing JH web, payment and general-work Playwright references are inventoried',()=>{
   const r=inspectLegacyJHFiles(root);
   assert.equal(r.inspectedModules,7);
