@@ -8,18 +8,7 @@ import {patchJH167AndroidDirectReview56} from './review-owner-patch.mjs';
 import {buildCleanRestartRelease56} from '../deployment/durable-clean-restart-news-review-entry.mjs';
 
 const root=path.resolve(import.meta.dirname,'..');
-const fragment=String.raw
-import {x} from './x.mjs';
-function mk(type,p={},deviceId=null) {}
-function exactEnvelope56() {}
-function active56(deviceId) {}
-function jhRequireCommand56(device,workflowId=null){}
-const jhInspectSplitEvidence155=()=>{};
-const SECURE56_TOOL_CATALOG_DIGEST='x';
-let durableNativeHooks56=null;
-function fake(){jhV2JobAdmission56();durableNativeHooks56?.beforeDispatch(x);durableNativeHooks56?.acceptedCompletion(x);}
-function createMcp(){}
-;
+const fragment="import {x} from './x.mjs';\nfunction mk(type,p={},deviceId=null) {}\nfunction exactEnvelope56() {}\nfunction active56(deviceId) {}\nfunction jhRequireCommand56(device,workflowId=null){}\nconst jhInspectSplitEvidence155=()=>{};\nconst SECURE56_TOOL_CATALOG_DIGEST='x';\nlet durableNativeHooks56=null;\nfunction fake(){jhV2JobAdmission56();durableNativeHooks56?.beforeDispatch(x);durableNativeHooks56?.acceptedCompletion(x);}\nfunction createMcp(){}";
 test('review code refuses drift, duplicate imports, removed durable hooks',()=>{
  const ok=patchJH167AndroidDirectReview56(fragment);
  assert.ok(ok.includes('jhCreateAndroidDirectReviewCandidate56'));

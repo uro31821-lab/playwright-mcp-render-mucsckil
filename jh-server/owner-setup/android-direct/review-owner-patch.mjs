@@ -5,33 +5,7 @@
  */
 const HEADER="import {createAndroidDirectSecure56Host as jhMakeAndroidDirectHost56} from '../android-direct/host-port.mjs';\n";
 const ANCHOR='function createMcp(){';
-const HELPER=String.raw
-/**
- * This function exists only in a generated, test-only runtime candidate.
- * It is not called during import, host bootstrap or normal MCP operation.
- */
-export function jhCreateAndroidDirectReviewCandidate56(){
- if(process.env.JH_ANDROID_DIRECT_CANDIDATE!=='CI_SYNTHETIC_ONLY' ||
-    process.env.JH_OWNER_DEFER_LISTEN!=='1' ||
-    process.env.NODE_ENV!=='test' ||
-    process.env.RENDER_SERVICE_ID!==undefined ||
-    httpServer.listening)throw Error('JH_ANDROID_DIRECT_CANDIDATE_NOT_AUTHORIZED');
- return jhMakeAndroidDirectHost56({
-   enabled:true,
-   selectDevice:()=>chooseDevice(),
-   deviceMeta:d=>devices.get(d),
-   activeSession:d=>active56(d),
-   requireCommand:d=>jhRequireCommand56(d),
-   makeSnapshotJob:d=>mk('agent_snapshot',{},d),
-   exactEnvelope:(tool,type,effect,args,extra)=>exactEnvelope56(tool,type,effect,args,extra),
-   waitJob:(job,ms)=>waitJob(job,ms),
-   getJob:id=>jobs.get(id),
-   durableReady:()=>!!durableNativeHooks56 &&
-     typeof durableNativeHooks56.uncertainEffectsForMaintenance==='function' &&
-     durableNativeHooks56.uncertainEffectsForMaintenance()!==null
- });
-}
-;
+const HELPER="/**\n * This function exists only in a generated, test-only runtime candidate.\n * It is not called during import, host bootstrap or normal MCP operation.\n */\nexport function jhCreateAndroidDirectReviewCandidate56(){\n if(process.env.JH_ANDROID_DIRECT_CANDIDATE!=='CI_SYNTHETIC_ONLY' ||\n    process.env.JH_OWNER_DEFER_LISTEN!=='1' ||\n    process.env.NODE_ENV!=='test' ||\n    process.env.RENDER_SERVICE_ID!==undefined ||\n    httpServer.listening)throw Error('JH_ANDROID_DIRECT_CANDIDATE_NOT_AUTHORIZED');\n return jhMakeAndroidDirectHost56({\n   enabled:true,\n   selectDevice:()=>chooseDevice(),\n   deviceMeta:d=>devices.get(d),\n   activeSession:d=>active56(d),\n   requireCommand:d=>jhRequireCommand56(d),\n   makeSnapshotJob:d=>mk('agent_snapshot',{},d),\n   exactEnvelope:(tool,type,effect,args,extra)=>exactEnvelope56(tool,type,effect,args,extra),\n   waitJob:(job,ms)=>waitJob(job,ms),\n   getJob:id=>jobs.get(id),\n   durableReady:()=>!!durableNativeHooks56 &&\n     typeof durableNativeHooks56.uncertainEffectsForMaintenance==='function' &&\n     durableNativeHooks56.uncertainEffectsForMaintenance()!==null\n });\n}";
 const requireOnce=(s,x)=>{if(s.split(x).length!==2)throw Error('ANDROID_HOST_EXACT_SOURCE_ANCHOR');};
 export function patchJH167AndroidDirectReview56(input){
  if(typeof input!=='string'||input.includes('jhCreateAndroidDirectReviewCandidate56')||
