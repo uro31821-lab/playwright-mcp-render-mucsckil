@@ -6,7 +6,7 @@ const h=x=>createHash('sha256').update(x).digest('hex');
 const now=1800000000000, rect=(a,b,c,d)=>[a,b,c,d].join(',');
 function make({browser='com.android.chrome',focus=false,reuse=false}={}){
  let t=now,split=1050,app=browser,input=focus,seq=0,session='secure-56';
- let command='a'.repeat(32);const jobs=[];
+ let command='a'.repeat(32);const jobs=[],phoneInputs=[];
  const proof=()=>({kind:'split_screen_evidence',version:'1',verified:'true',
   layout:'LEFT_RIGHT',chatPackage:'com.openai.chatgpt',chatKind:'NATIVE',
   chatWindowId:'32',chatBounds:rect(split,0,2160,1800),
@@ -30,9 +30,12 @@ function make({browser='com.android.chrome',focus=false,reuse=false}={}){
    if(reuse&&jobs.some(j=>j.type==='agent_snapshot'))return jobs.find(j=>j.type==='agent_snapshot');
    seq++;return mk('agent_snapshot',snapshot())
   },
-  exactEnvelope:(_,type,__,args)=>({deviceId:'fold-phone',job:mk(type,
+  exactEnvelope:(_,type,__,args)=>{
+    phoneInputs.push({type,args:structuredClone(args)});
+    return {deviceId:'fold-phone',job:mk(type,
    type==='computer_use_action_prepare'?{ok:true,code:'READY',requiresFreshApproval:false,
-    leaseToken:'lease-from-phone-123456'}:{ok:true})}),
+    leaseToken:'lease-from-phone-123456'}:{ok:true})};
+  },
   waitJob:async j=>{j.status='complete';return j;},
   getJob:id=>jobs.find(j=>j.id===id),
   durableReady:()=>true
@@ -40,7 +43,7 @@ function make({browser='com.android.chrome',focus=false,reuse=false}={}){
  const action=(x=200)=>({task_digest:h('task'),action:'CLICK',
   effect:'REVERSIBLE_WRITE',data_class:'NON_SENSITIVE',
   viewport_width:2160,viewport_height:1800,x,y:250});
- return {api,jobs,action,setSplit:x=>split=x,setApp:x=>app=x,
+ return {api,jobs,phoneInputs,action,setSplit:x=>split=x,setApp:x=>app=x,
   setFocus:x=>input=x,setSession:x=>session=x,setCommand:x=>command=x};
 }
 test('folded-layout mode recognizes LEFT web RIGHT native GPT and does not invent FLAT posture',async()=>{
@@ -114,8 +117,16 @@ test('global fold coordinate is translated to REAL R5 work-local viewport before
  assert.equal(p.code,'SIGNED_PHONE_PREPARATION_READY');
  const job=t.jobs.find(j=>j.type==='computer_use_action_prepare');
  assert.ok(job);
- // Existing mock job only carries its phone result; the complete envelope
- // argument check is covered by fold-window adapter regression in R5 fixture.
+ const prepared=t.phoneInputs.find(i=>i.type==='computer_use_action_prepare');
+ assert.equal(prepared.args.x,270);
+ assert.equal(prepared.args.y,250);
+ assert.equal(prepared.args.viewport_width,1050);
+ assert.equal(prepared.args.viewport_height,1800);
+ assert.equal(prepared.args.action_approval_grant_token,undefined);
  const result=await t.api.execute({preparationId:p.preparationId,operationId:'f'.repeat(32)});
  assert.equal(result.code,'DEVICE_REPORTED_OK_EFFECT_UNVERIFIED');
+ const executed=t.phoneInputs.find(i=>i.type==='computer_use_action_execute');
+ assert.equal(executed.args.x,270);
+ assert.equal(executed.args.viewport_width,1050);
+ assert.equal(executed.args.action_approval_grant_token,undefined);
 });
