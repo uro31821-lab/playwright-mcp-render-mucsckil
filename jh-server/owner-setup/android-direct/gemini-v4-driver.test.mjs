@@ -112,7 +112,7 @@ test('real V4 driver joins Stage4 route without creating a second app executor',
   readSignedOwner:async()=>owner(),verifySignedOwner:async()=>true,
   readStoredTask:async key=>h.ledger.get(key)??null,verifyStoredTask:async()=>true,
   verifyChatDelivery:async()=>false});
- assert.equal((await route.run({mode:'OBSERVE',commandId:cid})).code,'STAGE4_UNCHANGED');
+ assert.equal((await route.run({mode:'OBSERVE',commandId:cid})).code,'V4_ORIGINAL_RIGHT_WORK_PORT_REQUIRED');
  assert.equal((await route.run(start)).code,'GEMINI_NATIVE_REQUEST_CREATED_NOT_EXECUTED');
  assert.equal((await route.run(cmd('GEMINI_STEP'))).code,'FRESH_SIGNED_NATIVE_OBSERVATION_REQUIRED');
  assert.equal((await route.run(cmd('GEMINI_STATUS'))).phase,'READY');
