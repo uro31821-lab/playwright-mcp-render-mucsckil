@@ -40,8 +40,10 @@ function validatedBinding(b) {
     workPaneSide: b.workPaneVerified === true ? b.workPaneSide : 'RIGHT'
   });
 }
+const boundSide = x => x?.workPaneSide ?? (x?.rightPaneVerified===true?'RIGHT':null);
 const sameBinding = (a,b) => !!a && !!b &&
-  ['deviceId','sessionId','commandId','rightPaneDigest','workPaneSide'].every(k=>a[k]===b[k]);
+  ['deviceId','sessionId','commandId','rightPaneDigest'].every(k=>a[k]===b[k]) &&
+  boundSide(a)===boundSide(b);
 const deny = (code, extra={}) => Object.freeze({
   ok:false, code, dispatched:false, effectVerified:false, autoRetry:false, ...extra
 });
