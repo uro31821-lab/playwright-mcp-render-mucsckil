@@ -40,12 +40,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Install isolated Android compile platform
-        run: sdkmanager "platforms;android-35"
+      - name: Confirm installed Android SDK platform (no deprecated tools package)
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -n "$ANDROID_HOME"
+          if [ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -path '*/bin/sdkmanager' -type f | head -n 1)"
+            test -n "$SDKMANAGER"
+            "$SDKMANAGER" "platforms;android-35"
+          fi
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
       - name: Compile JH foldable Kotlin candidate as library ONLY
         run: gradle -p android-fold-candidate :library:compileDebugKotlin --no-daemon
       - name: Confirm no APK or production signing generated
