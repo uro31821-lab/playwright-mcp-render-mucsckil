@@ -63,9 +63,10 @@ function validArgs(args, b) {
       args.data_class !== 'NON_SENSITIVE' ||
       typeof args.lease_token !== 'string' || !args.lease_token ||
       args.lease_token.length > 512 ||
-      typeof args.action_approval_grant_token !== 'string' ||
-      !args.action_approval_grant_token ||
-      args.action_approval_grant_token.length > 512) return false;
+      (args.action_approval_grant_token !== undefined &&
+       (typeof args.action_approval_grant_token !== 'string' ||
+        !args.action_approval_grant_token ||
+        args.action_approval_grant_token.length > 512))) return false;
   if (args.action === 'CLICK') {
     return Number.isSafeInteger(args.x) && Number.isSafeInteger(args.y) &&
       Number.isSafeInteger(args.viewport_width) &&
