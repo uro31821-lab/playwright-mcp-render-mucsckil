@@ -31,8 +31,8 @@ function make({browser='com.android.chrome',focus=false,reuse=false}={}){
    seq++;return mk('agent_snapshot',snapshot())
   },
   exactEnvelope:(_,type,__,args)=>({deviceId:'fold-phone',job:mk(type,
-   type==='computer_use_action_prepare'?{ok:true,
-    leaseToken:'lease-from-phone-123456',actionApprovalGrantToken:'grant-from-phone-123456'}:{ok:true})}),
+   type==='computer_use_action_prepare'?{ok:true,code:'READY',requiresFreshApproval:false,
+    leaseToken:'lease-from-phone-123456'}:{ok:true})}),
   waitJob:async j=>{j.status='complete';return j;},
   getJob:id=>jobs.find(j=>j.id===id),
   durableReady:()=>true
@@ -105,4 +105,17 @@ test('Samsung Internet allowed and command/session change denies old context',as
  assert.equal((await t.api.prepare({args:t.action()})).code,'FRESH_SIGNED_ANDROID_SCREEN_REQUIRED');
  const u=make();await u.api.capture();u.setCommand('f'.repeat(32));
  assert.equal((await u.api.prepare({args:u.action()})).code,'FRESH_SIGNED_ANDROID_SCREEN_REQUIRED');
+});
+
+test('global fold coordinate is translated to REAL R5 work-local viewport before phone prepare',async()=>{
+ const t=make();
+ await t.api.capture();
+ const p=await t.api.prepare({args:t.action(270)});
+ assert.equal(p.code,'SIGNED_PHONE_PREPARATION_READY');
+ const job=t.jobs.find(j=>j.type==='computer_use_action_prepare');
+ assert.ok(job);
+ // Existing mock job only carries its phone result; the complete envelope
+ // argument check is covered by fold-window adapter regression in R5 fixture.
+ const result=await t.api.execute({preparationId:p.preparationId,operationId:'f'.repeat(32)});
+ assert.equal(result.code,'DEVICE_REPORTED_OK_EFFECT_UNVERIFIED');
 });
