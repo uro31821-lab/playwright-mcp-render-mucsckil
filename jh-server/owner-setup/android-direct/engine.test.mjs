@@ -196,7 +196,8 @@ test('SCROLL and KEYPRESS use existing Computer Use, no browser',async()=>{
 });
 test('read-only inspection reuses signed Android snapshot without action replay',async()=>{
   const a=harness({reply:{status:'complete',result:{ok:true}}});
-  const r=await a.runner.observe({kind:'INSPECT',expectedBinding:scope(),args:{device_id:'synthetic-galaxy'}});
+  const r=await a.runner.observe({kind:'INSPECT',expectedBinding:scope(),
+    args:{device_id:'synthetic-galaxy',task_digest:h('read-inspect'),action:'CLICK'}});
   assert.equal(r.code,'READ_TOOL_RETURNED_NOT_EFFECT_PROOF');
   assert.equal(r.effectVerified,false);
   assert.equal(a.calls[0].name,'life_android_computer_inspect');
@@ -252,4 +253,22 @@ test('approval rejected before dispatch permits a new explicit attempt',async()=
   a.setApproval(true);
   assert.equal((await a.runner.execute(a.request())).code,'DEVICE_REPORTED_OK_EFFECT_UNVERIFIED');
   assert.equal(a.calls.length,1);
+});
+
+test('inspection must match original read-only JH Computer Use schema',async()=>{
+  const a=harness();
+  const invalid=[
+    {device_id:'synthetic-galaxy'},
+    {task_digest:h('inspect'),action:'OPEN_APP'},
+    {task_digest:h('inspect'),action:'CLICK',device_id:'other-phone'},
+    {task_digest:h('inspect'),action:'CLICK',data_class:'SECRET'}
+  ];
+  for(const read of invalid){
+    assert.equal((await a.runner.observe({kind:'INSPECT',args:read,
+      expectedBinding:scope()})).code,'ANDROID_INSPECT_ARGUMENTS_INVALID');
+  }
+  assert.equal((await a.runner.observe({kind:'SNAPSHOT',
+    args:{url:'https://example.com'},expectedBinding:scope()})).code,
+    'ANDROID_SNAPSHOT_ARGUMENTS_INVALID');
+  assert.equal(a.calls.length,0);
 });
