@@ -10,6 +10,7 @@
  * specific request. A separate original-host turn verifier remains required.
  */
 import {inspectFoldPair,FOLD_LAYOUTS} from './fold-evidence.mjs';
+import {inspectV4GeminiVisibleTurnSequence} from './gemini-v4-turn-sequence.mjs';
 
 const H='com.google.android.googlequicksearchbox';
 const RESPONSE_ID=H+':id/assistant_robin_text';
@@ -131,15 +132,43 @@ export function createV4GeminiVisibleReplyObserver({
     }));
    }
    if(fragments.length===0)return deny('GEMINI_ASSISTANT_REPLY_NOT_VISIBLE');
+
+   // Strictly a VISIBLE-SEQUENCE candidate: the saved task's SHA256 prompt
+   // matches exactly ONE latest user bubble, followed by ONE assistant node.
+   // It CANNOT prove Gemini's conversation or sentMessageId; no auto-delivery.
+   const sequence=inspectV4GeminiVisibleTurnSequence({
+     task,rows,workPackage:before.workPackage,workWindowId:before.workWindowId
+   });
    if(!same(before,await owner(commandId)))
     return deny('GEMINI_WINDOW_CHANGED_AFTER_READBACK');
-   // Fragment cannot be assigned to sentMessageId without new on-phone
-   // authenticated reply-turn evidence. Full reply remains FALSE always.
-   return Object.freeze({ok:true,code:'SIGNED_GEMINI_VISIBLE_FRAGMENTS_UNBOUND',
-    taskId:tid,fragmentCount:fragments.length,fragments:Object.freeze(fragments),
-    masked:true,readOnly:true,fullReplyVerified:false,
-    requestTurnVerified:false,conversationVerified:false,
-    requiresMessageTurnProof:true,autoReplay:false});
+   if(sequence.candidate===true){
+     const source=rows[sequence.assistantRowIndex];
+     const candidateFragment=Object.freeze({
+       maskedText:source.geminiPlainText,digest:source.geminiTextDigest,
+       visibleLength:Number(source.geminiVisibleTextLength),
+       nodePartial:source.geminiTextPartial==='true'
+     });
+     return Object.freeze({
+       ok:true,code:'SIGNED_GEMINI_VISIBLE_SEQUENCE_CANDIDATE_UNVERIFIED',
+       taskId:tid,fragmentCount:1,fragments:Object.freeze([candidateFragment]),
+       visibleTurnCandidate:true,correlationCode:sequence.code,
+       masked:true,readOnly:true,fullReplyVerified:false,
+       requestTurnVerified:false,conversationVerified:false,
+       sentMessageIdProven:false,requiresMessageTurnProof:true,
+       autoReplay:false,autoDeliver:false
+     });
+   }
+   // No correct prompt/reply pairing can be inferred: return the limited
+   // visible fragments as unbound, NEVER as verified request results.
+   return Object.freeze({
+     ok:true,code:'SIGNED_GEMINI_VISIBLE_FRAGMENTS_UNBOUND',
+     taskId:tid,fragmentCount:fragments.length,fragments:Object.freeze(fragments),
+     visibleTurnCandidate:false,correlationCode:sequence.code,
+     masked:true,readOnly:true,fullReplyVerified:false,
+     requestTurnVerified:false,conversationVerified:false,
+     sentMessageIdProven:false,requiresMessageTurnProof:true,
+     autoReplay:false,autoDeliver:false
+   });
   }finally{busy=false}
  }
  return Object.freeze({read,capabilities:()=>Object.freeze({
