@@ -95,3 +95,47 @@ test('existing left GPT/right work route is still verified by original JH inspec
  const reverse=inspectFoldPair(f.result,f.rows,FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT,clock);
  assert.equal(reverse.ok,false);
 });
+
+test('V4 left native Gemini/right GPT is accepted only from signed Gemini window pair',()=>{
+ const f=fixture({workPackage:'com.google.android.googlequicksearchbox'});
+ f.rows[1].package='com.google.android.googlequicksearchbox';
+ const proof=inspectFoldPair(f.result,f.rows,FOLD_LAYOUTS.LEFT_NATIVE_GEMINI_RIGHT_GPT,clock);
+ assert.equal(proof.ok,true);
+ assert.equal(proof.workSide,'LEFT');assert.equal(proof.chatSide,'RIGHT');
+ assert.equal(proof.code,'SIGNED_LEFT_NATIVE_GEMINI_RIGHT_GPT_GEOMETRY_VERIFIED');
+ assert.equal(proof.nativeGeminiWindowVerified,true);
+ assert.equal(proof.geminiSurfaceVerified,false);
+ assert.equal(proof.geminiAccountVerified,false);
+ assert.equal(guardFoldAction(proof,action()).ok,true);
+ assert.equal(guardFoldAction(proof,action(1600)).ok,false);
+ // The legacy web route must still refuse the native Gemini activity.
+ assert.equal(inspectFoldPair(f.result,f.rows,FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT,clock).ok,false);
+});
+test('V4 Gemini fold proof refuses Chrome, unrelated app, swapped GPT and stale frames',()=>{
+ for(const extra of [
+  {workPackage:'com.android.chrome'},{workPackage:'com.untrusted.app'},
+  {chatPackage:'com.google.android.googlequicksearchbox'},
+  {chatBounds:box(0,0,1080,1800),workBounds:box(1080,0,2160,1800)},
+  {observedAtMs:String(clock-60000)}]){
+  const f=fixture(extra);f.rows[1].package=f.proof.workPackage;
+  const result=inspectFoldPair(f.result,f.rows,FOLD_LAYOUTS.LEFT_NATIVE_GEMINI_RIGHT_GPT,clock);
+  assert.equal(result.ok,false,JSON.stringify(extra));
+ }
+ const f=fixture({workPackage:'com.google.android.googlequicksearchbox'});
+ f.rows[1].package='com.google.android.googlequicksearchbox';
+ f.rows[1].windowId='999';
+ assert.equal(inspectFoldPair(f.result,f.rows,FOLD_LAYOUTS.LEFT_NATIVE_GEMINI_RIGHT_GPT,clock).ok,false);
+});
+test('native Gemini typing requires signed focused editor and never crosses divider',()=>{
+ const f=fixture({workPackage:'com.google.android.googlequicksearchbox'});
+ f.rows[1].package='com.google.android.googlequicksearchbox';
+ const mode=FOLD_LAYOUTS.LEFT_NATIVE_GEMINI_RIGHT_GPT;
+ let p=inspectFoldPair(f.result,f.rows,mode,clock);
+ assert.equal(guardFoldAction(p,action(250,500,{action:'TYPE'})).ok,false);
+ const signed=[...f.rows,{package:'com.google.android.googlequicksearchbox',windowId:'17',
+  editable:true,focused:true,bounds:box(120,200,880,300),text:'Gemini editor'}];
+ p=inspectFoldPair(f.result,signed,mode,clock);
+ assert.equal(p.ok,true);
+ assert.equal(guardFoldAction(p,action(250,500,{action:'TYPE'})).ok,true);
+ assert.equal(guardFoldAction(p,action(1600,500)).ok,false);
+});
