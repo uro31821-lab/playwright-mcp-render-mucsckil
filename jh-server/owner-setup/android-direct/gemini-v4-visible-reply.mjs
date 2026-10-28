@@ -112,7 +112,11 @@ export function createV4GeminiVisibleReplyObserver({
    for(const row of rows){
     if(!object(row)||row.package!==H||String(row.windowId)!==String(before.workWindowId))continue;
     if(row.viewId===REQUEST_ID)continue; // user text is never assistant text
-    if(row.viewId!==RESPONSE_ID||row.geminiReadbackSchema!=='NATIVE_V4')continue;
+    if(row.viewId!==RESPONSE_ID)continue;
+    // A node marked as the Gemini assistant must carry the exact versioned
+    // phone readback schema; a mismatched schema is not an absent answer.
+    if(row.geminiReadbackSchema!=='NATIVE_V4')
+      return deny('GEMINI_VISIBLE_TEXT_SCOPE_INVALID');
     if(row.sensitive!=='false'||row.geminiFullReplyVerified!=='false'||
        !hex64(row.geminiTextDigest)||typeof row.geminiPlainText!=='string'||
        row.geminiPlainText.length<1||row.geminiPlainText.length>800||
