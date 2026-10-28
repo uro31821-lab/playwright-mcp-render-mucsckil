@@ -221,3 +221,35 @@ test('no browser/ADB/network calls are part of the candidate interface',async()=
   assert.deepEqual(a.runner.capabilities().allowedActions.sort(),
     ['CLICK','SCROLL','TYPE','KEYPRESS'].sort());
 });
+
+
+test('concurrent duplicate while approval is pending cannot dispatch twice',async()=>{
+  let unblock;
+  const approvalGate=new Promise(resolve=>{unblock=resolve});
+  let invocations=0,approvalChecks=0;
+  const runner=createAndroidDirectStage1({
+    enabled:true,clock:()=>100001,readBinding:()=>scope(),
+    authorizeExistingStep:async()=>{approvalChecks++;await approvalGate;return true},
+    invokeExistingTool:async()=>{invocations++;return job()}
+  });
+  const request={operationId:id,args:args(),expectedBinding:scope(),screenEvidence:view()};
+  const first=runner.execute(request);
+  try {
+    const second=await runner.execute(request);
+    assert.equal(second.code,'OPERATION_PREFLIGHT_IN_PROGRESS');
+    assert.equal(second.dispatched,false);
+    assert.equal(second.autoRetry,false);
+    assert.equal(approvalChecks,1);
+    assert.equal(invocations,0);
+  }finally{unblock()}
+  const firstResult=await first;
+  assert.equal(firstResult.code,'DEVICE_REPORTED_OK_EFFECT_UNVERIFIED');
+  assert.equal(invocations,1);
+});
+test('approval rejected before dispatch permits a new explicit attempt',async()=>{
+  const a=harness({approval:false});
+  assert.equal((await a.runner.execute(a.request())).code,'EXISTING_JH_APPROVAL_REQUIRED');
+  a.setApproval(true);
+  assert.equal((await a.runner.execute(a.request())).code,'DEVICE_REPORTED_OK_EFFECT_UNVERIFIED');
+  assert.equal(a.calls.length,1);
+});
