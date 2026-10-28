@@ -19,7 +19,7 @@ jobs:
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
-      - name: Regression: signed host, foldable, unified Android
+      - name: 'Regression - signed host, foldable, unified Android'
         run: node --test --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
       - name: Verify no production runtime or browser removed
         run: |
