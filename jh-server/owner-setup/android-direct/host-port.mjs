@@ -107,6 +107,8 @@ export function createAndroidDirectSecure56Host({
   if(!Object.values(FOLD_LAYOUTS).includes(layoutMode))throw Error('JH_FOLD_LAYOUT_MODE_INVALID');
   let screen=null,prepared=null,running=null,capturing=false,preparing=false,cancelEpoch=0;
   const now=()=>clock();
+  const leftWorkMode=layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT||
+    layoutMode===FOLD_LAYOUTS.LEFT_NATIVE_GEMINI_RIGHT_GPT;
   function identity() {
     try {
       const d=selectDevice(),meta=d&&deviceMeta(d),s=d&&activeSession(d);
@@ -133,6 +135,27 @@ export function createAndroidDirectSecure56Host({
     const b=binding();if(!b)return null;
     return {verifiedByExistingJH:true,readOnlySnapshot:true,
       observedAtMs:screen.observedAtMs,binding:b};
+  }
+  // A signed, fresh current-device snapshot identifies the window pair.
+  // It does NOT prove a Gemini draft, identity, conversation or send.
+  function nativeOwnerEvidence(){
+    const b=binding(),p=screen?.proof;
+    if(!b||!p?.ok||p.workSide!=='LEFT'||p.chatSide!=='RIGHT'||
+       !Number.isSafeInteger(Number(p.workWindowId))||
+       !Number.isSafeInteger(Number(p.chatWindowId))||!leftWorkMode)return null;
+    return Object.freeze({
+      backend:'JH_ANDROID_NATIVE',secure56:true,current:true,
+      deviceId:b.deviceId,sessionId:b.sessionId,commandId:b.commandId,
+      workSide:'LEFT',chatSide:'RIGHT',workPackage:p.workPackage,
+      workWindowId:Number(p.workWindowId),chatWindowId:Number(p.chatWindowId),
+      observedAt:screen.observedAtMs,rightPaneDigest:b.rightPaneDigest,
+      nativeGeminiWindowVerified:p.nativeGeminiWindowVerified===true,
+      geminiSurfaceVerified:false,geminiAccountVerified:false
+    });
+  }
+  function verifyNativeOwnerEvidence(e){
+    const actual=nativeOwnerEvidence();
+    return !!actual&&!!e&&Object.keys(actual).every(k=>e[k]===actual[k]);
   }
   function signedEnvelope(tool,type,effect,args,extra={}) {
     if(!safeKind(effect))throw Error('EFFECT_NOT_ALLOWED');
@@ -229,7 +252,10 @@ export function createAndroidDirectSecure56Host({
         binding:{...a,rightPaneDigest:digest}};
       return Object.freeze({ok:true,
         code:layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT
-          ?'SIGNED_LEFT_WEB_RIGHT_GPT_OBSERVED':'SIGNED_ANDROID_RIGHT_PANE_OBSERVED',
+          ?'SIGNED_LEFT_WEB_RIGHT_GPT_OBSERVED':
+          layoutMode===FOLD_LAYOUTS.LEFT_NATIVE_GEMINI_RIGHT_GPT
+          ?'SIGNED_LEFT_NATIVE_GEMINI_RIGHT_GPT_OBSERVED':
+          'SIGNED_ANDROID_RIGHT_PANE_OBSERVED',
         observedAtMs:proof.observedAtMs,workPackage:proof.workPackage,
         workPaneSide:proof.workSide,chatPaneSide:proof.chatSide,
         physicalUnfoldVerified:proof.physicalUnfoldVerified===true,
@@ -245,7 +271,7 @@ export function createAndroidDirectSecure56Host({
     const b=binding();if(!b)return fail('FRESH_SIGNED_ANDROID_SCREEN_REQUIRED');
     if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
     if(!validInput(args))return fail('ANDROID_ACTION_ARGUMENTS_INVALID');
-    if(layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT){
+    if(leftWorkMode){
       const gate=guardFoldAction(screen?.proof,args);
       if(!gate.ok)return fail(gate.code);
     }
@@ -254,7 +280,7 @@ export function createAndroidDirectSecure56Host({
     preparing=true;
     try {
       const phoneArgs=workLocalArgs(args,screen?.proof,
-        layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT);
+        leftWorkMode);
       ({job}=signedEnvelope('life_android_computer_prepare',
         'computer_use_action_prepare','READ_ONLY',phoneArgs));
       done=await authenticatedJob(job,b,'computer_use_action_prepare');
@@ -304,7 +330,7 @@ export function createAndroidDirectSecure56Host({
         binding().rightPaneDigest!==step.binding.rightPaneDigest)
         return fail('PHONE_PREPARATION_EXPIRED_OR_CONTEXT_CHANGED');
       if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
-      if(layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT) {
+      if(leftWorkMode) {
         // Re-observe actual two-window geometry AFTER phone preparation.
         // Never dispatch an old screen coordinate when the splitter moved,
         // device rotated/folded or keyboard focus switched to ChatGPT.
@@ -369,9 +395,10 @@ export function createAndroidDirectSecure56Host({
     return Object.freeze({ok:true,code:'LOCAL_PREPARATION_CANCELLED_NO_ACTION'});
   }
   return Object.freeze({capture,prepare,execute,status,cancelPreparation,
+    nativeOwnerEvidence,verifyNativeOwnerEvidence,
     capabilities:()=>Object.freeze({...executor.capabilities(),
       hostLocalOnly:true,realPhoneTested:false,
-      layoutMode,workPaneSide:layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT?'LEFT':'RIGHT',
+      layoutMode,workPaneSide:leftWorkMode?'LEFT':'RIGHT',
       physicalUnfoldVerified:false,
       originalDurableJournalReady:durableReady()===true,
       phoneTokenSchemaConfirmed:true,
