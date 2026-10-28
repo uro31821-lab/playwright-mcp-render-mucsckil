@@ -33,8 +33,8 @@ function harness(overrides={}){
 test('real Gemini v0.5 task is created once in the original durable claim, not sent on START',async()=>{
  const h=harness(),r=await h.driver.run(start);
  assert.equal(r.code,'GEMINI_NATIVE_REQUEST_CREATED_NOT_EXECUTED');
- assert.equal(h.ledger.get(id)?.schema,4);assert.equal(h.ledger.get(id)?.workSide,'LEFT');
- assert.equal(h.ledger.get(id)?.chatSide,'RIGHT');assert.deepEqual(h.effects,[]);
+ assert.equal(h.ledger.get(id)?.schema,4);assert.equal(h.ledger.get(id)?.workSide,'RIGHT');
+ assert.equal(h.ledger.get(id)?.chatSide,'LEFT');assert.deepEqual(h.effects,[]);
  assert.equal((await h.driver.run(start)).code,'EXISTING_REQUEST_USE_STATUS_NO_RECREATE');
  assert.equal(h.counts().claimCount,1);
 });
