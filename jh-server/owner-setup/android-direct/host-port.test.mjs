@@ -46,9 +46,9 @@ function harness({enabled=true,approved=true,phoneSuccess=true,
         return {deviceId:'synthetic-galaxy',job:mk(type,args.device_id,'queued',{ok:true})};
       let body;
       if(type==='computer_use_action_prepare'){
-        body=phoneOK?{ok:true,leaseToken:preparedTokens?'lease-from-phone-98765':'',
-          actionApprovalGrantToken:phoneGrant&&preparedTokens?'grant-from-phone-12345':''}:
-          {ok:false,code:'PHONE_APPROVAL_REQUIRED'};
+        body=phoneOK&&phoneGrant?{ok:true,code:'READY',requiresFreshApproval:false,
+          leaseToken:preparedTokens?'lease-from-phone-98765':''}:
+          {ok:false,code:'APPROVAL_REQUIRED',requiresFreshApproval:true};
       }else body={ok:true};
       return {deviceId:'synthetic-galaxy',job:mk(type,args.device_id,'queued',body)};
     },
@@ -94,15 +94,15 @@ test('preparation only uses original signed Computer Use envelope',async()=>{
  assert.equal(JSON.stringify(p).includes('grant-from-phone'),false);
  assert.equal(JSON.stringify(p).includes('lease-from-phone'),false);
 });
-test('a new approval is never forged when phone gives no grant',async()=>{
+test('protected action requires the existing phone local approval path',async()=>{
  const a=harness({approved:false});await a.api.capture();
- assert.equal((await a.api.prepare({args:action()})).code,'PHONE_LOCAL_GRANT_OR_LEASE_NOT_CONFIRMED');
+ assert.equal((await a.api.prepare({args:action()})).code,'PHONE_LOCAL_APPROVAL_REQUIRED');
  assert.equal(a.invocations.filter(x=>x.type==='computer_use_action_execute').length,0);
 });
-test('a phone reject does not authorize execution',async()=>{
+test('phone approval-required is a protected action and does not authorize execution',async()=>{
  const a=harness({phoneSuccess:false});await a.api.capture();
  const p=await a.api.prepare({args:action()});
- assert.equal(p.code,'PHONE_PREPARATION_OR_LOCAL_APPROVAL_REQUIRED');
+ assert.equal(p.code,'PHONE_LOCAL_APPROVAL_REQUIRED');
  assert.equal((await a.api.execute({preparationId:'x',operationId:'b'.repeat(32)})).code,
    'PHONE_PREPARATION_NOT_FOUND');
 });
@@ -164,7 +164,8 @@ test('no Playwright, ADB, browser cookies or replacement MCP auth in host capabi
  assert.equal(v.hostLocalOnly,true);assert.equal(v.playwrightUsed,false);
  assert.equal(v.existingSecure56Required,true);
  assert.equal(v.originalDurableJournalReady,true);
- assert.equal(v.phoneTokenSchemaConfirmed,false);
+ assert.equal(v.phoneTokenSchemaConfirmed,true);
+ assert.equal(v.protectedApprovalFlowConnected,false);
 });
 
 test('concurrent prepare attempts never create duplicate signed jobs',async()=>{
@@ -190,4 +191,20 @@ test('cancellation during signed phone preparation cannot re-enable mutation',as
   assert.equal((await a.api.execute({operationId:'a'.repeat(32),
     preparationId:'from-cancelled-preparation'})).code,'PHONE_PREPARATION_NOT_FOUND');
   assert.equal(a.invocations.filter(x=>x.type==='computer_use_action_execute').length,0);
+});
+
+test('real JH167-R5 phone READY code and lease are required, missing grant is normal',async()=>{
+ const a=harness({approved:true});
+ await a.api.capture();
+ const p=await a.api.prepare({args:action()});
+ assert.equal(p.code,'SIGNED_PHONE_PREPARATION_READY');
+ const e=await a.api.execute({preparationId:p.preparationId,operationId:'e'.repeat(32)});
+ assert.equal(e.code,'DEVICE_REPORTED_OK_EFFECT_UNVERIFIED');
+ assert.equal(a.invocations.filter(v=>v.type==='computer_use_action_execute').length,1);
+});
+test('R5 signed READY with empty lease is denied without executor',async()=>{
+ const a=harness({preparedTokens:false});
+ await a.api.capture();
+ assert.equal((await a.api.prepare({args:action()})).code,'PHONE_ACTION_LEASE_NOT_CONFIRMED');
+ assert.equal(a.invocations.filter(v=>v.type==='computer_use_action_execute').length,0);
 });

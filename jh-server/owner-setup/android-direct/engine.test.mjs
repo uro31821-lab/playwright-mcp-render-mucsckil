@@ -65,11 +65,14 @@ test('requires existing JH explicit approval and never fabricates grants',async(
   const a=harness({approval:false});
   assert.equal((await a.runner.execute(a.request())).code,'EXISTING_JH_APPROVAL_REQUIRED');
   assert.equal(a.calls.length,0);
+  // A normal low-risk Android action may have a phone-issued lease with
+  // no one-shot approval grant; the existing JH authorizeExistingStep port
+  // must still authorize this exact preparation.
   a.setApproval(true);
   const missing={...args()};delete missing.action_approval_grant_token;
   assert.equal((await a.runner.execute(a.request(id,{args:missing}))).code,
-    'ANDROID_ACTION_SCHEMA_OR_GRANT_INVALID');
-  assert.equal(a.calls.length,0);
+    'DEVICE_REPORTED_OK_EFFECT_UNVERIFIED');
+  assert.equal(a.calls.length,1);
 });
 test('rejects secret/payload pollution and out-of-bounds inputs',async()=>{
   const a=harness();
@@ -271,4 +274,12 @@ test('inspection must match original read-only JH Computer Use schema',async()=>
     args:{url:'https://example.com'},expectedBinding:scope()})).code,
     'ANDROID_SNAPSHOT_ARGUMENTS_INVALID');
   assert.equal(a.calls.length,0);
+});
+
+test('grantless safe action still requires verified existing JH authorization',async()=>{
+ const a=harness({approval:false});
+ const grantless={...args()};delete grantless.action_approval_grant_token;
+ assert.equal((await a.runner.execute(a.request(id,{args:grantless}))).code,
+   'EXISTING_JH_APPROVAL_REQUIRED');
+ assert.equal(a.calls.length,0);
 });
