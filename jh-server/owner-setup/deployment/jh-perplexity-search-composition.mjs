@@ -5,6 +5,7 @@
  * protocol_version, OAuth, approvals, owner state, browser, or APK.
  */
 const IMPORT = "import {registerJHEvidenceSearchTool} from '../evidence/perplexity-search.mjs';\n";
+const OPEN_COMPLETION_IMPORT = 'import {awaitOpenCompletion as jhAwaitOpenCompletion56, OPEN_COMPLETION_WAIT_MS as jhOpenWait56, OPEN_STATUS_WAIT_MS as jhOpenStatusWait56} from "../deployment/jh167-open-completion.mjs";\n';
 const TOOL_ANCHOR = '  registerOAuthTool("life_status",{';
 const SECURITY_ANCHOR = 'const registerOAuthTool=(name,config,handler)=>{';
 const ANDROID_DIGEST_ANCHOR = 'const SECURE56_TOOL_CATALOG_DIGEST=';
@@ -20,15 +21,18 @@ const REGISTRATION = `  // Evidence search: server-side OAuth tool only. No phon
 const count = (source, needle) => source.split(needle).length - 1;
 
 export function patchJHEvidenceSearchRuntime56(source) {
-  if (typeof source !== 'string' || count(source, TOOL_ANCHOR) !== 1 ||
+  if (typeof source !== 'string' || !source.startsWith(OPEN_COMPLETION_IMPORT) ||
+      count(source, OPEN_COMPLETION_IMPORT) !== 1 || count(source, TOOL_ANCHOR) !== 1 ||
       count(source, SECURITY_ANCHOR) !== 1 || count(source, ANDROID_DIGEST_ANCHOR) !== 1 ||
       source.includes(IMPORT.trim()) || source.includes('jh_evidence_search') ||
       source.includes('JH_EVIDENCE_SEARCH_ENABLED')) {
     throw Error('JH_EVIDENCE_COMPOSITION_ANCHOR_CHANGED');
   }
-  const result = IMPORT + source.replace(TOOL_ANCHOR, REGISTRATION + TOOL_ANCHOR);
-  if (!result.startsWith(IMPORT) ||
-      result.slice(IMPORT.length).replace(REGISTRATION + TOOL_ANCHOR, TOOL_ANCHOR) !== source) {
+  const result = source.replace(OPEN_COMPLETION_IMPORT, OPEN_COMPLETION_IMPORT + IMPORT)
+    .replace(TOOL_ANCHOR, REGISTRATION + TOOL_ANCHOR);
+  if (!result.startsWith(OPEN_COMPLETION_IMPORT + IMPORT) ||
+      result.replace(OPEN_COMPLETION_IMPORT + IMPORT, OPEN_COMPLETION_IMPORT)
+        .replace(REGISTRATION + TOOL_ANCHOR, TOOL_ANCHOR) !== source) {
     throw Error('JH_EVIDENCE_COMPOSITION_SCOPE_CHANGED');
   }
   return result;
