@@ -163,7 +163,7 @@ test('signed owner changes between original job and readback blocks old response
  const h=fixture();await h.gate.bind(q);
  h.jobs.get('job-1').status='complete';h.jobs.get('job-1').result=phoneResult();
  h.changeScreen({workWindowId:36});
- assert.equal((await h.gate.status(q)).code,'GEMINI_RIGHT_PAIR_READBACK_MISMATCH');
+ assert.equal((await h.gate.status(q)).code,'ORIGINAL_GEMINI_RECEIPT_NOT_AUTHENTICATED');
 });
 test('lost original durable record after restart is NOT permission to regenerate',async()=>{
  const h=fixture();await h.gate.bind(q);
