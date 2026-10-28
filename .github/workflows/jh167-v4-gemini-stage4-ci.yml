@@ -62,7 +62,9 @@ jobs:
             jh-server/owner-setup/android-direct/host-port.mjs | wc -l)" -eq 2
           grep -q "LEFT_GPT_RIGHT_NATIVE_GEMINI" jh-server/owner-setup/android-direct/fold-evidence.mjs
           grep -q "nativeOwnerEvidence" jh-server/owner-setup/android-direct/host-port.mjs
-          if grep -R -E 'LEFT_NATIVE_GEMINI_RIGHT_GPT' jh-server/owner-setup/android-direct/gemini-v4-*.mjs jh-server/owner-setup/android-direct/fold-evidence.mjs; then
+          # A negative TEST intentionally names the rejected old layout.
+          # Search executable source modules, not test fixtures.
+          if grep -E 'LEFT_NATIVE_GEMINI_RIGHT_GPT' jh-server/owner-setup/android-direct/fold-evidence.mjs $(find jh-server/owner-setup/android-direct -maxdepth 1 -name 'gemini-v4-*.mjs' ! -name '*.test.mjs' -print); then
             echo 'Old reversed Gemini layout remains' && exit 1
           fi
           test ! -f jh-server/owner-setup/android-direct/gemini-v4-stage4-owner-live.mjs
