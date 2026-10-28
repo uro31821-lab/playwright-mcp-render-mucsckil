@@ -40,7 +40,7 @@ export function createGeminiNativeTask(r,commandId){
  }
  return {schema:4,id:r.id,commandId,mode:r.mode,prompt,promptDigest:hash(prompt),url,nativeAction,
   requestDigest:hash(JSON.stringify([r.mode,prompt,nativeAction])),backend:NATIVE_BACKEND,
-  workSide:'LEFT',chatSide:'RIGHT',presentation:'CHATGPT_RESULT',phase:'READY',sequence:0,
+  workSide:'RIGHT',chatSide:'LEFT',presentation:'CHATGPT_RESULT',phase:'READY',sequence:0,
   pending:null,result:null,accountBinding:null,conversationId:null,deviceId:null,sessionId:null,
   sentMessageId:null,submittedAt:null,cancelled:false};
 }

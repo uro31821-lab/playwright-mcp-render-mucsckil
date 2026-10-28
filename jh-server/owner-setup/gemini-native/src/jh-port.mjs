@@ -18,7 +18,7 @@ export async function executeWithJh(action,{prepare,execute,validatePrepared,rea
  const binding=await readBinding(action);
  if(isCancelled())return blocked('CANCELLED_BEFORE_PREPARE');
  if(!binding||binding.backend!==NATIVE_BACKEND||binding.taskId!==action.taskId||
-   !bound(binding,action)||binding.packageName!==GEMINI_HOST||binding.workSide!=='LEFT'||binding.chatSide!=='RIGHT'||
+   !bound(binding,action)||binding.packageName!==GEMINI_HOST||binding.workSide!=='RIGHT'||binding.chatSide!=='LEFT'||
    !text(binding.screenDigest,200)||!Number.isSafeInteger(binding.windowId)||binding.windowId<0||
    binding.accountBinding!==action.accountBinding||binding.conversationId!==action.conversationId)
    return blocked('NATIVE_GEMINI_BINDING_CHANGED');
@@ -63,7 +63,7 @@ export function createJhNativeGeminiPort({original,verifyObservation,clock=Date.
  async function read(q){
   const o=await original.observe(q);
   if(!o||o.taskId!==q.taskId||o.commandId!==q.commandId||o.backend!==NATIVE_BACKEND||
-   o.workSide!=='LEFT'||o.chatSide!=='RIGHT'||o.splitVerified!==true||
+   o.workSide!=='RIGHT'||o.chatSide!=='LEFT'||o.splitVerified!==true||
    !Number.isSafeInteger(o.observedAt)||o.observedAt>clock()||clock()-o.observedAt>15000||
    !await verifyObservation(o,q))throw Error('AUTHENTICATED_NATIVE_OBSERVATION_REQUIRED');
   return o;

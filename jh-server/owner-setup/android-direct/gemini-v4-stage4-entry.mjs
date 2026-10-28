@@ -9,7 +9,7 @@ const same=(a,b)=>!!a&&!!b&&['deviceId','sessionId','commandId','workWindowId','
 const plain=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
 function ownerOk(o,commandId,now){
  return plain(o)&&o.current===true&&o.secure56===true&&o.backend==='JH_ANDROID_NATIVE'&&
-  o.workSide==='LEFT'&&o.chatSide==='RIGHT'&&HEX32.test(o.commandId??'')&&o.commandId===commandId&&
+  o.workSide==='RIGHT'&&o.chatSide==='LEFT'&&HEX32.test(o.commandId??'')&&o.commandId===commandId&&
   typeof o.deviceId==='string'&&o.deviceId.length>0&&o.deviceId.length<=200&&
   typeof o.sessionId==='string'&&o.sessionId.length>0&&o.sessionId.length<=200&&
   Number.isSafeInteger(o.workWindowId)&&Number.isSafeInteger(o.chatWindowId)&&
@@ -18,7 +18,7 @@ function ownerOk(o,commandId,now){
 }
 function storedOk(s,id,o){
  return plain(s)&&s.schema===4&&s.id===id&&s.commandId===o.commandId&&
-  s.backend==='JH_ANDROID_NATIVE'&&s.workSide==='LEFT'&&s.chatSide==='RIGHT'&&
+  s.backend==='JH_ANDROID_NATIVE'&&s.workSide==='RIGHT'&&s.chatSide==='LEFT'&&
   ['ANDROID','YOUTUBE','VIDEO'].includes(s.mode)&&
   (s.deviceId===null||s.deviceId===o.deviceId)&&
   (s.sessionId===null||s.sessionId===o.sessionId)&&
@@ -32,7 +32,7 @@ export function createStage4GeminiV4Entry({
   ![readSignedOwner,verifySignedOwner,readStoredTask,verifyStoredTask,verifyChatDelivery,clock].every(f=>typeof f==='function'))
   throw Error('ORIGINAL_STAGE4_AND_SECURE56_PORTS_REQUIRED');
  const cap=stage4.capabilities();
- if(cap?.engine!=='ANDROID_SECURE56_SINGLE'||cap?.leftWebRightGpt!==true||
+ if(cap?.engine!=='ANDROID_SECURE56_SINGLE'||cap?.existingJHApprovals!==true||
     cap?.playwrightFallback!==false)throw Error('STAGE4_UNIFIED_ANDROID_ENGINE_REQUIRED');
  const nativeReady=()=>enabled===true&&original?.usesOriginalSecure56===true&&
   original?.backend==='JH_ANDROID_NATIVE'&&typeof driver?.run==='function'&&
@@ -104,7 +104,7 @@ export function createStage4GeminiV4Entry({
   }finally{locks.delete(id)}
  }
  return Object.freeze({run,capabilities:()=>Object.freeze({
-  engine:'JH167_V4_ANDROID_SINGLE',androidLeftWorkRightGpt:true,
+  engine:'JH167_V4_ANDROID_SINGLE',androidLeftGptRightWork:true,
   stage4Unchanged:true,geminiNativeOnly:true,geminiHostAttached:nativeReady(),
   geminiModes:[...MODES],legacyPlaywrightPreserved:true,
   productionInstalled:false,automaticReplay:false,automaticResume:false

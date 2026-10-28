@@ -107,8 +107,8 @@ export function createAndroidDirectSecure56Host({
   if(!Object.values(FOLD_LAYOUTS).includes(layoutMode))throw Error('JH_FOLD_LAYOUT_MODE_INVALID');
   let screen=null,prepared=null,running=null,capturing=false,preparing=false,cancelEpoch=0;
   const now=()=>clock();
-  const leftWorkMode=layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT||
-    layoutMode===FOLD_LAYOUTS.LEFT_NATIVE_GEMINI_RIGHT_GPT;
+  const strictFoldMode=layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT||
+    layoutMode===FOLD_LAYOUTS.LEFT_GPT_RIGHT_NATIVE_GEMINI;
   function identity() {
     try {
       const d=selectDevice(),meta=d&&deviceMeta(d),s=d&&activeSession(d);
@@ -140,13 +140,15 @@ export function createAndroidDirectSecure56Host({
   // It does NOT prove a Gemini draft, identity, conversation or send.
   function nativeOwnerEvidence(){
     const b=binding(),p=screen?.proof;
-    if(!b||!p?.ok||p.workSide!=='LEFT'||p.chatSide!=='RIGHT'||
+    if(!b||!p?.ok||layoutMode!==FOLD_LAYOUTS.LEFT_GPT_RIGHT_NATIVE_GEMINI||
+       p.workSide!=='RIGHT'||p.chatSide!=='LEFT'||
+       p.nativeGeminiWindowVerified!==true||
        !Number.isSafeInteger(Number(p.workWindowId))||
-       !Number.isSafeInteger(Number(p.chatWindowId))||!leftWorkMode)return null;
+       !Number.isSafeInteger(Number(p.chatWindowId)))return null;
     return Object.freeze({
       backend:'JH_ANDROID_NATIVE',secure56:true,current:true,
       deviceId:b.deviceId,sessionId:b.sessionId,commandId:b.commandId,
-      workSide:'LEFT',chatSide:'RIGHT',workPackage:p.workPackage,
+      workSide:'RIGHT',chatSide:'LEFT',workPackage:p.workPackage,
       workWindowId:Number(p.workWindowId),chatWindowId:Number(p.chatWindowId),
       observedAt:screen.observedAtMs,rightPaneDigest:b.rightPaneDigest,
       nativeGeminiWindowVerified:p.nativeGeminiWindowVerified===true,
@@ -253,8 +255,8 @@ export function createAndroidDirectSecure56Host({
       return Object.freeze({ok:true,
         code:layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT
           ?'SIGNED_LEFT_WEB_RIGHT_GPT_OBSERVED':
-          layoutMode===FOLD_LAYOUTS.LEFT_NATIVE_GEMINI_RIGHT_GPT
-          ?'SIGNED_LEFT_NATIVE_GEMINI_RIGHT_GPT_OBSERVED':
+          layoutMode===FOLD_LAYOUTS.LEFT_GPT_RIGHT_NATIVE_GEMINI
+          ?'SIGNED_LEFT_GPT_RIGHT_NATIVE_GEMINI_OBSERVED':
           'SIGNED_ANDROID_RIGHT_PANE_OBSERVED',
         observedAtMs:proof.observedAtMs,workPackage:proof.workPackage,
         workPaneSide:proof.workSide,chatPaneSide:proof.chatSide,
@@ -271,7 +273,7 @@ export function createAndroidDirectSecure56Host({
     const b=binding();if(!b)return fail('FRESH_SIGNED_ANDROID_SCREEN_REQUIRED');
     if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
     if(!validInput(args))return fail('ANDROID_ACTION_ARGUMENTS_INVALID');
-    if(leftWorkMode){
+    if(strictFoldMode){
       const gate=guardFoldAction(screen?.proof,args);
       if(!gate.ok)return fail(gate.code);
     }
@@ -280,7 +282,7 @@ export function createAndroidDirectSecure56Host({
     preparing=true;
     try {
       const phoneArgs=workLocalArgs(args,screen?.proof,
-        leftWorkMode);
+        strictFoldMode);
       ({job}=signedEnvelope('life_android_computer_prepare',
         'computer_use_action_prepare','READ_ONLY',phoneArgs));
       done=await authenticatedJob(job,b,'computer_use_action_prepare');
@@ -330,7 +332,7 @@ export function createAndroidDirectSecure56Host({
         binding().rightPaneDigest!==step.binding.rightPaneDigest)
         return fail('PHONE_PREPARATION_EXPIRED_OR_CONTEXT_CHANGED');
       if(durableReady()!==true)return fail('EXISTING_DURABLE_JOURNAL_REQUIRED');
-      if(leftWorkMode) {
+      if(strictFoldMode) {
         // Re-observe actual two-window geometry AFTER phone preparation.
         // Never dispatch an old screen coordinate when the splitter moved,
         // device rotated/folded or keyboard focus switched to ChatGPT.
@@ -398,7 +400,7 @@ export function createAndroidDirectSecure56Host({
     nativeOwnerEvidence,verifyNativeOwnerEvidence,
     capabilities:()=>Object.freeze({...executor.capabilities(),
       hostLocalOnly:true,realPhoneTested:false,
-      layoutMode,workPaneSide:leftWorkMode?'LEFT':'RIGHT',
+      layoutMode,workPaneSide:layoutMode===FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT?'LEFT':'RIGHT',
       physicalUnfoldVerified:false,
       originalDurableJournalReady:durableReady()===true,
       phoneTokenSchemaConfirmed:true,

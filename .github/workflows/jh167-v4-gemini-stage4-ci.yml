@@ -37,8 +37,8 @@ jobs:
       - name: Test original V4 Gemini v0.5 modes, local send approval and video evidence
         run: |
           node --test --test-concurrency=1 jh-server/owner-setup/gemini-native/test/*.test.mjs
-          test "$(git hash-object jh-server/owner-setup/gemini-native/src/contract.mjs)" = "2a63401824c28186e1d37d1815216560f6e61f79"
-          test "$(git hash-object jh-server/owner-setup/gemini-native/src/native-workflow.mjs)" = "c255c8f562d00981c39fda5afe207ebb258ac0d0"
+          test "$(git hash-object jh-server/owner-setup/gemini-native/src/contract.mjs)" = "9659c081fec9680ab87b9cb118ff1a87be7c15a3"
+          test "$(git hash-object jh-server/owner-setup/gemini-native/src/native-workflow.mjs)" = "fc4bc56d9c34dc88e3615cfc5b60b4e9bc8497e0"
       - name: Preserve original Stage4 regressions, native routes and no browser fallback
         run: |
           node --test --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
@@ -58,7 +58,10 @@ jobs:
           test "$(git diff --name-only 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- \
             jh-server/owner-setup/android-direct/fold-evidence.mjs \
             jh-server/owner-setup/android-direct/host-port.mjs | wc -l)" -eq 2
-          grep -q "LEFT_NATIVE_GEMINI_RIGHT_GPT" jh-server/owner-setup/android-direct/fold-evidence.mjs
+          grep -q "LEFT_GPT_RIGHT_NATIVE_GEMINI" jh-server/owner-setup/android-direct/fold-evidence.mjs
           grep -q "nativeOwnerEvidence" jh-server/owner-setup/android-direct/host-port.mjs
+          if grep -R -E 'LEFT_NATIVE_GEMINI_RIGHT_GPT' jh-server/owner-setup/android-direct/gemini-v4-*.mjs jh-server/owner-setup/android-direct/fold-evidence.mjs; then
+            echo 'Old reversed Gemini layout remains' && exit 1
+          fi
           test ! -f jh-server/owner-setup/android-direct/gemini-v4-stage4-owner-live.mjs
           echo V4_CANDIDATE_ISOLATED_NO_APK_OR_PRODUCTION

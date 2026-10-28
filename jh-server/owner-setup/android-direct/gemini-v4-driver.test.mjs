@@ -104,9 +104,9 @@ test('current command changed after durable task claim does not create another c
 });
 test('real V4 driver joins Stage4 route without creating a second app executor',async()=>{
  const h=harness();const stage4={run:async q=>({ok:true,code:'STAGE4_UNCHANGED',mode:q.mode}),
-  capabilities:()=>({engine:'ANDROID_SECURE56_SINGLE',leftWebRightGpt:true,playwrightFallback:false})};
+  capabilities:()=>({engine:'ANDROID_SECURE56_SINGLE',existingJHApprovals:true,playwrightFallback:false})};
  const owner=()=>({backend:'JH_ANDROID_NATIVE',current:true,secure56:true,deviceId:'original-android',
-  sessionId:'signed-session',commandId:cid,workSide:'LEFT',chatSide:'RIGHT',
+  sessionId:'signed-session',commandId:cid,workSide:'RIGHT',chatSide:'LEFT',
   workWindowId:13,chatWindowId:14,observedAt:Date.now()});
  const route=createStage4GeminiV4Entry({stage4,driver:h.driver,original:h.host.original,enabled:true,
   readSignedOwner:async()=>owner(),verifySignedOwner:async()=>true,

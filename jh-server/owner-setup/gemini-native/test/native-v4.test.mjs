@@ -11,7 +11,7 @@ function fixture(mode='YOUTUBE',options={}){
   expectedTargetPackage:pk,nativeAction:{kind:'OPEN_APP',packageName:pk,label:'계산기'}};
  const state=createGeminiNativeTask(request,cid);let now=1000;const calls=[],saved=[],receipts=new Map();
  const observation={taskId:state.id,commandId:cid,deviceId:'device-1',sessionId:'session-1',receiptId:'signed-read',
-  backend:NATIVE_BACKEND,workSide:'LEFT',chatSide:'RIGHT',splitVerified:true,observedAt:now,
+  backend:NATIVE_BACKEND,workSide:'RIGHT',chatSide:'LEFT',splitVerified:true,observedAt:now,
   packageName:mode==='ANDROID'?'com.android.chrome':GEMINI_HOST,surface:'GEMINI_NATIVE',surfaceVerified:true,
   accountBinding:'opaque-account',conversationId:'conversation-1',input:{unique:true,target:'input-1',text:''},
   submit:{unique:true,target:'send-1',locallyReviewable:true},generating:false,
@@ -109,7 +109,7 @@ test('restored READY result never silently starts a new delivery',async()=>{
  assert.equal((await f.workflow.advance()).code,'RESTORED_TASK_READ_ONLY_NO_AUTO_CONTINUE');assert.equal(f.count('publish'),0);
 });
 test('wrong-command, stale, swapped-pane and changed-session observations do not act',async()=>{
- for(const change of [{commandId:'f'.repeat(32)},{workSide:'RIGHT',chatSide:'LEFT'},{splitVerified:false},{backend:'GEMINI_WEB'}]){
+ for(const change of [{commandId:'f'.repeat(32)},{workSide:'LEFT',chatSide:'RIGHT'},{splitVerified:false},{backend:'GEMINI_WEB'}]){
   const f=fixture('YOUTUBE',{observation:change});assert.equal((await f.workflow.advance()).code,'FRESH_SIGNED_NATIVE_OBSERVATION_REQUIRED');assert.equal(f.calls.length,0);
  }
  const f=fixture();await f.workflow.advance();f.observation.sessionId='other';assert.equal((await f.workflow.advance()).code,'FRESH_SIGNED_NATIVE_OBSERVATION_REQUIRED');assert.equal(f.count('submit'),0);
@@ -172,7 +172,7 @@ test('cancel after send never promises to undo it or sends it again',async()=>{
 function portFixture(kind='SUBMIT'){
  const a={id:'task:1',taskId:'task-1234',commandId:cid,deviceId:'d',sessionId:'s',kind,target:'send',text:'요청',
   promptDigest:hash('요청'),accountBinding:'acct',conversationId:'conv'};
- const b={...a,backend:NATIVE_BACKEND,packageName:GEMINI_HOST,windowId:3,screenDigest:'c'.repeat(64),workSide:'LEFT',chatSide:'RIGHT'};
+ const b={...a,backend:NATIVE_BACKEND,packageName:GEMINI_HOST,windowId:3,screenDigest:'c'.repeat(64),workSide:'RIGHT',chatSide:'LEFT'};
  let sent=0,cancelled=false;
  const v={...a,actionId:a.id,status:'READY',leaseToken:'real-phone-lease',executeArgs:{original:true},screenDigest:b.screenDigest,
   localApprovalVerified:true,approvalGrantToken:'real-exact-phone-grant',actionDigest:'d'.repeat(64),approvalActionDigest:'d'.repeat(64)};

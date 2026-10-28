@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import {createGeminiV4CheckpointGate} from './gemini-v4-checkpoint.mjs';
 const id='gemini-task-0001',commandId='a'.repeat(32);
 const owner=()=>({backend:'JH_ANDROID_NATIVE',secure56:true,current:true,
- deviceId:'device1',sessionId:'session1',commandId,workSide:'LEFT',chatSide:'RIGHT',
+ deviceId:'device1',sessionId:'session1',commandId,workSide:'RIGHT',chatSide:'LEFT',
  workWindowId:11,chatWindowId:12,observedAt:Date.now()});
-const saved=()=>({schema:4,id,commandId,backend:'JH_ANDROID_NATIVE',workSide:'LEFT',chatSide:'RIGHT',
+const saved=()=>({schema:4,id,commandId,backend:'JH_ANDROID_NATIVE',workSide:'RIGHT',chatSide:'LEFT',
  mode:'YOUTUBE',phase:'GENERATING',sequence:2,deviceId:'device1',sessionId:'session1',pending:{kind:'SUBMIT'},
  result:{text:'not independently attested'},verified:true});
 const q={mode:'GEMINI_STATUS',taskId:id,commandId};
@@ -39,7 +39,7 @@ test('a forged durable task JSON does not replace original ledger verification',
  assert.equal((await h.gate.run(q)).code,'STORED_REQUEST_UNVERIFIED_NO_REPLAY');
 });
 test('wrong layout, command, or owner device is rejected',async()=>{
- for(const p of [{workSide:'RIGHT',chatSide:'LEFT'},{commandId:'b'.repeat(32)},{deviceId:'other'}]){
+ for(const p of [{workSide:'LEFT',chatSide:'RIGHT'},{commandId:'b'.repeat(32)},{deviceId:'other'}]){
   const h=harness({readOwner:async()=>({...owner(),...p})});
   const r=await h.gate.run(q);assert.equal(r.ok,false);
  }

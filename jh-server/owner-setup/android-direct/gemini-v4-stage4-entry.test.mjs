@@ -5,11 +5,11 @@ import {createStage4GeminiV4Entry} from './gemini-v4-stage4-entry.mjs';
 const cid='a'.repeat(32),id='v4-task-01',digest='b'.repeat(64);
 const owner=()=>({current:true,secure56:true,backend:'JH_ANDROID_NATIVE',
  deviceId:'android-1',sessionId:'trusted-1',commandId:cid,
- workSide:'LEFT',chatSide:'RIGHT',workWindowId:101,chatWindowId:102,
+ workSide:'RIGHT',chatSide:'LEFT',workWindowId:101,chatWindowId:102,
  workPackage:'com.google.android.googlequicksearchbox',accountBinding:'opaque-account',
  observedAt:Date.now()});
 const task=()=>({schema:4,id,commandId:cid,backend:'JH_ANDROID_NATIVE',
- mode:'YOUTUBE',workSide:'LEFT',chatSide:'RIGHT',deviceId:'android-1',
+ mode:'YOUTUBE',workSide:'RIGHT',chatSide:'LEFT',deviceId:'android-1',
  sessionId:'trusted-1',promptDigest:digest,sequence:2,phase:'WAITING',
  pending:{kind:'SUBMIT'},result:null});
 const command=(mode,more={})=>({mode,commandId:cid,taskId:id,...more});
@@ -62,7 +62,7 @@ test('phone original owner and signatures are independently verified',async()=>{
  assert.equal(h.calls.length,0);
 });
 test('refuses opposite split or outdated owner snapshot',async()=>{
- for(const bad of [{workSide:'RIGHT',chatSide:'LEFT'},{observedAt:Date.now()-90000},{workWindowId:102}]){
+ for(const bad of [{workSide:'LEFT',chatSide:'RIGHT'},{observedAt:Date.now()-90000},{workWindowId:102}]){
   const h=make({readSignedOwner:async()=>({...owner(),...bad})});
   assert.equal((await h.entry.run(command('GEMINI_START',{request:{id}}))).code,'CURRENT_SIGNED_LEFT_WORK_RIGHT_GPT_REQUIRED');
  }
@@ -120,7 +120,7 @@ test('lost device response is unknown and never automatically re-sent',async()=>
 });
 test('changed original task device or command blocks duplicate execution',async()=>{
  for(const change of [{deviceId:'other-device'},{commandId:'c'.repeat(32)},
-  {workSide:'RIGHT',chatSide:'LEFT'},{schema:2}]){
+  {workSide:'LEFT',chatSide:'RIGHT'},{schema:2}]){
   const h=make();h.saved.set(id,{...task(),...change});
   assert.equal((await h.entry.run(command('GEMINI_STEP'))).code,'GEMINI_STORED_SCOPE_CHANGED');
   assert.equal(h.calls.length,0);

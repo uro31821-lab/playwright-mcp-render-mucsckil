@@ -11,7 +11,7 @@ export function createV4GeminiSignedOwnerPort({androidHost,clock=Date.now}={}){
  }
  if(typeof clock!=='function')throw Error('CLOCK_REQUIRED');
  const valid=(p)=>!!p&&p.backend==='JH_ANDROID_NATIVE'&&p.current===true&&p.secure56===true&&
-  p.workSide==='LEFT'&&p.chatSide==='RIGHT'&&p.workPackage===P&&
+  p.workSide==='RIGHT'&&p.chatSide==='LEFT'&&p.workPackage===P&&
   p.nativeGeminiWindowVerified===true&&
   p.geminiSurfaceVerified===false&&p.geminiAccountVerified===false&&
   typeof p.commandId==='string'&&/^[a-f0-9]{32}$/.test(p.commandId)&&
@@ -22,8 +22,8 @@ export function createV4GeminiSignedOwnerPort({androidHost,clock=Date.now}={}){
   const c=androidHost.capabilities();
   return Object.freeze({singleOriginalSecure56:true,
    ready:c?.hostLocalOnly===true&&c?.existingSecure56Required===true&&
-    c?.playwrightUsed===false&&c?.layoutMode==='LEFT_NATIVE_GEMINI_RIGHT_GPT'&&
-    c?.workPaneSide==='LEFT',
+    c?.playwrightUsed===false&&c?.layoutMode==='LEFT_GPT_RIGHT_NATIVE_GEMINI'&&
+    c?.workPaneSide==='RIGHT',
    geminiNativeOwnerOnly:true,geminiSubmitPermitted:false,
    automaticReplay:false,automaticResume:false});
  }
@@ -41,12 +41,12 @@ export function createV4GeminiSignedOwnerPort({androidHost,clock=Date.now}={}){
   if(!capabilities().ready)return failure('ORIGINAL_GEMINI_SIGNED_HOST_DISABLED');
   // Only one signed agent_snapshot. Does not click, type, send or restart work.
   let r;try{r=await androidHost.capture()}catch{return failure('SIGNED_GEMINI_SNAPSHOT_NOT_CONFIRMED')}
-  if(r?.ok!==true||r.code!=='SIGNED_LEFT_NATIVE_GEMINI_RIGHT_GPT_OBSERVED')
+  if(r?.ok!==true||r.code!=='SIGNED_LEFT_GPT_RIGHT_NATIVE_GEMINI_OBSERVED')
    return failure(r?.code||'SIGNED_GEMINI_SNAPSHOT_NOT_CONFIRMED');
   const o=read();
   if(!o)return failure('CURRENT_GEMINI_LEFT_GPT_RIGHT_OWNER_UNVERIFIED');
   return Object.freeze({ok:true,code:'ORIGINAL_SIGNED_GEMINI_WINDOW_CAPTURED',
-   commandId:o.commandId,workSide:'LEFT',chatSide:'RIGHT',workPackage:o.workPackage,
+   commandId:o.commandId,workSide:'RIGHT',chatSide:'LEFT',workPackage:o.workPackage,
    nativeGeminiWindowVerified:true,geminiDraftVerified:false,
    geminiAccountVerified:false,automaticReplay:false,automaticResume:false});
  }

@@ -9,7 +9,7 @@ const MODES = new Set(['ANDROID','YOUTUBE','VIDEO']);
 const fail = code => Object.freeze({ok:false,code,automaticReplay:false,automaticResume:false});
 const sameOwner = (a,b) => !!a&&!!b&&['deviceId','sessionId','commandId','workWindowId','chatWindowId','workSide','chatSide'].every(k=>a[k]===b[k]);
 const validOwner = (o, commandId, now) => !!o && o.backend==='JH_ANDROID_NATIVE' &&
- o.secure56===true && o.current===true && o.workSide==='LEFT' && o.chatSide==='RIGHT' &&
+ o.secure56===true && o.current===true && o.workSide==='RIGHT' && o.chatSide==='LEFT' &&
  typeof o.deviceId==='string' && o.deviceId.length>0 && o.deviceId.length<=200 &&
  typeof o.sessionId==='string' && o.sessionId.length>0 && o.sessionId.length<=200 &&
  HEX32.test(o.commandId??'') && o.commandId===commandId &&
@@ -19,7 +19,7 @@ const validOwner = (o, commandId, now) => !!o && o.backend==='JH_ANDROID_NATIVE'
  Number.isSafeInteger(o.observedAt) && o.observedAt<=now && now-o.observedAt<=15000;
 const validTask = (s,id,commandId,owner) => s?.schema===4 && s.id===id &&
  s.commandId===commandId && s.backend==='JH_ANDROID_NATIVE' &&
- s.workSide==='LEFT' && s.chatSide==='RIGHT' && MODES.has(s.mode) &&
+ s.workSide==='RIGHT' && s.chatSide==='LEFT' && MODES.has(s.mode) &&
  STATES.has(s.phase) && Number.isSafeInteger(s.sequence) && s.sequence>=0 &&
  (s.deviceId===null || s.deviceId===owner.deviceId) &&
  (s.sessionId===null || s.sessionId===owner.sessionId) &&

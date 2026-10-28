@@ -10,7 +10,7 @@ const terminal=new Set(['DELIVERED','CANCELLED']);
  * fields such as verified:true never substitute for those validators. */
 export class GeminiNativeWorkflow {
  constructor(state,{save,engine,delivery,verifyObservation,verifyReceipt,clock=Date.now}={}){
-  if(state?.schema!==4||state.backend!==NATIVE_BACKEND||state.workSide!=='LEFT'||state.chatSide!=='RIGHT'||
+  if(state?.schema!==4||state.backend!==NATIVE_BACKEND||state.workSide!=='RIGHT'||state.chatSide!=='LEFT'||
    !engine||engine.backend!==NATIVE_BACKEND||typeof save!=='function'||
    [verifyObservation,verifyReceipt,clock].some(f=>typeof f!=='function')||typeof engine.observe!=='function')
     throw Error('V4_ORIGINAL_JH_NATIVE_ENGINE_REQUIRED');
@@ -24,7 +24,7 @@ export class GeminiNativeWorkflow {
  advance(){return this.enqueue(()=>this.step());}
  async commit(changes){const next={...this.state,...changes};await this.save(clone(next));this.state=next;}
  report(code,status='WAITING',extra={}){return {taskId:this.state.id,mode:this.state.mode,status,code,
-  presentation:'CHATGPT_RESULT',workSide:'LEFT',chatSide:'RIGHT',automaticReplay:false,
+  presentation:'CHATGPT_RESULT',workSide:'RIGHT',chatSide:'LEFT',automaticReplay:false,
   automaticResume:false,fullVideoInspectionVerified:false,...extra};}
  cancel(){
   // Immediate fence; do not enqueue the cancellation signal behind a slow read.
@@ -43,7 +43,7 @@ export class GeminiNativeWorkflow {
   if(!o||o.taskId!==s.id||o.commandId!==s.commandId||o.backend!==NATIVE_BACKEND||
     !text(o.deviceId,200)||!text(o.sessionId,200)||!text(o.receiptId,200)||
     !Number.isSafeInteger(o.observedAt)||o.observedAt>now||now-o.observedAt>15000||
-    o.workSide!=='LEFT'||o.chatSide!=='RIGHT'||o.splitVerified!==true||
+    o.workSide!=='RIGHT'||o.chatSide!=='LEFT'||o.splitVerified!==true||
     !await callVerified(this.verifyObservation,o,s))return null;
   if(this.cancelled())return null;
   if(s.deviceId&&!bound(o,s))return null;
@@ -56,7 +56,7 @@ export class GeminiNativeWorkflow {
   if(typeof fn!=='function')return this.report('ORIGINAL_NATIVE_PORT_NOT_CONNECTED','NEEDS_HOST');
   const s=this.state,action={id:`${s.id}:${s.sequence+1}`,taskId:s.id,commandId:s.commandId,
    deviceId:s.deviceId,sessionId:s.sessionId,kind,at:this.clock(),
-   accountBinding:s.accountBinding,conversationId:s.conversationId,workSide:'LEFT',chatSide:'RIGHT',
+   accountBinding:s.accountBinding,conversationId:s.conversationId,workSide:'RIGHT',chatSide:'LEFT',
    promptDigest:s.promptDigest,requestDigest:s.requestDigest,...payload};
   // Durable reservation must succeed before invoking any mutating original port.
   await this.commit({sequence:s.sequence+1,pending:action});
@@ -112,7 +112,7 @@ export class GeminiNativeWorkflow {
    }
    if(p.kind==='OPEN_APP'&&this.nativeMatch(o)){
     await this.commit({pending:null,phase:'RESULT_READY',result:{kind:'APP_STATE',packageName:s.nativeAction.packageName,
-      text:`${s.nativeAction.label} 앱이 왼쪽 작업창에서 확인됐습니다.`,effectVerified:true}});
+      text:`${s.nativeAction.label} 앱이 오른쪽 작업창에서 확인됐습니다.`,effectVerified:true}});
     return this.report('TARGET_APP_INDEPENDENTLY_CONFIRMED');
    }
    return this.report('OUTCOME_PENDING_READ_ONLY');
@@ -120,7 +120,7 @@ export class GeminiNativeWorkflow {
   if(s.mode==='ANDROID'){
    if(this.nativeMatch(o)){
     await this.commit({phase:'RESULT_READY',result:{kind:'APP_STATE',packageName:s.nativeAction.packageName,
-      text:`${s.nativeAction.label} 앱이 왼쪽 작업창에서 확인됐습니다.`,effectVerified:true}});
+      text:`${s.nativeAction.label} 앱이 오른쪽 작업창에서 확인됐습니다.`,effectVerified:true}});
     return this.report('TARGET_ALREADY_OPEN');
    }
    return this.dispatch('OPEN_APP',{targetPackage:s.nativeAction.packageName},this.engine.openApp?.bind(this.engine),o);
