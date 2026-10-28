@@ -28,6 +28,12 @@ jobs:
           node --check jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-checkpoint.mjs
           node --test --test-concurrency=1 jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.test.mjs jh-server/owner-setup/android-direct/gemini-v4-checkpoint.test.mjs jh-server/owner-setup/android-direct/gemini-v4-driver.test.mjs
+      - name: Verify actual video tools for byte/hash/media evidence tests
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          command -v ffmpeg
+          command -v ffprobe
       - name: Test original V4 Gemini v0.5 modes, local send approval and video evidence
         run: |
           node --test --test-concurrency=1 jh-server/owner-setup/gemini-native/test/*.test.mjs
