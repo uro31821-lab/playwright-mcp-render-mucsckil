@@ -161,6 +161,8 @@ export function createUnifiedAndroidRoute({
       expectedPaneDigest:capture.rightPaneDigest,
       deviceId:ownerNow.deviceId
     })}catch{}
+    if(!same(owner(ownerNow.commandId),ownerNow))
+      return result('OWNER_CHANGED_DURING_ADDRESS_READBACK',{status:'UNKNOWN'});
     if(!checkedAddress(address,ownerNow,record.url,clock(),capture.rightPaneDigest))
       return result('OPEN_PHONE_REPORTED_ADDRESS_UNVERIFIED',{status:'UNVERIFIED'});
     return Object.freeze({
@@ -175,33 +177,46 @@ export function createUnifiedAndroidRoute({
     if(!hex32(req.operationId))return result('OPERATION_ID_REQUIRED');
     const existing=openLedger.get(req.operationId);
     if(existing)return result(existing.commandId===o.commandId && existing.url===url
-      ?'OPEN_ALREADY_REQUESTED_NO_AUTO_REPLAY':'OPEN_OPERATION_ID_CONFLICT', {
-        previousStatus:existing.status
-      });
+      ?(existing.status==='PREFLIGHT'?
+          'OPEN_PREFLIGHT_IN_PROGRESS':'OPEN_ALREADY_REQUESTED_NO_AUTO_REPLAY')
+      :'OPEN_OPERATION_ID_CONFLICT', {previousStatus:existing.status});
     if(openLedger.size>=maxOpenOperations)
       return result('OPEN_LEDGER_CAPACITY_REACHED');
     if(!supported())return result('ANDROID_LEFT_WEB_ENGINE_NOT_READY');
+    // Reserve the same operationId BEFORE any asynchronous preflight.
+    // Concurrent identical calls must not both create a signed phone job.
+    const record={commandId:o.commandId,deviceId:o.deviceId,sessionId:o.sessionId,
+      url,jobId:null,status:'PREFLIGHT'};
+    openLedger.set(req.operationId,record);
+    const preflightFail=code=>{
+      if(openLedger.get(req.operationId)===record &&
+         record.status==='PREFLIGHT')openLedger.delete(req.operationId);
+      return result(code);
+    };
     let c;
     try{c=await readSignedCapability()}catch{}
     if(!checkedPhoneCapability(c,o,clock()))
-      return result('SIGNED_PHONE_LEFT_WEB_CAPABILITY_REQUIRED');
-    if(!same(owner(o.commandId),o))return result('UNIFIED_OWNER_CHANGED');
+      return preflightFail('SIGNED_PHONE_LEFT_WEB_CAPABILITY_REQUIRED');
+    if(!same(owner(o.commandId),o))
+      return preflightFail('UNIFIED_OWNER_CHANGED');
     let capture;
     try{capture=await controller.capture()}catch{}
-    if(!safeCapture(capture))return result('LEFT_BROWSER_RIGHT_GPT_NOT_CONFIRMED');
-    if(!same(owner(o.commandId),o))return result('UNIFIED_OWNER_CHANGED');
-    // Record BEFORE invoking any external effect. Errors after invoke are
-    // UNKNOWN. Durable restart fencing stays in original JH journal.
-    const record={commandId:o.commandId,deviceId:o.deviceId,sessionId:o.sessionId,
-      url,jobId:null,status:'UNKNOWN'};
-    openLedger.set(req.operationId,record);
+    if(!safeCapture(capture))
+      return preflightFail('LEFT_BROWSER_RIGHT_GPT_NOT_CONFIRMED');
+    if(!same(owner(o.commandId),o))
+      return preflightFail('UNIFIED_OWNER_CHANGED');
+    // Original JH durable journal is still the cross-restart authority.
+    // After this point any transport error is UNKNOWN, never auto-replay.
+    record.status='DISPATCHING';
     let reply;
     try{reply=await openLeftWeb({
       url,target:'left_web_link',deviceId:o.deviceId,
       commandId:o.commandId,operationId:req.operationId,
       expectedPaneDigest:capture.rightPaneDigest
-    })}catch{return result('LEFT_WEB_OPEN_OUTCOME_UNKNOWN_NO_REPLAY',{status:'UNKNOWN'})}
+    })}catch{record.status='UNKNOWN';
+      return result('LEFT_WEB_OPEN_OUTCOME_UNKNOWN_NO_REPLAY',{status:'UNKNOWN'})}
     if(!checkedOpenJob(reply,o,null)){
+      record.status='UNKNOWN';
       return result('LEFT_WEB_OPEN_RECEIPT_UNVERIFIED_NO_REPLAY',{status:'UNKNOWN'});
     }
     record.jobId=reply.jobId;
@@ -228,6 +243,7 @@ export function createUnifiedAndroidRoute({
       if(!hex32(req.operationId))return result('OPERATION_ID_REQUIRED');
       const record=openLedger.get(req.operationId);
       if(!record||!same(record,o))return result('ORIGINAL_OPEN_JOB_NOT_FOUND');
+      if(record.status==='PREFLIGHT')return result('OPEN_PREFLIGHT_IN_PROGRESS',{status:'PREFLIGHT'});
       if(!record.jobId)return result('OPEN_DISPATCH_OUTCOME_UNKNOWN_NO_REPLAY',{status:'UNKNOWN'});
       return readOpenStatus(record,o);
     }
