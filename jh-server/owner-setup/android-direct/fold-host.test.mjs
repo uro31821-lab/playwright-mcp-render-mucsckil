@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {createAndroidDirectSecure56Host} from './host-port.mjs';
 import {createV4GeminiSignedOwnerPort} from './gemini-v4-owner-port.mjs';
+import {createOriginalSecure56V4RightGeminiHost} from './gemini-v4-original-secure56-host.mjs';
 const h=x=>createHash('sha256').update(x).digest('hex');
 const now=1800000000000, rect=(a,b,c,d)=>[a,b,c,d].join(',');
 function make({browser='com.android.chrome',focus=false,reuse=false,layoutMode='LEFT_WEB_RIGHT_GPT'}={}){
@@ -244,4 +245,63 @@ test('native Gemini RIGHT action converts global screen coordinates to work-loca
  const result=await t.api.execute({preparationId:prep.preparationId,operationId:'b'.repeat(32)});
  assert.equal(result.code,'DEVICE_REPORTED_OK_EFFECT_UNVERIFIED');
  assert.equal(t.jobs.filter(x=>x.type==='computer_use_action_execute').length,1);
+});
+
+test('actual Stage4 signed Gemini pane proof reaches original Secure56 binding, queues and readback',async()=>{
+ const phone=make({browser:'com.google.android.googlequicksearchbox',
+   layoutMode:'LEFT_GPT_RIGHT_NATIVE_GEMINI'});
+ const pane=createV4GeminiSignedOwnerPort({androidHost:phone.api,clock:()=>now});
+ const captured=await pane.refresh();
+ assert.equal(captured.ok,true);
+ const owner=pane.read();
+ // These were previously absent in the Stage4 host result, making the real
+ // Gemini / Secure56 adapter impossible to activate despite mocked passes.
+ assert.equal(owner.chatPackage,'com.openai.chatgpt');
+ assert.equal(owner.workPackage,'com.google.android.googlequicksearchbox');
+ assert.equal(owner.workBounds,'1050,0,2160,1800');
+ assert.equal(owner.chatBounds,'0,0,1050,1800');
+ const journal=new Map(),jobs=new Map();
+ const original={
+  selectDevice:()=> 'fold-phone',
+  deviceMeta:()=>({secureBridgeVersion:56,secureActive:true,deviceDigest:h('dev')}),
+  activeSession:()=>({sessionId:'secure-56',deviceDigest:h('dev')}),
+  requireCommand:()=> 'a'.repeat(32),
+  makeOriginalJob:async(type,p,dev)=>{
+    const job={id:'signed-native-gemini-job-001',type,status:'queued',
+      targetDeviceId:dev,secureSessionId:'secure-56',...p};
+    jobs.set(job.id,job);return job;
+  },
+  getOriginalJob:async(id)=>jobs.get(id),
+  verifyOriginalQueuedJob:async()=>true,
+  verifyOriginalCompletedJob:async()=>true
+ };
+ const durable={source:'ORIGINAL_JH_PERSISTENT_OPERATION_LEDGER',
+  claim:async(id,record)=>{if(journal.has(id))return false;journal.set(id,{...record,operationId:id});return true},
+  attachJob:async(id,jobId)=>{const r=journal.get(id);if(!r||r.jobId)return false;r.jobId=jobId;return true},
+  lookup:async(id)=>journal.get(id),
+  verify:async(record,id)=>journal.get(id)===record&&record.operationId===id
+ };
+ const bridge=createOriginalSecure56V4RightGeminiHost({
+   pane,original,durable,enabled:true,clock:()=>now
+ });
+ const request={commandId:'a'.repeat(32),operationId:'b'.repeat(32)};
+ assert.equal((await bridge.bind(request)).code,'RIGHT_GEMINI_BINDING_JOB_STARTED_READ_STATUS');
+ const item=jobs.get('signed-native-gemini-job-001');
+ assert.equal(item.expectedWorkBounds,owner.workBounds);
+ assert.equal(item.expectedChatBounds,owner.chatBounds);
+ assert.equal(item.expectedChatPackage,'com.openai.chatgpt');
+ item.status='complete';item.result={
+  ok:true,code:'GEMINI_EXISTING_RIGHT_WINDOW_BOUND',
+  workPackage:owner.workPackage,workWindowId:owner.workWindowId,
+  chatWindowId:owner.chatWindowId,
+  workBounds:owner.workBounds,chatBounds:owner.chatBounds,
+  workSide:'RIGHT',chatSide:'LEFT',
+  requestSent:false,resultVerified:false,automaticReplayAllowed:false
+ };
+ const result=await bridge.status(request);
+ assert.equal(result.code,'SIGNED_GEMINI_RIGHT_WINDOW_BOUND');
+ assert.equal(result.windowBound,true);
+ assert.equal(result.requestSent,false);
+ assert.equal(result.videoVerified,false);
+ assert.equal((await bridge.bind(request)).code,'ORIGINAL_OPERATION_ALREADY_RESERVED_READ_ONLY');
 });
