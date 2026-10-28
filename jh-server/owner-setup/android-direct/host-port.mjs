@@ -148,8 +148,13 @@ export function createAndroidDirectSecure56Host({
     return Object.freeze({
       backend:'JH_ANDROID_NATIVE',secure56:true,current:true,
       deviceId:b.deviceId,sessionId:b.sessionId,commandId:b.commandId,
-      workSide:'RIGHT',chatSide:'LEFT',workPackage:p.workPackage,
+      workSide:'RIGHT',chatSide:'LEFT',
+      workPackage:p.workPackage,chatPackage:p.chatPackage,
       workWindowId:Number(p.workWindowId),chatWindowId:Number(p.chatWindowId),
+      // Exact comma-separated original signed two-window geometry. The
+      // original queued Android job signs and checks these same six fields.
+      workBounds:[p.workBounds.left,p.workBounds.top,p.workBounds.right,p.workBounds.bottom].join(','),
+      chatBounds:[p.chatBounds.left,p.chatBounds.top,p.chatBounds.right,p.chatBounds.bottom].join(','),
       observedAt:screen.observedAtMs,rightPaneDigest:b.rightPaneDigest,
       nativeGeminiWindowVerified:p.nativeGeminiWindowVerified===true,
       geminiSurfaceVerified:false,geminiAccountVerified:false
