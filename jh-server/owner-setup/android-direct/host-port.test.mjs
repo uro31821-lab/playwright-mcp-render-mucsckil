@@ -99,10 +99,10 @@ test('protected action requires the existing phone local approval path',async()=
  assert.equal((await a.api.prepare({args:action()})).code,'PHONE_LOCAL_APPROVAL_REQUIRED');
  assert.equal(a.invocations.filter(x=>x.type==='computer_use_action_execute').length,0);
 });
-test('a phone reject does not authorize execution',async()=>{
+test('phone approval-required is a protected action and does not authorize execution',async()=>{
  const a=harness({phoneSuccess:false});await a.api.capture();
  const p=await a.api.prepare({args:action()});
- assert.equal(p.code,'PHONE_PREPARATION_OR_LOCAL_APPROVAL_REQUIRED');
+ assert.equal(p.code,'PHONE_LOCAL_APPROVAL_REQUIRED');
  assert.equal((await a.api.execute({preparationId:'x',operationId:'b'.repeat(32)})).code,
    'PHONE_PREPARATION_NOT_FOUND');
 });
