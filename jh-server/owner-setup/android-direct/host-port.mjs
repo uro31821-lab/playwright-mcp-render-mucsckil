@@ -233,6 +233,10 @@ export function createAndroidDirectSecure56Host({
     if(running||prepared||preparing||capturing)return fail('CANDIDATE_ACTION_IN_PROGRESS');
     const a=identity();if(!a)return fail('ORIGINAL_SECURE56_DEVICE_REQUIRED');
     let j,done,proof;
+    // A NEW signed screen read invalidates old pane evidence immediately.
+    // Otherwise a rejected Gemini snapshot can leave an obsolete owner
+    // proof live long enough to target a different application.
+    screen=null;
     capturing=true;
     try {
       j=makeSnapshotJob(a.deviceId);
