@@ -41,7 +41,7 @@ function make(opts={}){
 }
 test('actual Stage4 remains the single base route for non-Gemini actions',async()=>{
  const h=make(),r=await h.entry.run(command('OPEN_APP'));
- assert.equal(r.code,'LEFT_NATIVE_APP_ADAPTER_NOT_VERIFIED');
+ assert.equal(r.code,'V4_ORIGINAL_RIGHT_WORK_PORT_REQUIRED');
  assert.equal(h.calls.length,0);assert.equal(h.entry.capabilities().stage4Unchanged,true);
 });
 test('enabled=false refuses Gemini without touching original host',async()=>{
