@@ -142,10 +142,6 @@ export function createAndroidDirectStage1({
     throw Error('EXISTING_SECURE56_PORTS_REQUIRED');
   const ledger = new Map();
   const current = () => validatedBinding(readBinding());
-  const safeRecord = r => ({
-    code:r.code,status:r.status,jobId:r.jobId??null,
-    dispatched:r.dispatched === true,autoRetry:false,effectVerified:false
-  });
   function capabilities() {
     return Object.freeze({androidDirectCandidate:true,enabled:enabled===true,
       existingSecure56Required:true,existingApprovalRequired:true,
@@ -183,24 +179,41 @@ export function createAndroidDirectStage1({
     const fingerprint=safeFingerprint(args,b);
     const old=ledger.get(operationId);
     if (old) return old.fingerprint===fingerprint
-      ? deny('OPERATION_ALREADY_DISPATCHED_NO_REPLAY',safeRecord(old))
+      ? deny(old.dispatched
+          ? 'OPERATION_ALREADY_DISPATCHED_NO_REPLAY'
+          : 'OPERATION_PREFLIGHT_IN_PROGRESS', {
+          previousStatus:old.status,existingJobId:old.jobId??null
+        })
       : deny('OPERATION_ID_CONFLICT_NO_REPLAY');
     if (ledger.size>=capacity) return deny('LOCAL_FENCE_CAPACITY_REACHED');
+    // Reserve BEFORE awaiting the existing approval. Concurrent requests for
+    // the same ID cannot both pass an async approval check and dispatch twice.
+    const record={fingerprint,binding:b,jobId:null,dispatched:false,
+      status:'PREFLIGHT',code:'OPERATION_PREFLIGHT_IN_PROGRESS'};
+    ledger.set(operationId,record);
+    let approved=false;
     try {
-      if (await authorizeExistingStep({
+      approved=await authorizeExistingStep({
         operationId,deviceId:b.deviceId,commandId:b.commandId,
         sessionId:b.sessionId,action:args.action,taskDigest:args.task_digest
-      })!==true) return deny('EXISTING_JH_APPROVAL_REQUIRED');
+      });
     } catch {
+      ledger.delete(operationId);
       return deny('EXISTING_JH_APPROVAL_UNAVAILABLE');
     }
+    if (approved!==true) {
+      ledger.delete(operationId);
+      return deny('EXISTING_JH_APPROVAL_REQUIRED');
+    }
     if (!sameBinding(current(),b) ||
-        !validEvidence(screenEvidence,b,clock()))
+        !validEvidence(screenEvidence,b,clock())) {
+      ledger.delete(operationId);
       return deny('ANDROID_CONTEXT_CHANGED_BEFORE_DISPATCH');
-    // Reserve BEFORE calling the irreversible port. Network errors are UNKNOWN.
-    const record={fingerprint,binding:b,jobId:null,dispatched:true,
-      status:'RESERVED',code:'DISPATCH_OUTCOME_UNKNOWN_NO_REPLAY'};
-    ledger.set(operationId,record);
+    }
+    // Preserve the fence on every path after calling the irreversible port.
+    record.dispatched=true;
+    record.status='RESERVED';
+    record.code='DISPATCH_OUTCOME_UNKNOWN_NO_REPLAY';
     let reply;
     try {
       reply=await invokeExistingTool(
