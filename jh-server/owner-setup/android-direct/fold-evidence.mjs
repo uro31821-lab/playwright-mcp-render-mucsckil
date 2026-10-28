@@ -14,11 +14,11 @@ const browsers=new Set(['com.android.chrome','com.sec.android.app.sbrowser','org
 const id=x=>typeof x==='string' && /^\d{1,10}$/.test(x);
 const pkg=x=>typeof x==='string' && /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z0-9_]+)+$/.test(x) && x.length<=200;
 const bad=(code)=>Object.freeze({ok:false,code,sideVerified:false});
-function rect(raw) {
+function rect(raw,minSize=100) {
   if(typeof raw!=='string'||!/^\d+,\d+,\d+,\d+$/.test(raw))return null;
   const v=raw.split(',').map(Number);
   if(!v.every(n=>Number.isSafeInteger(n)&&n>=0&&n<=100000)||
-     v[2]-v[0]<100||v[3]-v[1]<100)return null;
+     v[2]-v[0]<minSize||v[3]-v[1]<minSize)return null;
   return Object.freeze({left:v[0],top:v[1],right:v[2],bottom:v[3]});
 }
 const verticalOverlap=(a,b)=>Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top);
@@ -40,7 +40,7 @@ function rowsMatch(rows,p,workRect) {
     // the work browser, never overlap ChatGPT. Missing bounds are not fabricated.
     if(n.clickable===true||n.editable===true) {
       if(n.bounds!==undefined&&n.bounds!==null&&n.bounds!=='') {
-        const r=rect(n.bounds);
+        const r=rect(n.bounds,1);
         if(!r||r.left<workRect.left||r.right>workRect.right||
            r.top<workRect.top||r.bottom>workRect.bottom)return false;
       }
