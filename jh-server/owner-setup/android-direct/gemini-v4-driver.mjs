@@ -18,6 +18,20 @@ export function createStage4GeminiNativeDriver({host,enabled=false,clock=Date.no
   typeof host.save==='function'&&typeof host.verifyObservation==='function'&&
   typeof host.verifyReceipt==='function'&&typeof host.original.observe==='function'&&
   typeof host.original.isCurrent==='function';
+ function modePortsReady(mode){
+  const o=host?.original,d=host?.delivery;
+  if(!o||!d||typeof d.publish!=='function'||typeof d.lookup!=='function')
+   return false;
+  if(mode==='ANDROID')return typeof o.openApp==='function';
+  if(!['YOUTUBE','VIDEO'].includes(mode)||
+   typeof o.type!=='function'||typeof o.submit!=='function')return false;
+  if(mode==='VIDEO'){
+   return typeof o.exportExistingVideo==='function'&&
+    typeof o.lookupExport==='function'&&typeof d.verifyArtifact==='function'&&
+    Array.isArray(d.playbackOrigins)&&d.playbackOrigins.length>0;
+  }
+  return true;
+ }
  async function run(q){
   if(!ready())return fail('ORIGINAL_GEMINI_V4_HOST_NOT_READY');
   if(!['GEMINI_START','GEMINI_STEP','GEMINI_STATUS','GEMINI_CANCEL'].includes(q?.mode)||
@@ -31,6 +45,10 @@ export function createStage4GeminiNativeDriver({host,enabled=false,clock=Date.no
   if(starting.has(key)||q.mode==='GEMINI_STEP'&&working.has(key))
    return fail('EXISTING_GEMINI_OPERATION_READ_STATUS');
   if(q.mode==='GEMINI_START'){
+   // Never create an irreversible durable task that cannot reach its intended
+   // original native mode, media verification or ChatGPT result delivery.
+   if(!modePortsReady(q.request?.mode))
+    return fail('GEMINI_V4_MODE_PORTS_INCOMPLETE_BEFORE_CLAIM');
    if(tasks.has(key))return fail('EXISTING_REQUEST_USE_STATUS_NO_RECREATE');
    if(tasks.size>=64)return fail('V4_GEMINI_ACTIVE_TASK_CAPACITY_REVIEW_REQUIRED');
    starting.add(key);
@@ -59,6 +77,8 @@ export function createStage4GeminiNativeDriver({host,enabled=false,clock=Date.no
   // excluded: only the original durable store may answer a STATUS after restart.
   if(!w)return fail('GEMINI_NOT_ACTIVE_AFTER_RESTART_READ_ORIGINAL_STATUS');
   if(w.state.commandId!==q.commandId)return fail('GEMINI_WORKFLOW_COMMAND_MISMATCH');
+  if(q.mode==='GEMINI_STEP'&&!modePortsReady(w.state.mode))
+   return fail('ORIGINAL_GEMINI_V4_PORTS_LOST_NO_REPLAY');
   if(q.mode==='GEMINI_STATUS')return Object.freeze({ok:true,code:'GEMINI_MEMORY_STATUS_NOT_DURABLE_PROOF',
    taskId:key,phase:w.state.phase,pendingKind:w.state.pending?.kind??null,
    result:null,automaticReplay:false,automaticResume:false});
