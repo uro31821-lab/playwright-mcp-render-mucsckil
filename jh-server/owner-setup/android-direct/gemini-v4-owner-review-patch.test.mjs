@@ -92,7 +92,12 @@ test('generated real Secure56 owner can import exact V4 right-Gemini original ho
    const check=spawnSync(process.execPath,
      ['--input-type=module','-e',script],{encoding:'utf8',cwd:root,timeout:16000,env:blocked});
    assert.notEqual(check.status,0,'V4 original owner started without '+key);
-   assert.match(check.stderr,/JH_V4_ORIGINAL_OWNER_CI_ONLY_REQUIRED/);
+   // The existing durable host may reject the missing startup fence
+   // BEFORE the V4 factory runs. Either denial is correct; never
+   // weaken the older bootstrap guard to satisfy this new test.
+   assert.match(check.stderr,key==='JH_OWNER_DEFER_LISTEN'
+     ?/DURABLE_HOST_BOOTSTRAP_REQUIRED/
+     :/JH_V4_ORIGINAL_OWNER_CI_ONLY_REQUIRED/);
   }
   assert.equal(readFileSync(built.runtimeFile,'utf8'),original,
    'Production owner source was modified');
