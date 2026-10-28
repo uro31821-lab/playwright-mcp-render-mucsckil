@@ -59,3 +59,5 @@ test('actual JH167 operational owner builds and accepts only isolated guarded pa
   assert.equal(child.status,0,'Review-only import/guard failed: '+child.stderr.slice(0,1400));
  }finally{rmSync(candidate,{force:true});}
 });
+
+test('CI host always binds left web right ChatGPT, no live MCP registration',()=>{const out=patchJH167AndroidDirectReview56(fragment);assert.ok(out.includes("layoutMode:'LEFT_WEB_RIGHT_GPT'"));assert.equal(out.includes('registerOAuthTool("life_android_direct'),false);});

@@ -1,0 +1,31 @@
+name: JH167 Fold LEFT web RIGHT GPT — isolated
+on:
+  push:
+    branches:
+      - feat/jh167-fold-left-web-right-gpt-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-fold:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing JH owner dependencies without postinstall
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: All isolated Android and fold split-window tests
+        run: node --test --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
+      - name: Assert old production browser and security files unchanged
+        run: |
+          test -f jh-server/owner-setup/deployment/durable-native-job-policy.mjs
+          test -f jh-server/owner-setup/deployment/split-screen-evidence.mjs
+          test -f jh-server/owner-setup/server-integration/server.mjs
+          test -f jh-server/browser-transport.mjs
+          node --check jh-server/owner-setup/android-direct/fold-evidence.mjs
+          node --check jh-server/owner-setup/android-direct/host-port.mjs

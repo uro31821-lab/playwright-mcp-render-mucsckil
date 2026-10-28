@@ -28,17 +28,22 @@ const ACTION_FIELDS = new Set([
 
 function validatedBinding(b) {
   if (!plain(b) || b.current !== true || b.secure56 !== true ||
-      b.rightPaneVerified !== true || typeof b.deviceId !== 'string' ||
+      (b.rightPaneVerified !== true && b.workPaneVerified !== true) ||
+      (b.workPaneVerified === true && !['LEFT','RIGHT'].includes(b.workPaneSide)) ||
+      typeof b.deviceId !== 'string' ||
       !b.deviceId || b.deviceId.length > 256 ||
       typeof b.sessionId !== 'string' || !b.sessionId || b.sessionId.length > 256 ||
       !hex32(b.commandId) || !hex64(b.rightPaneDigest)) return null;
   return Object.freeze({
     deviceId: b.deviceId, sessionId: b.sessionId, commandId: b.commandId,
-    rightPaneDigest: b.rightPaneDigest
+    rightPaneDigest: b.rightPaneDigest,
+    workPaneSide: b.workPaneVerified === true ? b.workPaneSide : 'RIGHT'
   });
 }
+const boundSide = x => x?.workPaneSide ?? (x?.rightPaneVerified===true?'RIGHT':null);
 const sameBinding = (a,b) => !!a && !!b &&
-  ['deviceId','sessionId','commandId','rightPaneDigest'].every(k=>a[k]===b[k]);
+  ['deviceId','sessionId','commandId','rightPaneDigest'].every(k=>a[k]===b[k]) &&
+  boundSide(a)===boundSide(b);
 const deny = (code, extra={}) => Object.freeze({
   ok:false, code, dispatched:false, effectVerified:false, autoRetry:false, ...extra
 });
@@ -112,7 +117,7 @@ function summarizedJob(job) {
 function safeFingerprint(args,b) {
   // Never put input text, approval grants, or lease tokens into the ledger.
   const semantic={deviceId:b.deviceId,sessionId:b.sessionId,
-    commandId:b.commandId,pane:b.rightPaneDigest,action:args.action,
+    commandId:b.commandId,pane:b.rightPaneDigest,workSide:b.workPaneSide,action:args.action,
     target:args.task_digest,x:args.x,y:args.y,
     width:args.viewport_width,height:args.viewport_height,
     scroll:args.scroll_y,keys:args.keys,textDigest:args.text_digest};
