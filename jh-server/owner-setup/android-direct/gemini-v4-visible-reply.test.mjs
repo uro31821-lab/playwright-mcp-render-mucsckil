@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createV4GeminiVisibleReplyObserver} from './gemini-v4-visible-reply.mjs';
+import {createHash} from 'node:crypto';
 const H='com.google.android.googlequicksearchbox',T='gemini-v4-task-01',C='a'.repeat(32),NOW=1800000000000;
 const owner=()=>({backend:'JH_ANDROID_NATIVE',current:true,secure56:true,
  deviceId:'original-fold',sessionId:'secure56-session',commandId:C,
@@ -137,4 +138,77 @@ test('capabilities never claim Gemini message ID, full transcript or actual phon
  const h=make();const c=h.obs.capabilities();
  assert.equal(c.mode,'LEFT_GPT_RIGHT_NATIVE_GEMINI');assert.equal(c.fullReplyVerified,false);
  assert.equal(c.actualPhoneTested,false);assert.equal(c.readOnly,true);
+});
+
+const DIGEST=x=>createHash('sha256').update(x,'utf8').digest('hex');
+const PROMPT='https://www.youtube.com/watch?v=jNQXAC9IVRw\\n3줄 요약';
+const USER_ID=H+':id/assistant_robin_user_message_text';
+function userBubble(text=PROMPT,change={}){
+ return assistantRow({viewId:USER_ID,geminiPlainText:text,
+  geminiTextDigest:DIGEST(text),geminiVisibleTextLength:String(text.length),
+  geminiTextPartial:'false',...change});
+}
+test('verified original task plus unique matching visible prompt yields ONLY a partial reply candidate',async()=>{
+ const h=make();
+ h.state.setTask({promptDigest:DIGEST(PROMPT)});
+ h.state.setRows([proof(),userBubble(),assistantRow()]);
+ const r=await h.obs.read(req);
+ assert.equal(r.code,'SIGNED_GEMINI_VISIBLE_SEQUENCE_CANDIDATE_UNVERIFIED');
+ assert.equal(r.visibleTurnCandidate,true);
+ assert.equal(r.fragmentCount,1);
+ assert.equal(r.fragments[0].maskedText,'부분만 보입니다');
+ assert.equal(r.requestTurnVerified,false);
+ assert.equal(r.fullReplyVerified,false);
+ assert.equal(r.conversationVerified,false);
+ assert.equal(r.sentMessageIdProven,false);
+ assert.equal(r.autoDeliver,false);
+ assert.equal(r.requiresMessageTurnProof,true);
+});
+test('latest different visible user turn blocks linking old Gemini answer to current request',async()=>{
+ const h=make();h.state.setTask({promptDigest:DIGEST(PROMPT)});
+ h.state.setRows([proof(),userBubble(),assistantRow(),
+  userBubble('후속 다른 질문'),assistantRow({geminiPlainText:'후속 응답'})]);
+ const r=await h.obs.read(req);
+ assert.equal(r.code,'SIGNED_GEMINI_VISIBLE_FRAGMENTS_UNBOUND');
+ assert.equal(r.visibleTurnCandidate,false);
+ assert.equal(r.correlationCode,'VISIBLE_TURN_LATER_USER_MESSAGE');
+ assert.equal(r.requestTurnVerified,false);
+});
+test('identical duplicate visible prompts are ambiguous and never treated as a verified response',async()=>{
+ const h=make();h.state.setTask({promptDigest:DIGEST(PROMPT)});
+ h.state.setRows([proof(),userBubble(),assistantRow(),userBubble(),assistantRow()]);
+ const r=await h.obs.read(req);
+ assert.equal(r.visibleTurnCandidate,false);
+ assert.equal(r.correlationCode,'VISIBLE_TURN_DUPLICATE_PROMPT_AMBIGUOUS');
+ assert.equal(r.fullReplyVerified,false);
+});
+test('previous visible answer is excluded from the selected same-sequence reply candidate',async()=>{
+ const h=make();h.state.setTask({promptDigest:DIGEST(PROMPT)});
+ h.state.setRows([proof(),assistantRow({geminiPlainText:'앞선 답변'}),
+  userBubble(),assistantRow({geminiPlainText:'새로운 요약 후보'})]);
+ const r=await h.obs.read(req);
+ assert.equal(r.visibleTurnCandidate,true);
+ assert.equal(r.fragmentCount,1);
+ assert.equal(r.fragments[0].maskedText,'새로운 요약 후보');
+ assert.equal(r.requestTurnVerified,false);
+});
+test('two assistant responses following one user bubble are not silently concatenated',async()=>{
+ const h=make();h.state.setTask({promptDigest:DIGEST(PROMPT)});
+ h.state.setRows([proof(),userBubble(),assistantRow(),
+  assistantRow({geminiPlainText:'또 다른 답변'})]);
+ const r=await h.obs.read(req);
+ assert.equal(r.visibleTurnCandidate,false);
+ assert.equal(r.correlationCode,'VISIBLE_TURN_MULTIPLE_REPLIES_AMBIGUOUS');
+ assert.equal(r.fragmentCount,2);
+ assert.equal(r.fullReplyVerified,false);
+});
+test('even original task hash pairing is not complete-answer / media verification',async()=>{
+ const h=make();h.state.setTask({promptDigest:DIGEST(PROMPT)});
+ h.state.setRows([proof(),userBubble(),assistantRow({geminiTextPartial:'true'})]);
+ const r=await h.obs.read(req);
+ assert.equal(r.visibleTurnCandidate,true);
+ assert.equal(r.fragments[0].nodePartial,true);
+ assert.equal(r.sentMessageIdProven,false);
+ assert.equal(r.fullReplyVerified,false);
+ assert.equal(Object.hasOwn(r,'videoDelivered'),false);
 });
