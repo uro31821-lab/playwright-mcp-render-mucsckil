@@ -8,6 +8,7 @@ import { inspectSplitEvidence } from '../deployment/split-screen-evidence.mjs';
 
 export const FOLD_LAYOUTS=Object.freeze({
   LEFT_WEB_RIGHT_GPT:'LEFT_WEB_RIGHT_GPT',
+  LEFT_NATIVE_GEMINI_RIGHT_GPT:'LEFT_NATIVE_GEMINI_RIGHT_GPT',
   LEGACY_LEFT_GPT_RIGHT_WORK:'LEGACY_LEFT_GPT_RIGHT_WORK'
 });
 const browsers=new Set(['com.android.chrome','com.sec.android.app.sbrowser','org.mozilla.firefox']);
@@ -78,9 +79,18 @@ export function inspectFoldPair(result,rows=null,mode=FOLD_LAYOUTS.LEFT_WEB_RIGH
   }
   if(p.chatPackage!=='com.openai.chatgpt'||p.chatKind!=='NATIVE')
     return bad('FOLD_RIGHT_GPT_NOT_VERIFIED');
-  if(!browsers.has(p.workPackage))
+  const nativeGemini=mode===FOLD_LAYOUTS.LEFT_NATIVE_GEMINI_RIGHT_GPT;
+  // The native Gemini activity is launched by com.google.android.apps.bard
+  // but its accessibility UI belongs to com.google.android.googlequicksearchbox.
+  // A matching package is only window identity: editor, account, conversation
+  // and send approval MUST still be verified by GeminiNativeWorkflow.
+  if(nativeGemini) {
+    if(p.workPackage!=='com.google.android.googlequicksearchbox')
+      return bad('FOLD_LEFT_NATIVE_GEMINI_PACKAGE_REQUIRED');
+  } else if(!browsers.has(p.workPackage))
     return bad('FOLD_LEFT_WEB_BROWSER_NOT_VERIFIED');
-  if(work.right>chat.left)return bad('FOLD_WEB_NOT_LEFT_OF_GPT');
+  if(work.right>chat.left)return bad(nativeGemini
+    ?'FOLD_GEMINI_NOT_LEFT_OF_GPT':'FOLD_WEB_NOT_LEFT_OF_GPT');
   if(rows===null||!rowsMatch(rows,p,work))return bad('FOLD_WEB_ROWS_NOT_VERIFIED');
   const inputRows=rows.filter(n=>n?.package===p.workPackage &&
     String(n.windowId)===p.workWindowId && n.editable===true && n.focused===true);
@@ -91,7 +101,11 @@ export function inspectFoldPair(result,rows=null,mode=FOLD_LAYOUTS.LEFT_WEB_RIGH
   const reportedPosture=p.foldPosture==='FLAT' && p.foldPostureSource==='ANDROIDX_WINDOW_MANAGER'
     ? 'PHONE_REPORTED_FLAT':'UNVERIFIED';
   return Object.freeze({
-    ok:true,code:'SIGNED_LEFT_WEB_RIGHT_GPT_GEOMETRY_VERIFIED',
+    ok:true,code:nativeGemini?'SIGNED_LEFT_NATIVE_GEMINI_RIGHT_GPT_GEOMETRY_VERIFIED':
+      'SIGNED_LEFT_WEB_RIGHT_GPT_GEOMETRY_VERIFIED',
+    nativeGeminiWindowVerified:nativeGemini,
+    geminiSurfaceVerified:false,
+    geminiAccountVerified:false,
     workSide:'LEFT',chatSide:'RIGHT',sideVerified:true,
     workPackage:p.workPackage,chatPackage:p.chatPackage,
     workWindowId:p.workWindowId,chatWindowId:p.chatWindowId,
