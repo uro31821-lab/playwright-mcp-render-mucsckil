@@ -282,9 +282,9 @@ export function createV4OriginalGeminiApprovedExecuteGate({
       deviceId:b.o.deviceId,sessionId:b.o.sessionId,jobId:null
      }
     });
-    if(claim?.created!==true)
+    if(claimed?.created!==true)
      return failure('ORIGINAL_GEMINI_EXECUTION_ALREADY_RESERVED_NO_REPLAY');
-   }catch(e){console.error('TEST_EXECUTION_CLAIM_SCOPE_ERROR',e?.name??'',e?.message??'');return failure('ORIGINAL_GEMINI_EXECUTION_LEDGER_UNAVAILABLE')}
+   }catch{return failure('ORIGINAL_GEMINI_EXECUTION_LEDGER_UNAVAILABLE')}
    // The ORIGINAL host sends a fresh approved PREPARE to the phone and checks
    // the original signed completion; this module does not invent a lease.
    let fresh;
