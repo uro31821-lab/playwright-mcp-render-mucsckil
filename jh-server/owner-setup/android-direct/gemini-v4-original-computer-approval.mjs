@@ -68,6 +68,7 @@ function preparedValid(j,op,o,task){
   j.commandId===o.commandId&&j.operationId===op.operationId&&
   j.ownerBindingDigest===op.ownerBindingDigest&&
   j.taskId===task.id&&j.taskDigest===nativeTaskIdDigest(task.id)&&
+  j.promptDigest===task.promptDigest&&j.promptDigest===op.promptDigest&&
   j.actionDigest===op.actionDigest&&H64.test(j.secureMac??'')&&
   H64.test(j.securePayloadDigest??'')&&
   j.action==='CLICK'&&j.effect==='REVERSIBLE_WRITE'&&
@@ -84,7 +85,7 @@ function signedJobValid(j,{type,owner,cmd,approvalId,prepareId,scope,action}){
   j.prepareOperationId===prepareId&&
   j.ownerBindingDigest===scope.ownerBindingDigest&&
   j.actionDigest===scope.actionDigest&&j.taskId===scope.taskId&&
-  j.taskDigest===scope.taskDigest&&
+  j.taskDigest===scope.taskDigest&&j.promptDigest===scope.promptDigest&&
   j.action===(action??'')&&H64.test(j.secureMac??'')&&
   H64.test(j.securePayloadDigest??'')&&
   typeof j.secureNonce==='string'&&j.secureNonce.length>=16&&
@@ -101,6 +102,7 @@ function recordValid(r,req,o,op){
   r.metadata.ownerBindingDigest===op.ownerBindingDigest&&
   r.metadata.actionDigest===op.actionDigest&&
   r.metadata.taskDigest===op.taskDigest&&
+  r.metadata.promptDigest===op.promptDigest&&
   r.metadata.deviceId===o.deviceId&&r.metadata.sessionId===o.sessionId&&
   (r.metadata.jobId===null||jobId(r.metadata.jobId));
 }
@@ -140,6 +142,7 @@ export function createV4OriginalGeminiPhoneApprovalPort({
     !obj(op)||op.operationId!==req.prepareOperationId||
     op.commandId!==req.commandId||op.taskId!==req.taskId||
     op.taskDigest!==nativeTaskIdDigest(req.taskId)||
+    op.promptDigest!==t.promptDigest||
     !H64.test(op.actionDigest??'')||
     op.ownerDeviceId!==o.deviceId||op.ownerSessionId!==o.sessionId||
     op.ownerBindingDigest!==nativeGeminiPrepareOwnerDigest(o)||
@@ -204,8 +207,8 @@ export function createV4OriginalGeminiPhoneApprovalPort({
       approvalOperationId:req.approvalOperationId,
       prepareOperationId:req.prepareOperationId,
       commandId:req.commandId,taskId:req.taskId,
-      taskDigest:op.taskDigest,actionDigest:op.actionDigest,
-      ownerBindingDigest:op.ownerBindingDigest,
+      taskDigest:op.taskDigest,promptDigest:op.promptDigest,
+      actionDigest:op.actionDigest,ownerBindingDigest:op.ownerBindingDigest,
       deviceId:o.deviceId,sessionId:o.sessionId,jobId:null
      }
     });
@@ -225,7 +228,7 @@ export function createV4OriginalGeminiPhoneApprovalPort({
     approvalOperationId:req.approvalOperationId,
     prepareOperationId:req.prepareOperationId,
     ownerBindingDigest:op.ownerBindingDigest,
-    actionDigest:op.actionDigest
+    promptDigest:op.promptDigest,actionDigest:op.actionDigest
    });
    let envelope;
    try{envelope=await exactOriginalEnvelope(
@@ -234,7 +237,7 @@ export function createV4OriginalGeminiPhoneApprovalPort({
     'REVERSIBLE_WRITE',args,extras)}
    catch{return no('ORIGINAL_GEMINI_APPROVAL_QUEUE_UNKNOWN_NO_REPLAY')}
    const scope={taskId:req.taskId,taskDigest:op.taskDigest,
-    ownerBindingDigest:op.ownerBindingDigest,actionDigest:op.actionDigest};
+    promptDigest:op.promptDigest,ownerBindingDigest:op.ownerBindingDigest,actionDigest:op.actionDigest};
    const approval=envelope?.job;
    if(envelope?.error||envelope?.deviceId!==o.deviceId||
       !signedJobValid(approval,{type:'computer_use_action_approval_request',
@@ -271,7 +274,7 @@ export function createV4OriginalGeminiPhoneApprovalPort({
     owner:c.o,cmd:req.commandId,approvalId:req.approvalOperationId,
     prepareId:req.prepareOperationId,scope:{
       taskId:req.taskId,taskDigest:c.op.taskDigest,
-      ownerBindingDigest:c.op.ownerBindingDigest,
+      promptDigest:c.op.promptDigest,ownerBindingDigest:c.op.ownerBindingDigest,
       actionDigest:c.op.actionDigest
     },action:'CLICK'}))return null;
   return {...c,record,approvalJob:j};
@@ -322,7 +325,7 @@ export function createV4OriginalGeminiPhoneApprovalPort({
     approvalOperationId:req.approvalOperationId,
     prepareOperationId:req.prepareOperationId,
     ownerBindingDigest:c.op.ownerBindingDigest,
-    actionDigest:c.op.actionDigest
+    promptDigest:c.op.promptDigest,actionDigest:c.op.actionDigest
    };
    let e;
    try{e=await exactOriginalEnvelope(
@@ -331,7 +334,7 @@ export function createV4OriginalGeminiPhoneApprovalPort({
    catch{return no('ORIGINAL_GEMINI_PHONE_APPROVAL_STATUS_UNAVAILABLE')}
    const job=e?.job;
    const scope={taskId:req.taskId,taskDigest:c.op.taskDigest,
-    ownerBindingDigest:c.op.ownerBindingDigest,actionDigest:c.op.actionDigest};
+    promptDigest:c.op.promptDigest,ownerBindingDigest:c.op.ownerBindingDigest,actionDigest:c.op.actionDigest};
    if(e?.error||e?.deviceId!==c.o.deviceId||
     !signedJobValid(job,{type:'computer_use_action_approval_status',
      owner:c.o,cmd:req.commandId,approvalId:req.approvalOperationId,

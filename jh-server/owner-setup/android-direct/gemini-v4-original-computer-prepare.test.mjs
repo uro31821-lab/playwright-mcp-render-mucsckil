@@ -87,7 +87,9 @@ test('real Secure56 computerPayload56 receives raw ID and V2 hash for read-only 
  assert.equal(entry.effect,'READ_ONLY');
  assert.equal(entry.job.taskId,ID);
  assert.equal(entry.job.taskDigest,nativeTaskIdDigest(ID));
+ assert.equal(entry.job.promptDigest,P);
  assert.equal(entry.extra.commandId,CMD);
+ assert.equal(entry.extra.promptDigest,P);
  assert.equal(entry.extra.operationId,OP);
  assert.equal(entry.extra.actionDigest,'e'.repeat(64));
  assert.equal(entry.extra.ownerBindingDigest,nativeGeminiPrepareOwnerDigest(device()));
@@ -127,6 +129,7 @@ test('wrong signed command, operation, action, or missing Secure56 signature is 
   j=>{delete j.operationId},
   j=>{j.operationId='d'.repeat(32)},
   j=>{j.actionDigest='0'.repeat(64)},
+  j=>{j.promptDigest='0'.repeat(64)},
   j=>{j.ownerBindingDigest='0'.repeat(64)},
   j=>{delete j.secureMac},
   j=>{delete j.securePayloadDigest},

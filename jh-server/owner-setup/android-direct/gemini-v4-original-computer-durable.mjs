@@ -14,12 +14,13 @@ const ID=/^[A-Za-z0-9_-]{8,80}$/;
 const val=x=>typeof x==='string'&&x.length>0&&x.length<=200;
 const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const key=id=>'JH167_V4_GEMINI_PREPARE:'+sha(id);
-const fields=['operationId','commandId','taskId','taskDigest',
+const fields=['operationId','commandId','taskId','taskDigest','promptDigest',
  'ownerDeviceId','ownerSessionId','ownerBindingDigest','actionDigest','jobId'];
 function valid(id,b){
  if(!H32.test(id??'')||!obj(b)||b.kind!=='ORIGINAL_GEMINI_SUBMIT_PREPARE'||
    !H32.test(b.commandId??'')||!ID.test(b.taskId??'')||
-   !H64.test(b.taskDigest??'')||!H64.test(b.actionDigest??'')||
+   !H64.test(b.taskDigest??'')||!H64.test(b.promptDigest??'')||
+   !H64.test(b.actionDigest??'')||
    !H64.test(b.ownerBindingDigest??'')||
    !val(b.ownerDeviceId)||!val(b.ownerSessionId))return false;
  return b.taskDigest===nativeTaskIdDigest(b.taskId);
@@ -49,7 +50,8 @@ export function createV4OriginalGeminiPrepareLedger({store}={}){
    const metadata={
     jhV4OriginalGeminiPrepare:true,operationId:id,
     commandId:body.commandId,taskId:body.taskId,
-    taskDigest:body.taskDigest,ownerDeviceId:body.ownerDeviceId,
+    taskDigest:body.taskDigest,promptDigest:body.promptDigest,
+    ownerDeviceId:body.ownerDeviceId,
     ownerSessionId:body.ownerSessionId,
     ownerBindingDigest:body.ownerBindingDigest,actionDigest:body.actionDigest,
     jobId:null

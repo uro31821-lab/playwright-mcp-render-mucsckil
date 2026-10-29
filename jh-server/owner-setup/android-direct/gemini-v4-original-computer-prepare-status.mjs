@@ -54,6 +54,7 @@ function jobValid(j,operation,task,owner){
   j.actionDigest===operation.actionDigest&&
   j.ownerBindingDigest===operation.ownerBindingDigest&&
   j.taskId===task.id&&j.taskDigest===nativeTaskIdDigest(task.id)&&
+  j.promptDigest===task.promptDigest&&
   H64.test(j.securePayloadDigest??'')&&H64.test(j.secureMac??'')&&
   typeof j.secureNonce==='string'&&j.secureNonce.length>=16&&
   Number.isSafeInteger(j.secureExpiresAt);
@@ -104,6 +105,7 @@ export function createV4OriginalGeminiPrepareStatusPort({
    catch{return fail('ORIGINAL_GEMINI_PREPARE_LEDGER_UNAVAILABLE')}
    if(!obj(op)||op.operationId!==operationId||op.commandId!==commandId||
      op.taskId!==taskId||op.taskDigest!==nativeTaskIdDigest(taskId)||
+     op.promptDigest!==before.t.promptDigest||
      op.ownerDeviceId!==before.o.deviceId||
      op.ownerSessionId!==before.o.sessionId||
      op.ownerBindingDigest!==nativeGeminiPrepareOwnerDigest(before.o)||

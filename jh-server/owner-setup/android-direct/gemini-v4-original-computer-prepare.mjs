@@ -106,6 +106,7 @@ export function createV4OriginalSecure56GeminiPreparePort({
    try{if(await claimOriginalOperation(operationId,{
       kind:'ORIGINAL_GEMINI_SUBMIT_PREPARE',
       commandId,taskId,taskDigest:fields.task_digest,
+      promptDigest:t.promptDigest,
       ownerDeviceId:o.deviceId,ownerSessionId:o.sessionId,
       ownerBindingDigest,actionDigest:a.actionDigest
     })!==true)
@@ -130,7 +131,8 @@ export function createV4OriginalSecure56GeminiPreparePort({
    // The operation-scoped extra also avoids deduping an unrelated queued job.
    const signedScope=Object.freeze({
      screenConsentDigest:'',localActionApprovalDigest:'',
-     commandId,operationId,ownerBindingDigest,actionDigest:a.actionDigest
+     commandId,operationId,ownerBindingDigest,
+     promptDigest:t.promptDigest,actionDigest:a.actionDigest
    });
    let result;
    try{result=await exactOriginalEnvelope(
@@ -153,6 +155,7 @@ export function createV4OriginalSecure56GeminiPreparePort({
       job.commandId!==commandId||
       job.operationId!==operationId||
       job.ownerBindingDigest!==ownerBindingDigest||
+      job.promptDigest!==t.promptDigest||
       job.actionDigest!==a.actionDigest||
       job.taskId!==t.id||job.taskDigest!==fields.task_digest||
       job.status!=='queued')

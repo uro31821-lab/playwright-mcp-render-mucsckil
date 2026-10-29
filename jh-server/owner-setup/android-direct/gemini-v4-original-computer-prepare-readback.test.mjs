@@ -194,6 +194,7 @@ test('durable operation is never recreated after restart and contains no raw pro
   const after=createV4OriginalGeminiPrepareLedger({store:reopened});
   assert.equal(await after.claim(OP,{kind:'ORIGINAL_GEMINI_SUBMIT_PREPARE',
    commandId:CMD,taskId:TASK,taskDigest:nativeTaskIdDigest(TASK),
+   promptDigest:P,
    ownerDeviceId:'real-fold',ownerSessionId:'session-secure56',
    ownerBindingDigest:nativeGeminiPrepareOwnerDigest(owner()),actionDigest:ACT}),false);
   const recovered=await reopened.recoverInterrupted({force:true});
@@ -207,6 +208,7 @@ test('claimed operation with lost phone job attachment cannot trigger replay',as
  await withFixture(async h=>{
   const body={kind:'ORIGINAL_GEMINI_SUBMIT_PREPARE',
    commandId:CMD,taskId:TASK,taskDigest:nativeTaskIdDigest(TASK),
+   promptDigest:P,
    ownerDeviceId:'real-fold',ownerSessionId:'session-secure56',
    ownerBindingDigest:nativeGeminiPrepareOwnerDigest(owner()),actionDigest:ACT};
   assert.equal(await h.ledger.claim(OP,body),true);

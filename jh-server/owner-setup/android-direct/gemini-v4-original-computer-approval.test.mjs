@@ -54,7 +54,7 @@ async function fixture(fn,patch={}){
   const map=originalComputerMapper();
   const body={kind:'ORIGINAL_GEMINI_SUBMIT_PREPARE',commandId:CMD,
    taskId:TASK,taskDigest:nativeTaskIdDigest(TASK),
-   ownerDeviceId:o.deviceId,ownerSessionId:o.sessionId,
+   promptDigest:PROMPT,ownerDeviceId:o.deviceId,ownerSessionId:o.sessionId,
    ownerBindingDigest:nativeGeminiPrepareOwnerDigest(o),actionDigest:DIGEST};
   assert.equal(await ledger.claim(PREP,body),true);
   assert.equal(await ledger.attachJob(PREP,'original-prep-job',o,t),true);
@@ -63,7 +63,7 @@ async function fixture(fn,patch={}){
    targetDeviceId:o.deviceId,secureSessionId:o.sessionId,
    commandId:CMD,operationId:PREP,taskId:TASK,
    taskDigest:nativeTaskIdDigest(TASK),ownerBindingDigest:body.ownerBindingDigest,
-   actionDigest:DIGEST,
+   actionDigest:DIGEST,promptDigest:PROMPT,
    secureMac:MAC,securePayloadDigest:MAC,secureNonce:'secure-original-nonce-123',
    secureExpiresAt:NOW+100000,
    action:'CLICK',effect:'REVERSIBLE_WRITE',dataClass:'NONE',
@@ -152,6 +152,7 @@ test('one original signed local approval prompt is queued, never clicked or auto
   assert.equal(h.calls[0].extra.prepareOperationId,PREP);
   assert.equal(h.calls[0].extra.approvalOperationId,APPROVAL);
   assert.equal(h.calls[0].extra.ownerBindingDigest,nativeGeminiPrepareOwnerDigest(owner()));
+  assert.equal(h.calls[0].extra.promptDigest,PROMPT);
   assert.equal((await h.gate.request(request())).code,
    'ORIGINAL_GEMINI_APPROVAL_ALREADY_RESERVED_NO_REPLAY');
   assert.equal(h.calls.length,1);
