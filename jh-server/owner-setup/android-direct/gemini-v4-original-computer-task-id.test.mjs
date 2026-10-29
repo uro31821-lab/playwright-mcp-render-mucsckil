@@ -119,3 +119,19 @@ test('raw prompt, approval tokens and Gemini signed results are not part of iden
   assert.equal(Object.hasOwn(original,forbidden),false,forbidden);
  }
 });
+
+test('public Secure56 Computer Use MCP schema stays closed to caller-supplied raw Gemini task_id',()=>{
+ const pathToServer=path.resolve(path.dirname(fileURLToPath(import.meta.url)),
+  '../server-integration/server.mjs');
+ const source=readFileSync(pathToServer,'utf8');
+ const begin=source.indexOf('const cuSchema56={');
+ const end=source.indexOf('};',begin);
+ assert.ok(begin>=0&&end>begin);
+ const publicInput=source.slice(begin,end+2);
+ assert.match(publicInput,/task_digest:z\\.string\\(\\)/);
+ assert.doesNotMatch(publicInput,/task_id\\s*:/);
+ // Only the JH original in-process exactEnvelope56 can populate task_id,
+ // AFTER authenticated current task/owner and the original durable fence.
+ assert.match(source.slice(0,source.indexOf('function secureCall56')),
+  /taskId:String\\(a\\.task_id\\|\\|a\\.task_digest\\|\\|""\\)/);
+});
