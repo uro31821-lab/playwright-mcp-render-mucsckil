@@ -16,6 +16,9 @@ const HASH=/^[0-9a-f]{64}$/;
 const COMMAND=/^[0-9a-f]{32}$/;
 const TASK=/^[A-Za-z0-9_-]{8,80}$/;
 const PACKAGE='com.google.android.googlequicksearchbox';
+// Only fields returned by this exact authenticated host builder may be
+// forwarded. Caller-supplied {verified:true} JSON is never a credential.
+const ISSUED=new WeakSet();
 const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const digest=x=>createHash('sha256').update(x,'utf8').digest('hex');
 export const nativeTaskIdDigest=taskId=>{
@@ -50,7 +53,7 @@ export async function buildOriginalSecure56GeminiTaskIdentity({
  catch{verified=false}
  if(!verified)throw Error('ORIGINAL_GEMINI_TASK_OR_OWNER_AUTHENTICATION_REQUIRED');
  const expected=nativeTaskIdDigest(task.id);
- return Object.freeze({
+ const issued=Object.freeze({
   task_id:task.id,
   task_digest:expected,
   device_id:owner.deviceId,
@@ -61,16 +64,18 @@ export async function buildOriginalSecure56GeminiTaskIdentity({
   phoneLocalApprovalSatisfied:false,
   dispatched:false
  });
+ ISSUED.add(issued);
+ return issued;
 }
 /** Validate fields before passing them to original exactEnvelope56.
  * Do NOT accept a free-form caller "taskDigest" or any other account identity.
  */
 export function requireOriginalSecure56GeminiTaskFields(fields,task){
- if(!obj(fields)||!obj(task)||fields.task_id!==task.id||
+ if(!obj(fields)||!ISSUED.has(fields)||!obj(task)||fields.task_id!==task.id||
   fields.phone_task_id!==task.id||
   !TASK.test(task.id??'')||
   fields.task_digest!==nativeTaskIdDigest(task.id)||
-  !HASH.test(fields.task_digest)||
+  !HASH.test(fields.task_digest)||fields.device_id!==task.deviceId||
   fields.nativeTaskIdentityVerifiedByOriginalHost!==true||
   fields.phoneLocalApprovalSatisfied!==false||
   fields.dispatched!==false)
