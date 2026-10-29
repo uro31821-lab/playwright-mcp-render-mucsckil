@@ -13,6 +13,7 @@ import {
   buildOriginalSecure56GeminiTaskIdentity,
   requireOriginalSecure56GeminiTaskFields
 } from './gemini-v4-original-computer-task-id.mjs';
+import {nativeGeminiPrepareOwnerDigest} from './gemini-v4-original-computer-owner-scope.mjs';
 
 const HEX32=/^[a-f0-9]{32}$/;
 const HEX64=/^[a-f0-9]{64}$/;
@@ -95,13 +96,18 @@ export function createV4OriginalSecure56GeminiPreparePort({
        await verifyTask(t2,o2)!==true)
       return deny('ORIGINAL_GEMINI_SCOPE_AUTHENTICATION_LOST')}
    catch{return deny('ORIGINAL_GEMINI_SCOPE_AUTHENTICATION_LOST')}
+   // Bind the ORIGINAL signed RIGHT Gemini window geometry and apps to
+   // both the durable record and the original Secure56 signed job payload.
+   let ownerBindingDigest;
+   try{ownerBindingDigest=nativeGeminiPrepareOwnerDigest(o2)}
+   catch{return deny('ORIGINAL_GEMINI_OWNER_WINDOW_UNVERIFIED')}
    // Existing durable ledger must atomically reserve this original operation;
    // any result loss leaves the operation fenced, NOT eligible for replay.
    try{if(await claimOriginalOperation(operationId,{
       kind:'ORIGINAL_GEMINI_SUBMIT_PREPARE',
       commandId,taskId,taskDigest:fields.task_digest,
       ownerDeviceId:o.deviceId,ownerSessionId:o.sessionId,
-      actionDigest:a.actionDigest
+      ownerBindingDigest,actionDigest:a.actionDigest
     })!==true)
       return deny('ORIGINAL_GEMINI_PREPARE_RESERVED_USE_STATUS')}
    catch{return deny('ORIGINAL_GEMINI_DURABLE_RESERVATION_UNAVAILABLE')}
@@ -124,7 +130,7 @@ export function createV4OriginalSecure56GeminiPreparePort({
    // The operation-scoped extra also avoids deduping an unrelated queued job.
    const signedScope=Object.freeze({
      screenConsentDigest:'',localActionApprovalDigest:'',
-     commandId,operationId,actionDigest:a.actionDigest
+     commandId,operationId,ownerBindingDigest,actionDigest:a.actionDigest
    });
    let result;
    try{result=await exactOriginalEnvelope(
@@ -146,6 +152,7 @@ export function createV4OriginalSecure56GeminiPreparePort({
       job.secureExpiresAt<=clock()||
       job.commandId!==commandId||
       job.operationId!==operationId||
+      job.ownerBindingDigest!==ownerBindingDigest||
       job.actionDigest!==a.actionDigest||
       job.taskId!==t.id||job.taskDigest!==fields.task_digest||
       job.status!=='queued')

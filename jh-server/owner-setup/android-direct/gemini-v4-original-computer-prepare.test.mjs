@@ -5,6 +5,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import vm from 'node:vm';
 import {nativeTaskIdDigest} from './gemini-v4-original-computer-task-id.mjs';
+import {nativeGeminiPrepareOwnerDigest} from './gemini-v4-original-computer-owner-scope.mjs';
 import {createV4OriginalSecure56GeminiPreparePort} from './gemini-v4-original-computer-prepare.mjs';
 
 const ID='gemini-task-001',CMD='a'.repeat(32),OP='c'.repeat(32);
@@ -89,6 +90,7 @@ test('real Secure56 computerPayload56 receives raw ID and V2 hash for read-only 
  assert.equal(entry.extra.commandId,CMD);
  assert.equal(entry.extra.operationId,OP);
  assert.equal(entry.extra.actionDigest,'e'.repeat(64));
+ assert.equal(entry.extra.ownerBindingDigest,nativeGeminiPrepareOwnerDigest(device()));
  assert.equal(entry.job.commandId,CMD);
  assert.equal(entry.job.operationId,OP);
  assert.equal(entry.job.actionDigest,'e'.repeat(64));
@@ -125,6 +127,7 @@ test('wrong signed command, operation, action, or missing Secure56 signature is 
   j=>{delete j.operationId},
   j=>{j.operationId='d'.repeat(32)},
   j=>{j.actionDigest='0'.repeat(64)},
+  j=>{j.ownerBindingDigest='0'.repeat(64)},
   j=>{delete j.secureMac},
   j=>{delete j.securePayloadDigest},
   j=>{j.secureNonce='short'},
