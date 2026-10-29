@@ -128,10 +128,10 @@ test('public Secure56 Computer Use MCP schema stays closed to caller-supplied ra
  const end=source.indexOf('};',begin);
  assert.ok(begin>=0&&end>begin);
  const publicInput=source.slice(begin,end+2);
- assert.match(publicInput,/task_digest:z\\.string\\(\\)/);
- assert.doesNotMatch(publicInput,/task_id\\s*:/);
+ assert.ok(publicInput.includes('task_digest:z.string()'));
+ assert.equal(publicInput.includes('task_id:'),false);
  // Only the JH original in-process exactEnvelope56 can populate task_id,
  // AFTER authenticated current task/owner and the original durable fence.
- assert.match(source.slice(0,source.indexOf('function secureCall56')),
-  /taskId:String\\(a\\.task_id\\|\\|a\\.task_digest\\|\\|""\\)/);
+ assert.ok(source.slice(0,source.indexOf('function secureCall56'))
+  .includes('taskId:String(a.task_id||a.task_digest||"")'));
 });
