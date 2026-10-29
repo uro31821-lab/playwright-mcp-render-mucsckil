@@ -49,12 +49,12 @@ function validAction(a,t,o,now){
 export function createV4OriginalSecure56GeminiPreparePort({
  readOwner,verifyOwner,readTask,verifyTask,
  readSignedSubmitTarget,verifySignedSubmitTarget,
- claimOriginalOperation,exactOriginalEnvelope,
+ claimOriginalOperation,attachOriginalJob,exactOriginalEnvelope,
  verifyOriginalQueuedJob,enabled=false,clock=Date.now
 }={}){
  if([readOwner,verifyOwner,readTask,verifyTask,readSignedSubmitTarget,
-   verifySignedSubmitTarget,claimOriginalOperation,exactOriginalEnvelope,
-   verifyOriginalQueuedJob,clock].some(f=>typeof f!=='function'))
+   verifySignedSubmitTarget,claimOriginalOperation,attachOriginalJob,
+   exactOriginalEnvelope,verifyOriginalQueuedJob,clock].some(f=>typeof f!=='function'))
   throw Error('ORIGINAL_SECURE56_PHONE_PREPARE_PORTS_REQUIRED');
  const running=new Set();
  async function prepare({taskId,commandId,operationId}={}){
@@ -135,6 +135,12 @@ export function createV4OriginalSecure56GeminiPreparePort({
    try{if(await verifyOriginalQueuedJob(job,t,o,a)!==true)
      return deny('ORIGINAL_GEMINI_QUEUED_PREPARE_UNAUTHENTICATED_NO_REPLAY')}
    catch{return deny('ORIGINAL_GEMINI_QUEUED_PREPARE_UNAUTHENTICATED_NO_REPLAY')}
+   // The phone job may already have been queued. Persist its ORIGINAL job ID
+   // under the same non-replayable operation before calling preparation ready.
+   // A failed journal attach is UNKNOWN, never permission to enqueue again.
+   try{if(await attachOriginalJob(operationId,job.id,o,t)!==true)
+     return deny('ORIGINAL_GEMINI_PREPARE_JOB_BINDING_UNKNOWN_NO_REPLAY')}
+   catch{return deny('ORIGINAL_GEMINI_PREPARE_JOB_BINDING_UNKNOWN_NO_REPLAY')}
    return Object.freeze({ok:true,code:'SIGNED_GEMINI_SUBMIT_PREPARE_QUEUED',
      taskId,operationId,jobId:job.id,
      approved:false,dispatched:false,
