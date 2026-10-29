@@ -26,11 +26,6 @@ jobs:
             jh-server/package.json
             jh-server/owner-setup/package-lock.json
             jh-server/owner-setup/owner-enrollment/package-lock.json
-      - name: Reuse existing Stage4 host dependencies for full owner integration tests
-        run: |
-          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
-          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
-          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
       - name: Parse V4 Gemini native routing and durable read-only checkpoint
         run: |
           node --check jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.mjs
@@ -58,6 +53,18 @@ jobs:
           done
           grep -q "JH_GEMINI_LOCAL_CLICK_V2" jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
           grep -q "JH-GEMINI-TASK-ID-V1" jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
+      - name: Reuse existing Stage4 host dependencies for full owner integration tests
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Preserve original Stage4 regressions, native routes and no browser fallback
+        run: |
+          # Includes all required V4 files checked above, plus existing Stage4 regressions.
+          node --test --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
+          if grep -E '(browserTool\(|@playwright/|browser_navigate|new[[:space:]]+Browser)' jh-server/owner-setup/android-direct/gemini-v4-*.mjs; then
+            echo 'Unexpected browser fallback in Android V4' && exit 1
+          fi
       - name: Verify actual video tools for byte/hash/media evidence tests
         run: |
           sudo apt-get update -qq
@@ -69,13 +76,6 @@ jobs:
           node --test --test-concurrency=1 jh-server/owner-setup/gemini-native/test/*.test.mjs
           test "$(git hash-object jh-server/owner-setup/gemini-native/src/contract.mjs)" = "9659c081fec9680ab87b9cb118ff1a87be7c15a3"
           test "$(git hash-object jh-server/owner-setup/gemini-native/src/native-workflow.mjs)" = "fc4bc56d9c34dc88e3615cfc5b60b4e9bc8497e0"
-      - name: Preserve original Stage4 regressions, native routes and no browser fallback
-        run: |
-          # Includes all required V4 files checked above, plus existing Stage4 regressions.
-          node --test --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
-          if grep -E '(browserTool\(|@playwright/|browser_navigate|new[[:space:]]+Browser)' jh-server/owner-setup/android-direct/gemini-v4-*.mjs; then
-            echo 'Unexpected browser fallback in Android V4' && exit 1
-          fi
       - name: Verify V4 does not overwrite confirmed Stage4 or production executable
         run: |
           git diff --exit-code 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- \
