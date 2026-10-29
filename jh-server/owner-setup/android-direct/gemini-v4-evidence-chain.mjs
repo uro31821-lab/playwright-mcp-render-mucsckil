@@ -97,7 +97,10 @@ export function createV4OriginalGeminiEvidenceChain({
   try{
    // No repeated verification of the same original phone operation and NEVER
    // re-dispatch a click after an ambiguous or successful prior claim.
-   if(await store.get(k))return fail('GEMINI_CLICK_PROOF_ALREADY_RECORDED_READ_ONLY');
+   let prior;
+   try{prior=await store.get(k)}
+   catch{return fail('ORIGINAL_GEMINI_DURABLE_EVIDENCE_STORE_UNAVAILABLE')}
+   if(prior)return fail('GEMINI_CLICK_PROOF_ALREADY_RECORDED_READ_ONLY');
    const o=await owner(commandId);
    if(!o)return fail('ORIGINAL_GEMINI_OWNER_REQUIRED');
    const t=await task(taskId,commandId,o);
@@ -187,7 +190,8 @@ export function createV4OriginalGeminiEvidenceChain({
    const after=await owner(commandId);
    const t2=after&&await task(taskId,commandId,after);
    if(!sameOwner(o,after)||!t2||t2.promptDigest!==t.promptDigest||
-     t2.sentMessageId!==t.sentMessageId)
+     t2.sentMessageId!==t.sentMessageId||t2.mode!==t.mode||
+     !['WAITING','RESULT_READY','DELIVERED'].includes(t2.phase))
     return fail('GEMINI_MESSAGE_OR_WINDOW_CHANGED_DURING_READBACK');
    return Object.freeze({
     ok:true,code:'GEMINI_VISIBLE_PARTIAL_CORRELATED_NEEDS_GOOGLE_TURN_PROOF',
