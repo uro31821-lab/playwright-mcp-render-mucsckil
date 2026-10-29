@@ -161,3 +161,24 @@ test('capabilities expose only original readback, never production Gemini send o
  assert.equal(c.googleSentMessageIdVerified,false);
  assert.equal(c.originalPhoneLocalApprovalRequired,true);
 });
+
+test('native V2 domain-separated ID matches independently computed JVM test vector',()=>{
+ assert.equal(D.taskDigest,'843bad59886e26f53c5fb9485050f76a226c03f3f4336cf1e618c4bead02e355');
+ assert.notEqual(D.taskDigest,T);
+ assert.equal(receipt().schema,'JH_GEMINI_LOCAL_CLICK_V2');
+});
+test('legacy V1 phone local attempt is never silently accepted as V2',async()=>{
+ const h=harness();
+ h.setReceipt({schema:'JH_GEMINI_LOCAL_CLICK_V1'});
+ assert.equal((await h.attestor.verify(q)).code,'GEMINI_LOCAL_CLICK_ATTEMPT_SCHEMA_MISMATCH');
+});
+test('even a self-consistent V2 local receipt for a DIFFERENT native task is refused',async()=>{
+ const different=hash('JH-GEMINI-TASK-ID-V1|gemini-task-002');
+ const p=receipt();p.taskDigest=different;
+ p.localAttemptDigest=hash('JH-GEMINI-LOCAL-CLICK-V2|'+[
+   p.taskDigest,p.promptDigest,p.reviewBindingDigest,p.actionDigest,
+   p.sourcePackage,p.sourceWindowId
+ ].join('|'));
+ const h=harness();h.setReceipt(p);h.setScope({taskDigest:different});
+ assert.equal((await h.attestor.verify(q)).code,'GEMINI_LOCAL_CLICK_ATTEMPT_SCHEMA_MISMATCH');
+});
