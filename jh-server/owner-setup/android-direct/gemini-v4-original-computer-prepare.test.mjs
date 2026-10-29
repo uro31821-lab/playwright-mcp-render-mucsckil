@@ -16,6 +16,9 @@ function realOriginalComputerPayload(){
  const i=src.indexOf('function computerPayload56(a={}){');
  const j=src.indexOf('function exactEnvelope56(',i);
  assert.ok(i>=0&&j>i);
+ // Keep the fixture tied to the real original Secure56 host's signing order.
+ assert.match(src.slice(j,j+950),
+  /const p=\{\.\.\.computerPayload56\(args\),\.\.\.extra,mcpToolName/);
  return vm.runInNewContext('('+src.slice(i,j).trim()+')');
 }
 const device=()=>({backend:'JH_ANDROID_NATIVE',current:true,secure56:true,
@@ -44,16 +47,24 @@ function make(patch={}){
   claimOriginalOperation:async(id)=>{if(reserved.has(id))return false;reserved.add(id);return true},
   attachOriginalJob:async(id,jobId)=>{if(!reserved.has(id)||attached.has(id))return false;attached.set(id,jobId);return true},
   exactOriginalEnvelope:async (tool,type,effect,args,extra)=>{
-   const p=original(args);const job={
+   // Match actual exactEnvelope56: fields NOT in original mapper must arrive
+   // through signed extra BEFORE mk/signJob56. Do not fabricate commandId.
+   const p={...original(args),...extra,mcpToolName:tool,
+     taskDigest:args.task_digest,secureRequestedEffect:effect};
+   const job={
     id:'signed-original-prep-001',type,status:'queued',
     targetDeviceId:o.deviceId,secureSessionId:o.sessionId,
-    commandId:o.commandId,taskId:p.taskId,taskDigest:args.task_digest,
-    secureMac:'signed-by-original-secure56',
+    secureNonce:'nonce-production-shape-123',
+    secureExpiresAt:NOW+5000,
+    securePayloadDigest:'f'.repeat(64),secureMac:'e'.repeat(64),
     ...p
-   };jobs.push({tool,type,effect,args,extra,job});return {deviceId:o.deviceId,job};
+   };
+   if(typeof patch.mutateJob==='function')patch.mutateJob(job);
+   jobs.push({tool,type,effect,args,extra,job});
+   return {deviceId:o.deviceId,job};
   },
   verifyOriginalQueuedJob:async(job)=>{verifications.push(job.id);
-   return job.secureMac==='signed-by-original-secure56'},
+   return job.secureMac==='e'.repeat(64)},
   ...patch
  });
  return {port,jobs,verifications,reserved,attached,
@@ -75,6 +86,12 @@ test('real Secure56 computerPayload56 receives raw ID and V2 hash for read-only 
  assert.equal(entry.effect,'READ_ONLY');
  assert.equal(entry.job.taskId,ID);
  assert.equal(entry.job.taskDigest,nativeTaskIdDigest(ID));
+ assert.equal(entry.extra.commandId,CMD);
+ assert.equal(entry.extra.operationId,OP);
+ assert.equal(entry.extra.actionDigest,'e'.repeat(64));
+ assert.equal(entry.job.commandId,CMD);
+ assert.equal(entry.job.operationId,OP);
+ assert.equal(entry.job.actionDigest,'e'.repeat(64));
  assert.equal(entry.args.task_id,ID);
  assert.equal(entry.args.task_digest,nativeTaskIdDigest(ID));
  assert.equal(entry.args.action,'CLICK');
@@ -86,9 +103,42 @@ test('real Secure56 computerPayload56 receives raw ID and V2 hash for read-only 
  assert.equal(entry.args.viewport_height,1800);
  assert.equal(entry.args.x,420);assert.equal(entry.args.y,730);
  assert.equal(entry.args.action_approval_grant_token,undefined);
+ assert.equal(entry.extra.localActionApprovalDigest,'');
+ assert.equal(entry.extra.screenConsentDigest,'');
  assert.equal(entry.job.secureSessionId,'current-secure-session');
+ assert.equal(entry.job.secureMac.length,64);
+ assert.equal(entry.job.securePayloadDigest.length,64);
  assert.deepEqual(h.verifications,['signed-original-prep-001']);
  assert.equal(h.attached.get(OP),'signed-original-prep-001');
+});
+test('original Secure56 mapper never manufactures task command or operation ID',()=>{
+ const mapper=realOriginalComputerPayload();
+ const p=mapper({task_id:ID,task_digest:nativeTaskIdDigest(ID)});
+ assert.equal(p.taskId,ID);
+ assert.equal(p.commandId,undefined);
+ assert.equal(p.operationId,undefined);
+});
+test('wrong signed command, operation, action, or missing Secure56 signature is fenced',async()=>{
+ for(const mutateJob of [
+  j=>{delete j.commandId},
+  j=>{j.commandId='f'.repeat(32)},
+  j=>{delete j.operationId},
+  j=>{j.operationId='d'.repeat(32)},
+  j=>{j.actionDigest='0'.repeat(64)},
+  j=>{delete j.secureMac},
+  j=>{delete j.securePayloadDigest},
+  j=>{j.secureNonce='short'},
+  j=>{j.secureExpiresAt=NOW-1},
+  j=>{j.id=''}
+ ]){
+  const h=make({mutateJob});
+  const r=await h.port.prepare(req);
+  assert.equal(r.code,'ORIGINAL_GEMINI_QUEUED_PREPARE_UNVERIFIED_NO_REPLAY');
+  assert.equal(r.ok,false);assert.equal(r.dispatched,false);
+  assert.equal(r.automaticReplay,false);assert.equal(h.jobs.length,1);
+  assert.equal(h.reserved.size,1);
+  assert.equal(h.attached.size,0);
+ }
 });
 test('never queue before original durable operation reservation',async()=>{
  const h=make({claimOriginalOperation:async()=>false});
