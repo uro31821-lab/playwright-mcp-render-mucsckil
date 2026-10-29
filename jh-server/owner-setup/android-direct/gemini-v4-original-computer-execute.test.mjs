@@ -52,7 +52,7 @@ async function fixture(fn,overrides={}){
   let o=owner(),t=task(),contractReady=true,grantVerified=true,
    freshVerified=true,queuedVerified=true,completedVerified=true,
    fakeApproval=false,prepareThrows=false,executeThrows=false,
-   freshCount=0,executeCount=0,attestVerified=true;
+   freshCount=0,executeCount=0,attestVerified=true,freshResultOverrides={};
   const prepared=signed({
    id:'original-prepare-job',type:'computer_use_action_prepare',
    status:'complete',targetDeviceId:o.deviceId,secureSessionId:o.sessionId,
@@ -139,7 +139,13 @@ async function fixture(fn,overrides={}){
      x:pre.x,y:pre.y,viewportWidth:pre.viewportWidth,
      viewportHeight:pre.viewportHeight,
      result:{ok:true,code:'READY',requiresFreshApproval:false,
-      leaseToken:'fresh-original-phone-lease-token'}
+      approvalDiagnostic:'action_approval_exact_match',
+      approvalGrantSupplied:true,
+      approvalGrantExpiresAt:NOW+30000,
+      leaseExpiresAt:NOW+20000,
+      actionDigest:ACTION,screenDigest:'7'.repeat(64),
+      leaseToken:'fresh-original-phone-lease-token',
+      ...freshResultOverrides}
     });
    },
    verifyOriginalFreshPreparedJob:async()=>freshVerified,
@@ -177,6 +183,7 @@ async function fixture(fn,overrides={}){
    changeTask:v=>{t={...t,...v}},
    changeGrant:v=>{grant={...grant,...v}},
    setReady:v=>{contractReady=v},
+   setFreshResult:v=>{freshResultOverrides=v},
    setVerifier:(kind,v)=>{
     if(kind==='grant')grantVerified=v;
     if(kind==='fresh')freshVerified=v;
@@ -346,4 +353,27 @@ test('disabled candidate remains isolated from production Secure56 and Android',
   assert.equal(c.chatGptDeliveryConnected,false);
   assert.equal(c.automaticReplay,false);
  });
+});
+
+test('fresh original Android approval grant must pass exact phone checkExact and expiries',async()=>{
+ for(const invalid of [
+  {approvalDiagnostic:'action_approval_grant_invalid_or_consumed'},
+  {approvalDiagnostic:null},
+  {approvalGrantSupplied:false},
+  {approvalGrantExpiresAt:NOW-1},
+  {leaseExpiresAt:NOW-1},
+  {actionDigest:'0'.repeat(64)},
+  {screenDigest:'bad'},
+  {requiresFreshApproval:true}
+ ]){
+  await fixture(async h=>{
+   h.setFreshResult(invalid);
+   const r=await h.gate.execute(req());
+   assert.equal(r.code,'ORIGINAL_APPROVED_REPREPARE_SCOPE_INVALID_NO_REPLAY',
+    JSON.stringify(invalid));
+   assert.deepEqual(h.count(),{fresh:1,execute:0});
+   assert.equal((await h.gate.execute(req())).code,
+    'ORIGINAL_GEMINI_EXECUTION_ALREADY_RESERVED_NO_REPLAY');
+  });
+ }
 });

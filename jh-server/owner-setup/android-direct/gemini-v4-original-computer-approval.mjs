@@ -362,8 +362,33 @@ export function createV4OriginalGeminiPhoneApprovalPort({
     return no('ORIGINAL_GEMINI_OWNER_OR_APPROVAL_CHANGED');
    const result=decode(completed.result);
    if(!result)return no('ORIGINAL_GEMINI_PHONE_APPROVAL_STATUS_EMPTY');
-   // No source-backed Android grant-token schema in this candidate. Even a
-   // signed "APPROVED" response cannot authorize a Gemini CLICK/EXECUTE.
+   // Actual AndroidComputerUseTransport.actionApprovalStatus wire contract:
+   // {ok:true,approved:Boolean,grantToken,grantExpiresAt,
+   //  automaticApprovalRetryAllowed:false}. This authenticated phone readback
+   // still is NOT an execute grant; the original Android CHECK_EXACT must
+   // independently accept the token in a FRESH PREPARE before dispatch.
+   if(Object.hasOwn(result,'approved')){
+    if(result.ok!==true||typeof result.approved!=='boolean'||
+       result.automaticApprovalRetryAllowed!==false)
+     return no('ORIGINAL_ANDROID_APPROVAL_STATUS_CONTRACT_INVALID');
+    if(result.approved===true){
+     if(!token(result.grantToken)||
+        !Number.isSafeInteger(result.grantExpiresAt)||
+        result.grantExpiresAt<=clock()||
+        result.grantExpiresAt-clock()>120000)
+      return no('ORIGINAL_ANDROID_APPROVAL_GRANT_EXPIRED_OR_INVALID');
+     return yes('ORIGINAL_PHONE_LOCAL_APPROVAL_REPORTED_ACTIVE_GRANT_UNVERIFIED',{
+      phoneLocalApprovalRequired:true,executeAllowed:false
+     });
+    }
+    if(result.grantToken!=null||result.grantExpiresAt!=null)
+     return no('ORIGINAL_ANDROID_UNAPPROVED_GRANT_FORBIDDEN');
+    return yes('ORIGINAL_PHONE_LOCAL_APPROVAL_NOT_CONFIRMED',{
+     executeAllowed:false
+    });
+   }
+   // Legacy status words remain NON-authoritative for older test fixtures.
+   // Never convert a text label to a reusable phone token.
    if(['APPROVED','GRANTED','APPROVAL_GRANTED'].includes(result.code))
     return yes('ORIGINAL_PHONE_APPROVAL_REPORTED_GRANT_CONTRACT_UNVERIFIED',{
      phoneLocalApprovalRequired:true,executeAllowed:false

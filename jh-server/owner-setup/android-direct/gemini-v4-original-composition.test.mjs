@@ -89,7 +89,10 @@ async function fixture(action,patch={}){
     const j=jobs.get(id);
     if(j?.type==='computer_use_action_approval_status'){
      j.status='complete';
-     j.result={code:'APPROVED',approvalGrantToken:'not-an-authority'};
+     j.result={ok:true,approved:true,
+      grantToken:'not-an-authority',
+      grantExpiresAt:NOW+30000,
+      automaticApprovalRetryAllowed:false};
     }
     return j;
    },
@@ -124,6 +127,11 @@ async function fixture(action,patch={}){
     action:'CLICK',x:prepared.x,y:prepared.y,
     viewportWidth:prepared.viewportWidth,viewportHeight:prepared.viewportHeight,
     result:{ok:true,code:'READY',requiresFreshApproval:false,
+     approvalDiagnostic:'action_approval_exact_match',
+     approvalGrantSupplied:true,
+     approvalGrantExpiresAt:NOW+30000,
+     leaseExpiresAt:NOW+20000,
+     actionDigest:ACTION,screenDigest:'8'.repeat(64),
      leaseToken:'original-test-fresh-lease'}
    }),
    verifyOriginalFreshPreparedJob:async j=>j.id==='original-fresh-prep',
@@ -188,7 +196,7 @@ test('PREPARE -> original phone approval -> status stays explicit and non-sendin
   assert.equal((await h.port.inspectPhoneApprovalRequest(aq)).code,
    'ORIGINAL_GEMINI_PHONE_APPROVAL_PROMPT_READY_TO_CHECK');
   const status=await h.port.inspectPhoneApproval(aq);
-  assert.equal(status.code,'ORIGINAL_PHONE_APPROVAL_REPORTED_GRANT_CONTRACT_UNVERIFIED');
+  assert.equal(status.code,'ORIGINAL_PHONE_LOCAL_APPROVAL_REPORTED_ACTIVE_GRANT_UNVERIFIED');
   assert.equal(status.phoneLocalApprovalVerified,false);
   assert.equal(status.executeAllowed,false);
   assert.equal(h.dispatches.filter(d=>d.type==='computer_use_action_execute').length,0);
@@ -258,5 +266,21 @@ test('same PREPARE and same approval can never be requeued after restart',async(
   assert.equal(entries.length,2);
   assert.ok(entries.every(x=>x.replayAllowed===false));
   assert.equal(h.dispatches.length,2);
+ });
+});
+
+test('optional original Android wire path is wired but cannot bypass unsigned installed phone',async()=>{
+ await fixture(async h=>{
+  const cap=h.port.capabilities();
+  assert.equal(cap.originalAndroidWireAdapterAvailable,true);
+  assert.equal(cap.originalAndroidExactReprepareAvailable,true);
+  assert.equal(cap.productionRegistered,false);
+  assert.equal((await h.port.executeOnlyAfterOriginalGrant(eq)).code,
+    'ORIGINAL_ANDROID_ONESHOT_GRANT_CONTRACT_UNVERIFIED');
+  assert.equal(h.dispatches.length,0);
+ }, {
+  readSignedOriginalStatusJob:async()=>null,
+  verifySignedOriginalStatusJob:async()=>true,
+  verifyInstalledAndroidApprovalContract:async()=>false
  });
 });

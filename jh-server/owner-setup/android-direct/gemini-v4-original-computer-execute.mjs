@@ -135,7 +135,19 @@ function validFreshPrepare(j,req,ctx,now){
   j.viewportWidth===ctx.prepared.viewportWidth&&
   j.viewportHeight===ctx.prepared.viewportHeight&&
   obj(j.result)&&j.result.ok===true&&j.result.code==='READY'&&
-  j.result.requiresFreshApproval===false&&tok(j.result.leaseToken);
+  j.result.requiresFreshApproval===false&&
+  // Exact device-local grant/screen/action verification returned by the
+  // ORIGINAL AndroidComputerUseTransport.prepare (not self-report JSON).
+  // A generic READY without checkExact is NEVER enough for SUBMIT.
+  j.result.approvalDiagnostic==='action_approval_exact_match'&&
+  j.result.approvalGrantSupplied===true&&
+  Number.isSafeInteger(j.result.approvalGrantExpiresAt)&&
+  j.result.approvalGrantExpiresAt>now&&
+  Number.isSafeInteger(j.result.leaseExpiresAt)&&
+  j.result.leaseExpiresAt>now&&
+  j.result.actionDigest===p.actionDigest&&
+  H64.test(j.result.screenDigest??'')&&
+  tok(j.result.leaseToken);
 }
 function validExecuteJob(j,req,ctx,now){
  const {p,o,prepared}=ctx;

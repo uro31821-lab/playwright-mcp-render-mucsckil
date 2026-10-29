@@ -172,12 +172,14 @@ test('an approval request receipt only reports a phone prompt, never grants exec
   assert.equal(JSON.stringify(r).includes('signed-original-request-token'),false);
  });
 });
-test('read-only phone approval status cannot turn a reported APPROVED into a grant or execute',async()=>{
+test('real Kotlin approved/grantToken/grantExpiresAt status never becomes an execute grant',async()=>{
  await fixture(async h=>{
   await h.gate.request(request());h.completeRequest();
+  h.setStatus({ok:true,approved:true,grantToken:'original-signed-grant-test',
+   grantExpiresAt:NOW+40000,automaticApprovalRetryAllowed:false});
   const result=await h.gate.pollPhoneApproval(request());
   assert.equal(result.ok,true);
-  assert.equal(result.code,'ORIGINAL_PHONE_APPROVAL_REPORTED_GRANT_CONTRACT_UNVERIFIED');
+  assert.equal(result.code,'ORIGINAL_PHONE_LOCAL_APPROVAL_REPORTED_ACTIVE_GRANT_UNVERIFIED');
   assert.equal(result.phoneLocalApprovalVerified,false);
   assert.equal(result.executeAllowed,false);
   assert.equal(result.geminiMessageSent,false);
@@ -188,6 +190,7 @@ test('read-only phone approval status cannot turn a reported APPROVED into a gra
   assert.equal(h.calls[1].args.task_id,TASK);
   assert.equal(h.calls[1].args.task_digest,nativeTaskIdDigest(TASK));
   assert.equal(JSON.stringify(result).includes('signed-original-request-token'),false);
+  assert.equal(JSON.stringify(result).includes('original-signed-grant-test'),false);
   assert.equal(h.calls.filter(x=>x.type==='computer_use_action_execute').length,0);
  });
 });
@@ -292,5 +295,25 @@ test('capabilities do not claim live phone execution, Android grant proof or Cha
   assert.equal(c.originalPhoneExecuteConnected,false);
   assert.equal(c.noApprovalWithoutOriginalAndroidGrantContract,true);
   assert.equal(c.productionRegistered,false);
+ });
+});
+
+test('Kotlin approval status rejects string true, token expiry and mixed nonapproval',async()=>{
+ await fixture(async h=>{
+  await h.gate.request(request());h.completeRequest();
+  h.setStatus({ok:true,approved:'true',grantToken:'fake-grant',
+   grantExpiresAt:NOW+40000,automaticApprovalRetryAllowed:false});
+  assert.equal((await h.gate.pollPhoneApproval(request())).code,
+   'ORIGINAL_ANDROID_APPROVAL_STATUS_CONTRACT_INVALID');
+  h.setStatus({approved:true,grantExpiresAt:NOW-1});
+  assert.equal((await h.gate.pollPhoneApproval(request())).code,
+   'ORIGINAL_ANDROID_APPROVAL_GRANT_EXPIRED_OR_INVALID');
+  h.setStatus({approved:false,grantToken:'wrong-grant',grantExpiresAt:null});
+  assert.equal((await h.gate.pollPhoneApproval(request())).code,
+   'ORIGINAL_ANDROID_UNAPPROVED_GRANT_FORBIDDEN');
+  h.setStatus({approved:false,grantToken:null,grantExpiresAt:null});
+  const r=await h.gate.pollPhoneApproval(request());
+  assert.equal(r.code,'ORIGINAL_PHONE_LOCAL_APPROVAL_NOT_CONFIRMED');
+  assert.equal(r.executeAllowed,false);
  });
 });
