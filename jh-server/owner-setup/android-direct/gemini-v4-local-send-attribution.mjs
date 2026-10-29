@@ -16,13 +16,15 @@ const bad=code=>Object.freeze({ok:false,code,autoRetry:false,
  fullReplyVerified:false,chatGptDeliveryVerified:false});
 const obj=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
 const digest=x=>createHash('sha256').update(x,'utf8').digest('hex');
+// V2: phone and host independently bind the actual 8–80-character native task ID.
+const taskIdentityDigest=id=>digest('JH-GEMINI-TASK-ID-V1|'+id);
 function rehash(p){
- return digest('JH-GEMINI-LOCAL-CLICK-V1|'+[
+ return digest('JH-GEMINI-LOCAL-CLICK-V2|'+[
    p.taskDigest,p.promptDigest,p.reviewBindingDigest,p.actionDigest,
    p.sourcePackage,p.sourceWindowId
  ].join('|'));
 }
-const shape=p=>obj(p)&&p.schema==='JH_GEMINI_LOCAL_CLICK_V1'&&
+const shape=p=>obj(p)&&p.schema==='JH_GEMINI_LOCAL_CLICK_V2'&&
  p.sourcePackage===H&&Number.isSafeInteger(p.sourceWindowId)&&p.sourceWindowId>=0&&
  p.workSide==='RIGHT'&&p.chatSide==='LEFT'&&
  p.localApprovedClickDispatched===true&&
@@ -94,7 +96,8 @@ export function createV4GeminiOriginalLocalSendAttestor({
       return bad('ORIGINAL_LOCAL_CLICK_COMPLETION_UNAUTHENTICATED')}
    catch{return bad('ORIGINAL_LOCAL_CLICK_COMPLETION_UNAUTHENTICATED')}
    const p=job.result.geminiLocalClickAttempt;
-   if(!shape(p)||p.promptDigest!==task.promptDigest)
+   if(!shape(p)||p.promptDigest!==task.promptDigest||
+      p.taskDigest!==taskIdentityDigest(task.id)
     return bad('GEMINI_LOCAL_CLICK_ATTEMPT_SCHEMA_MISMATCH');
    try{scope=await resolveOriginalActionScope(job,task,first)}
    catch{return bad('ORIGINAL_LOCAL_ACTION_SCOPE_UNAVAILABLE')}
