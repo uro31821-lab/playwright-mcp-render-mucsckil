@@ -118,17 +118,35 @@ export function createV4OriginalSecure56GeminiPreparePort({
      // Existing phone local approval is NOT auto granted by this stage.
      action_approval_grant_token:undefined
    });
+   // The original exactEnvelope56 signs {...computerPayload56(args), ...extra}.
+   // Its original computerPayload56 does NOT supply commandId/operationId;
+   // they MUST be included before mk/signJob56, never assigned to job later.
+   // The operation-scoped extra also avoids deduping an unrelated queued job.
+   const signedScope=Object.freeze({
+     screenConsentDigest:'',localActionApprovalDigest:'',
+     commandId,operationId,actionDigest:a.actionDigest
+   });
    let result;
    try{result=await exactOriginalEnvelope(
      'life_android_computer_prepare','computer_use_action_prepare',
-     'READ_ONLY',args,{screenConsentDigest:'',localActionApprovalDigest:''})}
+     'READ_ONLY',args,signedScope)}
    catch{return deny('ORIGINAL_GEMINI_PREPARE_OUTCOME_UNKNOWN_NO_REPLAY')}
    const job=result?.job;
+   // Original Secure56 must have created and signed this precise job.
+   // A fabricated receipt or an unsigned job can never establish PREPARE.
    if(result?.error||result?.deviceId!==o.deviceId||
-      !obj(job)||job.type!=='computer_use_action_prepare'||
+      !obj(job)||typeof job.id!=='string'||job.id.length===0||
+      job.type!=='computer_use_action_prepare'||
       job.targetDeviceId!==o.deviceId||
       job.secureSessionId!==o.sessionId||
+      !HEX64.test(job.securePayloadDigest??'')||
+      !HEX64.test(job.secureMac??'')||
+      typeof job.secureNonce!=='string'||job.secureNonce.length<16||
+      !Number.isSafeInteger(job.secureExpiresAt)||
+      job.secureExpiresAt<=clock()||
       job.commandId!==commandId||
+      job.operationId!==operationId||
+      job.actionDigest!==a.actionDigest||
       job.taskId!==t.id||job.taskDigest!==fields.task_digest||
       job.status!=='queued')
     return deny('ORIGINAL_GEMINI_QUEUED_PREPARE_UNVERIFIED_NO_REPLAY');
