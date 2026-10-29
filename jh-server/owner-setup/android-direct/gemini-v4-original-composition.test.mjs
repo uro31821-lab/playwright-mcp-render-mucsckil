@@ -19,7 +19,7 @@ const NOW=1800000000000,PKG='com.google.android.googlequicksearchbox';
 const q={taskId:TASK,commandId:CMD,operationId:PREP};
 const aq={taskId:TASK,commandId:CMD,prepareOperationId:PREP,
  approvalOperationId:APPROVAL};
-const eq={...aq,executionOperationId:EXEC};
+const eq={...aq,executionOperationId:EXECUTE};
 const sha=x=>createHash('sha256').update(x,'utf8').digest('hex');
 function realOriginalMapper(){
  const p=resolve(dirname(fileURLToPath(import.meta.url)),
