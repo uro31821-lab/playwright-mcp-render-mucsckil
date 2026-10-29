@@ -40,16 +40,20 @@ jobs:
           node --check jh-server/owner-setup/android-direct/gemini-v4-visible-reply.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.mjs
-      - name: Test V4 Secure56 native task ID V2, original approval and reply-chain boundaries
+      - name: Verify mandatory V4 test coverage and task ID V2 contract
         run: |
-          node --test --test-concurrency=1 \
+          # These required files run once in the complete android-direct suite below.
+          # A separate node --test invocation here would repeat the same tests.
+          for test_file in \
             jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.test.mjs \
             jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.test.mjs \
             jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.integration.test.mjs \
             jh-server/owner-setup/android-direct/gemini-v4-visible-reply.test.mjs \
             jh-server/owner-setup/android-direct/gemini-v4-turn-sequence.test.mjs \
             jh-server/owner-setup/android-direct/gemini-v4-original-durable-operation.test.mjs \
-            jh-server/owner-setup/android-direct/gemini-v4-original-secure56-host.test.mjs
+            jh-server/owner-setup/android-direct/gemini-v4-original-secure56-host.test.mjs; do
+            test -s "$test_file"
+          done
           grep -q "JH_GEMINI_LOCAL_CLICK_V2" jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
           grep -q "JH-GEMINI-TASK-ID-V1" jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
       - name: Verify actual video tools for byte/hash/media evidence tests
@@ -65,6 +69,7 @@ jobs:
           test "$(git hash-object jh-server/owner-setup/gemini-native/src/native-workflow.mjs)" = "fc4bc56d9c34dc88e3615cfc5b60b4e9bc8497e0"
       - name: Preserve original Stage4 regressions, native routes and no browser fallback
         run: |
+          # Includes all required V4 files checked above, plus existing Stage4 regressions.
           node --test --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
           if grep -E '(browserTool\(|@playwright/|browser_navigate|new[[:space:]]+Browser)' jh-server/owner-setup/android-direct/gemini-v4-*.mjs; then
             echo 'Unexpected browser fallback in Android V4' && exit 1
