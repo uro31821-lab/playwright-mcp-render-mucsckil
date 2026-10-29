@@ -39,6 +39,8 @@ jobs:
           node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-owner-scope.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-durable.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-prepare-status.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-approval.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-approval.test.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.mjs
       - name: Verify mandatory V4 test coverage and task ID V2 contract
         run: |
@@ -52,7 +54,8 @@ jobs:
             jh-server/owner-setup/android-direct/gemini-v4-turn-sequence.test.mjs \
             jh-server/owner-setup/android-direct/gemini-v4-original-durable-operation.test.mjs \
             jh-server/owner-setup/android-direct/gemini-v4-original-secure56-host.test.mjs \
-            jh-server/owner-setup/android-direct/gemini-v4-original-computer-prepare-readback.test.mjs; do
+            jh-server/owner-setup/android-direct/gemini-v4-original-computer-prepare-readback.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-original-computer-approval.test.mjs; do
             test -s "$test_file"
           done
           grep -q "JH_GEMINI_LOCAL_CLICK_V2" jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
