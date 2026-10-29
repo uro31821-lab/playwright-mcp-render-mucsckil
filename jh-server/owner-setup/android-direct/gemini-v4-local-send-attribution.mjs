@@ -97,7 +97,7 @@ export function createV4GeminiOriginalLocalSendAttestor({
    catch{return bad('ORIGINAL_LOCAL_CLICK_COMPLETION_UNAUTHENTICATED')}
    const p=job.result.geminiLocalClickAttempt;
    if(!shape(p)||p.promptDigest!==task.promptDigest||
-      p.taskDigest!==taskIdentityDigest(task.id)
+      p.taskDigest!==taskIdentityDigest(task.id))
     return bad('GEMINI_LOCAL_CLICK_ATTEMPT_SCHEMA_MISMATCH');
    try{scope=await resolveOriginalActionScope(job,task,first)}
    catch{return bad('ORIGINAL_LOCAL_ACTION_SCOPE_UNAVAILABLE')}
