@@ -273,3 +273,22 @@ test('no live UI, new executor, or automatic delivery is advertised by this cand
   assert.equal(c.googleMessageVerified,false);
  });
 });
+
+test('an unavailable original ledger is reported as blocked, not success or automatic retry',async()=>{
+ await fixture(async x=>{
+  x.store.get=async()=>{throw Error('encrypted store unavailable')};
+  const r=await x.chain.recordApprovedClick(sendReq);
+  assert.equal(r.code,'ORIGINAL_GEMINI_DURABLE_EVIDENCE_STORE_UNAVAILABLE');
+  assert.equal(r.automaticReplay,false);
+  assert.equal(x.calls.attest,0);
+ });
+});
+test('Gemini task phase changing during signed screen readback revokes the partial result',async()=>{
+ await fixture(async x=>{
+  await x.chain.recordApprovedClick(sendReq);x.advance();
+  x.onVisible(async()=>x.set('task',{phase:'TYPED'}));
+  const r=await x.chain.inspectVisibleCandidate(readReq);
+  assert.equal(r.code,'GEMINI_MESSAGE_OR_WINDOW_CHANGED_DURING_READBACK');
+  assert.equal(r.chatGptDelivered,false);
+ });
+});
