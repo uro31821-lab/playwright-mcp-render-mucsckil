@@ -37,7 +37,10 @@ const visible=()=>({ok:true,code:'SIGNED_GEMINI_VISIBLE_SEQUENCE_CANDIDATE_UNVER
 async function fixture(fn){
  const dir=await mkdtemp(join(tmpdir(),'jh-v4-evidence-chain-'));
  try{
-  let now=1800000000000,own=expectedOwner(now),t=task(),att=attempt(),vis=visible();
+  // The ORIGINAL file lock uses mtimeMs from the actual filesystem.
+  // Keep its clock aligned with that filesystem during concurrency tests;
+  // a synthetic future date would falsely mark a live lock as stale.
+  let now=Date.now(),own=expectedOwner(now),t=task(),att=attempt(),vis=visible();
   const calls={attest:0,visible:0,readTask:0,readOwner:0,verifyTask:0};
   const file='jh-original-execution-store.json';
   const store=new FileDurableExecutionStore({directory:dir,filename:file,clock:()=>now});
