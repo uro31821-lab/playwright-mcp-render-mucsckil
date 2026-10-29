@@ -4,16 +4,16 @@ import {createHash} from 'node:crypto';
 import {createV4GeminiOriginalLocalSendAttestor} from './gemini-v4-local-send-attribution.mjs';
 const C='a'.repeat(32), T='gemini-task-001', J='original-phone-job-001', H='com.google.android.googlequicksearchbox';
 const hash=s=>createHash('sha256').update(String(s),'utf8').digest('hex');
-const D={taskDigest:'b'.repeat(64),promptDigest:hash('Example GEMINI prompt'),
+const D={taskDigest:hash('JH-GEMINI-TASK-ID-V1|'+T),promptDigest:hash('Example GEMINI prompt'),
  reviewBindingDigest:'c'.repeat(64),actionDigest:'d'.repeat(64)};
 function receipt(){
- const p={schema:'JH_GEMINI_LOCAL_CLICK_V1',taskDigest:D.taskDigest,
+ const p={schema:'JH_GEMINI_LOCAL_CLICK_V2',taskDigest:D.taskDigest,
   promptDigest:D.promptDigest,reviewBindingDigest:D.reviewBindingDigest,
   actionDigest:D.actionDigest,sourcePackage:H,sourceWindowId:18,
   workSide:'RIGHT',chatSide:'LEFT',localApprovedClickDispatched:true,
   googleSentMessageIdVerified:false,googleConversationIdVerified:false,
   fullReplyVerified:false,postObservationRequired:true};
- p.localAttemptDigest=hash('JH-GEMINI-LOCAL-CLICK-V1|'+[
+ p.localAttemptDigest=hash('JH-GEMINI-LOCAL-CLICK-V2|'+[
   p.taskDigest,p.promptDigest,p.reviewBindingDigest,p.actionDigest,
   p.sourcePackage,p.sourceWindowId].join('|'));
  return p;
