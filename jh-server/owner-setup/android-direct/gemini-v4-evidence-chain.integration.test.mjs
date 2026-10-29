@@ -14,7 +14,7 @@ const H='com.google.android.googlequicksearchbox';
 const CID='a'.repeat(32),TASK='gemini-full-port-001',JOB='secure56-signed-submit-job';
 const PROMPT='https://www.youtube.com/watch?v=jNQXAC9IVRw\n영상 세 줄 요약';
 const ANSWER='영상 내용을 확인 중인 부분 답변입니다.';
-const TASK_HASH='b'.repeat(64),REVIEW='c'.repeat(64),ACTION='d'.repeat(64);
+const TASK_HASH=sha('JH-GEMINI-TASK-ID-V1|'+TASK),REVIEW='c'.repeat(64),ACTION='d'.repeat(64);
 const req={commandId:CID,taskId:TASK,originalJobId:JOB};
 const readReq={commandId:CID,taskId:TASK};
 function getOwner(now){
@@ -30,13 +30,13 @@ const originalTask=()=>({schema:4,id:TASK,commandId:CID,backend:'JH_ANDROID_NATI
  workSide:'RIGHT',chatSide:'LEFT',cancelled:false,
  promptDigest:sha(PROMPT),pending:{kind:'SUBMIT'},phase:'TYPED',sentMessageId:null});
 function localClick(){
- const p={schema:'JH_GEMINI_LOCAL_CLICK_V1',
+ const p={schema:'JH_GEMINI_LOCAL_CLICK_V2',
   taskDigest:TASK_HASH,promptDigest:sha(PROMPT),
   reviewBindingDigest:REVIEW,actionDigest:ACTION,sourcePackage:H,sourceWindowId:31,
   workSide:'RIGHT',chatSide:'LEFT',localApprovedClickDispatched:true,
   googleSentMessageIdVerified:false,googleConversationIdVerified:false,
   fullReplyVerified:false,postObservationRequired:true};
- p.localAttemptDigest=sha('JH-GEMINI-LOCAL-CLICK-V1|'+[
+ p.localAttemptDigest=sha('JH-GEMINI-LOCAL-CLICK-V2|'+[
   p.taskDigest,p.promptDigest,p.reviewBindingDigest,p.actionDigest,
   p.sourcePackage,p.sourceWindowId].join('|'));
  return p;
