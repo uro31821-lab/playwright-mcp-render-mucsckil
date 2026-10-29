@@ -48,6 +48,12 @@ async function fixture(fn,overrides={}){
  const dir=await mkdtemp(join(tmpdir(),'jh-v4-original-execute-'));
  try{
   const store=new FileDurableExecutionStore({directory:dir});
+  // Test-only: expose the exact original store failure, never any grant/lease.
+  const originalClaim=store.claim.bind(store);
+  store.claim=async (...args)=>{
+   try{return await originalClaim(...args)}
+   catch(e){console.error('TEST_ORIGINAL_STORE_CLAIM_FAILURE',e?.code??'',e?.message??'');throw e}
+  };
   const ledger=createV4OriginalGeminiPrepareLedger({store});
   let o=owner(),t=task(),contractReady=true,grantVerified=true,
    freshVerified=true,queuedVerified=true,completedVerified=true,
