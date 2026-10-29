@@ -32,7 +32,7 @@ jobs:
           node --check jh-server/owner-setup/android-direct/gemini-v4-visible-reply.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.mjs
-          node --test --test-concurrency=1 jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.test.mjs jh-server/owner-setup/android-direct/gemini-v4-checkpoint.test.mjs jh-server/owner-setup/android-direct/gemini-v4-driver.test.mjs jh-server/owner-setup/android-direct/gemini-v4-right-phone-binding.test.mjs jh-server/owner-setup/android-direct/gemini-v4-original-secure56-host.test.mjs jh-server/owner-setup/android-direct/gemini-v4-visible-reply.test.mjs jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.test.mjs jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.test.mjs
+          node --test --test-concurrency=1 jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.test.mjs jh-server/owner-setup/android-direct/gemini-v4-checkpoint.test.mjs jh-server/owner-setup/android-direct/gemini-v4-driver.test.mjs jh-server/owner-setup/android-direct/gemini-v4-right-phone-binding.test.mjs jh-server/owner-setup/android-direct/gemini-v4-original-secure56-host.test.mjs jh-server/owner-setup/android-direct/gemini-v4-visible-reply.test.mjs jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.test.mjs jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.test.mjs jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.integration.test.mjs
       - name: Verify actual video tools for byte/hash/media evidence tests
         run: |
           sudo apt-get update -qq
