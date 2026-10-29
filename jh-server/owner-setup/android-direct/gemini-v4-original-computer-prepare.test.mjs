@@ -34,7 +34,7 @@ const click=()=>({taskId:ID,commandId:CMD,deviceId:'current-fold',
  promptDigest:P,screenDigest:'d'.repeat(64),actionDigest:'e'.repeat(64),
  globalX:1500,globalY:730,observedAtMs:NOW-400});
 function make(patch={}){
- let o=device(),st=task(),a=click();let reserved=new Set(),jobs=[],verifications=[];
+ let o=device(),st=task(),a=click();let reserved=new Set(),attached=new Map(),jobs=[],verifications=[];
  const original=realOriginalComputerPayload();
  const port=createV4OriginalSecure56GeminiPreparePort({
   enabled:true,clock:()=>NOW,
@@ -42,6 +42,7 @@ function make(patch={}){
   readTask:async()=>({...st}),verifyTask:async()=>true,
   readSignedSubmitTarget:async()=>({...a}),verifySignedSubmitTarget:async()=>true,
   claimOriginalOperation:async(id)=>{if(reserved.has(id))return false;reserved.add(id);return true},
+  attachOriginalJob:async(id,jobId)=>{if(!reserved.has(id)||attached.has(id))return false;attached.set(id,jobId);return true},
   exactOriginalEnvelope:async (tool,type,effect,args,extra)=>{
    const p=original(args);const job={
     id:'signed-original-prep-001',type,status:'queued',
@@ -55,7 +56,7 @@ function make(patch={}){
    return job.secureMac==='signed-by-original-secure56'},
   ...patch
  });
- return {port,jobs,verifications,reserved,
+ return {port,jobs,verifications,reserved,attached,
   setOwner:c=>{o={...o,...c}},setTask:c=>{st={...st,...c}},
   setClick:c=>{a={...a,...c}}};
 }
@@ -87,6 +88,7 @@ test('real Secure56 computerPayload56 receives raw ID and V2 hash for read-only 
  assert.equal(entry.args.action_approval_grant_token,undefined);
  assert.equal(entry.job.secureSessionId,'current-secure-session');
  assert.deepEqual(h.verifications,['signed-original-prep-001']);
+ assert.equal(h.attached.get(OP),'signed-original-prep-001');
 });
 test('never queue before original durable operation reservation',async()=>{
  const h=make({claimOriginalOperation:async()=>false});
@@ -143,6 +145,17 @@ test('repeated original operation IDs cannot create two signed phone PREPARE job
  const h=make();await h.port.prepare(req);
  const b=await h.port.prepare(req);
  assert.equal(b.code,'ORIGINAL_GEMINI_PREPARE_RESERVED_USE_STATUS');
+ assert.equal(h.jobs.length,1);
+});
+test('queued phone PREPARE with missing durable job association is UNKNOWN and never resent',async()=>{
+ const h=make({attachOriginalJob:async()=>false});
+ const first=await h.port.prepare(req);
+ assert.equal(first.ok,false);
+ assert.equal(first.code,'ORIGINAL_GEMINI_PREPARE_JOB_BINDING_UNKNOWN_NO_REPLAY');
+ assert.equal(first.automaticReplay,false);
+ assert.equal(h.jobs.length,1);
+ assert.equal(h.reserved.size,1);
+ assert.equal((await h.port.prepare(req)).code,'ORIGINAL_GEMINI_PREPARE_RESERVED_USE_STATUS');
  assert.equal(h.jobs.length,1);
 });
 test('preparation capabilities explicitly keep local send approval and execute disconnected',()=>{
