@@ -6,6 +6,9 @@ on:
     branches: ['feat/jh167-r5-real-android-contract-20261028']
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   v4-native-stage4:
     runs-on: ubuntu-24.04
@@ -18,12 +21,17 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            jh-server/package.json
+            jh-server/owner-setup/package-lock.json
+            jh-server/owner-setup/owner-enrollment/package-lock.json
       - name: Reuse existing Stage4 host dependencies for full owner integration tests
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
-      - name: Parse and test V4 Gemini native routing and durable read-only checkpoint
+      - name: Parse V4 Gemini native routing and durable read-only checkpoint
         run: |
           node --check jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-checkpoint.mjs
@@ -32,7 +40,6 @@ jobs:
           node --check jh-server/owner-setup/android-direct/gemini-v4-visible-reply.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
           node --check jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.mjs
-          node --test --test-concurrency=1 jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.test.mjs jh-server/owner-setup/android-direct/gemini-v4-checkpoint.test.mjs jh-server/owner-setup/android-direct/gemini-v4-driver.test.mjs jh-server/owner-setup/android-direct/gemini-v4-right-phone-binding.test.mjs jh-server/owner-setup/android-direct/gemini-v4-original-secure56-host.test.mjs jh-server/owner-setup/android-direct/gemini-v4-visible-reply.test.mjs jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.test.mjs jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.test.mjs jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.integration.test.mjs
       - name: Verify actual video tools for byte/hash/media evidence tests
         run: |
           sudo apt-get update -qq
