@@ -255,6 +255,8 @@ async function afterAction(plan,changes={}){
  const defaultAction={
    type:'agent_step',status:'complete',result:{ok:true},
    action:'ACTION_FOCUS',commandId:plan.commandId,
+   deviceId:owner.deviceId,secureSessionId:owner.sessionId,
+   screenDigest:plan.screenDigest,targetNodeDigest:plan.focusTargetDigest,
    targetItemRef:plan.targetItemRef,windowId:plan.workWindowId
  };
  const defaultFocus={
@@ -299,6 +301,10 @@ test('performAction returned true alone never proves focus',async()=>{
   {actionReceipt:{status:'queued'}},
   {actionReceipt:{action:'ACTION_ACCESSIBILITY_FOCUS'}},
   {actionReceipt:{commandId:'a'.repeat(31)+'b'}},
+  {actionReceipt:{deviceId:'other-phone'}},
+  {actionReceipt:{secureSessionId:'other-session'}},
+  {actionReceipt:{screenDigest:'7'.repeat(64)}},
+  {actionReceipt:{targetNodeDigest:'8'.repeat(64)}},
   {focusProof:false},{actionProof:false}
  ]){
    const checked=await afterAction(res.plan,changed);
