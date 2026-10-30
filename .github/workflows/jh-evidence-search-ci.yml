@@ -7,15 +7,59 @@ on:
       - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
       - '.github/workflows/jh-evidence-search-ci.yml'
   workflow_dispatch:
+# Pure mocked regression only. Never copy cancellation to deployment/device jobs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   isolated-search:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        id: checkout
       - uses: actions/setup-node@v4
+        id: runtime
         with:
           node-version: '22'
       - name: Standard Search API isolated regression (mocked, no API key)
-        run: node --test jh-server/owner-setup/evidence/perplexity-search.test.mjs jh-server/owner-setup/deployment/jh-perplexity-search-composition.test.mjs
+        id: regression
+        # Both original test files run once. No npm/SDK/media setup is needed.
+        run: node --test --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search.test.mjs jh-server/owner-setup/deployment/jh-perplexity-search-composition.test.mjs
+      - name: Summarize exact input and gate outcomes
+        if: ${{ always() }}
+        env:
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_HEAD: ${{ github.event.pull_request.base.sha || '' }}
+          CHECKOUT_RESULT: ${{ steps.checkout.outcome }}
+          RUNTIME_RESULT: ${{ steps.runtime.outcome }}
+          REGRESSION_RESULT: ${{ steps.regression.outcome }}
+        run: |
+          python3 - <<'PY_SUMMARY'
+          import json, os, subprocess
+          checkout = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True,
+                                    text=True, check=False)
+          result = {
+              'scope': 'evidence_search_isolated_mock_regression',
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+              'event': os.environ.get('GITHUB_EVENT_NAME'),
+              'source_head': os.environ.get('SOURCE_HEAD'),
+              'base_head': os.environ.get('BASE_HEAD') or None,
+              'checkout_sha': checkout.stdout.strip() if checkout.returncode == 0 else None,
+              'gates': {name: os.environ.get(name.upper() + '_RESULT') or 'not_run'
+                        for name in ('checkout', 'runtime', 'regression')},
+              'test_files': [
+                  'jh-server/owner-setup/evidence/perplexity-search.test.mjs',
+                  'jh-server/owner-setup/deployment/jh-perplexity-search-composition.test.mjs',
+              ],
+          }
+          # Evidence only: failed/skipped/not_run remain distinct. This never grants a pass.
+          print('JH_CI_SUMMARY ' + json.dumps(result, sort_keys=True))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write('## JH Evidence CI checkpoint\n\n```json\n')
+              out.write(json.dumps(result, indent=2, sort_keys=True))
+              out.write('\n```\n')
+          PY_SUMMARY
