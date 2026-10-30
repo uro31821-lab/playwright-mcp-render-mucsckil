@@ -41,6 +41,47 @@ Computer Use는 기본 실행 절차가 아니다. 기존 `agent_step → agent_
 - 현재 `split_screen_assistant` START는 정상 화면을 읽고 뉴스 클릭 E2E는 별도 통과했지만 검색창 포커스 CLICK는 한 번 `OWNER_ADMISSION_BLOCKED`를 반환했다. 원래 owner fence를 다른 엔진으로 우회하지 않는다.
 - 앞선 PR #68 원래 결과 회수, #69 queued INSPECT 회수와 보안 승인은 바뀌지 않는다. 서버 Playwright 9개의 완전 교체는 TYPE/SCROLL E2E 뒤에 진행한다.
 
+
+## 입력 포커스만 우선 구현 — Android 공식 API 대조 (2026-10-31)
+
+**이번 단계는 입력 포커스만** 고친다. 스크롤·자동 입력·전송을 함께 실행하지 않는다.
+
+1. 현재 선택된 **RIGHT Chrome 접근성 창**을 package name, `windowId`, 범위와 LEFT ChatGPT 창으로 확인한다. Android의 `rootInActiveWindow`가 왼쪽 GPT 또는 시스템 키보드/대화상자를 가리킬 수 있으므로 무조건 사용하지 않는다. 현재 RIGHT 창의 root에서 탐색한다.
+2. 하나의 편집 노드 `AccessibilityNodeInfo`를 확인하고 `isEditable()`, `isFocusable()`, `getActionList()`를 검사한다. **`AccessibilityNodeInfo.ACTION_FOCUS`(ID 1)**이 있는 경우에만 해당 정확한 노드에 `performAction(ACTION_FOCUS)`를 한 번 요청한다. **`ACTION_ACCESSIBILITY_FOCUS`(ID 64)**는 입력 포커스로 취급하지 않는다. 클릭 가능(`isClickable`) 여부는 `ACTION_FOCUS`의 필수 요건이 아니다.
+3. 성공 판정은 `performAction`이 true라는 영수증이 아니라, **새로 읽은 RIGHT 창 root의 `findFocus(AccessibilityNodeInfo.FOCUS_INPUT)`** 결과가 같은 정확한 입력 노드인지와 **`isFocused()==true`**인지로 결정한다. 접근성 포커스의 `isAccessibilityFocused()`는 성공 근거가 아니다. 화면이 재구성되면 원래 signed `targetNodeDigest`/창/세션/명령과 새로 찾은 포커스 노드의 신원을 대조해야 한다.
+4. 결과가 `true`로 확인되지 않으면 `FOCUS_INPUT_NOT_CONFIRMED`로 중단한다. 다른 좌표·`ACTION_CLICK`·Computer Use 승인으로 자동 우회하지 않는다. 일반 입력창에서는 별도 Computer Use 승인 절차를 기본으로 도입하지 않는다. 보호된 행위에는 기존 휴대폰 단발 승인 유지.
+5. 입력 텍스트는 **확인된 포커스 이후 별도 단계**에서만 수행한다. `ACTION_FOCUS` 자체가 키보드 표시나 입력값 반영을 보장하지는 않는다.
+
+참고하는 **Android APK Kotlin 쪽 실행 계약**(현 단계에서는 구현 예시이며 실제 APK 연결·컴파일·설치 검증 아님):
+
+```kotlin
+// root: packageName == com.android.chrome, windowId == signed RIGHT id인
+// 특정 AccessibilityWindowInfo.root. GPT/시스템 오버레이 root 사용 금지.
+val target: AccessibilityNodeInfo = resolveExactSignedItemRef(root, itemRef)
+    ?: return FocusOutcome("STALE_TARGET")
+if (!target.isEditable || !target.isFocusable ||
+    target.actionList.none { it.id == AccessibilityNodeInfo.ACTION_FOCUS }) {
+    return FocusOutcome("ACTION_FOCUS_UNSUPPORTED")
+}
+val requested = target.performAction(AccessibilityNodeInfo.ACTION_FOCUS)
+// UI가 바뀔 수 있으므로 항상 RIGHT 창 root를 새로 선택
+val freshRoot = readSameSignedRightChromeRoot()
+    ?: return FocusOutcome("RIGHT_WINDOW_CHANGED")
+val focused = freshRoot.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+val confirmed = requested && focused?.isFocused == true &&
+    focused?.isEditable == true &&
+    matchesOriginalSignedNodeIdentity(focused, originalTargetDigest)
+return FocusOutcome(if (confirmed) "FOCUS_INPUT_VERIFIED" else "FOCUS_UNCONFIRMED")
+```
+
+**2026-10-31 소스 후보 교정:** `right-target-preflight.mjs`에서 `FOCUS:'form_activate'`를 `FOCUS:'ACTION_FOCUS'`로 교체하고, 원본 기기가 실제 `getActionList`에 ID 1을 광고하는지와 `findFocus(FOCUS_INPUT)`/대상 `isFocused`의 원래 서명된 결과를 확인하도록 수정했다. 기존 `facts.focused`만으로 이미 포커스됐다고 인정하지 않는다. 사후 검사 `verifyRightInputFocusCompletion56`는 정확한 Secure56 action receipt·창·대상·신규 입력 포커스 증거를 요구한다.
+
+**운영 배포 유보 사유:** 기존 원본 설치 APK의 `agent_step`가 `ACTION_FOCUS`와 `itemRef`를 안전하게 전달·실행하는 실제 계약이 현재 공개된 서버 코드만으로는 확인되지 않았다. 이 네이티브 계약을 제공하는 Android 소스/서명 APK가 확인되기 전에는 JS 정적·단위시험 통과를 휴대폰 포커스 성공으로 표시하지 않는다.
+
+공식 API:
+- https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo.AccessibilityAction
+- https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo
+
 ## 실제 완료 조건
 1. 현재 JH168 APK/원래 BridgeService가 `FOCUS/SET_TEXT/SCROLL`의 **명시된 nodeRef + 창 ID + 서명된 현재 scene proof**를 원래 실행기에 전달·검증할 수 있는지 증명. 불가능하면 APK 변경이 필요하다고 **명확히 기록**, Computer Use 기본 경로로 대체하지 않음.
 2. 정상 Chrome 입력창 자동 포커스 → `focused=true` → 비민감 시험문구 입력 → 원래 Android 화면에서 **문구 실반영 확인**.
