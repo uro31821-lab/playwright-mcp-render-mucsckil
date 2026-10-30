@@ -95,6 +95,10 @@ jobs:
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Verify true pinned JH runtime consent-receipt binding (no listener)
+        id: real_receipt_runtime
+        run: |
+          CI=true NODE_ENV=test JH_OWNER_DEFER_LISTEN=1 node --test --test-reporter=spec jh-server/owner-setup/server-integration/pending-approval-real-runtime-candidate.test.mjs
       - name: Preserve original Stage4 regressions, native routes and no browser fallback
         id: android
         run: |
@@ -154,6 +158,7 @@ jobs:
           SYNTAX_RESULT: ${{ steps.syntax.outcome }}
           COVERAGE_RESULT: ${{ steps.coverage.outcome }}
           RECEIPTS_RESULT: ${{ steps.receipts.outcome }}
+          REAL_RECEIPT_RUNTIME_RESULT: ${{ steps.real_receipt_runtime.outcome }}
           DEPENDENCIES_RESULT: ${{ steps.dependencies.outcome }}
           ANDROID_RESULT: ${{ steps.android.outcome }}
           MEDIA_TOOLS_RESULT: ${{ steps.media_tools.outcome }}
@@ -163,7 +168,7 @@ jobs:
           python3 - <<'PY_SUMMARY'
           import json, os, subprocess
           gates = ('preflight', 'syntax', 'coverage', 'receipts', 'dependencies',
-                   'android', 'media_tools', 'gemini', 'protection')
+                   'real_receipt_runtime', 'android', 'media_tools', 'gemini', 'protection')
           checkout = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True,
                                     text=True, check=False)
           result = {
