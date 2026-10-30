@@ -48,9 +48,14 @@ export function selectPendingApprovalOperatorRuntime56(root,env=process.env){
  try{stamp=JSON.parse(readFileSync(p.stamp,"utf8"));}catch{fail("JH_PENDING_APPROVAL_ATTESTATION_MISSING");}
  if(stamp.schema!=="JH_PENDING_APPROVAL_OPERATOR_V1"||stamp.productionEnabled!==false||
    stamp.automaticReplayAllowed!==false||!/^[a-f0-9]{64}$/.test(stamp.parentSha256||"")||
-   !/^[a-f0-9]{64}$/.test(stamp.runtimeSha256||""))fail("JH_PENDING_APPROVAL_ATTESTATION_INVALID");
+   !/^[a-f0-9]{64}$/.test(stamp.runtimeSha256||"")||
+   ![stamp.ownerSha256,stamp.unifiedSha256,stamp.operationalSha256].every(x=>/^[a-f0-9]{64}$/.test(x||"")))
+   fail("JH_PENDING_APPROVAL_ATTESTATION_INVALID");
  const original=readFileSync(p.parent),patched=readFileSync(p.runtime);
  if(sha(original)!==stamp.parentSha256||sha(patched)!==stamp.runtimeSha256||
+   sha(readFileSync(p.owner))!==stamp.ownerSha256||
+   sha(readFileSync(p.unified))!==stamp.unifiedSha256||
+   sha(readFileSync(p.entry))!==stamp.operationalSha256||
    reversePendingApprovalReceiptPatch(patched.toString("utf8"))!==original.toString("utf8"))
    fail("JH_PENDING_APPROVAL_RUNTIME_DRIFT");
  return Object.freeze({file:p.runtime,sha256:stamp.runtimeSha256});
@@ -101,4 +106,15 @@ export async function main(env=process.env){
  const operating=await import(pathToFileURL(built.file).href+"?sha="+built.stamp.operationalSha256);
  if(typeof operating.main!=="function")fail("JH_PENDING_APPROVAL_ORIGINAL_MAIN_MISSING");
  return operating.main(env);
+}
+
+// Only an explicitly selected start command may reach main(). Importing this
+// module for CI, source verification or other JH paths never starts a listener.
+if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
+ main().catch(error=>{
+  const code=typeof error?.code==="string"&&/^[A-Z_]{3,80}$/.test(error.code)
+    ?error.code:"JH_PENDING_APPROVAL_OPERATOR_BOOT_FAILED";
+  process.stderr.write(code+"\n");
+  process.exitCode=1;
+ });
 }

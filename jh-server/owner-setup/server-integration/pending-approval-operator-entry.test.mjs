@@ -63,6 +63,28 @@ test("pinned owner/unified/operational route selects only exact receipt runtime"
   }
  } finally{clean(built);}
 });
+test("direct launch without explicit operator selection fails, never silently exits success",()=>{
+  const file=new URL("./pending-approval-operator-entry.mjs",import.meta.url);
+  const child=spawnSync(process.execPath,[file.pathname],{
+    cwd:root,encoding:"utf8",timeout:12000,env:ciEnv
+  });
+  assert.notEqual(child.status,0);
+  assert.match(child.stderr,/JH_PENDING_APPROVAL_OPERATOR_EXPLICIT_ENABLE_REQUIRED/);
+  assert.doesNotMatch(child.stdout,/LISTENER_READY|JH_OWNER_RUNTIME_READY/);
+});
+test("linked generated owner source tampering is rejected after valid attestation",{
+ timeout:120000
+},async()=>{
+ const built=await buildPendingApprovalOperatorEntrypoint56(root,ciEnv);
+ const cleanBytes=readFileSync(built.ownerFile);
+ try {
+  writeFileSync(built.ownerFile,Buffer.concat([cleanBytes,Buffer.from("\n// altered owner\n")]));
+  assert.throws(()=>selectPendingApprovalOperatorRuntime56(root,ciEnv),/RUNTIME_DRIFT/);
+ }finally{
+  writeFileSync(built.ownerFile,cleanBytes);
+  clean(built);
+ }
+});
 test("runtime bytes cannot change after attestation without operator refusal",{
  timeout:120000
 },async()=>{

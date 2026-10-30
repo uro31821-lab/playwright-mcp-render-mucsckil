@@ -15,7 +15,8 @@ const CALL_NEW=`function secureCall56(mcpToolName,jobType,effect,args,extra={}){
     if(!["queued","in_progress"].includes(j.status))return secureResult56(j);
     const active=active56(x.deviceId),meta=devices.get(x.deviceId);
     const receipt=pendingApprovalReceipts56.issue({job:j,deviceId:x.deviceId,deviceDigest:meta?.deviceDigest,
-      sessionId:active?.sessionId,taskDigest:String(args.task_digest||""),runDigest:String(args.run_digest||"")});
+      sessionId:active?.sessionId,taskDigest:String(args.task_digest||""),runDigest:String(args.run_digest||""),
+      commandId:j.commandId});
     return textResult({...safeJobView56(j),...(receipt||{})});
   });
 }
@@ -24,10 +25,11 @@ function pendingApprovalReceiptStatus56(args){
   if(!deviceId)return textResult({ok:false,code:"secure_bridge_device_not_active"});
   const meta=devices.get(deviceId),active=active56(deviceId);
   if(!meta||meta.secureBridgeVersion!==56||!active)return textResult({ok:false,code:"secure_bridge_device_not_active"});
+  const commandId=jhRequireCommand56(deviceId); // enforce CURRENT JH command binding, never old commands
   cleanupJobs();
   const result=pendingApprovalReceipts56.read({receiptToken:args.receipt_token,deviceId,
     deviceDigest:meta.deviceDigest,sessionId:active.sessionId,
-    taskDigest:String(args.task_digest||""),runDigest:String(args.run_digest||"")},
+    taskDigest:String(args.task_digest||""),runDigest:String(args.run_digest||""),commandId},
     jobId=>jobs.get(jobId));
   if(!result.ok)return textResult(result);
   return textResult({ok:true,lookupOnly:true,...safeJobView56(result.job)});

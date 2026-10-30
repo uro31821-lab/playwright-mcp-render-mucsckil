@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {createPendingApprovalReceiptRegistry56} from "./secure56-pending-approval-receipts.mjs";
 import {applyPendingApprovalReceiptPatch,reversePendingApprovalReceiptPatch} from "./pending-approval-receipt-patch.mjs";
-const task="a".repeat(64),dev="b".repeat(64),run="c".repeat(64);
+const task="a".repeat(64),dev="b".repeat(64),run="c".repeat(64),cmd="d".repeat(32);
 const token=Buffer.alloc(32,42).toString("base64url"),other=Buffer.alloc(32,43).toString("base64url");
 function setup(kind="computer_use_screen_consent_request",now=()=>1000){
   const store=createPendingApprovalReceiptRegistry56({now,newToken:()=>token,ttlMs:600000});
-  const scope={deviceId:"phone-a",deviceDigest:dev,sessionId:"secure-session-1",taskDigest:task,runDigest:kind==="computer_use_screen_consent_request"?run:""};
-  const job={id:"job_73",type:kind,status:"queued",targetDeviceId:scope.deviceId,targetDeviceDigest:dev,secureSessionId:scope.sessionId,taskDigest:task,...(scope.runDigest?{runDigest:run}:{})};
+  const scope={deviceId:"phone-a",deviceDigest:dev,sessionId:"secure-session-1",taskDigest:task,runDigest:kind==="computer_use_screen_consent_request"?run:"",commandId:cmd};
+  const job={id:"job_73",type:kind,status:"queued",targetDeviceId:scope.deviceId,targetDeviceDigest:dev,secureSessionId:scope.sessionId,taskDigest:task,commandId:cmd,...(scope.runDigest?{runDigest:run}:{})};
   return {store,scope,job};
 }
 test("queued consent returns a random opaque read-only receipt, not approval",()=>{
@@ -29,11 +29,36 @@ test("status-only lookup recovers the SAME request after user approves, without 
 test("wrong device/task/run/session never discloses even a token",()=>{
   const {store,scope,job}=setup();const {receiptToken}=store.issue({job,...scope});let lookedUp=0;
   for(const mismatch of [{deviceId:"other"},{deviceDigest:"d".repeat(64)},{sessionId:"rotated"},
-    {taskDigest:"e".repeat(64)},{runDigest:"f".repeat(64)}]){
+    {taskDigest:"e".repeat(64)},{runDigest:"f".repeat(64)},{commandId:"e".repeat(32)}]){
     const x=store.read({...scope,receiptToken,...mismatch},()=>{lookedUp++;return job});
     assert.deepEqual(x,{ok:false,code:"PENDING_APPROVAL_RECEIPT_UNAVAILABLE"});
   }
   assert.equal(lookedUp,0);
+});
+test("a different or superseded command generation cannot reuse a local grant",()=>{
+  const {store,scope,job}=setup();
+  const {receiptToken}=store.issue({job,...scope});
+  assert.equal(store.read({...scope,receiptToken,commandId:"f".repeat(32)},()=>job).ok,false);
+  job.commandId="f".repeat(32);
+  assert.equal(store.read({...scope,receiptToken},()=>job).ok,false);
+  assert.equal(store.issue({job,...scope}),null);
+});
+test("queued receipt expires no later than original job deadline, never extends signed operation",()=>{
+  let ms=1000;
+  const {store,scope,job}=setup(undefined,()=>ms);
+  job.expiresAtMs=5000;
+  const {receiptToken,receiptExpiresAtMs}=store.issue({job,...scope});
+  assert.equal(receiptExpiresAtMs,5000);
+  ms=5000;
+  assert.equal(store.read({...scope,receiptToken},()=>job).ok,false);
+  assert.equal(store.issue({job,...scope}),null);
+});
+test("approval receipt status host patch enforces current JH command and no re-dispatch",()=>{
+  const source=readFileSync(new URL("./server.mjs",import.meta.url),"utf8");
+  const patched=applyPendingApprovalReceiptPatch(source);
+  assert.match(patched,/const commandId=jhRequireCommand56\(deviceId\)/);
+  assert.match(patched,/commandId:j\.commandId/);
+  assert.match(patched,/runDigest:String\(args\.run_digest\|\|""\),commandId\}/);
 });
 test("forged, expired, missing or changed-session receipt fails closed",()=>{
   let t=1000;const {store,scope,job}=setup(undefined,()=>t);const {receiptToken}=store.issue({job,...scope});
