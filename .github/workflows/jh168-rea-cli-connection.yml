@@ -1,0 +1,101 @@
+name: JH168 REA isolated CLI connection check
+
+on:
+  push:
+    branches: ['feat/jh168-rea-cli-runner-20261030']
+    paths:
+      - '.github/workflows/jh168-rea-cli-connection.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rea-static-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Create isolated evidence directory
+        id: evidence
+        shell: bash
+        run: |
+          directory=$(mktemp -d "${RUNNER_TEMP:?}/jh168-rea.XXXXXX")
+          echo "directory=$directory" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.22.1'
+      - name: Verify exact runtime prerequisites
+        shell: bash
+        run: |
+          test "$(node --version)" = 'v24.22.1'
+          command -v ps
+          command -v npm
+          echo JH168_REA_NODE_AND_PROCPS_READY
+      - name: Install official pinned REA in runner temp only
+        shell: bash
+        run: |
+          npm install --prefix "${RUNNER_TEMP}/jh168-rea-tool" --no-audit --no-fund --ignore-scripts --save-exact rea-agents@6.8.0
+          echo "${RUNNER_TEMP}/jh168-rea-tool/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Verify official CLI entrypoint
+        shell: bash
+        run: |
+          command -v rea
+          rea --version
+          rea --help > /dev/null
+          echo JH168_REA_CLI_LAUNCH_OK
+      - name: Stage REAL JH split-screen module for static REA analysis
+        shell: bash
+        run: |
+          target="${RUNNER_TEMP}/jh168-source"
+          mkdir -p "$target"
+          cp jh-server/owner-setup/deployment/split-screen-assistant-mcp-patch.mjs "$target/index.mjs"
+          printf '%s\n' '{"name":"jh168-split-reconstruction","version":"1.0.0","type":"module","main":"index.mjs"}' > "$target/package.json"
+          test -s "$target/index.mjs"
+          echo "REA_TARGET_JH_SPLIT_SCREEN_MODULE_STAGED"
+      - name: Execute REA analysis and preserve original process failure
+        id: analysis
+        shell: bash
+        env:
+          REPORT_DIR: ${{ steps.evidence.outputs.directory }}
+        run: |
+          set +e
+          rea analyze-javascript-application "${RUNNER_TEMP}/jh168-source" --json --full-output \
+             > "${REPORT_DIR}/analysis.json" 2> "${REPORT_DIR}/analysis.stderr"
+          status=$?
+          set -e
+          echo "$status" > "${REPORT_DIR}/exit-code.txt"
+          echo "JH168_REA_ANALYSIS_EXIT=$status"
+          exit "$status"
+      - name: Validate REA machine-readable evidence and record the limitations
+        shell: bash
+        env:
+          REPORT_DIR: ${{ steps.evidence.outputs.directory }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const file=process.env.REPORT_DIR+'/analysis.json';
+          const output=JSON.parse(readFileSync(file,'utf8'));
+          const valid=output && typeof output==='object' && !Array.isArray(output);
+          if(!valid || output.ok===false || output.success===false || output.status==='error'){
+            console.error('JH168_REA_EVIDENCE_INVALID_OR_ERROR');
+            process.exit(2);
+          }
+          console.log('JH168_REA_EVIDENCE_VALID '+JSON.stringify({
+            keys:Object.keys(output).slice(0,15),
+            status:output.status??null,
+            partial:output.data?.normalized_result?.statistics?.parse_failures??null,
+            limitationsPresent:Array.isArray(output.data?.limitations)&&output.data.limitations.length>0
+          }));
+          console.log('JH168_REA_EXECUTOR_CONNECTED_AND_ANALYSIS_EXECUTED');
+          NODE
+      - name: Upload bounded evidence, including on failure
+        if: ${{ always() && steps.evidence.outputs.directory != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jh168-rea-static-evidence
+          path: ${{ steps.evidence.outputs.directory }}
+          if-no-files-found: warn
+          retention-days: 1
