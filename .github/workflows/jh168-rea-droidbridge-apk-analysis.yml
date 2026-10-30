@@ -61,7 +61,7 @@ jobs:
           set -euo pipefail
           export REA_JADX_MCP_JAR="$ROOT/jadx-headless-mcp-0.7.1-all.jar"
           set +e
-          timeout 360s rea inspect-android-package "$ROOT/reference.apk" --json --detail summary \
+          timeout 360s rea inspect-android-package "$ROOT/reference.apk" --json \
             > "$ROOT/reference-analysis.json" 2> "$ROOT/reference-analysis.stderr"
           status=$?
           set -e
