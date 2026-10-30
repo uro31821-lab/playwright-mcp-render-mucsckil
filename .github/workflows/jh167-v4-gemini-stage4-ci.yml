@@ -69,6 +69,12 @@ jobs:
           done
           grep -q "JH_GEMINI_LOCAL_CLICK_V2" jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
           grep -q "JH-GEMINI-TASK-ID-V1" jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
+      - name: Validate Secure56 queued approval read-only recovery patch
+        run: |
+          node --check jh-server/owner-setup/server-integration/secure56-pending-approval-receipts.mjs
+          node --check jh-server/owner-setup/deployment/pending-approval-receipt-patch.mjs
+          node --check jh-server/owner-setup/deployment/functional-release-runtime.mjs
+          node --test jh-server/owner-setup/deployment/pending-approval-receipt-patch.test.mjs
       - name: Reuse existing Stage4 host dependencies for full owner integration tests
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
@@ -98,8 +104,11 @@ jobs:
             jh-server/owner-setup/android-direct/engine.mjs \
             jh-server/owner-setup/android-direct/unified-route.mjs \
             jh-server/owner-setup/android-direct/unified-owner-patch.mjs \
-            jh-server/owner-setup/deployment \
             jh-server/server.mjs
+          # One additive, reversible post-verification patch is allowed in deployment.
+          # The immutable original owner baseline and all other deploy paths are still pinned.
+          test "$(git diff --name-only 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- jh-server/owner-setup/deployment)" = "jh-server/owner-setup/deployment/functional-release-runtime.mjs"
+          git diff --exit-code 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- jh-server/owner-setup/server-integration/server.mjs
           # Existing Stage4 fold verifier and Secure56 host are changed ONLY
           # to add native Gemini-left window proof; ordinary web/approval stays.
           test "$(git diff --name-only 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- \
