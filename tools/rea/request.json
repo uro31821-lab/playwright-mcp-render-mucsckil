@@ -1,12 +1,10 @@
 {
   "schema": "JH_REA_REQUEST_V1",
-  "request_id": "jh168-native-first-no-cu-approval-20261031",
-  "source_commit": "533fbee169fb9512c1c7270d316d3e7b4b913dac",
+  "request_id": "jh168-android-action-focus-input-focus-proof-20261031",
+  "source_commit": "f07b7d6d635eb06fc5ae09c44b9f45c023259e9b",
   "paths": [
     "jh-server/owner-setup/jh168-mobile-unification/right-target-preflight.mjs",
-    "jh-server/owner-setup/deployment/split-screen-assistant-mcp-patch.mjs",
-    "jh-server/owner-setup/deployment/durable-native-job-policy.mjs",
     "jh-server/owner-setup/server-integration/server.mjs",
-    "jh-server/owner-setup/deployment/jh155-split-integration-patch.mjs"
+    "jh-server/owner-setup/deployment/durable-native-job-policy.mjs"
   ]
 }
