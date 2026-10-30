@@ -7,6 +7,7 @@ import {createHash} from "node:crypto";
 import {pathToFileURL} from "node:url";
 import {buildCleanRestartRelease56} from "../deployment/durable-clean-restart-news-review-entry.mjs";
 import {applyPendingApprovalReceiptPatch,reversePendingApprovalReceiptPatch} from "./pending-approval-receipt-patch.mjs";
+import {applyJH168SplitReadReceiptPatch,reverseJH168SplitReadReceiptPatch} from "../jh168-mobile-unification/split-read-receipt-patch.mjs";
 
 const sha=x=>createHash("sha256").update(x).digest("hex");
 const fail=code=>{throw Object.assign(Error(code),{code});};
@@ -56,7 +57,7 @@ export function selectPendingApprovalOperatorRuntime56(root,env=process.env){
    sha(readFileSync(p.owner))!==stamp.ownerSha256||
    sha(readFileSync(p.unified))!==stamp.unifiedSha256||
    sha(readFileSync(p.entry))!==stamp.operationalSha256||
-   reversePendingApprovalReceiptPatch(patched.toString("utf8"))!==original.toString("utf8"))
+   reversePendingApprovalReceiptPatch(reverseJH168SplitReadReceiptPatch(patched.toString("utf8")))!==original.toString("utf8"))
    fail("JH_PENDING_APPROVAL_RUNTIME_DRIFT");
  return Object.freeze({file:p.runtime,sha256:stamp.runtimeSha256});
 }
@@ -70,9 +71,11 @@ export async function buildPendingApprovalOperatorEntrypoint56(root,env=process.
  if(base.runtimeFile!==p.parent)fail("JH_PENDING_APPROVAL_PARENT_PATH_CHANGED");
  const original=readFileSync(p.parent,"utf8");
  if(sha(original)!==base.candidateSha256)fail("JH_PENDING_APPROVAL_PARENT_SHA_CHANGED");
- const runtime=applyPendingApprovalReceiptPatch(original);
- if(reversePendingApprovalReceiptPatch(runtime)!==original||
+ const runtime=applyJH168SplitReadReceiptPatch(applyPendingApprovalReceiptPatch(original));
+ if(reversePendingApprovalReceiptPatch(reverseJH168SplitReadReceiptPatch(runtime))!==original||
    runtime.split('registerOAuthTool("life_android_pending_approval_receipt_status"').length!==2||
+   !runtime.includes("jhSplitReadReceipts56.issue(")||
+   !runtime.includes("jhSplitReadStatus56(")||
    !runtime.includes("durableNativeHooks56?.acceptedCompletion(")||
    !runtime.includes("jhRequireCommand56("))fail("JH_PENDING_APPROVAL_POLICY_CHANGED");
  publish(p.runtime,runtime);
