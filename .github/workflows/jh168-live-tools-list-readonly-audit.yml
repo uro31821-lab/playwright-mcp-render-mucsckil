@@ -1,0 +1,72 @@
+name: JH168 live MCP tools-list read-only audit
+on:
+  push:
+    branches: ['diag/jh168-live-tools-list-20261030']
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+permissions:
+  contents: read
+jobs:
+  inspect-live-catalog:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Inspect public MCP tools-list without credentials or mutations
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          const url='https://jh-secure-bridge-fix4.onrender.com/mcp';
+          const headers={
+            'accept':'application/json, text/event-stream',
+            'content-type':'application/json',
+            'mcp-protocol-version':'2025-03-26'
+          };
+          const decode=raw=>{
+            try{return JSON.parse(raw);}catch{}
+            const lines=raw.split(/\r?\n/).filter(x=>x.startsWith('data: '));
+            for(const line of lines){
+              try{const val=JSON.parse(line.slice(6));if(val?.result||val?.error)return val;}catch{}
+            }
+            return null;
+          };
+          let counter=0;
+          async function call(method,params={}){
+            const id=++counter;
+            const r=await fetch(url,{
+              method:'POST',headers,
+              body:JSON.stringify({jsonrpc:'2.0',method,id,params}),
+              signal:AbortSignal.timeout(20000)
+            });
+            const raw=await r.text();
+            return {httpStatus:r.status,contentType:r.headers.get('content-type'),reply:decode(raw)};
+          }
+          let listing=await call('tools/list');
+          if(!Array.isArray(listing.reply?.result?.tools)){
+            const init=await call('initialize',{
+              protocolVersion:'2025-03-26',
+              capabilities:{},
+              clientInfo:{name:'jh168-catalog-readonly-audit',version:'1.0.0'}
+            });
+            console.log('JH168_INITIALIZE_STATUS '+JSON.stringify({
+              httpStatus:init.httpStatus,
+              rpcSuccess:!!init.reply?.result,
+              rpcErrorCode:init.reply?.error?.code??null
+            }));
+            listing=await call('tools/list');
+          }
+          const tools=listing.reply?.result?.tools;
+          const names=new Set(Array.isArray(tools)?tools.map(x=>x.name):[]);
+          const result={
+            httpStatus:listing.httpStatus,
+            contentType:listing.contentType,
+            rpcErrorCode:listing.reply?.error?.code??null,
+            toolCount:Array.isArray(tools)?tools.length:null,
+            originalActionStatus:names.has('life_android_action_approval_status'),
+            originalConsentStatus:names.has('life_android_screen_consent_status'),
+            newPendingReceiptStatus:names.has('life_android_pending_approval_receipt_status'),
+            nextCursor:!!listing.reply?.result?.nextCursor
+          };
+          console.log('JH168_LIVE_TOOLS_LIST '+JSON.stringify(result));
+          if(!Array.isArray(tools))process.exitCode=2;
+          else if(!result.newPendingReceiptStatus)process.exitCode=3;
+          NODE
