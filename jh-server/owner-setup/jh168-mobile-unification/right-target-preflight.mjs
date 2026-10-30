@@ -72,8 +72,8 @@ function boundItem(item,owner,work){
  return true;
 }
 function exactFocusItem(items,owner,work){
- const hits=items.filter(x=>boundItem(x,owner,work)&&x.editable===true&&
-   x.clickable===true&&(
+ const hits=items.filter(x=>boundItem(x,owner,work)&&x.editable===true&&x.facts?.visible!==false&&
+   x.facts?.focusable!==false&&(
      x.label==='Google 검색 또는 URL 입력'||
      x.facts?.viewId==='com.android.chrome:id/url_bar'||
      x.facts?.viewId==='com.android.chrome:id/search_box_text'
@@ -107,7 +107,7 @@ function pickScroll(items,owner,work,direction){
  return descendants.length===1?descendants[0].item:null;
 }
 const allowedKinds=new Set(['FOCUS','TYPE','SCROLL']);
-const nativeNames=Object.freeze({FOCUS:'form_activate',TYPE:'set_text',SCROLL:'form_scroll'});
+const nativeNames=Object.freeze({FOCUS:'ACTION_FOCUS',TYPE:'set_text',SCROLL:'form_scroll'});
 const classifySecret=v=>/bearer\s+[a-z0-9._~+/=-]{8,}|\b(?:sk|rk|pk)-[a-z0-9_-]{8,}\b|(?<!\d)\d{6}-?\d{7}(?!\d)|(?<!\d)(?:\d[ -]?){13,19}(?!\d)|(?:otp|인증번호|보안코드|cvc|cvv|pin)\s*[:：]?\s*\d{3,8}/i.test(v);
 const sha=v=>createHash('sha256').update(v,'utf8').digest('hex');
 const riskNames=Object.freeze({FOCUS:'SAFE_NAVIGATION',TYPE:'SAFE_INPUT',SCROLL:'SAFE_SCROLL'});
@@ -116,13 +116,41 @@ function sameScene(a,b){
   a.contextId===b.contextId&&a.windowId===b.windowId&&
   a.packageName===b.packageName&&a.layout?.workWindowId===b.layout?.workWindowId;
 }
-function capabilityProof(cap,owner,scene,kind){
- return object(cap)&&cap.source==='ORIGINAL_SIGNED_ANDROID_ACCESSIBILITY'&&
+function capabilityProof(cap,owner,scene,kind,candidate){
+ const common=object(cap)&&cap.source==='ORIGINAL_SIGNED_ANDROID_ACCESSIBILITY'&&
   cap.deviceId===owner.deviceId&&cap.sessionId===owner.sessionId&&
   cap.commandId===owner.commandId&&cap.workWindowId===owner.workWindowId&&
   cap.workPackage===CHROME&&cap.screenDigest===scene.screenDigest&&
   cap.action===nativeNames[kind]&&cap.exactItemRefSupported===true&&
   cap.nativeAccessibility===true&&cap.computerUseRequired===false;
+ if(!common)return false;
+ if(kind!=='FOCUS')return true;
+ // Android API: ACTION_FOCUS has action ID 1. Accessibility focus (64)
+ // does NOT prove text input focus and MUST NOT be substituted here.
+ return cap.actionId===1&&cap.focusType==='FOCUS_INPUT'&&
+  cap.isEditable===true&&cap.isFocusable===true&&
+  cap.targetItemRef===candidate.itemRef&&
+  H64.test(cap.targetNodeDigest||'')&&
+  Array.isArray(cap.advertisedActionIds)&&cap.advertisedActionIds.includes(1);
+}
+const INPUT_FOCUS='ORIGINAL_SIGNED_ANDROID_FIND_FOCUS_INPUT';
+function inputFocusProof(report,owner,scene,candidate,now){
+ if(!object(report)||report.source!==INPUT_FOCUS||
+   report.focusType!=='FOCUS_INPUT'||report.windowId!==owner.workWindowId||
+   report.packageName!==CHROME||report.deviceId!==owner.deviceId||
+   report.sessionId!==owner.sessionId||report.commandId!==owner.commandId||
+   report.screenDigest!==scene.screenDigest||
+   report.targetItemRef!==candidate.itemRef||report.isEditable!==true||
+   typeof report.targetFocused!=='boolean'||
+   report.nodeIsFocused!==report.targetFocused||
+   !Number.isSafeInteger(report.checkedAt)||report.checkedAt>now||
+   now-report.checkedAt>15000||report.checkedAt<scene.capturedAt-2000)
+   return false;
+ // A focused result must be the RIGHT root's findFocus(FOCUS_INPUT) node
+ // and the SAME node's isFocused(); isAccessibilityFocused is irrelevant.
+ if(report.targetFocused&&report.focusedItemRef!==candidate.itemRef)return false;
+ if(!report.targetFocused&&report.focusedItemRef===candidate.itemRef)return false;
+ return true;
 }
 /** Read-only plan, not authority: actual signed AndroidAgent must confirm
  * capability + risk and re-resolve the exact nodeRef immediately before one
@@ -131,11 +159,13 @@ function capabilityProof(cap,owner,scene,kind){
 export function createRightNativeFirstPlanner56({
  readOriginalOwner,readOriginalScene,verifyOriginalOwner,verifyOriginalScene,
  readOriginalNativeCapability,verifyOriginalNativeCapability,
- readOriginalRisk,verifyOriginalRisk,clock=Date.now
+ readOriginalRisk,verifyOriginalRisk,
+ readOriginalInputFocus,verifyOriginalInputFocus,clock=Date.now
 }={}){
  const ports=[readOriginalOwner,readOriginalScene,verifyOriginalOwner,
   verifyOriginalScene,readOriginalNativeCapability,verifyOriginalNativeCapability,
-  readOriginalRisk,verifyOriginalRisk,clock];
+  readOriginalRisk,verifyOriginalRisk,
+  readOriginalInputFocus,verifyOriginalInputFocus,clock];
  if(ports.some(f=>typeof f!=='function'))
   throw Error('JH168_ORIGINAL_NATIVE_ACCESSIBILITY_PORTS_REQUIRED');
  async function plan({kind,commandId,direction='DOWN',value}={}){
@@ -158,12 +188,24 @@ export function createRightNativeFirstPlanner56({
    exactFocusItem(scene.items,owner,scope.work);
   if(!candidate)return deny(kind==='SCROLL'?
     'NATIVE_SCROLL_NODE_NOT_PROVEN':'NATIVE_FOCUS_NODE_NOT_PROVEN');
-  if(kind==='TYPE'&&candidate.facts?.focused!==true)
-    return deny('NATIVE_INPUT_NOT_FOCUSED');
-  if(kind==='FOCUS'&&candidate.facts?.focused===true)
-    return Object.freeze({ok:true,code:'NATIVE_FOCUS_ALREADY_PRESENT',
-      route:'SIGNED_ANDROID_ACCESSIBILITY',dispatched:false,
-      computerUseInvoked:false,approvalGranted:false});
+  if(kind==='FOCUS'||kind==='TYPE'){
+    let focusState,authenticated=false;
+    try{
+      focusState=await readOriginalInputFocus({owner,scene,candidate});
+      authenticated=await verifyOriginalInputFocus(focusState,owner,scene,candidate);
+    }catch{return deny('ORIGINAL_INPUT_FOCUS_READBACK_UNAVAILABLE')}
+    if(authenticated!==true||
+       !inputFocusProof(focusState,owner,scene,candidate,clock()))
+      return deny('ORIGINAL_INPUT_FOCUS_READBACK_UNVERIFIED');
+    if(kind==='TYPE'&&!focusState.targetFocused)
+      return deny('NATIVE_INPUT_NOT_FOCUSED');
+    if(kind==='FOCUS'&&focusState.targetFocused)
+      return Object.freeze({ok:true,code:'NATIVE_FOCUS_ALREADY_PRESENT',
+        focusType:'FOCUS_INPUT',inputFocusVerified:true,
+        route:'SIGNED_ANDROID_ACCESSIBILITY',dispatched:false,
+        computerUseInvoked:false,computerUseApprovalRequested:false,
+        approvalGranted:false});
+  }
   // Only the phone's current signed native action protocol can authoritatively
   // assert support. Old public itemRef alone cannot authorize a native step.
   let cap,risk;
@@ -181,7 +223,7 @@ export function createRightNativeFirstPlanner56({
       originalApprovalBoundary:true,computerUseInvoked:false});
   if(risk?.safe!==true||risk?.riskClass!==riskNames[kind])
     return deny('NATIVE_SAFE_RISK_NOT_CONFIRMED');
-  if(!capabilityProof(cap,owner,scene,kind))
+  if(!capabilityProof(cap,owner,scene,kind,candidate))
     return deny('NATIVE_EXACT_TARGET_CAPABILITY_MISSING_NO_COMPUTER_USE_FALLBACK');
   let latestOwner,latestScene;
   try{
@@ -197,6 +239,8 @@ export function createRightNativeFirstPlanner56({
   const plan=Object.freeze({
     route:'SIGNED_ANDROID_ACCESSIBILITY',nativeAction:nativeNames[kind],
     kind,commandId,contextId:scope.contextId,
+    ...(kind==='FOCUS'?{androidActionId:1,focusType:'FOCUS_INPUT',
+      requiresInputFocusReadback:true,focusTargetDigest:cap.targetNodeDigest}:{}),
     screenDigest:scope.screenDigest,workWindowId:scope.workWindowId,
     targetItemRef:candidate.itemRef,targetIndex:candidate.number,
     ...(kind==='SCROLL'?{direction}:{}),
@@ -209,4 +253,62 @@ export function createRightNativeFirstPlanner56({
     dispatched:false,automaticReplay:false});
  }
  return Object.freeze({plan});
+}
+ 
+/** Verification AFTER original signed ACTION_FOCUS has been attempted once.
+ * Merely returning performAction(true), ACTION_ACCESSIBILITY_FOCUS, or
+ * accessibilityFocused=true cannot be promoted to input focus success.
+ */
+export async function verifyRightInputFocusCompletion56({
+ plan,actionReceipt,freshOwner,freshScene,focusReport,
+ verifyOriginalActionReceipt,verifyOriginalOwner,verifyOriginalScene,
+ verifyOriginalInputFocus,clock=Date.now
+}={}){
+ const denied=code=>deny(code,{focusVerified:false});
+ if(!object(plan)||plan.kind!=='FOCUS'||
+    plan.nativeAction!=='ACTION_FOCUS'||plan.androidActionId!==1||
+    plan.focusType!=='FOCUS_INPUT'||!H64.test(plan.focusTargetDigest||'')||
+    plan.originalSignedPhoneRequired!==true||
+    [verifyOriginalActionReceipt,verifyOriginalOwner,verifyOriginalScene,
+     verifyOriginalInputFocus,clock].some(fn=>typeof fn!=='function'))
+   return denied('FOCUS_VERIFICATION_SCOPE_INVALID');
+ if(!object(actionReceipt)||actionReceipt.type!=='agent_step'||
+   actionReceipt.status!=='complete'||actionReceipt.result?.ok!==true||
+   actionReceipt.action!=='ACTION_FOCUS'||
+   actionReceipt.commandId!==plan.commandId||
+   actionReceipt.targetItemRef!==plan.targetItemRef||
+   actionReceipt.windowId!==plan.workWindowId)
+   return denied('ORIGINAL_FOCUS_ACTION_UNCONFIRMED');
+ try{if(await verifyOriginalActionReceipt(actionReceipt,plan)!==true)
+   return denied('ORIGINAL_FOCUS_ACTION_UNAUTHENTICATED')}
+ catch{return denied('ORIGINAL_FOCUS_ACTION_UNAUTHENTICATED')}
+ if(!object(freshOwner)||freshOwner.commandId!==plan.commandId||
+    freshOwner.workWindowId!==plan.workWindowId||
+    !sceneScope(freshOwner,freshScene,plan.commandId,clock()))
+   return denied('FOCUS_RIGHT_WORK_WINDOW_CHANGED');
+ try{if(await verifyOriginalOwner(freshOwner,plan.commandId)!==true||
+         await verifyOriginalScene(freshScene,freshOwner)!==true||
+         await verifyOriginalInputFocus(focusReport,freshOwner,freshScene)!==true)
+   return denied('FOCUS_FRESH_PROOF_NOT_AUTHENTICATED')}
+ catch{return denied('FOCUS_FRESH_PROOF_NOT_AUTHENTICATED')}
+ if(!object(focusReport)||focusReport.source!==INPUT_FOCUS||
+    focusReport.focusType!=='FOCUS_INPUT'||
+    focusReport.deviceId!==freshOwner.deviceId||
+    focusReport.sessionId!==freshOwner.sessionId||
+    focusReport.commandId!==plan.commandId||
+    focusReport.windowId!==plan.workWindowId||
+    focusReport.packageName!==CHROME||
+    focusReport.screenDigest!==freshScene.screenDigest||
+    focusReport.targetFocused!==true||focusReport.nodeIsFocused!==true||
+    focusReport.isEditable!==true||
+    focusReport.focusedTargetDigest!==plan.focusTargetDigest||
+    !Number.isSafeInteger(focusReport.checkedAt)||
+    focusReport.checkedAt<freshScene.capturedAt-2000||
+    focusReport.checkedAt>clock()||
+    clock()-focusReport.checkedAt>15000)
+    return denied('FOCUS_INPUT_NOT_CONFIRMED_ON_EXACT_TARGET');
+ return Object.freeze({ok:true,code:'RIGHT_CHROME_INPUT_FOCUS_VERIFIED',
+   focusVerified:true,focusType:'FOCUS_INPUT',
+   originalActionVerified:true,phoneLocalApprovalBypassed:false,
+   computerUseInvoked:false,dispatched:false,automaticReplay:false});
 }
