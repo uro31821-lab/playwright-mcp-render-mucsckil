@@ -1,0 +1,196 @@
+name: JH167 V4 Gemini native single-engine candidate
+on:
+  # Feature pushes use the PR run; keep a separate post-merge base check.
+  push:
+    branches: ['feat/jh167-r5-real-android-contract-20261028']
+  pull_request:
+    branches: ['feat/jh167-r5-real-android-contract-20261028']
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  v4-native-stage4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Fail early on protected source drift
+        id: preflight
+        run: |
+          # Read-only preflight before npm/media setup. The existing final guard
+          # still checks the working tree AFTER generators and tests have run.
+          git diff --exit-code 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- \
+            jh-server/owner-setup/android-direct/engine.mjs \
+            jh-server/owner-setup/android-direct/unified-route.mjs \
+            jh-server/owner-setup/android-direct/unified-owner-patch.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/server.mjs
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            jh-server/package.json
+            jh-server/owner-setup/package-lock.json
+            jh-server/owner-setup/owner-enrollment/package-lock.json
+      - name: Parse V4 Gemini native routing and durable read-only checkpoint
+        id: syntax
+        run: |
+          node --check jh-server/owner-setup/android-direct/gemini-v4-stage4-entry.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-checkpoint.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-right-phone-binding.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-secure56-host.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-visible-reply.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-task-id.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-prepare.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-owner-scope.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-durable.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-prepare-status.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-approval.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-execute.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-android-approval-wire.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-android-reprepare.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-android-wire.test.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-composition.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-composition.test.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-original-computer-approval.test.mjs
+          node --check jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.mjs
+      - name: Verify mandatory V4 test coverage and task ID V2 contract
+        id: coverage
+        run: |
+          # These required files run once in the complete android-direct suite below.
+          # A separate node --test invocation here would repeat the same tests.
+          for test_file in \
+            jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-evidence-chain.integration.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-visible-reply.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-turn-sequence.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-original-durable-operation.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-original-secure56-host.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-original-computer-prepare-readback.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-original-computer-approval.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-original-computer-execute.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-original-composition.test.mjs \
+            jh-server/owner-setup/android-direct/gemini-v4-original-android-wire.test.mjs; do
+            test -s "$test_file"
+          done
+          grep -q "JH_GEMINI_LOCAL_CLICK_V2" jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
+          grep -q "JH-GEMINI-TASK-ID-V1" jh-server/owner-setup/android-direct/gemini-v4-local-send-attribution.mjs
+      - name: Verify isolated Secure56 pending-approval receipt candidate
+        id: receipts
+        run: |
+          node --check jh-server/owner-setup/server-integration/pending-approval-receipt-patch.mjs
+          node --check jh-server/owner-setup/server-integration/secure56-pending-approval-receipts.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+      - name: Verify actual video tools for byte/hash/media evidence tests
+        id: media_tools
+        # Only independent environment setup overlaps; test/guard order stays serial.
+        background: true
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 &&
+             ffmpeg -version >/dev/null 2>&1 && ffprobe -version >/dev/null 2>&1; then
+            echo 'JH_MEDIA_TOOLS_REUSED'
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          # Record executable versions; real codec/byte/hash tests still run below.
+          ffmpeg -version
+          ffprobe -version
+      - name: Reuse existing Stage4 host dependencies for full owner integration tests
+        id: dependencies
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Require completed media setup before integration tests
+        id: media_ready
+        wait: media_tools
+      - name: Verify true pinned JH runtime consent-receipt binding (no listener)
+        id: real_receipt_runtime
+        run: |
+          CI=true NODE_ENV=test JH_OWNER_DEFER_LISTEN=1 node --test --test-reporter=spec jh-server/owner-setup/server-integration/pending-approval-real-runtime-candidate.test.mjs
+      - name: Preserve original Stage4 regressions, native routes and no browser fallback
+        id: android
+        run: |
+          # Includes all required V4 files checked above, plus existing Stage4 regressions.
+          node --test --test-reporter=spec --test-concurrency=1 jh-server/owner-setup/android-direct/*.test.mjs
+          if grep -E '(browserTool\(|@playwright/|browser_navigate|new[[:space:]]+Browser)' jh-server/owner-setup/android-direct/gemini-v4-*.mjs; then
+            echo 'Unexpected browser fallback in Android V4' && exit 1
+          fi
+      - name: Test original V4 Gemini v0.5 modes, local send approval and video evidence
+        id: gemini
+        run: |
+          node --test --test-reporter=spec --test-concurrency=1 jh-server/owner-setup/gemini-native/test/*.test.mjs
+          test "$(git hash-object jh-server/owner-setup/gemini-native/src/contract.mjs)" = "9659c081fec9680ab87b9cb118ff1a87be7c15a3"
+          test "$(git hash-object jh-server/owner-setup/gemini-native/src/native-workflow.mjs)" = "fc4bc56d9c34dc88e3615cfc5b60b4e9bc8497e0"
+      - name: Verify V4 does not overwrite confirmed Stage4 or production executable
+        id: protection
+        run: |
+          git diff --exit-code 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- \
+            jh-server/owner-setup/android-direct/engine.mjs \
+            jh-server/owner-setup/android-direct/unified-route.mjs \
+            jh-server/owner-setup/android-direct/unified-owner-patch.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/server.mjs
+          # Existing Stage4 fold verifier and Secure56 host are changed ONLY
+          # to add native Gemini-left window proof; ordinary web/approval stays.
+          test "$(git diff --name-only 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- \
+            jh-server/owner-setup/android-direct/fold-evidence.mjs \
+            jh-server/owner-setup/android-direct/host-port.mjs | wc -l)" -eq 2
+          grep -q "LEFT_GPT_RIGHT_NATIVE_GEMINI" jh-server/owner-setup/android-direct/fold-evidence.mjs
+          grep -q "nativeOwnerEvidence" jh-server/owner-setup/android-direct/host-port.mjs
+          # A negative TEST intentionally names the rejected old layout.
+          # Search executable source modules, not test fixtures.
+          if grep -E 'LEFT_NATIVE_GEMINI_RIGHT_GPT' jh-server/owner-setup/android-direct/fold-evidence.mjs $(find jh-server/owner-setup/android-direct -maxdepth 1 -name 'gemini-v4-*.mjs' ! -name '*.test.mjs' -print); then
+            echo 'Old reversed Gemini layout remains' && exit 1
+          fi
+          test ! -f jh-server/owner-setup/android-direct/gemini-v4-stage4-owner-live.mjs
+          echo V4_CANDIDATE_ISOLATED_NO_APK_OR_PRODUCTION
+      - name: Summarize exact input and gate outcomes
+        if: ${{ always() }}
+        env:
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_HEAD: ${{ github.event.pull_request.base.sha || '' }}
+          PREFLIGHT_RESULT: ${{ steps.preflight.outcome }}
+          SYNTAX_RESULT: ${{ steps.syntax.outcome }}
+          COVERAGE_RESULT: ${{ steps.coverage.outcome }}
+          RECEIPTS_RESULT: ${{ steps.receipts.outcome }}
+          REAL_RECEIPT_RUNTIME_RESULT: ${{ steps.real_receipt_runtime.outcome }}
+          DEPENDENCIES_RESULT: ${{ steps.dependencies.outcome }}
+          ANDROID_RESULT: ${{ steps.android.outcome }}
+          MEDIA_TOOLS_RESULT: ${{ steps.media_tools.outcome }}
+          MEDIA_READY_RESULT: ${{ steps.media_ready.outcome }}
+          GEMINI_RESULT: ${{ steps.gemini.outcome }}
+          PROTECTION_RESULT: ${{ steps.protection.outcome }}
+        run: |
+          python3 - <<'PY_SUMMARY'
+          import json, os, subprocess
+          gates = ('preflight', 'syntax', 'coverage', 'receipts', 'dependencies',
+                   'real_receipt_runtime', 'android', 'media_tools', 'media_ready', 'gemini', 'protection')
+          checkout = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True,
+                                    text=True, check=False)
+          result = {
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+              'event': os.environ.get('GITHUB_EVENT_NAME'),
+              'source_head': os.environ.get('SOURCE_HEAD'),
+              'base_head': os.environ.get('BASE_HEAD') or None,
+              'checkout_sha': checkout.stdout.strip() if checkout.returncode == 0 else None,
+              'gates': {name: os.environ.get(name.upper() + '_RESULT') or 'not_run'
+                        for name in gates},
+          }
+          # This is evidence, not a replacement success gate. A skipped test stays skipped.
+          print('JH_CI_SUMMARY ' + json.dumps(result, sort_keys=True))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write('## JH CI checkpoint\n\n```json\n')
+              out.write(json.dumps(result, indent=2, sort_keys=True))
+              out.write('\n```\n')
+          PY_SUMMARY

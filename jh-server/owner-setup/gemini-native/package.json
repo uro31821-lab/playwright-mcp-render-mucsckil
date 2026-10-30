@@ -1,0 +1,17 @@
+{
+  "name": "jh-gemini-native-unified",
+  "version": "0.5.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./contract": "./src/contract.mjs",
+    "./legacy-native": "./src/session.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/gemini-ui.test.mjs test/native-readback.test.mjs test/native-v4.test.mjs test/video-artifact.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

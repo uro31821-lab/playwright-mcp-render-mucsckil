@@ -8,6 +8,7 @@ import { inspectSplitEvidence } from '../deployment/split-screen-evidence.mjs';
 
 export const FOLD_LAYOUTS=Object.freeze({
   LEFT_WEB_RIGHT_GPT:'LEFT_WEB_RIGHT_GPT',
+  LEFT_GPT_RIGHT_NATIVE_GEMINI:'LEFT_GPT_RIGHT_NATIVE_GEMINI',
   LEGACY_LEFT_GPT_RIGHT_WORK:'LEGACY_LEFT_GPT_RIGHT_WORK'
 });
 const browsers=new Set(['com.android.chrome','com.sec.android.app.sbrowser','org.mozilla.firefox']);
@@ -76,6 +77,32 @@ export function inspectFoldPair(result,rows=null,mode=FOLD_LAYOUTS.LEFT_WEB_RIGH
       displayFoldPosture:'UNKNOWN',physicalUnfoldVerified:false
     });
   }
+  // V4 Gemini is ALWAYS on the RIGHT, with the original native ChatGPT on
+  // the LEFT. Do not infer app/window identity from textual Gemini replies.
+  if(mode===FOLD_LAYOUTS.LEFT_GPT_RIGHT_NATIVE_GEMINI){
+    if(p.chatPackage!=='com.openai.chatgpt'||p.chatKind!=='NATIVE')
+      return bad('FOLD_LEFT_GPT_NOT_VERIFIED');
+    if(p.workPackage!=='com.google.android.googlequicksearchbox')
+      return bad('FOLD_RIGHT_NATIVE_GEMINI_PACKAGE_REQUIRED');
+    if(chat.right>work.left)
+      return bad('FOLD_GEMINI_NOT_RIGHT_OF_GPT');
+    if(rows===null||!rowsMatch(rows,p,work))
+      return bad('FOLD_NATIVE_GEMINI_ROWS_NOT_VERIFIED');
+    const editors=rows.filter(n=>n?.package===p.workPackage &&
+      String(n.windowId)===p.workWindowId&&n.editable===true&&n.focused===true);
+    const flat=p.foldPosture==='FLAT'&&p.foldPostureSource==='ANDROIDX_WINDOW_MANAGER';
+    return Object.freeze({
+      ok:true,code:'SIGNED_LEFT_GPT_RIGHT_NATIVE_GEMINI_GEOMETRY_VERIFIED',
+      nativeGeminiWindowVerified:true,geminiSurfaceVerified:false,geminiAccountVerified:false,
+      workSide:'RIGHT',chatSide:'LEFT',sideVerified:true,
+      workPackage:p.workPackage,chatPackage:p.chatPackage,
+      workWindowId:p.workWindowId,chatWindowId:p.chatWindowId,
+      workBounds:work,chatBounds:chat,observedAtMs:at,
+      workInputFocused:editors.length===1,
+      displayFoldPosture:flat?'PHONE_REPORTED_FLAT':'UNVERIFIED',
+      physicalUnfoldVerified:flat
+    });
+  }
   if(p.chatPackage!=='com.openai.chatgpt'||p.chatKind!=='NATIVE')
     return bad('FOLD_RIGHT_GPT_NOT_VERIFIED');
   if(!browsers.has(p.workPackage))
@@ -92,6 +119,9 @@ export function inspectFoldPair(result,rows=null,mode=FOLD_LAYOUTS.LEFT_WEB_RIGH
     ? 'PHONE_REPORTED_FLAT':'UNVERIFIED';
   return Object.freeze({
     ok:true,code:'SIGNED_LEFT_WEB_RIGHT_GPT_GEOMETRY_VERIFIED',
+    nativeGeminiWindowVerified:false,
+    geminiSurfaceVerified:false,
+    geminiAccountVerified:false,
     workSide:'LEFT',chatSide:'RIGHT',sideVerified:true,
     workPackage:p.workPackage,chatPackage:p.chatPackage,
     workWindowId:p.workWindowId,chatWindowId:p.chatWindowId,
@@ -103,7 +133,12 @@ export function inspectFoldPair(result,rows=null,mode=FOLD_LAYOUTS.LEFT_WEB_RIGH
 }
 /** Coordinates are GLOBAL display pixels, not local viewport offsets. */
 export function guardFoldAction(proof,args) {
-  if(!proof?.ok||proof.workSide!=='LEFT')return bad('FOLD_TARGET_NOT_VERIFIED');
+  const leftWeb=proof?.ok&&proof.workSide==='LEFT'&&proof.chatSide==='RIGHT'&&
+    proof.nativeGeminiWindowVerified!==true;
+  const rightGemini=proof?.ok&&proof.workSide==='RIGHT'&&proof.chatSide==='LEFT'&&
+    proof.nativeGeminiWindowVerified===true&&
+    proof.workPackage==='com.google.android.googlequicksearchbox';
+  if(!leftWeb&&!rightGemini)return bad('FOLD_TARGET_NOT_VERIFIED');
   if(!args||typeof args!=='object')return bad('FOLD_ACTION_INVALID');
   const work=proof.workBounds,chat=proof.chatBounds;
   if(!Number.isSafeInteger(args.viewport_width)||
@@ -115,12 +150,13 @@ export function guardFoldAction(proof,args) {
     if(!Number.isSafeInteger(args.x)||!Number.isSafeInteger(args.y)||
        args.x<work.left+2||args.x>=work.right-2||
        args.y<work.top+2||args.y>=work.bottom-2)
-      return bad('FOLD_ACTION_OUTSIDE_LEFT_BROWSER');
-    return Object.freeze({ok:true,code:'FOLD_LEFT_BROWSER_COORDINATE_VERIFIED'});
+      return bad(rightGemini?'FOLD_ACTION_OUTSIDE_RIGHT_GEMINI':'FOLD_ACTION_OUTSIDE_LEFT_BROWSER');
+    return Object.freeze({ok:true,code:rightGemini?
+      'FOLD_RIGHT_GEMINI_COORDINATE_VERIFIED':'FOLD_LEFT_BROWSER_COORDINATE_VERIFIED'});
   }
   if(args.action==='TYPE'||args.action==='KEYPRESS')
     return proof.workInputFocused===true
       ?Object.freeze({ok:true,code:'FOLD_WORK_EDITABLE_FOCUS_VERIFIED'})
-      :bad('FOLD_LEFT_WEB_INPUT_FOCUS_REQUIRED');
+      :bad(rightGemini?'FOLD_RIGHT_GEMINI_INPUT_FOCUS_REQUIRED':'FOLD_LEFT_WEB_INPUT_FOCUS_REQUIRED');
   return bad('FOLD_ACTION_UNSUPPORTED');
 }

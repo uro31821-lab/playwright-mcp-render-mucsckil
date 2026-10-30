@@ -1,0 +1,43 @@
+name: JH168 pending approval operator candidate
+on:
+  pull_request:
+    branches: ['feat/jh167-r5-real-android-contract-20261028']
+permissions:
+  contents: read
+jobs:
+  pending-operator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            jh-server/package.json
+            jh-server/owner-setup/package-lock.json
+            jh-server/owner-setup/owner-enrollment/package-lock.json
+      - name: Assert protected server and Android sources unmodified
+        run: |
+          git diff --exit-code 9585b3feefd0765c7c8e50e831035b3ac1e63fb4 -- \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration/server.mjs \
+            jh-server/server.mjs
+      - name: Install pinned owner host dependencies without startup hooks
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Validate explicit opt-in Secure56 operator wiring
+        run: |
+          node --check jh-server/owner-setup/server-integration/pending-approval-operator-entry.mjs
+          node --check jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs
+          CI=true NODE_ENV=test JH_OWNER_DEFER_LISTEN=1 node --test --test-reporter=spec jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs
+      - name: Confirm no production listener, APK rebuild, or deployment action
+        run: |
+          test -z "${JH_PENDING_APPROVAL_OPERATOR_ENABLE:-}"
+          echo JH168_OPTIN_OPERATOR_CANDIDATE_ONLY_NO_DEPLOYMENT

@@ -95,3 +95,71 @@ test('existing left GPT/right work route is still verified by original JH inspec
  const reverse=inspectFoldPair(f.result,f.rows,FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT,clock);
  assert.equal(reverse.ok,false);
 });
+
+// JH V4 corrected fold policy: LEFT ChatGPT, RIGHT native Gemini.
+function nativeRight(){
+ const f=fixture({chatBounds:box(0,0,1080,1800),
+   workBounds:box(1080,0,2160,1800),
+   workPackage:'com.google.android.googlequicksearchbox'});
+ f.rows[1].package='com.google.android.googlequicksearchbox';
+ f.rows[1].bounds=box(1100,50,2080,1700);
+ return f;
+}
+test('V4 signed LEFT GPT / RIGHT Gemini geometry is accepted only for Gemini package',()=>{
+ const f=nativeRight();
+ const proof=inspectFoldPair(f.result,f.rows,FOLD_LAYOUTS.LEFT_GPT_RIGHT_NATIVE_GEMINI,clock);
+ assert.equal(proof.ok,true);
+ assert.equal(proof.code,'SIGNED_LEFT_GPT_RIGHT_NATIVE_GEMINI_GEOMETRY_VERIFIED');
+ assert.equal(proof.workSide,'RIGHT');assert.equal(proof.chatSide,'LEFT');
+ assert.equal(proof.nativeGeminiWindowVerified,true);
+ assert.equal(proof.geminiSurfaceVerified,false);
+ assert.equal(proof.geminiAccountVerified,false);
+ assert.equal(guardFoldAction(proof,action(1400)).ok,true);
+ assert.equal(guardFoldAction(proof,action(800)).code,'FOLD_ACTION_OUTSIDE_RIGHT_GEMINI');
+ assert.equal(guardFoldAction(proof,action(1079)).ok,false);
+ // This RIGHT Gemini surface must not be misread as a LEFT browser.
+ assert.equal(inspectFoldPair(f.result,f.rows,FOLD_LAYOUTS.LEFT_WEB_RIGHT_GPT,clock).ok,false);
+});
+test('RIGHT Gemini requires actual signed native GPT LEFT and matching phone-side rows',()=>{
+ const mode=FOLD_LAYOUTS.LEFT_GPT_RIGHT_NATIVE_GEMINI;
+ const tests=[
+  {chatPackage:'com.android.chrome'},
+  {chatKind:'BROWSER_VERIFIED'},
+  {workPackage:'com.android.chrome'},
+  {workPackage:'com.untrusted.app'},
+  {chatBounds:box(1080,0,2160,1800),workBounds:box(0,0,1080,1800)},
+  {observedAtMs:String(clock-60000)}, {workWindowId:'xx'},
+  {workBounds:box(1050,0,2160,1800)}
+ ];
+ for(const change of tests){
+  const f=nativeRight();Object.assign(f.proof,change);
+  f.rows[0]={...f.proof};
+  assert.equal(inspectFoldPair(f.result,f.rows,mode,clock).ok,false,JSON.stringify(change));
+ }
+ const a=nativeRight();
+ a.rows[1].windowId='999';
+ assert.equal(inspectFoldPair(a.result,a.rows,mode,clock).ok,false);
+ const b=nativeRight();
+ b.rows[1].bounds=box(100,100,600,300);
+ assert.equal(inspectFoldPair(b.result,b.rows,mode,clock).ok,false);
+});
+test('RIGHT Gemini TYPE requires focused input; no action may cross to GPT LEFT',()=>{
+ const mode=FOLD_LAYOUTS.LEFT_GPT_RIGHT_NATIVE_GEMINI;
+ const f=nativeRight();
+ const old=inspectFoldPair(f.result,f.rows,mode,clock);
+ assert.equal(guardFoldAction(old,action(1400,500,{action:'TYPE'})).code,
+   'FOLD_RIGHT_GEMINI_INPUT_FOCUS_REQUIRED');
+ const rows=[...f.rows,{package:'com.google.android.googlequicksearchbox',windowId:'17',
+  editable:true,focused:true,bounds:box(1190,200,1860,290),text:'Gemini editor'}];
+ const valid=inspectFoldPair(f.result,rows,mode,clock);
+ assert.equal(valid.ok,true);assert.equal(valid.workInputFocused,true);
+ assert.equal(guardFoldAction(valid,action(1500,500,{action:'TYPE'})).ok,true);
+ assert.equal(guardFoldAction(valid,action(500,500)).ok,false);
+});
+test('old left Gemini / right GPT visual arrangement is refused by V4',()=>{
+ const f=fixture({workPackage:'com.google.android.googlequicksearchbox'});
+ f.rows[1].package='com.google.android.googlequicksearchbox';
+ const denied=inspectFoldPair(f.result,f.rows,FOLD_LAYOUTS.LEFT_GPT_RIGHT_NATIVE_GEMINI,clock);
+ assert.equal(denied.ok,false);
+ assert.equal(Object.values(FOLD_LAYOUTS).includes('LEFT_NATIVE_GEMINI_RIGHT_GPT'),false);
+});
