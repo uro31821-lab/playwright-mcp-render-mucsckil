@@ -83,15 +83,23 @@ jobs:
           import {readFileSync,writeFileSync} from 'node:fs';
           const root=process.env.ROOT;
           const raw=JSON.parse(readFileSync(root+'/reference-analysis.json','utf8'));
-          if(raw?.ok!==true||typeof raw?.data!=='object'){
-            console.error('REA_DROIDBRIDGE_ANALYSIS_ERROR',JSON.stringify({ok:raw?.ok,meta:raw?.meta?.status||null}));
+          if(raw?.operation!=='inspect_android_package'||
+              raw?.provider?.id!=='jadx'||
+              raw?.subject?.digest?.sha256!=='329ae812f3812e1df96f79c202964d242d9f71681ed12c82dcd017e656c03952'||
+              typeof raw?.normalized_result!=='object'||
+              raw.normalized_result.package_name!=='com.droidbridge.standalone'||
+              !Number.isSafeInteger(raw.normalized_result.class_count)||
+              raw.normalized_result.class_count<1){
+            console.error('REA_DROIDBRIDGE_EVIDENCE_INVALID',JSON.stringify({operation:raw?.operation,provider:raw?.provider?.id,keys:Object.keys(raw||{}).slice(0,15)}));
             process.exit(1);
           }
-          const data=raw.data, value=data.normalized_result??data;
-          const summary={reaOk:raw.ok,topLevel:Object.keys(value).slice(0,18),
-            packageName:value.package_name??value.packageName??value.manifest?.package??null,
-            evidenceStatus:data.status??value.status??null,
-            limitationCount:Array.isArray(data.limitations)?data.limitations.length:0};
+          const value=raw.normalized_result;
+          const summary={reaEvidenceId:raw.evidence_id,apkSha256:raw.subject.digest.sha256,
+            provider:raw.provider.name,providerVersion:raw.provider.version,
+            packageName:value.package_name,versionName:value.version_name,
+            classCount:value.class_count,resourceCount:value.resource_count,
+            manifestStatus:value.manifest?.status??null,
+            limitationCount:Array.isArray(raw.limitations)?raw.limitations.length:0};
           writeFileSync(root+'/summary.json',JSON.stringify(summary,null,2)+'\n');
           console.log('JH168_REA_DROIDBRIDGE_REAL_APK_ANALYZED',JSON.stringify(summary));
           NODE
