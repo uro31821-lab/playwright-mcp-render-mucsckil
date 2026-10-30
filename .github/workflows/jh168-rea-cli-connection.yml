@@ -1,15 +1,16 @@
-name: JH168 REA isolated CLI connection check
-
+name: JH REA reusable static analysis
 on:
   push:
-    branches: ['feat/jh168-rea-cli-runner-20261030']
+    branches: ['devtools/jh-rea-runner']
     paths:
       - '.github/workflows/jh168-rea-cli-connection.yml'
+      - 'tools/rea/**'
   workflow_dispatch:
-
 permissions:
   contents: read
-
+concurrency:
+  group: jh-rea-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   rea-static-runtime:
     runs-on: ubuntu-24.04
@@ -19,83 +20,57 @@ jobs:
         id: evidence
         shell: bash
         run: |
-          directory=$(mktemp -d "${RUNNER_TEMP:?}/jh168-rea.XXXXXX")
+          directory=$(mktemp -d "${RUNNER_TEMP:?}/jh-rea.XXXXXX")
           echo "directory=$directory" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24.22.1'
-      - name: Verify exact runtime prerequisites
-        shell: bash
+      - name: Validate request and stage committed source without executing it
+        env:
+          REPORT_DIR: ${{ steps.evidence.outputs.directory }}
         run: |
           test "$(node --version)" = 'v24.22.1'
           command -v ps
-          command -v npm
-          echo JH168_REA_NODE_AND_PROCPS_READY
-      - name: Install official pinned REA in runner temp only
-        shell: bash
+          python3 -B tools/rea/bridge.py prepare tools/rea/request.json "$REPORT_DIR"
+      - name: Install official pinned REA using existing verified method
+        env:
+          REPORT_DIR: ${{ steps.evidence.outputs.directory }}
         run: |
           npm install --prefix "${RUNNER_TEMP}/jh168-rea-tool" --no-audit --no-fund --ignore-scripts --save-exact rea-agents@6.8.0
+          node -e "const p=require(process.argv[1]);if(p.version!=='6.8.0')process.exit(2)" "${RUNNER_TEMP}/jh168-rea-tool/node_modules/rea-agents/package.json"
           echo "${RUNNER_TEMP}/jh168-rea-tool/node_modules/.bin" >> "$GITHUB_PATH"
-      - name: Verify official CLI entrypoint
-        shell: bash
-        run: |
-          command -v rea
-          rea --version
-          rea --help > /dev/null
-          echo JH168_REA_CLI_LAUNCH_OK
-      - name: Stage REAL JH split-screen module for static REA analysis
-        shell: bash
-        run: |
-          target="${RUNNER_TEMP}/jh168-source"
-          mkdir -p "$target"
-          cp jh-server/owner-setup/deployment/split-screen-assistant-mcp-patch.mjs "$target/index.mjs"
-          printf '%s\n' '{"name":"jh168-split-reconstruction","version":"1.0.0","type":"module","main":"index.mjs"}' > "$target/package.json"
-          test -s "$target/index.mjs"
-          echo "REA_TARGET_JH_SPLIT_SCREEN_MODULE_STAGED"
-      - name: Execute REA analysis and preserve original process failure
-        id: analysis
-        shell: bash
+          sha256sum "${RUNNER_TEMP}/jh168-rea-tool/package-lock.json" > "$REPORT_DIR/dependency-lock.sha256"
+      - name: Run official static analysis and preserve original exit code
         env:
           REPORT_DIR: ${{ steps.evidence.outputs.directory }}
         run: |
+          node --version > "$REPORT_DIR/node-version.txt"
+          rea --version > "$REPORT_DIR/rea-version.txt"
+          rea --help > /dev/null
           set +e
-          rea analyze-javascript-application "${RUNNER_TEMP}/jh168-source" --json --full-output \
-             > "${REPORT_DIR}/analysis.json" 2> "${REPORT_DIR}/analysis.stderr"
+          rea analyze-javascript-application "$REPORT_DIR/target" --json --full-output > "$REPORT_DIR/analysis.json" 2> "$REPORT_DIR/analysis.stderr"
           status=$?
           set -e
-          echo "$status" > "${REPORT_DIR}/exit-code.txt"
-          echo "JH168_REA_ANALYSIS_EXIT=$status"
+          echo "$status" > "$REPORT_DIR/exit-code.txt"
+          echo "JH_REA_ANALYSIS_EXIT=$status"
           exit "$status"
-      - name: Validate REA machine-readable evidence and record the limitations
-        shell: bash
+      - name: Validate exact input and machine-readable result
         env:
           REPORT_DIR: ${{ steps.evidence.outputs.directory }}
-        run: |
-          node --input-type=module <<'NODE'
-          import {readFileSync} from 'node:fs';
-          const file=process.env.REPORT_DIR+'/analysis.json';
-          const output=JSON.parse(readFileSync(file,'utf8'));
-          const valid=output && typeof output==='object' && !Array.isArray(output);
-          if(!valid || output.ok===false || output.success===false || output.status==='error'){
-            console.error('JH168_REA_EVIDENCE_INVALID_OR_ERROR');
-            process.exit(2);
-          }
-          console.log('JH168_REA_EVIDENCE_VALID '+JSON.stringify({
-            keys:Object.keys(output).slice(0,15),
-            status:output.status??null,
-            partial:output.data?.normalized_result?.statistics?.parse_failures??null,
-            limitationsPresent:Array.isArray(output.data?.limitations)&&output.data.limitations.length>0
-          }));
-          console.log('JH168_REA_EXECUTOR_CONNECTED_AND_ANALYSIS_EXECUTED');
-          NODE
-      - name: Upload bounded evidence, including on failure
+        run: python3 -B tools/rea/bridge.py validate "$REPORT_DIR"
+      - name: Preserve bounded result for reuse
         if: ${{ always() && steps.evidence.outputs.directory != '' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: jh168-rea-static-evidence
-          path: ${{ steps.evidence.outputs.directory }}
+          name: jh-rea-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.evidence.outputs.directory }}/*.json
+            ${{ steps.evidence.outputs.directory }}/*.txt
+            ${{ steps.evidence.outputs.directory }}/*.sha256
+            ${{ steps.evidence.outputs.directory }}/analysis.stderr
           if-no-files-found: warn
-          retention-days: 1
+          retention-days: 30

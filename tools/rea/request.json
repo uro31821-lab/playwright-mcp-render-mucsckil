@@ -1,0 +1,9 @@
+{
+  "schema": "JH_REA_REQUEST_V1",
+  "request_id": "reuse-route-integration-20261030",
+  "source_commit": "ee9809ba37ddad5a48c7d0b1b789bc8e5efa5b7f",
+  "paths": [
+    "jh-server/owner-setup/deployment/split-screen-assistant-mcp-patch.mjs",
+    "jh-server/owner-setup/deployment/jh167-open-completion.mjs"
+  ]
+}
