@@ -35,9 +35,24 @@ export function requirePcNodeVersion(version){
  const [major,minor]=version.split('.').map(Number);
  if(major<22||(major===22&&minor<16))fail('PC_SETUP_NODE_RUNTIME_REQUIRED');
 }
+/** Readable fail-closed opt-in; a blank value restores the original npm start path. */
+export function selectPendingApprovalStartup56(env=process.env){
+ const flag=env.JH_PENDING_APPROVAL_OPERATOR_ENABLE;
+ if(flag===undefined||flag==='')return 'original';
+ if(flag!=='EXPLICIT_OPERATOR_APPROVAL_RECEIPT_V1')fail('JH_PENDING_APPROVAL_OPERATOR_FLAG_INVALID');
+ if(env.JH_DURABLE_RELEASE!=='SERVE_READY_V1')fail('JH_PENDING_APPROVAL_DURABLE_RELEASE_REQUIRED');
+ if(env.RENDER_SERVICE_ID!=='srv-db0fjl2d0e5s73be114g')fail('JH_PENDING_APPROVAL_SERVICE_ID_MISMATCH');
+ if(env.CI==='true'||env.JH_OWNER_DEFER_LISTEN!==undefined)fail('JH_PENDING_APPROVAL_TEST_BYPASS_FORBIDDEN');
+ return 'pending-approval';
+}
 export async function main(){
  const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),hostRoot=path.dirname(sourceRoot);
  if(path.basename(sourceRoot)!=='owner-setup')fail('PUBLISHED_HOST_LAYOUT_REQUIRED');
+ if(selectPendingApprovalStartup56(process.env)==='pending-approval'){
+  assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
+  const {main:operatorMain}=await import('../server-integration/pending-approval-operator-entry.mjs');
+  return operatorMain(process.env);
+ }
  if(process.env.JH_DURABLE_RELEASE!==undefined){
   assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
   const {main:durableMain}=await import('./durable-clean-restart-news-review-entry.mjs');
