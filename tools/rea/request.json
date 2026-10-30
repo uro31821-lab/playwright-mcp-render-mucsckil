@@ -1,9 +1,20 @@
 {
   "schema": "JH_REA_REQUEST_V1",
-  "request_id": "reuse-route-integration-20261030",
-  "source_commit": "ee9809ba37ddad5a48c7d0b1b789bc8e5efa5b7f",
+  "request_id": "jh168-focus-scroll-approval-redesign-20261031-v1",
+  "source_commit": "c99175d1600d87812913fdb76462ba7e0d81469b",
   "paths": [
+    "jh-server/owner-setup/jh168-mobile-unification/right-target-preflight.mjs",
     "jh-server/owner-setup/deployment/split-screen-assistant-mcp-patch.mjs",
-    "jh-server/owner-setup/deployment/jh167-open-completion.mjs"
+    "jh-server/owner-setup/deployment/jh155-split-integration-patch.mjs",
+    "jh-server/owner-setup/deployment/durable-native-job-policy.mjs",
+    "jh-server/owner-setup/deployment/split-comfort-10-mcp-patch.mjs",
+    "jh-server/owner-setup/deployment/jh167-right-pane-orchestrator-repair.mjs",
+    "jh-server/owner-setup/jh168-mobile-unification/computer-inspect-receipt-patch.mjs",
+    "jh-server/owner-setup/jh168-mobile-unification/split-read-receipt-patch.mjs",
+    "jh-server/owner-setup/server-integration/pending-approval-receipt-patch.mjs",
+    "jh-server/owner-setup/server-integration/secure56-pending-approval-receipts.mjs",
+    "jh-server/owner-setup/server-integration/pending-approval-operator-entry.mjs",
+    "jh-server/owner-setup/deployment/durable-native-host.mjs",
+    "jh-server/owner-setup/deployment/jh167-split-lifecycle-policy.mjs"
   ]
 }
