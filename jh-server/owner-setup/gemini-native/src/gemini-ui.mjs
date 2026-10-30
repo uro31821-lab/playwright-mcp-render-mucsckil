@@ -103,19 +103,115 @@ export function readGeminiReply(nodes, screen, expectedPrompt) {
     truncated, contentIsUntrusted:true, actionAuthority:false, needsFreshJhValidation: true };
 }
 
-/** Converts an already-signed observation's known UI nodes into candidates only.
- * Account/conversation/message IDs must come from original JH correlation; this
- * function never invents them, infers video completion, or grants permission. */
-export function discoverGeminiSubmit(nodes,screen,expectedPrompt){
- const input=discoverGeminiInput(nodes,screen);
- if(input.code!=='GEMINI_INPUT_CANDIDATE')return {code:'GEMINI_SURFACE_NOT_IDENTIFIED',unique:false};
- const scoped=nodes.filter(n=>n.package===screen.packageName&&String(n.windowId)===String(screen.windowId));
- const editor=scoped.find(n=>n.viewId===GEMINI_NATIVE_PROFILE.inputViewId);
- if(editor?.text!==expectedPrompt)return {code:'DRAFT_NOT_EXACT',unique:false};
- const buttons=scoped.filter(n=>(n.clickable===true||n.clickable==='true')&&
-   n.sensitive!==true&&n.sensitive!=='true'&&['전송','보내기','Send','Submit'].includes(n.text));
- if(buttons.length!==1)return {code:'EXACT_SEND_CONTROL_NOT_UNIQUE',unique:false};
- try{return {code:'SEND_CANDIDATE_REQUIRES_LOCAL_REVIEW',unique:true,point:nodeToWorkPoint(screen,buttons[0]),
-  selector:buttons[0].viewId||null,verified:false,actionAuthority:false}}
- catch{return {code:'SEND_OUTSIDE_VERIFIED_WORK_WINDOW',unique:false}}
+/** Any native snapshot string is a candidate, not authentication. The JH host
+ * must still verify a fresh signed window, prepare the exact target, obtain
+ * phone-local one-shot SEND approval and check the signed execution receipt.
+ */
+const SEND_LABELS = new Set([
+  '전송', '보내기', '메시지 전송', '메시지 보내기',
+  'Send', 'Submit', 'Send message'
+]);
+const isTrue = v => v === true || v === 'true';
+const isFalse = v => v === false || v === 'false';
+const fields = ['text', 'contentDescription', 'content_description',
+  'accessibilityLabel', 'tooltipText', 'label'];
+const isSendLabel = n => fields.some(k =>
+  typeof n[k] === 'string' && SEND_LABELS.has(n[k].trim()));
+function exactDraftInNativeSnapshot(editor, expectedPrompt) {
+  if (!editor || typeof expectedPrompt !== 'string' || !expectedPrompt.trim() ||
+      isTrue(editor.geminiTextPartial)) return false;
+  // Prefer the native extracted text when available. Do not accept prefixes.
+  if (typeof editor.geminiPlainText === 'string')
+    return editor.geminiPlainText === expectedPrompt;
+  if (editor.text === expectedPrompt) return true;
+  // The original JH accessibility serializer appends this KNOWN Gemini
+  // hint/resource ID to the exact draft; strip this exact suffix only.
+  const serializerSuffix = ' Gemini에게 물어보세요 ' + GEMINI_NATIVE_PROFILE.inputViewId;
+  return editor.text === expectedPrompt + serializerSuffix;
+}
+function isSafeClickable(n) {
+  return isTrue(n.clickable) && !isTrue(n.editable) && !isTrue(n.sensitive);
+}
+function candidateRect(n, screen) {
+  try {
+    const b = box(n.bounds), w = box(screen);
+    if (b.left < w.left || b.top < w.top || b.right > w.right ||
+        b.bottom > w.bottom) return null;
+    return b;
+  } catch { return null; }
+}
+function nearComposerSendArea(node, editorRect, screen) {
+  const b = candidateRect(node, screen);
+  if (!b || b.right - b.left > 180 || b.bottom - b.top > 180) return false;
+  const x = (b.left + b.right) / 2;
+  const y = (b.top + b.bottom) / 2;
+  return x >= editorRect.right - 195 &&
+    y >= editorRect.top - 45 && y <= editorRect.bottom + 165 &&
+    b.bottom >= editorRect.bottom - 35;
+}
+function unlabeledBottomRow(scoped, editorRect, screen) {
+  const candidates = scoped.filter(n => {
+    if (!isSafeClickable(n) || (n.viewId ?? '') !== '' || (n.text ?? '') !== '' ||
+        isSendLabel(n)) return false;
+    const b = candidateRect(n, screen);
+    return !!b && b.right - b.left >= 60 && b.right - b.left <= 140 &&
+      b.bottom - b.top >= 60 && b.bottom - b.top <= 140 &&
+      Math.abs(b.top - editorRect.bottom) <= 20;
+  });
+  // Current Fold Gemini has one left toolbar icon and two adjacent right
+  // icons. This is geometry ONLY, never proof that either icon means SEND.
+  if (candidates.length !== 3) return null;
+  const left = candidates.filter(n => candidateRect(n, screen).right <= editorRect.left + 100);
+  const right = candidates.filter(n =>
+    candidateRect(n, screen).left >= editorRect.right - 195)
+    .sort((u, v) => candidateRect(u, screen).left - candidateRect(v, screen).left);
+  if (left.length !== 1 || right.length !== 2 ||
+      !right.every(n => nearComposerSendArea(n, editorRect, screen))) return null;
+  const a = candidateRect(right[0], screen), b = candidateRect(right[1], screen);
+  if (Math.abs(a.right - b.left) > 2 || Math.abs(a.top - b.top) > 2 ||
+      Math.abs(a.bottom - b.bottom) > 2 ||
+      b.right < editorRect.right - 5) return null;
+  return right[1];
+}
+
+/** Return a review candidate, NEVER a grant, signed target, or permission.
+ * A blank unlabeled icon can only be an UNVERIFIED visual candidate. Neither
+ * this function nor its caller may auto-click it from geometry alone.
+ */
+export function discoverGeminiSubmit(nodes, screen, expectedPrompt) {
+  const input = discoverGeminiInput(nodes, screen);
+  const refuse = code => ({code, unique:false, verified:false,
+    actionAuthority:false, automaticSend:false});
+  if (input.code !== 'GEMINI_INPUT_CANDIDATE')
+    return refuse('GEMINI_SURFACE_NOT_IDENTIFIED');
+  const scoped = nodes.filter(n => n.package === screen.packageName &&
+    String(n.windowId) === String(screen.windowId));
+  const editor = scoped.find(n => n.viewId === GEMINI_NATIVE_PROFILE.inputViewId);
+  if (!exactDraftInNativeSnapshot(editor, expectedPrompt))
+    return refuse('DRAFT_NOT_EXACT');
+  let editorRect;
+  try { editorRect = box(editor.bounds); } catch {
+    return refuse('GEMINI_EDITOR_BOUNDS_MISSING');
+  }
+  const labeled = scoped.filter(n => isSafeClickable(n) && isSendLabel(n));
+  if (labeled.length > 1) return refuse('EXACT_SEND_CONTROL_NOT_UNIQUE');
+  if (labeled.length === 1) {
+    if (!nearComposerSendArea(labeled[0], editorRect, screen))
+      return refuse('SEND_OUTSIDE_VERIFIED_WORK_WINDOW');
+    try {
+      return {code:'SEND_CANDIDATE_REQUIRES_LOCAL_REVIEW',unique:true,
+        source:'EXPLICIT_ACCESSIBILITY_LABEL',
+        point:nodeToWorkPoint(screen,labeled[0]),
+        selector:labeled[0].viewId || null,
+        verified:false,actionAuthority:false,automaticSend:false,
+        needsFreshJhValidation:true};
+    } catch { return refuse('SEND_OUTSIDE_VERIFIED_WORK_WINDOW'); }
+  }
+  const icon = unlabeledBottomRow(scoped, editorRect, screen);
+  if (!icon) return refuse('EXACT_SEND_CONTROL_NOT_UNIQUE');
+  // The 3-icon geometry is reproduced on the live JH168 Fold; a microphone
+  // and a send icon may swap. No executable target is provided to the driver.
+  return {...refuse('GEMINI_UNLABELED_SEND_VISUAL_PROOF_REQUIRED'),
+    source:'UNLABELED_COMPOSER_GEOMETRY',candidatePoint:nodeToWorkPoint(screen,icon),
+    visualProofRequired:true,needsFreshJhValidation:true};
 }
