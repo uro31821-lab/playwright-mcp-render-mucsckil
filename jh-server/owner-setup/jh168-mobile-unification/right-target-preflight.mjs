@@ -276,6 +276,10 @@ export async function verifyRightInputFocusCompletion56({
    actionReceipt.status!=='complete'||actionReceipt.result?.ok!==true||
    actionReceipt.action!=='ACTION_FOCUS'||
    actionReceipt.commandId!==plan.commandId||
+   actionReceipt.deviceId!==freshOwner?.deviceId||
+   actionReceipt.secureSessionId!==freshOwner?.sessionId||
+   actionReceipt.screenDigest!==plan.screenDigest||
+   actionReceipt.targetNodeDigest!==plan.focusTargetDigest||
    actionReceipt.targetItemRef!==plan.targetItemRef||
    actionReceipt.windowId!==plan.workWindowId)
    return denied('ORIGINAL_FOCUS_ACTION_UNCONFIRMED');
