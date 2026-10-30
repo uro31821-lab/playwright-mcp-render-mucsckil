@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {createRightNativeFirstPlanner56} from './right-target-preflight.mjs';
+import {createRightNativeFirstPlanner56,verifyRightInputFocusCompletion56} from './right-target-preflight.mjs';
 
 const commandId='a'.repeat(32);
 const owner={deviceId:'phone-one',sessionId:'original-secure56-session',commandId,
@@ -27,7 +27,7 @@ const scene={ok:true,packageName:'com.android.chrome',windowId:1559,
  layout:{arrangement:'LEFT_RIGHT',workWindowId:1559,
   workPackage:'com.android.chrome',chatPackage:'com.openai.chatgpt'},
  items:[focus,scroller,nested]};
-const nativeMap={FOCUS:'form_activate',TYPE:'set_text',SCROLL:'form_scroll'};
+const nativeMap={FOCUS:'ACTION_FOCUS',TYPE:'set_text',SCROLL:'form_scroll'};
 const risks={FOCUS:'SAFE_NAVIGATION',TYPE:'SAFE_INPUT',SCROLL:'SAFE_SCROLL'};
 function fixture(options={}){
  let ownerReads=0,scenes=0,capabilities=0,riskReads=0,verifications=0;
@@ -36,19 +36,37 @@ function fixture(options={}){
   readOriginalScene:async()=>++scenes===1?(options.scene1||scene):(options.scene2||scene),
   verifyOriginalOwner:async()=>{verifications++;return options.verified!==false},
   verifyOriginalScene:async()=>{verifications++;return options.verified!==false},
-  readOriginalNativeCapability:async({owner:o,scene:s,kind})=>{
+  readOriginalNativeCapability:async({owner:o,scene:s,kind,candidate})=>{
    capabilities++;
    return options.capability||{source:'ORIGINAL_SIGNED_ANDROID_ACCESSIBILITY',
     deviceId:o.deviceId,sessionId:o.sessionId,commandId:o.commandId,
     workWindowId:o.workWindowId,workPackage:o.workPackage,screenDigest:s.screenDigest,
     action:nativeMap[kind],exactItemRefSupported:true,
-    nativeAccessibility:true,computerUseRequired:false};
+    nativeAccessibility:true,computerUseRequired:false,
+    ...(kind==='FOCUS'?{androidActionId:1,actionId:1,
+      focusType:'FOCUS_INPUT',isEditable:true,isFocusable:true,
+      targetItemRef:candidate.itemRef,targetNodeDigest:'9'.repeat(64),
+      advertisedActionIds:[1]}:{})};
   },
   verifyOriginalNativeCapability:async()=>options.capValid!==false,
   readOriginalRisk:async({kind})=>{riskReads++;return options.risk||{
    safe:true,riskClass:risks[kind],ownerAdmissionBlocked:false,
    phoneLocalApprovalRequired:false}},
   verifyOriginalRisk:async()=>options.riskValid!==false,
+  readOriginalInputFocus:async({owner:o,scene:s,candidate})=>{
+    if(options.focusReport)return options.focusReport;
+    const focused=options.inputFocusFocused??(candidate.facts?.focused===true);
+    return {source:'ORIGINAL_SIGNED_ANDROID_FIND_FOCUS_INPUT',
+      focusType:'FOCUS_INPUT',windowId:o.workWindowId,
+      packageName:o.workPackage,deviceId:o.deviceId,sessionId:o.sessionId,
+      commandId:o.commandId,screenDigest:s.screenDigest,
+      targetItemRef:candidate.itemRef,isEditable:true,
+      targetFocused:focused,nodeIsFocused:focused,
+      focusedItemRef:focused?candidate.itemRef:null,
+      isAccessibilityFocused:options.accessibilityFocused??false,
+      checkedAt:98000};
+  },
+  verifyOriginalInputFocus:async()=>options.focusValid!==false,
   clock:()=>100000
  };
  return {cb,get hits(){return {ownerReads,scenes,capabilities,riskReads,verifications}}};
@@ -61,7 +79,10 @@ test('normal safe FOCUS uses ORIGINAL accessibility, NEVER default Computer Use'
  const {res,hits}=await plan();
  assert.equal(res.ok,true);assert.equal(res.code,'NATIVE_SAFE_ACTION_PLAN_READY');
  assert.equal(res.plan.route,'SIGNED_ANDROID_ACCESSIBILITY');
- assert.equal(res.plan.nativeAction,'form_activate');
+ assert.equal(res.plan.nativeAction,'ACTION_FOCUS');
+ assert.equal(res.plan.androidActionId,1);
+ assert.equal(res.plan.focusType,'FOCUS_INPUT');
+ assert.equal(res.plan.requiresInputFocusReadback,true);
  assert.equal(res.plan.targetIndex,15);
  assert.equal(res.plan.computerUseInvoked,false);
  assert.equal(res.plan.computerUseApprovalRequested,false);
@@ -178,4 +199,115 @@ test('only declared normal actions allowed; no click-to-delete or payment shortc
 test('missing original signed phone capability callbacks reject at construction',()=>{
  assert.throws(()=>createRightNativeFirstPlanner56({readOriginalOwner:()=>{}}),
  /JH168_ORIGINAL_NATIVE_ACCESSIBILITY_PORTS_REQUIRED/);
+});
+
+test('editability plus original ACTION_FOCUS supports nonclickable input fields',async()=>{
+ const s={...scene,items:[{...focus,clickable:false,facts:{...focus.facts,focusable:true}},scroller,nested]};
+ const {res}=await plan({scene1:s,scene2:s});
+ assert.equal(res.ok,true);
+ assert.equal(res.plan.nativeAction,'ACTION_FOCUS');
+ assert.equal(res.plan.computerUseApprovalRequested,false);
+});
+test('ACTION_ACCESSIBILITY_FOCUS (64) cannot substitute for ACTION_FOCUS (1)',async()=>{
+ for(const changed of [
+  {action:'ACTION_ACCESSIBILITY_FOCUS',actionId:64,advertisedActionIds:[64]},
+  {actionId:64,advertisedActionIds:[64]},
+  {actionId:1,advertisedActionIds:[64]},
+  {actionId:1,focusType:'FOCUS_ACCESSIBILITY'},
+  {isFocusable:false},{isEditable:false},{targetItemRef:'item_'+'0'.repeat(16)}
+ ]){
+  const f=fixture();
+  const cap=await f.cb.readOriginalNativeCapability({
+   owner,scene,kind:'FOCUS',candidate:focus
+  });
+  const {res}=await plan({capability:{...cap,...changed}});
+  assert.equal(res.code,'NATIVE_EXACT_TARGET_CAPABILITY_MISSING_NO_COMPUTER_USE_FALLBACK');
+  assert.equal(res.dispatched,false);
+ }
+});
+test('isAccessibilityFocused alone is NOT keyboard input focus',async()=>{
+ const f=fixture();
+ const negative=await f.cb.readOriginalInputFocus({owner,scene,candidate:focus});
+ const {res}=await plan({focusReport:{
+  ...negative,targetFocused:false,nodeIsFocused:false,
+  focusedItemRef:null,isAccessibilityFocused:true
+ }});
+ assert.equal(res.ok,true);
+ assert.equal(res.plan.nativeAction,'ACTION_FOCUS');
+ assert.equal(res.plan.focusType,'FOCUS_INPUT');
+});
+test('existing focus requires signed RIGHT root findFocus(FOCUS_INPUT) even if scene says focused',async()=>{
+ const s={...scene,items:[{...focus,facts:{...focus.facts,focused:true}},scroller,nested]};
+ const {res}=await plan({scene1:s,focusValid:false});
+ assert.equal(res.code,'ORIGINAL_INPUT_FOCUS_READBACK_UNVERIFIED');
+ assert.equal(res.dispatched,false);
+});
+test('TYPE cannot rely on accessibility focus instead of input focus',async()=>{
+ const focusedScene={...scene,items:[{...focus,facts:{...focus.facts,focused:true}},scroller,nested]};
+ const f=fixture(),report=await f.cb.readOriginalInputFocus({owner,scene,candidate:focus});
+ const {res}=await plan({scene1:focusedScene,
+   focusReport:{...report,targetFocused:false,nodeIsFocused:false,
+    isAccessibilityFocused:true,focusedItemRef:null}
+ },'TYPE',{value:'test'});
+ assert.equal(res.code,'NATIVE_INPUT_NOT_FOCUSED');
+});
+async function afterAction(plan,changes={}){
+ const defaultAction={
+   type:'agent_step',status:'complete',result:{ok:true},
+   action:'ACTION_FOCUS',commandId:plan.commandId,
+   targetItemRef:plan.targetItemRef,windowId:plan.workWindowId
+ };
+ const defaultFocus={
+   source:'ORIGINAL_SIGNED_ANDROID_FIND_FOCUS_INPUT',
+   focusType:'FOCUS_INPUT',deviceId:owner.deviceId,
+   sessionId:owner.sessionId,commandId:plan.commandId,
+   windowId:plan.workWindowId,packageName:'com.android.chrome',
+   screenDigest:scene.screenDigest,isEditable:true,
+   targetFocused:true,nodeIsFocused:true,
+   focusedTargetDigest:plan.focusTargetDigest,
+   checkedAt:99000,isAccessibilityFocused:false
+ };
+ return verifyRightInputFocusCompletion56({
+  plan,actionReceipt:{...defaultAction,...changes.actionReceipt},
+  freshOwner:changes.owner||owner,freshScene:changes.scene||scene,
+  focusReport:{...defaultFocus,...changes.focusReport},
+  verifyOriginalActionReceipt:async()=>changes.actionProof!==false,
+  verifyOriginalOwner:async()=>true,
+  verifyOriginalScene:async()=>true,
+  verifyOriginalInputFocus:async()=>changes.focusProof!==false,
+  clock:()=>100000
+ });
+}
+test('only exact original ACTION_FOCUS plus fresh FOCUS_INPUT + isFocused proves success',async()=>{
+ const {res}=await plan();
+ const checked=await afterAction(res.plan);
+ assert.equal(checked.ok,true);
+ assert.equal(checked.focusVerified,true);
+ assert.equal(checked.focusType,'FOCUS_INPUT');
+ assert.equal(checked.computerUseInvoked,false);
+});
+test('performAction returned true alone never proves focus',async()=>{
+ const {res}=await plan();
+ for(const changed of [
+  {focusReport:{targetFocused:false,nodeIsFocused:false}},
+  {focusReport:{nodeIsFocused:false}},
+  {focusReport:{focusedTargetDigest:'f'.repeat(64)}},
+  {focusReport:{focusType:'FOCUS_ACCESSIBILITY',isAccessibilityFocused:true}},
+  {focusReport:{windowId:9999}},
+  {focusReport:{packageName:'com.openai.chatgpt'}},
+  {focusReport:{checkedAt:75000}},
+  {actionReceipt:{status:'queued'}},
+  {actionReceipt:{action:'ACTION_ACCESSIBILITY_FOCUS'}},
+  {actionReceipt:{commandId:'a'.repeat(31)+'b'}},
+  {focusProof:false},{actionProof:false}
+ ]){
+   const checked=await afterAction(res.plan,changed);
+   assert.equal(checked.ok,false,JSON.stringify(changed));
+   assert.equal(checked.focusVerified,false);
+ }
+});
+test('changing RIGHT Chrome window before post-action input-focus check fails',async()=>{
+ const {res}=await plan();
+ const checked=await afterAction(res.plan,{owner:{...owner,workWindowId:2000}});
+ assert.equal(checked.code,'FOCUS_RIGHT_WORK_WINDOW_CHANGED');
 });
