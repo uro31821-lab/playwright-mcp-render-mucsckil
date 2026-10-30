@@ -47,7 +47,7 @@ test('uncertain screen read does not retry or click',async()=>{
 });
 test('reversible patch preserves original code and Secure56 guards',()=>{
  const input='const jhRequireCommand56=device=>device;\n'+
- 'const jhSplitScreenJob56=()=>null;\n'+
+ 'function jhSplitScreenJob56(){return null;}\n'+
  '  },async({target,url})=>jhRightWebOpen56({service:String(url||target||"")}));';
  const out=applyJH168OpenReadPatch(input);
  assert.match(out,/jh168ReadAfterOpen56/);
