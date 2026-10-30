@@ -1,0 +1,117 @@
+name: JH168 REA DroidBridge official APK static reference
+on:
+  push:
+    branches: ['feat/jh168-rea-cli-runner-20261030']
+    paths:
+      - '.github/workflows/jh168-rea-droidbridge-apk-analysis.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-reference-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - name: Prepare private temporary reference paths
+        id: paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=$(mktemp -d "${RUNNER_TEMP:?}/jh168-droidbridge-XXXXXX")
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.22.1'
+      - name: Verify JDK, Node, and process tools
+        run: |
+          test "$(node --version)" = 'v24.22.1'
+          command -v java && command -v javac && command -v ps
+          java -version 2>&1 | head -n 1
+          javac -version
+      - name: Install official pinned REA 6.8.0 in isolated runner temp
+        shell: bash
+        run: |
+          npm install --prefix "${RUNNER_TEMP}/jh168-rea-ref" --ignore-scripts --no-audit --no-fund --save-exact rea-agents@6.8.0
+          echo "${RUNNER_TEMP}/jh168-rea-ref/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Fetch and verify upstream DroidBridge and REA JADX bridge
+        shell: bash
+        env:
+          ROOT: ${{ steps.paths.outputs.root }}
+        run: |
+          set -euo pipefail
+          curl -fLsS --retry 2 --max-time 150 \
+            "https://github.com/zephyr7030/DroidBridge/releases/download/apk-v0.5.8/droidbridge-0.5.8-arm64-v8a.apk" \
+            -o "$ROOT/reference.apk"
+          echo '329ae812f3812e1df96f79c202964d242d9f71681ed12c82dcd017e656c03952  '"$ROOT/reference.apk" | sha256sum -c -
+          curl -fLsS --retry 2 --max-time 150 \
+            "https://github.com/1013503897/jadx-headless-mcp/releases/download/v0.7.1/jadx-headless-mcp-0.7.1-all.jar" \
+            -o "$ROOT/jadx-headless-mcp-0.7.1-all.jar"
+          echo '6e5eacf500b64292bfb73c49797c1958f6ee44646e43e868039ae7feb573ff75  '"$ROOT/jadx-headless-mcp-0.7.1-all.jar" | sha256sum -c -
+          echo "REA_REFERENCE_APK_HASH_VERIFIED"
+          echo "REA_JADX_ENGINE_HASH_VERIFIED"
+      - name: REA inspect actual DroidBridge APK (static, never execute APK)
+        id: inspect
+        shell: bash
+        env:
+          ROOT: ${{ steps.paths.outputs.root }}
+        run: |
+          set -euo pipefail
+          export REA_JADX_MCP_JAR="$ROOT/jadx-headless-mcp-0.7.1-all.jar"
+          set +e
+          timeout 360s rea inspect-android-package "$ROOT/reference.apk" --json \
+            > "$ROOT/reference-analysis.json" 2> "$ROOT/reference-analysis.stderr"
+          status=$?
+          set -e
+          echo "$status" > "$ROOT/reference-analysis.exit"
+          echo "REA_DROIDBRIDGE_PACKAGE_EXIT=$status"
+          if test "$status" -ne 0; then
+            echo "REA_DROIDBRIDGE_DIAGNOSTIC_BEGIN"
+            tail -c 3500 "$ROOT/reference-analysis.stderr" || true
+            head -c 1500 "$ROOT/reference-analysis.json" || true
+            echo "REA_DROIDBRIDGE_DIAGNOSTIC_END"
+          fi
+          exit "$status"
+      - name: Validate real REA result and print bounded summary
+        shell: bash
+        env:
+          ROOT: ${{ steps.paths.outputs.root }}
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          const root=process.env.ROOT;
+          const raw=JSON.parse(readFileSync(root+'/reference-analysis.json','utf8'));
+          if(raw?.operation!=='inspect_android_package'||
+              raw?.provider?.id!=='jadx'||
+              raw?.subject?.digest?.sha256!=='329ae812f3812e1df96f79c202964d242d9f71681ed12c82dcd017e656c03952'||
+              typeof raw?.normalized_result!=='object'||
+              raw.normalized_result.package_name!=='com.droidbridge.standalone'||
+              !Number.isSafeInteger(raw.normalized_result.class_count)||
+              raw.normalized_result.class_count<1){
+            console.error('REA_DROIDBRIDGE_EVIDENCE_INVALID',JSON.stringify({operation:raw?.operation,provider:raw?.provider?.id,keys:Object.keys(raw||{}).slice(0,15)}));
+            process.exit(1);
+          }
+          const value=raw.normalized_result;
+          const summary={reaEvidenceId:raw.evidence_id,apkSha256:raw.subject.digest.sha256,
+            provider:raw.provider.name,providerVersion:raw.provider.version,
+            packageName:value.package_name,versionName:value.version_name,
+            classCount:value.class_count,resourceCount:value.resource_count,
+            manifestStatus:value.manifest?.status??null,
+            limitationCount:Array.isArray(raw.limitations)?raw.limitations.length:0};
+          writeFileSync(root+'/summary.json',JSON.stringify(summary,null,2)+'\n');
+          console.log('JH168_REA_DROIDBRIDGE_REAL_APK_ANALYZED',JSON.stringify(summary));
+          NODE
+      - name: Preserve bounded analysis evidence (no APK/JAR in artifact)
+        if: ${{ always() && steps.paths.outputs.root != '' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: jh168-rea-droidbridge-apk-evidence
+          path: |
+            ${{ steps.paths.outputs.root }}/reference-analysis.json
+            ${{ steps.paths.outputs.root }}/reference-analysis.stderr
+            ${{ steps.paths.outputs.root }}/reference-analysis.exit
+            ${{ steps.paths.outputs.root }}/summary.json
+          retention-days: 1
+          if-no-files-found: warn
