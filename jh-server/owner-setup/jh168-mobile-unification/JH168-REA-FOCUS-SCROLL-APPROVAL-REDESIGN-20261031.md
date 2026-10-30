@@ -1,57 +1,51 @@
-# JH168 · REA 기반 포커스·스크롤·Computer Use 승인 재설계 (2026-10-31)
+# JH168 재설계 최종 방향 — Android 접근성 직접 실행 우선 (2026-10-31)
 
-## 기준 / 증거
-- REA 6.8.0 실제 분석: [Actions #41093267546](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41093267546). 후보 SHA `c99175d1600d87812913fdb76462ba7e0d81469b`, JS 13/13 parsed, failure 0, skipped 0. REA static graph findings 60 = **구조 분석 항목**, 결함 60건 아님. APK/Kotlin 실행 및 실제 외부 효과 시험은 REA 범위 밖.
-- 운영 서버 기준: `cc6185f3919e9408ed38f1504b2d88f86f57c56d`; JH168 APK 서명·기기 검사 완료와 이 코드 후보의 실기기 작동은 별개. 기존 PR #68 결과 회수 성공, PR #69 Computer Use INSPECT 원래 작업 결과 회수 성공은 보존.
-- 기존 휴대폰 실패: unfocused TYPE → `focused_input_required`; 네이버 검색창을 여는 FOLLOW_UP CLICK → `OWNER_ADMISSION_BLOCKED`; split SCROLL_ONCE → `DURABLE_OPERATION_NOT_SUPPORTED`; 이전 FIX9 prepare `scroll_target_ready` → execute `work_pane_obscured` (실제 가림 창 미확정).
+## 사용자 수정 지시가 우선
+**JH 일반 클릭·입력·스크롤을 Computer Use 승인 중심으로 설계하지 않는다.**
+기존 PR #70의 `Computer Use INSPECT → PREPARE → 승인 → EXECUTE`를 **기본 경로로 삼았던 설계는 철회**한다. 이전 `original-approval-checkpoint` 신규 모듈은 이 PR에서 제외한다. 기존 Secure56의 별도 보호 작업 승인 기능은 유지한다.
 
-## 외부 소스별 채택 / 배제
-1. **AndroidX UI Automator + Appium UiAutomator2**: 단일 활성창이 아닌 모든 접근성 창의 **displayId/windowId, package, bounds, focused/active**를 구분해 현재 RIGHT Chrome만 선택. 다른 창의 대상 탐색을 성공으로 처리하지 않음. UI Automator/Appium 드라이버 자체는 APK 운영 엔진에 추가하지 않음. 공식 설명: https://developer.android.com/reference/kotlin/androidx/test/uiautomator/UiWindow .
-2. **DroidBridge**: 한 번 관찰한 `observationId+nodeRef+AccessibilitySceneProof`를 클릭/타이핑 직전 다시 검증. 현재 화면 해시·접근성 노드·윈도우가 바뀌면 이전 대상 폐기. 코드: https://github.com/zephyr7030/DroidBridge .
-3. **JH167 FIX9**: `AndroidScrollTargetPolicy.kt`의 방향별 explicit action 우선, explicit 방향이 없을 때만 forward/backward, 중첩 조상 관계를 증명한 **가장 깊은 단일 스크롤 노드** 선택 방식을 재사용. 이 판단은 현재 APK에 이미 존재할 수 있으므로 Kotlin 중복 구현 금지.
-4. **adb-mcp**: `run_sequence`의 live guard → step → 결과 → 중단 지점 반환 방식을 참고해 GPT↔MCP 왕복을 줄일 수 있는 계약으로 설계. **ADB, 개발자 디버깅, 독립 서버, 임의 좌표 조작을 운영에 추가하지 않음.** https://github.com/iksnerd/adb-mcp/blob/main/internal/adb/sequence.go
-5. **기존 Playwright**: `snapshot → 정확한 대상 → 1회 액션 → fresh snapshot` 흐름을 휴대폰에 이식. Chrome 프로필·쿠키·원격 페이지 선택을 휴대폰과 공유하지 않음.
-
-## JH168에 맞춘 단계 계약
+## 실제 목표 (한 개의 휴대폰 화면/명령)
 ```
-GPT → original Primary MCP / Secure56 BEGIN_COMMAND
-  → RIGHT Chrome 윈도우 선택: package + displayId + windowId + bounds + left GPT
-  → 화면 접근성 snapshot: sceneDigest + observationId + nodeRef + expiry
-  → EXACT ONE target:
-       FOCUS: editable=true, same window, unique node; if already focused, no click
-       SCROLL: deepest proven scrollable node with advertised DOWN/UP
-  → original Secure56 INSPECT: read-only; queued이면 기존 PR #69 receipt로 동일 작업 STATUS
-  → fresh window/target proof → original Secure56 PREPARE
-  → READY: 원래 액션 1회 가능
-     APPROVAL_REQUIRED: 휴대폰 로컬 승인 요청 한 건만 유지·상태 조회
-     SCREENSHOT_CONSENT_REQUIRED: 기존 화면 동의 경계 그대로
-     OWNER_ADMISSION_BLOCKED: 중단, 별도 실행기로 우회하지 않음
-  → original Secure56 EXECUTE exactly once ONLY with current lease and phone grant
-  → original signed fresh READBACK: 동일 RIGHT 창에서 포커스/값/스크롤 화면 변화 확인
-  → 완료·실패·미확정·사용자 개입 필요를 구분해 GPT에 반환
+GPT → 기존 Primary MCP → Secure56 Bridge → JH168 Android 접근성 엔진
+  → 원래 왼쪽 GPT + 오른쪽 Chrome (windowId / package / bounds)
+  → 접근성 snapshot / 현 시점에 유효한 정확한 nodeRef
+  → Android 기본 접근성 1회: FOCUS 또는 SET_TEXT 또는 SCROLL
+  → 원래 서명된 Android snapshot 1회 → 포커스/실제 값/스크롤 변화 검증
+  → GPT에 결과 반환
 ```
+Computer Use는 기본 실행 절차가 아니다. 기존 `agent_step → agent_snapshot` 경로와 JH GuidedForm의 과거 성공 기록을 활용한다. Playwright의 `snapshot → exact target → act → fresh snapshot` 순서는 유지하되 별도 서버 Playwright 프로필/쿠키는 이전하지 않는다.
 
-### 승인 개선은 권한 제거가 아니라 **대기 상태 회수·동일 작업의 질문 중복 제거**
-- **새로운 보안 승인 기관을 만들지 않는다.** 기존 `computer_use_action_approval_request`와 `life_android_pending_approval_receipt_status`, 원본 phone-local one-shot action grant를 계속 사용한다.
-- 현재 owner의 `deviceId, sessionId, commandId, workWindowId, actionDigest, targetDigest, screenDigest, taskDigest`까지 일치해야 동일 승인 REQUEST의 status receipt를 재사용할 수 있다.
-- `queued / in_progress`: 같은 receipt로 STATUS만 확인, 승인창 중복 생성 금지. `complete`: ORIGINAL signed phone-local 결과를 검증한 뒤에도 **새 화면 INSPECT+PREPARE 필수**. STATUS 응답을 grant로 사용하는 건 금지.
-- 작업·입력 대상·브라우저 창·계정·명령 세대 변경/만료/거절/실행 여부 불명 시 기존 승인 폐기, 자동 재시도 금지. 결제·삭제·전송·민감정보 입력의 기존 1회 승인 유지.
-- 승인 및 화면 확인 대기 중 **다음 외부 효과 있는 단계는 실행하지 않는다.** 임의 프레임/좌표, 프로필·쿠키 복제 및 무단 OS 접근성 권한 변경 금지.
+### 행동별 세 경로
+| 분류 | 실행 판단 |
+|---|---|
+| **일반 안전 작업** (탭 이동·일반 입력·스크롤) | 원래 휴대폰 접근성 엔진에서 현재 창/노드/안전 분류가 **서명으로 확인된 경우에만** 직접 1회 실행. Computer Use 추가 승인창은 요청하지 않음 |
+| **보호된 작업** (전송·삭제·결제·민감 정보·계정 변경) | 기존 Secure56 휴대폰 원클릭 승인·동의 경계. 승인 결과는 원래 영수증으로 조회. 기존 Phone-local 인증을 없애지 않음 |
+| **원래 APK가 지원하지 않거나 원래 보안 게이트가 거부하는 작업** | `NATIVE_EXACT_TARGET_CAPABILITY_MISSING` / `OWNER_ADMISSION_BLOCKED`로 중단. Computer Use나 원격 Playwright로 자동 우회·자동 재요청 금지 |
 
-## 소스 후보 상태
-- `right-target-preflight.mjs`: 현재 RIGHT Chrome focus/scroll 후보를 선별하되 **실행하지 않는 read-only** 가드. 기존 15/15 focus/scroll 단위시험 및 기존 Secure56 관련 CI 통과.
-- `original-approval-checkpoint.mjs`: 이미 승인 요청된 원본 signed approval job의 동일-작업 status receipt만 바인딩. **grant 없음, job 발급 없음, 실행 없음**; 본 후보의 테스트는 함께 검증.
-- 실제 JH168 APK의 창 정보/노드 경로/가림 창 타입에 대한 완전한 signed payload를 이 소스 후보가 수신하는지 **미확인**. 공개 저장소의 Kotlin 파일이 아닌 현재 기기 APK 원본과 계약 대조가 먼저 필요하다.
-- 원래 컴퓨터 승인 `OWNER_ADMISSION_BLOCKED`를 자동 허용하도록 바꾸지 않았다. 어떤 owner fence가 거부했는지 안전한 정확한 로그/영수증이 필요하다.
-- 현재 9개 server Playwright 별도 도구는 유지. Android native TYPE/SCROLL과 실제 fresh readback이 통과하기 전에 제거 금지.
+## 오픈소스의 검증된 참고점만 선택
+- **DroidBridge:** `observationId + nodeRef + sceneProof`의 대상, 창, 스크린 변경 확인을 Android 접근성 클릭/텍스트 입력 직전에 한 번 더 검사. Android 측 코드의 대상 토큰을 JH 원래 서명/디바이스에 묶는다.
+- **AndroidX / Appium:** 활성 창만 추정하지 않고 `displayId/windowId/package/bounds`를 통해 오른쪽 Chrome, 왼쪽 GPT, 시스템 오버레이/IME 구분. OS 창이 조금 겹친다고 전부 가림 판정하거나 안전 검사를 제거해서는 안 됨.
+- **JH167 FIX9:** 명시된 UP/DOWN 스크롤 액션 우선, 없을 때 FORWARD/BACKWARD 고려. 검증 가능한 중첩 조상 체인에서 가장 깊은 유일 노드 선택. native `form_scroll`은 과거 요청 접수만 확인됐으므로 실제 이동은 최신 화면에서 별도 증명.
+- **기존 Playwright:** 정확한 대상 선택과 실행 후 새 화면 검증. 휴대폰과 원격 쿠키·좌표·승인 공유 금지.
+- **adb-mcp:** 조건별 단계 일괄 진행은 **같은 명령·같은 창·기존 인증 내의 검증된 일반 단계**에만 장차 채택. ADB/디버깅/별도 서버는 추가하지 않음.
 
-## 통합 전 실기기 완료 조건 (새로운 단계만)
-1. 현재 설치된 폰에서 RIGHT Chrome/LEFT GPT와 다중창 ID, 스크롤 가능한 노드 경로, 실제 가림 창의 타입·경계 **한 번만** 진단.
-2. 포커스: 원래 Secure56 exact CLICK(또는 native focus 지원) → `focused=true` → 비민감 텍스트 입력 → **실제 값이 fresh signed UI에서 확인**. TEXT_SET만으로 성공 선언 금지.
-3. 스크롤: 정확한 ACCESSIBILITY_SCROLL TARGET → original prepare/lease → 1회 execute → 새 화면의 스크롤/내용 변화 확인. `scroll_requested`만으로 성공 선언 금지.
-4. 승인 대기: ORIGINAL phone prompt 1건, 동일 REQUEST STATUS만 조회, 같은 target/grant 범위의 중복 재질문 0건. 중요한 작업은 매 행위 경계에서 1회 local approval.
-5. 실패 경로: `OWNER_ADMISSION_BLOCKED`, `work_pane_obscured`, `SCREENSHOT_BINDING_REQUIRED`, `STALE_SCREEN`, 명령 변경 때 안전하게 중단, 실행·승인 우회·자동 재전송 0건.
-6. 선택한 실제 실행 entry→generated runtime→tool registration→pending receipt→phone completion→GPT 반환을 연결하고, 기존 source attestation/rollback, release CI, APK 서명 동일성을 확인한 후에만 운영 적용.
+## 생성한 코드의 정확한 범위
+- `right-target-preflight.mjs`: **읽기 전용, native-first 경로 선택기**. 정상 `FOCUS`, `TYPE`, `SCROLL`은 `SIGNED_ANDROID_ACCESSIBILITY` 경로를 계획하고, `computerUseInvoked=false`, `computerUseApprovalRequested=false`, `dispatched=false`를 명시한다. 원래 APK가 지원하는 `form_activate`/`set_text`/`form_scroll`과 *특정 노드 참조를 유지할 수 있는지*를 서명된 native-capability 계약으로 검사해야 한다.
+- 기존 사용하지 않던 `original-approval-checkpoint.mjs` 신규 후보는 **제외**. 별도의 원래 Secure56 보호 작업 승인·영수증을 재설계하거나 없애지 않는다.
+- `JH168-REA-FOCUS-SCROLL-APPROVAL-REDESIGN-20261031.md`는 사용자 지시대로 접근성 우선 설계로 교체했다.
+- 후보 소스는 실행기/권한을 변경하거나 별도 승인을 자동 실행하지 않는다. **실제 native 호스트 어댑터 및 APK의 정확한 nodeRef 지원이 확인되기 전까지 이 후보는 운영 경로가 아니다.**
 
-### 성능 목표 (아직 미측정)
-1가지 비민감 작업은 **화면읽기·선택·준비·승인 확인·액션 1회·검증**을 서버의 조건부 같은 명령 안에서 이어 붙여 GPT 왕복을 줄인다. 인증·승인 경계에서 반드시 멈추고, 소비되지 않은 grant를 자동 발급/재사용하지 않는다. 전후 실제 도구 왕복 수와 P50/P95를 측정하기 전 절감률을 주장하지 않는다.
+## 현재 확인된 사실
+- 기존 JH168 운영에는 `life_android_step_and_snapshot`가 원래 `agent_step → agent_snapshot`을 구현한다. 다만 현재 도구 스키마는 `action,text,value`만 공개하므로 **exact nodeRef/window proof까지 안전하게 전달되는지 아직 확인되지 않았다**. 이 경계는 Android APK/host 계약 검증이 필요하다.
+- 이전 JH167에서 수동 포커스 후 `set_text`는 성공했고, GuidedForm 특정 탭 이동은 성공했다. **자동 포커스**는 불완전하며 `form_scroll`의 결과는 접수 수준으로 실스크롤 미확인이다.
+- 현재 `split_screen_assistant` START는 정상 화면을 읽고 뉴스 클릭 E2E는 별도 통과했지만 검색창 포커스 CLICK는 한 번 `OWNER_ADMISSION_BLOCKED`를 반환했다. 원래 owner fence를 다른 엔진으로 우회하지 않는다.
+- 앞선 PR #68 원래 결과 회수, #69 queued INSPECT 회수와 보안 승인은 바뀌지 않는다. 서버 Playwright 9개의 완전 교체는 TYPE/SCROLL E2E 뒤에 진행한다.
+
+## 실제 완료 조건
+1. 현재 JH168 APK/원래 BridgeService가 `FOCUS/SET_TEXT/SCROLL`의 **명시된 nodeRef + 창 ID + 서명된 현재 scene proof**를 원래 실행기에 전달·검증할 수 있는지 증명. 불가능하면 APK 변경이 필요하다고 **명확히 기록**, Computer Use 기본 경로로 대체하지 않음.
+2. 정상 Chrome 입력창 자동 포커스 → `focused=true` → 비민감 시험문구 입력 → 원래 Android 화면에서 **문구 실반영 확인**.
+3. 정확한 RIGHT Chrome 내부 스크롤 조상 노드·방향 1회 실행 → 전후 화면의 실제 이동/위치/내용 변화 확인. `scroll_requested`만으로 성공 아님.
+4. 정상 위 작업에는 **Computer Use 추가 승인 요청 0회**, 민감 작업에는 기존 휴대폰 단발 승인 유지. 원래 안전 분류·기기 서명·명령 바인딩·중복 방지 그대로 적용.
+5. 네이티브 기능 미지원·창 불일치·가림·owner 차단·결과 미확인 시 멈추고 분기점을 알려줌. 새 요청 자동 재생 0회.
+
+**운영 적용 상태:** 개발 후보. 이 문서/테스트의 성공을 현재 APK의 자동 포커스·입력·스크롤 성공으로 주장하지 않는다.

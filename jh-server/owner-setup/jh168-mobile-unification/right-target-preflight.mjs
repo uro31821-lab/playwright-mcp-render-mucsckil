@@ -1,9 +1,10 @@
-/** JH168 RIGHT Chrome target binding / read-only preflight.
- * Inspired by DroidBridge AccessibilitySceneProof + JH167 FIX9 nested scroll
- * selection. This module never dispatches, approves, clicks, types or scrolls.
- * The ORIGINAL Secure56 host must attest all phone responses and execute
- * actions only through inspect -> prepare -> phone local grant -> execute.
+/** JH168 native ACCESSIBILITY FIRST right Chrome target planner.
+ * Uses signed Android scene + exact node: focus, text, scroll. It does NOT
+ * invoke Computer Use inspect/prepare or request extra Computer Use approval.
+ * No action dispatch, permission grant, Playwright, fallback or retry.
+ * Protected UI work stays under the ORIGINAL Secure56 phone-local approval.
  */
+import {createHash} from 'node:crypto';
 const H32=/^[a-f0-9]{32}$/;
 const H64=/^[a-f0-9]{64}$/;
 const ITEM=/^item_[a-f0-9]{16}$/;
@@ -105,115 +106,107 @@ function pickScroll(items,owner,work,direction){
    )));
  return descendants.length===1?descendants[0].item:null;
 }
-function checkOriginalInspection(i,plan){
- if(!object(i)||i.status!=='complete'||i.result?.ok!==true||
-   i.originalSecure56Verified!==true||
-   i.commandId!==plan.commandId||
-   i.deviceId!==plan.deviceId||
-   i.sessionId!==plan.sessionId)return deny('ORIGINAL_INSPECTION_NOT_ATTESTED');
- const v=i.result;
- if(v.packageName!==CHROME||v.windowId!==plan.workWindowId||
-   v.screenDigest!==plan.screenDigest||
-   v.targetDigest===undefined||!H64.test(v.targetDigest)||
-   v.index!==plan.index)return deny('ORIGINAL_INSPECTION_TARGET_CHANGED');
- if(plan.action==='CLICK'){
-   if(v.code==='visual_click_target')return deny('FOCUS_REQUIRES_ORIGINAL_SCREENSHOT_CONSENT');
-   if(!['click_target_ready','accessibility_click_target'].includes(v.code))
-     return deny('FOCUS_ACCESSIBILITY_CLICK_NOT_VERIFIED');
- }else{
-   if(!['scroll_target_ready','nested_scroll_target_ready'].includes(v.code)||
-     v.selectedAction!==(plan.direction==='DOWN'?'DOWN':'UP')||
-     v.candidateCount!==1||v.treeComplete!==true)
-     return deny('SCROLL_ACCESSIBILITY_TARGET_NOT_VERIFIED');
- }
- return {ok:true,code:'ORIGINAL_ACCESSIBILITY_TARGET_VERIFIED',
-   targetDigest:v.targetDigest,originalInspection:i};
+const allowedKinds=new Set(['FOCUS','TYPE','SCROLL']);
+const nativeNames=Object.freeze({FOCUS:'form_activate',TYPE:'set_text',SCROLL:'form_scroll'});
+const classifySecret=v=>/bearer\s+[a-z0-9._~+/=-]{8,}|\b(?:sk|rk|pk)-[a-z0-9_-]{8,}\b|(?<!\d)\d{6}-?\d{7}(?!\d)|(?<!\d)(?:\d[ -]?){13,19}(?!\d)|(?:otp|인증번호|보안코드|cvc|cvv|pin)\s*[:：]?\s*\d{3,8}/i.test(v);
+const sha=v=>createHash('sha256').update(v,'utf8').digest('hex');
+const riskNames=Object.freeze({FOCUS:'SAFE_NAVIGATION',TYPE:'SAFE_INPUT',SCROLL:'SAFE_SCROLL'});
+function sameScene(a,b){
+ return object(a)&&object(b)&&a.screenDigest===b.screenDigest&&
+  a.contextId===b.contextId&&a.windowId===b.windowId&&
+  a.packageName===b.packageName&&a.layout?.workWindowId===b.layout?.workWindowId;
 }
-/** Optional phone inspection evidence is REQUIRED before an action can be
- * prepared. A bare scene-derived index is only a read-only candidate.
+function capabilityProof(cap,owner,scene,kind){
+ return object(cap)&&cap.source==='ORIGINAL_SIGNED_ANDROID_ACCESSIBILITY'&&
+  cap.deviceId===owner.deviceId&&cap.sessionId===owner.sessionId&&
+  cap.commandId===owner.commandId&&cap.workWindowId===owner.workWindowId&&
+  cap.workPackage===CHROME&&cap.screenDigest===scene.screenDigest&&
+  cap.action===nativeNames[kind]&&cap.exactItemRefSupported===true&&
+  cap.nativeAccessibility===true&&cap.computerUseRequired===false;
+}
+/** Read-only plan, not authority: actual signed AndroidAgent must confirm
+ * capability + risk and re-resolve the exact nodeRef immediately before one
+ * native step. We do not create another executor to evade OWNER_ADMISSION_BLOCKED.
  */
-export async function createRightTargetPreflight56({
+export function createRightNativeFirstPlanner56({
  readOriginalOwner,readOriginalScene,verifyOriginalOwner,verifyOriginalScene,
- readOriginalInspect,verifyOriginalInspect,prepareOriginal,verifyOriginalPreparedJob,
- clock=Date.now
+ readOriginalNativeCapability,verifyOriginalNativeCapability,
+ readOriginalRisk,verifyOriginalRisk,clock=Date.now
 }={}){
  const ports=[readOriginalOwner,readOriginalScene,verifyOriginalOwner,
-  verifyOriginalScene,readOriginalInspect,verifyOriginalInspect,prepareOriginal,
-  verifyOriginalPreparedJob,clock];
- if(ports.some(f=>typeof f!=='function'))throw Error('ORIGINAL_SECURE56_PREFLIGHT_PORTS_REQUIRED');
- async function prepare({action,commandId,direction='DOWN',taskDigest}={}){
-  if(!['CLICK','SCROLL'].includes(action)||!H32.test(commandId||'')||
-    !H64.test(taskDigest||'')||!['DOWN','UP'].includes(direction))
-   return deny('RIGHT_ACTION_SCOPE_INVALID');
+  verifyOriginalScene,readOriginalNativeCapability,verifyOriginalNativeCapability,
+  readOriginalRisk,verifyOriginalRisk,clock];
+ if(ports.some(f=>typeof f!=='function'))
+  throw Error('JH168_ORIGINAL_NATIVE_ACCESSIBILITY_PORTS_REQUIRED');
+ async function plan({kind,commandId,direction='DOWN',value}={}){
+  if(!allowedKinds.has(kind)||!H32.test(commandId||'')||
+   !['UP','DOWN'].includes(direction)|| 
+   (kind==='TYPE'&&(typeof value!=='string'||!value.trim()||
+     value.length>2000||classifySecret(value)))||
+   (kind!=='TYPE'&&value!==undefined))
+    return deny('RIGHT_NATIVE_ACTION_SCOPE_INVALID');
   let owner,scene;
   try{owner=await readOriginalOwner();scene=await readOriginalScene(owner)}
-  catch{return deny('RIGHT_SIGNED_SCENE_UNAVAILABLE')}
+  catch{return deny('ORIGINAL_ANDROID_SCENE_UNAVAILABLE')}
   const scope=sceneScope(owner,scene,commandId,clock());
   if(!scope)return deny('RIGHT_CHROME_SCENE_SCOPE_INVALID');
   try{if(await verifyOriginalOwner(owner,commandId)!==true||
-      await verifyOriginalScene(scene,owner)!==true)
-      return deny('ORIGINAL_RIGHT_SCENE_NOT_AUTHENTICATED')}
-  catch{return deny('ORIGINAL_RIGHT_SCENE_NOT_AUTHENTICATED')}
-  const candidate=action==='CLICK'?
-    exactFocusItem(scene.items,owner,scope.work):
-    pickScroll(scene.items,owner,scope.work,direction);
-  if(!candidate)return deny(action==='CLICK'?
-      'FOCUS_UNIQUE_EDITABLE_TARGET_REQUIRED':'SCROLL_UNIQUE_ADVERTISED_NODE_REQUIRED',
-      {candidatesDispatched:0});
-  if(action==='CLICK'&&candidate.facts?.focused===true)
-    return {ok:true,code:'FOCUS_ALREADY_PRESENT',dispatched:false,
-      targetIndex:candidate.number,focusVerified:true};
-  const plan={action,commandId,deviceId:owner.deviceId,sessionId:owner.sessionId,
-    workWindowId:scope.workWindowId,screenDigest:scope.screenDigest,
-    contextId:scope.contextId,index:candidate.number,itemRef:candidate.itemRef,
-    direction,taskDigest};
-  // One ORIGINAL READ_ONLY inspection of this exact candidate. No fallback
-  // to coordinate guesses or re-issuing a pending inspect.
-  let inspected;
-  try{inspected=await readOriginalInspect(plan)}
-  catch{return deny('ORIGINAL_INSPECT_OUTCOME_UNKNOWN_NO_REPLAY')}
-  if(inspected?.status==='queued'||inspected?.status==='in_progress')
-    return deny('ORIGINAL_INSPECT_PENDING_USE_RECEIPT',{
-      originalReceiptToken:inspected.receiptToken??inspected.receiptRef??null,noNewInspect:true});
-  try{if(await verifyOriginalInspect(inspected,plan)!==true)
-    return deny('ORIGINAL_INSPECT_NOT_AUTHENTICATED')}
-  catch{return deny('ORIGINAL_INSPECT_NOT_AUTHENTICATED')}
-  const proof=checkOriginalInspection(inspected,plan);
-  if(!proof.ok)return proof;
-  let freshOwner,freshScene;
-  try{freshOwner=await readOriginalOwner();freshScene=await readOriginalScene(freshOwner)}
-  catch{return deny('RIGHT_SCENE_REFRESH_UNAVAILABLE')}
-  if(!sameOwner(owner,freshOwner)||!sceneScope(freshOwner,freshScene,commandId,clock())||
-    freshScene.screenDigest!==scope.screenDigest||
-    freshScene.windowId!==scope.workWindowId)
-    return deny('RIGHT_SCREEN_CHANGED_BEFORE_PREPARE');
-  try{if(await verifyOriginalOwner(freshOwner,commandId)!==true||
-      await verifyOriginalScene(freshScene,freshOwner)!==true)
-      return deny('ORIGINAL_RIGHT_REFRESH_UNVERIFIED')}
-  catch{return deny('ORIGINAL_RIGHT_REFRESH_UNVERIFIED')}
-  // Delegate to the ORIGINAL Secure56 PREPARE. It is the only issuer of
-  // a phone action lease or local approval boundary.
-  let prepared;
-  try{prepared=await prepareOriginal({...plan,targetDigest:proof.targetDigest})}
-  catch{return deny('PREPARE_OUTCOME_UNKNOWN_NO_REPLAY')}
-  if(prepared?.code==='OWNER_ADMISSION_BLOCKED'||prepared?.result?.code==='OWNER_ADMISSION_BLOCKED')
-    return deny('OWNER_ADMISSION_BLOCKED_NO_BYPASS');
-  if(prepared?.status!=='complete')
-    return deny('ORIGINAL_PREPARE_NOT_CONFIRMED',{
-      originalReceiptToken:prepared?.receiptToken??prepared?.receiptRef??null});
-  try{if(await verifyOriginalPreparedJob(prepared,plan)!==true)
-    return deny('ORIGINAL_PREPARE_NOT_AUTHENTICATED')}
-  catch{return deny('ORIGINAL_PREPARE_NOT_AUTHENTICATED')}
-  if(prepared?.result?.ok!==true &&
-      !['APPROVAL_REQUIRED','SCREENSHOT_CONSENT_REQUIRED'].includes(prepared?.result?.code))
-    return deny('ORIGINAL_PREPARE_NOT_CONFIRMED');
-  if(!['READY','APPROVAL_REQUIRED','SCREENSHOT_CONSENT_REQUIRED'].includes(prepared.result.code))
-    return deny('ORIGINAL_PREPARE_RESULT_UNSUPPORTED');
-  return Object.freeze({ok:true,code:prepared.result.code,
-    targetIndex:plan.index,originalPrepareJobId:prepared.id??null,
-    requiresOriginalPhoneLocalApproval:prepared.result.code!=='READY',
-    actionPrepared:prepared.result.code==='READY',
-    dispatched:false,approvalGranted:false,automaticReplay:false});
+    await verifyOriginalScene(scene,owner)!==true)
+    return deny('RIGHT_ORIGINAL_SCENE_NOT_AUTHENTICATED')}
+  catch{return deny('RIGHT_ORIGINAL_SCENE_NOT_AUTHENTICATED')}
+  const candidate=kind==='SCROLL'?pickScroll(scene.items,owner,scope.work,direction):
+   exactFocusItem(scene.items,owner,scope.work);
+  if(!candidate)return deny(kind==='SCROLL'?
+    'NATIVE_SCROLL_NODE_NOT_PROVEN':'NATIVE_FOCUS_NODE_NOT_PROVEN');
+  if(kind==='TYPE'&&candidate.facts?.focused!==true)
+    return deny('NATIVE_INPUT_NOT_FOCUSED');
+  if(kind==='FOCUS'&&candidate.facts?.focused===true)
+    return Object.freeze({ok:true,code:'NATIVE_FOCUS_ALREADY_PRESENT',
+      route:'SIGNED_ANDROID_ACCESSIBILITY',dispatched:false,
+      computerUseInvoked:false,approvalGranted:false});
+  // Only the phone's current signed native action protocol can authoritatively
+  // assert support. Old public itemRef alone cannot authorize a native step.
+  let cap,risk;
+  try{
+    cap=await readOriginalNativeCapability({owner,scene,kind,candidate,direction});
+    risk=await readOriginalRisk({owner,scene,kind,candidate,valueClass:kind==='TYPE'?'NON_SENSITIVE':'NONE'});
+    if(await verifyOriginalNativeCapability(cap,owner,scene)!==true||
+       await verifyOriginalRisk(risk,owner,scene,candidate)!==true)
+      return deny('NATIVE_ORIGINAL_PROOF_NOT_AUTHENTICATED');
+  }catch{return deny('NATIVE_ORIGINAL_CAPABILITY_UNAVAILABLE')}
+  if(risk?.ownerAdmissionBlocked===true)
+    return deny('OWNER_ADMISSION_BLOCKED_NO_ALTERNATE_ROUTE');
+  if(risk?.phoneLocalApprovalRequired===true||risk?.riskClass==='PROTECTED')
+    return deny('PROTECTED_ACTION_REQUIRES_ORIGINAL_PHONE_APPROVAL',{
+      originalApprovalBoundary:true,computerUseInvoked:false});
+  if(risk?.safe!==true||risk?.riskClass!==riskNames[kind])
+    return deny('NATIVE_SAFE_RISK_NOT_CONFIRMED');
+  if(!capabilityProof(cap,owner,scene,kind))
+    return deny('NATIVE_EXACT_TARGET_CAPABILITY_MISSING_NO_COMPUTER_USE_FALLBACK');
+  let latestOwner,latestScene;
+  try{
+    latestOwner=await readOriginalOwner();
+    latestScene=await readOriginalScene(latestOwner);
+    if(await verifyOriginalOwner(latestOwner,commandId)!==true||
+       await verifyOriginalScene(latestScene,latestOwner)!==true)
+      return deny('NATIVE_FRESH_SCENE_UNVERIFIED');
+  }catch{return deny('NATIVE_FRESH_SCENE_UNAVAILABLE')}
+  if(!sameOwner(owner,latestOwner)||!sameScene(scene,latestScene)||
+     !sceneScope(latestOwner,latestScene,commandId,clock()))
+    return deny('NATIVE_SCENE_CHANGED_BEFORE_ACTION');
+  const plan=Object.freeze({
+    route:'SIGNED_ANDROID_ACCESSIBILITY',nativeAction:nativeNames[kind],
+    kind,commandId,contextId:scope.contextId,
+    screenDigest:scope.screenDigest,workWindowId:scope.workWindowId,
+    targetItemRef:candidate.itemRef,targetIndex:candidate.number,
+    ...(kind==='SCROLL'?{direction}:{}),
+    ...(kind==='TYPE'?{valueDigest:sha(value)}:{}),
+    originalSignedPhoneRequired:true,executionAuthorizationNotGranted:true,
+    computerUseInvoked:false,computerUseApprovalRequested:false,
+    dispatched:false,automaticReplay:false
+  });
+  return Object.freeze({ok:true,code:'NATIVE_SAFE_ACTION_PLAN_READY',plan,
+    dispatched:false,automaticReplay:false});
  }
- return Object.freeze({prepare});
+ return Object.freeze({plan});
 }

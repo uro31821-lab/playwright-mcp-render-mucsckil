@@ -1,11 +1,11 @@
-name: JH168 bounded RIGHT Chrome focus and nested scroll preflight
+name: JH168 native-accessibility-first RIGHT Chrome focus and scroll
 on:
   push:
     branches: ['feat/jh168-bound-focus-scroll-20261031']
     paths:
       - '.github/workflows/jh168-right-focus-scroll-preflight.yml'
       - 'jh-server/owner-setup/jh168-mobile-unification/right-target-preflight*'
-      - 'jh-server/owner-setup/jh168-mobile-unification/original-approval-checkpoint*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/JH168-REA-FOCUS-SCROLL-APPROVAL-REDESIGN-20261031.md'
   pull_request:
     branches: ['jh-fix3-secure-server']
 permissions:
@@ -30,15 +30,13 @@ jobs:
             jh-server/owner-setup/deployment \
             jh-server/owner-setup/trusted-server \
             jh-server/owner-setup/browser-live
-      - name: Verify exact focus, nested scroll and original one-shot approval preflight
+      - name: Verify ordinary FOCUS TYPE SCROLL choose signed native accessibility with NO Computer Use approval
         run: |
           node --check jh-server/owner-setup/jh168-mobile-unification/right-target-preflight.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/right-target-preflight.test.mjs
-          node --check jh-server/owner-setup/jh168-mobile-unification/original-approval-checkpoint.mjs
           node --test --test-reporter=spec \
-            jh-server/owner-setup/jh168-mobile-unification/right-target-preflight.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/original-approval-checkpoint.test.mjs
-      - name: Preserve previously verified original Computer Use and owner admission tests
+            jh-server/owner-setup/jh168-mobile-unification/right-target-preflight.test.mjs
+      - name: Preserve pre-existing phone approval and Secure56 owner fences (fallback only for protected actions)
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
@@ -53,4 +51,4 @@ jobs:
         run: |
           test -z "${JH_PENDING_APPROVAL_OPERATOR_ENABLE:-}"
           git diff --exit-code cc6185f3919e9408ed38f1504b2d88f86f57c56d -- jh-server/owner-setup/deployment/durable-native-job-policy.mjs
-          echo JH168_PREPARE_ONLY_EXACT_TARGET_NO_PHONE_ACTION
+          echo JH168_NATIVE_ACCESSIBILITY_FIRST_NO_EXTRA_COMPUTER_APPROVAL
