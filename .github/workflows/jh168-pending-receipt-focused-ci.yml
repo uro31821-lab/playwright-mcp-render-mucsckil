@@ -1,0 +1,54 @@
+name: JH168 Secure56 pending receipt focused candidate
+on:
+  push:
+    branches: ['feat/jh168-pending-receipt-focused-20261030']
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+permissions:
+  contents: read
+jobs:
+  focused-operator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            jh-server/package.json
+            jh-server/owner-setup/package-lock.json
+            jh-server/owner-setup/owner-enrollment/package-lock.json
+      - name: Verify production branch ancestor files are intact
+        run: |
+          git diff --exit-code 859663e0c01afa5a40b4b31f55624289c1ef9ae6 -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/server-integration/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/android-direct
+      - name: Reuse existing host dependencies with no install scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Test exact queued receipt, original pinned owner and operator gating
+        run: |
+          for f in \
+            jh-server/owner-setup/server-integration/secure56-pending-approval-receipts.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-real-runtime-candidate.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-operator-entry.mjs; do
+            node --check "$f"
+          done
+          CI=true NODE_ENV=test JH_OWNER_DEFER_LISTEN=1 node --test --test-reporter=spec --test-concurrency=1 \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-real-runtime-candidate.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs
+      - name: No production service activation or phone modification
+        run: |
+          test -z "${JH_PENDING_APPROVAL_OPERATOR_ENABLE:-}"
+          echo FOCUSED_SOURCE_ONLY_NO_DEPLOY_NO_DEVICE_ACTION
