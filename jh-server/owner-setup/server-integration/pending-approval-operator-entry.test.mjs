@@ -51,6 +51,9 @@ test("pinned owner/unified/operational route selects only exact receipt runtime"
   assert.ok(runtime.includes("'READBACK_PENDING'"));
   assert.ok(runtime.includes("jhSplitReadReceipts56.issue("));
   assert.ok(runtime.includes("jhSplitReadReceipts56.read("));
+  assert.ok(runtime.includes("computerInspectReceipt56.issue("));
+  assert.ok(runtime.includes("computerInspectReceipt56.read("));
+  assert.equal(runtime.split('registerOAuthTool("life_android_pending_approval_receipt_status"').length,2);
   assert.ok(runtime.includes("SPLIT_READ_STILL_PENDING"));
   assert.equal(runtime.split("registerOAuthTool('life_android_split_screen_assistant'").length,2);
   assert.ok(runtime.includes("durableNativeHooks56?.beforeDispatch("));
