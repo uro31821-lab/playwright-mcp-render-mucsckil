@@ -89,12 +89,30 @@ jobs:
           node --check jh-server/owner-setup/server-integration/pending-approval-receipt-patch.mjs
           node --check jh-server/owner-setup/server-integration/secure56-pending-approval-receipts.mjs
           node --test --test-reporter=spec jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+      - name: Verify actual video tools for byte/hash/media evidence tests
+        id: media_tools
+        # Only independent environment setup overlaps; test/guard order stays serial.
+        background: true
+        run: |
+          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 &&
+             ffmpeg -version >/dev/null 2>&1 && ffprobe -version >/dev/null 2>&1; then
+            echo 'JH_MEDIA_TOOLS_REUSED'
+          else
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          # Record executable versions; real codec/byte/hash tests still run below.
+          ffmpeg -version
+          ffprobe -version
       - name: Reuse existing Stage4 host dependencies for full owner integration tests
         id: dependencies
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Require completed media setup before integration tests
+        id: media_ready
+        wait: media_tools
       - name: Verify true pinned JH runtime consent-receipt binding (no listener)
         id: real_receipt_runtime
         run: |
@@ -107,19 +125,6 @@ jobs:
           if grep -E '(browserTool\(|@playwright/|browser_navigate|new[[:space:]]+Browser)' jh-server/owner-setup/android-direct/gemini-v4-*.mjs; then
             echo 'Unexpected browser fallback in Android V4' && exit 1
           fi
-      - name: Verify actual video tools for byte/hash/media evidence tests
-        id: media_tools
-        run: |
-          if command -v ffmpeg >/dev/null 2>&1 && command -v ffprobe >/dev/null 2>&1 &&
-             ffmpeg -version >/dev/null 2>&1 && ffprobe -version >/dev/null 2>&1; then
-            echo 'JH_MEDIA_TOOLS_REUSED'
-          else
-            sudo apt-get update -qq
-            sudo apt-get install -y --no-install-recommends ffmpeg
-          fi
-          # Record executable versions; real codec/byte/hash tests still run below.
-          ffmpeg -version
-          ffprobe -version
       - name: Test original V4 Gemini v0.5 modes, local send approval and video evidence
         id: gemini
         run: |
@@ -162,13 +167,14 @@ jobs:
           DEPENDENCIES_RESULT: ${{ steps.dependencies.outcome }}
           ANDROID_RESULT: ${{ steps.android.outcome }}
           MEDIA_TOOLS_RESULT: ${{ steps.media_tools.outcome }}
+          MEDIA_READY_RESULT: ${{ steps.media_ready.outcome }}
           GEMINI_RESULT: ${{ steps.gemini.outcome }}
           PROTECTION_RESULT: ${{ steps.protection.outcome }}
         run: |
           python3 - <<'PY_SUMMARY'
           import json, os, subprocess
           gates = ('preflight', 'syntax', 'coverage', 'receipts', 'dependencies',
-                   'real_receipt_runtime', 'android', 'media_tools', 'gemini', 'protection')
+                   'real_receipt_runtime', 'android', 'media_tools', 'media_ready', 'gemini', 'protection')
           checkout = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True,
                                     text=True, check=False)
           result = {
