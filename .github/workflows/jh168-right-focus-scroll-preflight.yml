@@ -1,0 +1,53 @@
+name: JH168 bounded RIGHT Chrome focus and nested scroll preflight
+on:
+  push:
+    branches: ['feat/jh168-bound-focus-scroll-20261031']
+    paths:
+      - '.github/workflows/jh168-right-focus-scroll-preflight.yml'
+      - 'jh-server/owner-setup/jh168-mobile-unification/right-target-preflight*'
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+permissions:
+  contents: read
+jobs:
+  phone-target-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Preserve existing Secure56 policy, bridge and Playwright production bytes
+        run: |
+          git diff --exit-code cc6185f3919e9408ed38f1504b2d88f86f57c56d -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/browser-live
+      - name: Verify exact focus, nested scroll and original one-shot approval preflight
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/right-target-preflight.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/right-target-preflight.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/right-target-preflight.test.mjs
+      - name: Preserve previously verified original Computer Use and owner admission tests
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          CI=true NODE_ENV=test JH_OWNER_DEFER_LISTEN=1 \
+          node --test --test-reporter=spec --test-concurrency=1 \
+            jh-server/verification/durable-computer-policy.test.mjs \
+            jh-server/verification/jh167-exact-right-click-durable.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs \
+            jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs
+      - name: No new phone action authority or runtime activation
+        run: |
+          test -z "${JH_PENDING_APPROVAL_OPERATOR_ENABLE:-}"
+          git diff --exit-code cc6185f3919e9408ed38f1504b2d88f86f57c56d -- jh-server/owner-setup/deployment/durable-native-job-policy.mjs
+          echo JH168_PREPARE_ONLY_EXACT_TARGET_NO_PHONE_ACTION
