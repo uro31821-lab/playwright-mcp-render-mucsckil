@@ -96,6 +96,13 @@ jobs:
       - name: Verify JH168 same-command opening and observation rules
         run: |
           node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/open-and-observe.test.mjs
+      - name: Verify real generated Secure56 runtime insertion is reversible (no listener)
+        shell: bash
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          CI=true NODE_ENV=test JH_OWNER_DEFER_LISTEN=1 node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/open-and-observe-real-runtime.test.mjs
       - name: Upload bounded evidence, including on failure
         if: ${{ always() && steps.evidence.outputs.directory != '' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
