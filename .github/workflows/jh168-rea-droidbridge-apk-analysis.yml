@@ -67,6 +67,12 @@ jobs:
           set -e
           echo "$status" > "$ROOT/reference-analysis.exit"
           echo "REA_DROIDBRIDGE_PACKAGE_EXIT=$status"
+          if test "$status" -ne 0; then
+            echo "REA_DROIDBRIDGE_DIAGNOSTIC_BEGIN"
+            tail -c 3500 "$ROOT/reference-analysis.stderr" || true
+            head -c 1500 "$ROOT/reference-analysis.json" || true
+            echo "REA_DROIDBRIDGE_DIAGNOSTIC_END"
+          fi
           exit "$status"
       - name: Validate real REA result and print bounded summary
         shell: bash
