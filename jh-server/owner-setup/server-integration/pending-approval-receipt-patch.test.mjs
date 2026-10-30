@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {createPendingApprovalReceiptRegistry56} from "../server-integration/secure56-pending-approval-receipts.mjs";
+import {createPendingApprovalReceiptRegistry56} from "./secure56-pending-approval-receipts.mjs";
 import {applyPendingApprovalReceiptPatch,reversePendingApprovalReceiptPatch} from "./pending-approval-receipt-patch.mjs";
 const task="a".repeat(64),dev="b".repeat(64),run="c".repeat(64);
 const token=Buffer.alloc(32,42).toString("base64url"),other=Buffer.alloc(32,43).toString("base64url");
@@ -55,7 +55,7 @@ test("bounded memory and no reusable secret collisions",()=>{
   const {store,scope,job}=setup();store.issue({job,...scope});assert.throws(()=>store.issue({job,...scope}),/COLLISION/);
 });
 test("exact published owner baseline remains unchanged; patch round-trip is reversible",()=>{
-  const path=new URL("../server-integration/server.mjs",import.meta.url);
+  const path=new URL("./server.mjs",import.meta.url);
   const baseline=readFileSync(path,"utf8");
   const patched=applyPendingApprovalReceiptPatch(baseline);
   assert.notEqual(patched,baseline);
@@ -65,8 +65,7 @@ test("exact published owner baseline remains unchanged; patch round-trip is reve
   assert.match(patched,/jobId=>jobs\.get\(jobId\)/);
   assert.throws(()=>applyPendingApprovalReceiptPatch(patched));
 });
-test("functional runtime builder adds the patch after existing bounded readback",()=>{
-  const source=readFileSync(new URL("./functional-release-runtime.mjs",import.meta.url),"utf8");
-  assert.match(source,/applyPendingApprovalReceiptPatch\(readbackFixed\)/);
-  assert.match(source,/publish\(dest,pendingReceiptFixed\)/);
+test("pinned functional runtime remains untouched until separate integration approval",()=>{
+  const source=readFileSync(new URL("../deployment/functional-release-runtime.mjs",import.meta.url),"utf8");
+  assert.doesNotMatch(source,/applyPendingApprovalReceiptPatch/);
 });
