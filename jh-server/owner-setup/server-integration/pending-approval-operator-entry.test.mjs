@@ -85,6 +85,21 @@ test("linked generated owner source tampering is rejected after valid attestatio
   clean(built);
  }
 });
+test("exact operator environment permits source assembly only; no listener or phone action",{
+ timeout:120000
+},async()=>{
+ const selected={...ciEnv,CI:"false",NODE_ENV:"production",
+   RENDER_SERVICE_ID:"srv-db0fjl2d0e5s73be114g",
+   JH_DURABLE_RELEASE:"SERVE_READY_V1",
+   JH_PENDING_APPROVAL_OPERATOR_ENABLE:"EXPLICIT_OPERATOR_APPROVAL_RECEIPT_V1"};
+ const built=await buildPendingApprovalOperatorEntrypoint56(root,selected);
+ try{
+  assert.equal(built.operatorActivated,false);
+  assert.equal(built.listenerStarted,false);
+  assert.equal(selectPendingApprovalOperatorRuntime56(root,selected).file,built.runtimeFile);
+  assert.ok(readFileSync(built.file,"utf8").includes("selectPendingApprovalOperatorRuntime56(ROOT,process.env).file;"));
+ }finally{clean(built);}
+});
 test("runtime bytes cannot change after attestation without operator refusal",{
  timeout:120000
 },async()=>{
