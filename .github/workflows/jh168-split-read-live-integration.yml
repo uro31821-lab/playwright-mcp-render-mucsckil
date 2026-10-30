@@ -1,0 +1,48 @@
+name: JH168 isolated Secure56 split read receipt operator
+on:
+  push:
+    branches: ['feat/jh168-split-read-operator-20261031']
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+permissions:
+  contents: read
+jobs:
+  operator-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Verify pinned production baseline protected files
+        run: |
+          git diff --exit-code 5a5eb14e80003b090667494606cbcdef24315353 -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/server-integration/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/android-direct
+      - name: Install exact existing dependencies without scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Verify exact read-only JH168 split receipt registry and patch
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/split-read-receipts.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/split-read-receipt-patch.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/split-read-receipts.test.mjs
+      - name: Confirm original pending approval and generated startup, attest, rollback
+        run: |
+          CI=true NODE_ENV=test JH_OWNER_DEFER_LISTEN=1 node --test --test-reporter=spec --test-concurrency=1 \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-real-runtime-candidate.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs
+      - name: Source-only approval, no Render listener or Android action
+        run: |
+          test -z "${JH_PENDING_APPROVAL_OPERATOR_ENABLE:-}"
+          echo JH168_SPLIT_READ_CANDIDATE_NO_DEPLOY_NO_PHONE_ACTION
