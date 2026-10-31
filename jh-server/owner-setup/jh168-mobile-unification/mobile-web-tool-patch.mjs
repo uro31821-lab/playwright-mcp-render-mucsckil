@@ -48,7 +48,7 @@ export function patchJH168MobileWebCommands56(source){
   if(i<0||j<=i)throw Error("JH168_MOBILE_CAPTURE_ORDER_CHANGED");
   const cap=out.slice(i,j);
   const callback='  },async(args)=>{';
-  if(cap.split(callback).length!==2)throw Error("JH168_MOBILE_CAPTURE_CALLBACK_CHANGED");
+  if(cap.split(callback).length!==2)throw Error("JH168_MOBILE_CAPTURE_CALLBACK_CHANGED_COUNT_"+(cap.split(callback).length-1)+"_ASYNC_"+(cap.split("async(args)=>{").length-1));
   let replacement=cap.replace(callback,'  },(jhMobileWebCapture56=async(args)=>{');
   const close=replacement.lastIndexOf('  });');
   if(close<0||replacement.slice(close+5).trim()!=="")
