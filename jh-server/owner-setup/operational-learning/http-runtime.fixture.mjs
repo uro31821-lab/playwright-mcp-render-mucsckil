@@ -100,6 +100,7 @@ try {
   assert.equal(first.operationalLearning.apiVersion, 3);
   assert.equal(first.operationalLearning.capabilities.explicitInstructions, true);
   assert.equal(first.operationalLearning.capabilities.commonRules, true);
+  assert.equal(first.operationalLearning.capabilities.scopedProposals, true);
   const beforeUnauthorized = readFileSync(file);
   const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
   assert.equal(preflight.ok, true);

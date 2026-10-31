@@ -32,6 +32,10 @@ JH가 실제로 처리한 도구 호출·오류·완료 결과를 구조화해 �
 
 기존 owner 설정과 영속 저장소를 사용하므로 별도 학습 활성화 환경변수나 매 작업마다 입력하는 학습 명령은 없습니다. 호출 시 조건에 맞는 활성 교훈을 조회하고, 처리 결과를 기록한 뒤 개선 제안을 계산합니다. 반환할 조언은 도구 응답에 `type: "jh_operational_learning"` 항목으로 덧붙입니다. 동일 작업 내 중복 안내를 억제하고 새 작업에서는 다시 조회합니다.
 
+개선 제안의 자동 전달은 현재 `domain / operation / engine / context.platform / context.version / context.environment`가 모두 일치할 때만 허용합니다. `operation`에는 도구의 mode도 포함되므로 같은 도구의 START와 FOLLOW_UP 제안을 합치지 않습니다. `learning_evaluation`의 `operation: "*"`만 같은 영역·엔진·환경 안에서 여러 작업에 걸쳐 전달할 수 있습니다. 범위가 빠지거나 불완전한 기록은 자동 전달에서 제외합니다.
+
+관련성을 먼저 확인한 다음 기존 상태·중복 방지·정렬·최대 3개 제한을 적용합니다. 따라서 무관한 제안이 표시 자리를 차지하거나 같은 작업의 '이미 안내함' 기록을 소모하지 않습니다. 전달한 제안에는 허용된 범위 필드만 담은 `scope`를 포함합니다. 전체 `life_status.operationalLearning.proposals` 목록과 저장된 제안은 보존되며, 화면에 제안이 없다는 이유로 기억에서 사라졌다고 판단하지 않습니다. 이 기능은 `capabilities.scopedProposals: true`로 확인합니다.
+
 인증된 `life_status`의 `operationalLearning`에서 실제 상태를 확인합니다.
 
 | 필드 | 확인할 내용 |
