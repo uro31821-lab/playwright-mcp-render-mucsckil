@@ -13,3 +13,5 @@ import './lifecycle.test.mjs';
 import './curation.test.mjs';
 import './trajectory.test.mjs';
 import './preflight.test.mjs';
+import './multi-context.test.mjs';
+import './instructions.test.mjs';

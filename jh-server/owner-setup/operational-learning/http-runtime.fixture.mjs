@@ -2,6 +2,7 @@
  * All non-loopback network requests are rejected; no real device is registered.
  */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -59,6 +60,35 @@ try {
     assert.ok(envelope.result?.content, JSON.stringify(envelope));
     return JSON.parse(envelope.result.content[0].text);
   };
+  // This is an explicit synthetic owner attestation, not a fetched chat or source document.
+  const instructionText = 'Preserve verified result evidence before reporting success in every JH task.';
+  const instruction = { lessonId: 'synthetic-http-common-rule-v1', ruleVersion: '1', text: instructionText,
+    sourceRef: 'user:synthetic-http-common-rule',
+    sourceSha256: createHash('sha256').update(instructionText, 'utf8').digest('hex'),
+    sourceRecordRef: 'artifact:synthetic-http-instruction-record', appliesTo: { kind: 'all_jh_tasks' },
+    confirmation: 'explicit_user_instruction' };
+  const instructionSuite = { id: 'synthetic-http-evidence-contract', version: '1', evaluator: 'jh.constraints.v1',
+    synthetic: true, cases: [
+      { id: 'present', input: { value: { evidence: 'fixture:verified-result' },
+        constraints: [{ path: ['evidence'], op: 'exists' }] }, expected: { passed: true, failed: [] } },
+      { id: 'missing', input: { value: {}, constraints: [{ path: ['evidence'], op: 'exists' }] },
+        expected: { passed: false, failed: [0] } },
+    ] };
+  const assertCommonAdvice = result => {
+    assert.equal(result.ok, true);
+    assert.equal(result.targetExecuted, false);
+    assert.equal(result.externalEffects, false);
+    assert.equal(result.delivery, 'before_execution');
+    assert.equal(result.librarySync, 'not_connected');
+    const rule = result.lessons.find(item => item.id === instruction.lessonId);
+    assert.ok(rule, 'activated common instruction is recalled for this target');
+    assert.equal(rule.guidance, instructionText);
+    assert.equal(rule.provenance, 'user_explicit');
+    assert.equal(rule.appliesTo, 'all_jh_tasks');
+    for (const ref of [instruction.sourceRef, 'sha256:' + instruction.sourceSha256, instruction.sourceRecordRef]) {
+      assert.ok(rule.evidenceRefs.includes(ref));
+    }
+  };
   const first = await call(phase + '-room-a', 'life_status');
   assert.equal(first.version, '1.5.0-fix5-local-prompts');
   assert.equal(first.secureBridgeVersion, 56);
@@ -67,6 +97,9 @@ try {
   assert.equal(first.operationalLearning.degraded, false);
   assert.equal(first.operationalLearning.stateAvailable, true);
   assert.equal(first.operationalLearning.librarySync, 'not_connected');
+  assert.equal(first.operationalLearning.apiVersion, 3);
+  assert.equal(first.operationalLearning.capabilities.explicitInstructions, true);
+  assert.equal(first.operationalLearning.capabilities.commonRules, true);
   const beforeUnauthorized = readFileSync(file);
   const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
   assert.equal(preflight.ok, true);
@@ -74,18 +107,31 @@ try {
   assert.equal(preflight.targetExecuted, false);
   assert.equal(preflight.scope.operation, 'life_android_open');
   assert.equal(preflight.revision, first.operationalLearning.revision);
-  assert.deepEqual(preflight.lessons, []);
+  if (phase === 'first') assert.deepEqual(preflight.lessons, []);
+  else assertCommonAdvice(preflight);
   assert.deepEqual(readFileSync(file), beforeUnauthorized);
   const deniedMemory = await call('unauthorized-context', 'life_learning_context', { target_tool: 'life_android_open' }, false);
   assert.equal(deniedMemory.envelope.result.isError, true);
   assert.ok(deniedMemory.envelope.result._meta['mcp/www_authenticate'].length > 0);
   assert.deepEqual(readFileSync(file), beforeUnauthorized);
-  const deniedReview = await call('unauthorized-review', 'life_learning_review', { mode: 'CANDIDATE', payload: '{}' }, false);
+  const deniedReview = await call('unauthorized-review', 'life_learning_review', { mode: 'CANDIDATE',
+    payload: JSON.stringify({ instruction, suite: instructionSuite, expectedRevision: first.operationalLearning.revision }) }, false);
   assert.equal(deniedReview.envelope.result.isError, true);
   assert.ok(deniedReview.envelope.result._meta['mcp/www_authenticate'].length > 0);
   assert.deepEqual(readFileSync(file), beforeUnauthorized);
   const invalidReview = await call('invalid-review', 'life_learning_review', { mode: 'PREPARE', payload: '{"proposalId":"missing"}' });
   assert.equal(invalidReview.code, 'LEARNING_REQUEST_INVALID');
+  assert.deepEqual(readFileSync(file), beforeUnauthorized);
+  const invalidInstruction = await call('invalid-instruction-hash', 'life_learning_review', { mode: 'CANDIDATE',
+    payload: JSON.stringify({ instruction: { ...instruction, sourceSha256: 'f'.repeat(64) },
+      suite: instructionSuite, expectedRevision: first.operationalLearning.revision }) });
+  assert.equal(invalidInstruction.ok, false);
+  assert.equal(invalidInstruction.code, 'LEARNING_REQUEST_INVALID');
+  assert.deepEqual(readFileSync(file), beforeUnauthorized);
+  const ambiguousInstruction = await call('ambiguous-instruction', 'life_learning_review', { mode: 'CANDIDATE',
+    payload: JSON.stringify({ instruction, review: {}, suite: instructionSuite,
+      expectedRevision: first.operationalLearning.revision }) });
+  assert.equal(ambiguousInstruction.code, 'LEARNING_REQUEST_INVALID');
   assert.deepEqual(readFileSync(file), beforeUnauthorized);
   const catalogResponse = await fetch(origin + '/mcp', { method: 'POST',
     headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream',
@@ -106,7 +152,46 @@ try {
   assert.deepEqual(readFileSync(file), beforeUnauthorized);
   for (let i = 0; i < 3; i++) await call('receipt-' + i, 'life_job_status', { job_id: 'job_99999' });
   assert.deepEqual(readFileSync(file), beforeUnauthorized);
+  const beforeDirectives = JSON.parse(readFileSync(file, 'utf8')).state;
+  if (phase === 'first') {
+    const candidate = await call('instruction-candidate', 'life_learning_review', { mode: 'CANDIDATE',
+      payload: JSON.stringify({ instruction, suite: instructionSuite, expectedRevision: beforeDirectives.revision }) });
+    assert.equal(candidate.ok, true);
+    assert.equal(candidate.lesson.state, 'candidate');
+    assert.equal(candidate.lesson.provenance, 'user_explicit');
+    assert.equal(candidate.lesson.guidance, instructionText);
+    assert.equal(candidate.activatedByThisCall, false);
+    assert.equal(candidate.externalEffects, false);
+    assert.equal(candidate.instructionSummary.sourceAuthentication, 'authenticated_owner_attestation');
+    const dormant = await call('instruction-before-check', 'life_learning_context', { target_tool: 'life_status' });
+    assert.deepEqual(dormant.lessons, []);
+    assert.equal(dormant.targetExecuted, false);
+    const beforeStale = readFileSync(file);
+    const stale = await call('instruction-stale-check', 'life_learning_review', { mode: 'CHECK',
+      payload: JSON.stringify({ lesson: candidate.lesson, suite: instructionSuite, expectedRevision: beforeDirectives.revision }) });
+    assert.equal(stale.code, 'LEARNING_REVISION_CONFLICT');
+    assert.deepEqual(readFileSync(file), beforeStale);
+    const checked = await call('instruction-check', 'life_learning_review', { mode: 'CHECK',
+      payload: JSON.stringify({ lesson: candidate.lesson, suite: instructionSuite, expectedRevision: candidate.revision }) });
+    assert.equal(checked.ok, true);
+    assert.equal(checked.lessonState, 'active');
+    assert.equal(checked.report.passed, instructionSuite.cases.length);
+    assert.equal(checked.report.failed, 0);
+    assert.equal(checked.liveExecutionVerified, false);
+    assert.equal(checked.externalEffects, false);
+  } else {
+    assert.equal(beforeDirectives.lessons[instruction.lessonId].state, 'active');
+    assert.equal(beforeDirectives.lessons[instruction.lessonId].guidance, instructionText);
+  }
+  const beforeContextReads = readFileSync(file);
+  assertCommonAdvice(await call(phase + '-common-status', 'life_learning_context', { target_tool: 'life_status' }));
+  assertCommonAdvice(await call(phase + '-common-android', 'life_learning_context',
+    { target_tool: 'life_android_open', target_mode: 'SCROLL_ONCE' }));
+  assert.deepEqual(readFileSync(file), beforeContextReads);
+  const afterDirectives = JSON.parse(readFileSync(file, 'utf8')).state;
+  for (const key of ['events', 'attempts', 'proposals']) assert.deepEqual(afterDirectives[key], beforeDirectives[key]);
   const second = await call(phase + '-room-b', 'life_status');
+  assert.equal(second.registeredAndroidDevices, 0);
   assert.equal(second.operationalLearning.counts.attempts, first.operationalLearning.counts.attempts + 1);
   assert.equal(second.operationalLearning.counts.proposals, 0);
   assert.equal(second.operationalLearning.pending, 0);
@@ -122,6 +207,7 @@ try {
     attempts: second.operationalLearning.counts.attempts,
     revision: second.operationalLearning.revision,
     authenticated: true, unauthorizedRejected: true, receiptDedupe: true,
-    ownerBootstrapInstalled: true, memoryPreflight: true, memoryReviewAuth: true, externalRequests, realDevices: 0,
+    ownerBootstrapInstalled: true, memoryPreflight: true, memoryReviewAuth: true,
+    explicitInstruction: true, commonRuleRecall: true, commonRulePersisted: phase === 'restart', externalRequests, realDevices: 0,
   }));
 } finally { key.fill(0); await running?.close(); }
