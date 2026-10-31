@@ -17,8 +17,8 @@ const prepared=original.replace(marker,guards+marker);
 test('nine historical web routes use Android RIGHT and keep all other source bytes',()=>{
  const next=patchJH168MobileWebCommands56(prepared);
  const a=prepared.indexOf(marker),b=prepared.indexOf('  registerOAuthTool("life_android_devices",{',a);
- const x=next.indexOf(marker),y=next.indexOf('  registerOAuthTool("life_android_devices",{',x);
- assert.equal(next.slice(0,x),prepared.slice(0,a));
+ const x=a,y=next.indexOf('  registerOAuthTool("life_android_devices",{',x);
+ assert.equal(next.slice(0,a),prepared.slice(0,a));
  assert.equal(next.slice(y),prepared.slice(b));
  const section=next.slice(x,y);
  assert.equal((section.match(/registerOAuthTool\("life_web_/g)||[]).length,9);
