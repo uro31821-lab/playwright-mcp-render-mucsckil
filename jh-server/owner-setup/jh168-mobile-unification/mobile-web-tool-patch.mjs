@@ -47,13 +47,21 @@ export function patchJH168MobileWebCommands56(source){
   const i=out.indexOf(capStart),j=out.indexOf(capEnd,i);
   if(i<0||j<=i)throw Error("JH168_MOBILE_CAPTURE_ORDER_CHANGED");
   const cap=out.slice(i,j);
+  // Other Secure56 tools may be inserted AFTER capture and BEFORE snapshot.
+  // Wrap ONLY the original capture registration, never another handler.
+  const following=cap.indexOf('  registerOAuthTool("',capStart.length);
+  const first=following<0?cap:cap.slice(0,following);
+  const rest=following<0?"":cap.slice(following);
   const callback='  },async(args)=>{';
-  if(cap.split(callback).length!==2)throw Error("JH168_MOBILE_CAPTURE_CALLBACK_CHANGED_COUNT_"+(cap.split(callback).length-1)+"_ASYNC_"+(cap.split("async(args)=>{").length-1));
-  let replacement=cap.replace(callback,'  },(jhMobileWebCapture56=async(args)=>{');
-  const close=replacement.lastIndexOf('  });');
-  if(close<0||replacement.slice(close+5).trim()!=="")
+  if(first.split(callback).length!==2||first.split('  registerOAuthTool("').length!==2||
+     !first.includes('title:"Capture the approved Android work window"'))
+    throw Error("JH168_MOBILE_CAPTURE_CALLBACK_CHANGED");
+  let wrapped=first.replace(callback,'  },(jhMobileWebCapture56=async(args)=>{');
+  const close=wrapped.lastIndexOf('  });');
+  if(close<0||wrapped.slice(close+5).trim()!=="")
     throw Error("JH168_MOBILE_CAPTURE_CLOSING_CHANGED");
-  replacement=replacement.slice(0,close)+'  }));'+replacement.slice(close+5);
+  wrapped=wrapped.slice(0,close)+'  }));'+wrapped.slice(close+5);
+  const replacement=wrapped+rest;
   const updated=out.slice(0,i)+replacement+out.slice(j);
   if(updated.slice(0,i)!==out.slice(0,i)||updated.slice(i+replacement.length)!==out.slice(j))
     throw Error("JH168_MOBILE_CAPTURE_OUTSIDE_SCOPE_CHANGED");
