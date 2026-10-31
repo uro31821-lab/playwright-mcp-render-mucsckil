@@ -1,0 +1,43 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {patchJH168MobileWebCommands56} from './mobile-web-tool-patch.mjs';
+
+const original=readFileSync(new URL('../../server.mjs',import.meta.url),'utf8');
+const marker='  registerOAuthTool("life_web_navigate",{';
+const guards=[
+  '  let jhRightWebOpen56=null;',
+  '  function jhSplitScreenJob56(){}',
+  '  function jhSplitScreenContextId56(){}',
+  '  function jhSplitScreenPayloadHasLocalOnly56(){}',
+  '  function jhRequireCommand56(device){}',
+  "  registerOAuthTool('life_android_split_screen_assistant',{});"
+].join('\n')+'\n';
+const prepared=original.replace(marker,guards+marker);
+test('nine historical web routes use Android RIGHT and keep all other source bytes',()=>{
+ const next=patchJH168MobileWebCommands56(prepared);
+ const a=prepared.indexOf(marker),b=prepared.indexOf('  registerOAuthTool("life_android_devices",{',a);
+ const x=next.indexOf(marker),y=next.indexOf('  registerOAuthTool("life_android_devices",{',x);
+ assert.equal(next.slice(0,x),prepared.slice(0,a));
+ assert.equal(next.slice(y),prepared.slice(b));
+ const section=next.slice(x,y);
+ assert.equal((section.match(/registerOAuthTool\("life_web_/g)||[]).length,9);
+ assert.doesNotMatch(section,/browserTool\(|browser_navigate\(/);
+ for(const name of ['navigate','snapshot','click','type','select','press_key','wait','back','screenshot'])
+   assert.match(section,new RegExp('registerOAuthTool\\("life_web_'+name+'"'));
+ assert.match(section,/MOBILE_CONTEXT_ID_REQUIRED/);
+ assert.match(section,/MOBILE_FRESH_ITEM_REF_REQUIRED/);
+ assert.match(section,/MOBILE_KEY_NOT_VERIFIED/);
+ assert.match(section,/MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT/);
+ assert.match(section,/jhSplitScreenJob56\("split_screen_session_input_preflight"/);
+ assert.match(section,/automaticReplay:false/);
+});
+test('fail closed if legacy route or signed prerequisites drift',()=>{
+ assert.throws(()=>patchJH168MobileWebCommands56(original),/PREREQUISITES/);
+ assert.throws(()=>patchJH168MobileWebCommands56(prepared.replace('browserTool("browser_click"','browserTool("different_click"')),/DRIFT_CLICK/);
+ assert.throws(()=>patchJH168MobileWebCommands56(prepared.replace('  let jhRightWebOpen56=null;','')),/PREREQUISITES/);
+});
+test('review composition wires mobile override after signed right-pane patch',()=>{
+ const composition=readFileSync(new URL('../deployment/jh167-article-operational-review-composition.mjs',import.meta.url),'utf8');
+ assert.match(composition,/patchJH168MobileWebCommands56\(patchJH167OpenCompletion56\(patchJH167RightPaneOrchestrator56\(/);
+});
