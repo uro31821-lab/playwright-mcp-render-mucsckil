@@ -19,7 +19,17 @@ test('nine historical web routes use Android RIGHT and keep all other source byt
  const a=prepared.indexOf(marker),b=prepared.indexOf('  registerOAuthTool("life_android_devices",{',a);
  const x=a,y=next.indexOf('  registerOAuthTool("life_android_devices",{',x);
  assert.equal(next.slice(0,a),prepared.slice(0,a));
- assert.equal(next.slice(y),prepared.slice(b));
+ const nextTail=next.slice(y);
+ const capStart='  registerOAuthTool("life_android_capture_work_window",{';
+ const capEnd='  registerOAuthTool("life_android_snapshot",{';
+ const capAt=nextTail.indexOf(capStart),capStop=nextTail.indexOf(capEnd,capAt);
+ assert(capAt>=0&&capStop>capAt);
+ const patchedCapture=nextTail.slice(capAt,capStop);
+ assert.match(patchedCapture,/jhMobileWebCapture56=async/);
+ const restoredCapture=patchedCapture.replace(
+   '  },(jhMobileWebCapture56=async(args)=>{','  },async(args)=>{')
+   .replace(/  \}\)\);(\s*)$/,'  });$1');
+ assert.equal(nextTail.slice(0,capAt)+restoredCapture+nextTail.slice(capStop),prepared.slice(b));
  const section=next.slice(x,y);
  assert.equal((section.match(/registerOAuthTool\("life_web_/g)||[]).length,9);
  assert.doesNotMatch(section,/browserTool\(|browser_navigate\(/);
@@ -29,6 +39,7 @@ test('nine historical web routes use Android RIGHT and keep all other source byt
  assert.match(section,/MOBILE_FRESH_ITEM_REF_REQUIRED/);
  assert.match(section,/MOBILE_KEY_NOT_VERIFIED/);
  assert.match(section,/MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT/);
+ assert.match(section,/return jhMobileWebCapture56\(args\)/);
  assert.match(section,/jhSplitScreenJob56\("split_screen_session_input_preflight"/);
  assert.match(section,/automaticReplay:false/);
 });
