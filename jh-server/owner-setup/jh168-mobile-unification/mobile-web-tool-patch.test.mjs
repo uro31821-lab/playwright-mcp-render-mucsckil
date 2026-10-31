@@ -26,9 +26,12 @@ test('nine historical web routes use Android RIGHT and keep all other source byt
  assert(capAt>=0&&capStop>capAt);
  const patchedCapture=nextTail.slice(capAt,capStop);
  assert.match(patchedCapture,/jhMobileWebCapture56=async/);
- const restoredCapture=patchedCapture.replace(
+ const following=patchedCapture.indexOf('  registerOAuthTool("',capStart.length);
+ const first=following<0?patchedCapture:patchedCapture.slice(0,following);
+ const rest=following<0?'':patchedCapture.slice(following);
+ const restoredCapture=first.replace(
    '  },(jhMobileWebCapture56=async(args)=>{','  },async(args)=>{')
-   .replace(/  \}\)\);(\s*)$/,'  });$1');
+   .replace(/  \}\)\);(\s*)$/,'  });$1')+rest;
  assert.equal(nextTail.slice(0,capAt)+restoredCapture+nextTail.slice(capStop),prepared.slice(b));
  const section=next.slice(x,y);
  assert.equal((section.match(/registerOAuthTool\("life_web_/g)||[]).length,9);
@@ -51,4 +54,13 @@ test('fail closed if legacy route or signed prerequisites drift',()=>{
 test('review composition wires mobile override after signed right-pane patch',()=>{
  const composition=readFileSync(new URL('../deployment/jh167-article-operational-review-composition.mjs',import.meta.url),'utf8');
  assert.match(composition,/patchJH168MobileWebCommands56\(patchJH167OpenCompletion56\(patchJH167RightPaneOrchestrator56\(/);
+});
+
+test('additional generated tool after capture remains unchanged',()=>{
+ const anchor='  registerOAuthTool("life_android_snapshot",{';
+ const added='  registerOAuthTool("life_android_extra",{inputSchema:{}},async(args)=>{\n    return null;\n  });\n\n';
+ const changed=prepared.replace(anchor,added+anchor);
+ const updated=patchJH168MobileWebCommands56(changed);
+ assert(updated.includes(added));
+ assert.equal((updated.match(/jhMobileWebCapture56=async/g)||[]).length,1);
 });
