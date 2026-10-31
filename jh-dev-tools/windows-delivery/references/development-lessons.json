@@ -1,0 +1,176 @@
+{
+  "lessons": [
+    {
+      "cause": "function H가 기본 별칭 h=Get-History와 충돌했다. 별칭이 함수보다 우선하므로 H $file이 해시 함수 대신 Get-History를 호출했다.",
+      "checks": [
+        "PS_ALIAS_COLLISION"
+      ],
+      "evidence": [
+        {
+          "ref": "library-file:libfile_81bab04071b48191ae99b9d7e790045f",
+          "role": "failure",
+          "summary": "RESULT(20261031-063824).txt: STOPPED_BEFORE_DEVICE_CHANGE, DEVICE_INSTALL_ATTEMPTED FALSE."
+        },
+        {
+          "ref": "library-file:libfile_2bb01bfb8abc8191b067301f15cc4dc0",
+          "role": "failure",
+          "sha256": "93be43d0c0729b776e0b1a43bb6e5dddc5c99e170cfd0fd6da78590069dd7003",
+          "summary": "수정 전 ZIP의 ONECLICK.ps1은 H 함수를 정의하고 호출한다. 이 파일 SHA-256: 3ed8c923636066308920bd9b56f16a76977e475ce4384dbb9059003e38f7196e."
+        },
+        {
+          "ref": "library-file:libfile_f78291af6cf88191b302f7af6508b725",
+          "role": "fix",
+          "sha256": "bbc95a80a900417ccb5e8a146a2d2476772e4b239666c87143865086b078a21d",
+          "summary": "수정 후 ZIP의 ONECLICK.ps1 SHA-256: 634c8c2915298927788e51528c21fae918b8a9a524286354cb0a9aab78201b46. FIX16-APPLY.ps1, SIGN-UPDATE-FIX16.ps1 및 Kotlin payload는 동일하다."
+        },
+        {
+          "ref": "library-file:libfile_4871b528101c8191b44a1c7543f107c3",
+          "role": "success",
+          "summary": "RESULT(20261031-064255).txt: 구문/공통 오류 검사 PASS, 기존 APK 재사용, 원본 인증서 서명 확인, 설치 시도 1회, 설치 APK 바이트 해시 MATCH. 스크롤 기능 실기기 통과를 뜻하지 않는다."
+        },
+        {
+          "ref": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/get-history?view=powershell-5.1",
+          "role": "policy",
+          "summary": "h/history/ghy 별칭 및 Id Int64 매개변수."
+        },
+        {
+          "ref": "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_command_precedence?view=powershell-5.1",
+          "role": "policy",
+          "summary": "기본 명령 탐색은 Alias, Function, Cmdlet, External 순서."
+        }
+      ],
+      "id": "JH-PS-ALIAS-H-20261031",
+      "kind": "incident",
+      "observed_at": "2026-10-31",
+      "resolution": "Get-JhFileSha256으로 정의와 네 호출을 바꿨다. 기존 Windows AST/Get-Alias 검사를 유지하고 공통 패키징 전에 PS_ALIAS_COLLISION을 실행한다.",
+      "scope": [
+        "powershell",
+        "windows_package"
+      ],
+      "state": "verified",
+      "symptom": "ONECLICK.ps1의 파일 해시 검사에서 경로 문자열을 Id(Int64)로 변환할 수 없다는 오류로 설치 전에 중단됐다."
+    },
+    {
+      "cause": "현재 성공한 FIX16의 검사와 체크리스트에 보호 대상 Matches, Home, Host, PID, Input, Args가 명시돼 있다. 개별 과거 사고의 원본 로그는 미확보다.",
+      "checks": [
+        "PS_AUTOMATIC_VARIABLE"
+      ],
+      "evidence": [
+        {
+          "ref": "library-file:libfile_f78291af6cf88191b302f7af6508b725",
+          "role": "policy",
+          "summary": "POWER_SHELL_ERROR_CHECKLIST.txt 4번 및 ONECLICK.ps1의 기존 자동 변수 변경 검사."
+        }
+      ],
+      "id": "JH-PS-AUTOVAR-PREVENTION-20261031",
+      "kind": "preventive",
+      "resolution": "현재 체크리스트의 직접 대입·증감 금지를 공통 사전 검사로 이전한다. 주석·일반 문자열 및 읽기는 제외한다. 이 규칙을 확인되지 않은 과거 사고로 기록하지 않는다.",
+      "scope": [
+        "powershell"
+      ],
+      "state": "reviewed",
+      "symptom": "PowerShell 자동 변수를 누적값이나 임시값으로 사용하면 기존 의미를 덮어쓰거나 실행 오류를 일으킬 수 있다."
+    },
+    {
+      "cause": "압축 풀기 후 실행.cmd 하나로 시작하는 기존 배포 계약과 FIX16 인코딩 체크리스트를 패키징 도구가 확인하지 않았다.",
+      "checks": [
+        "WINDOWS_ENTRYPOINT",
+        "CMD_ENCODING",
+        "PS_ENCODING"
+      ],
+      "evidence": [
+        {
+          "ref": "library-file:libfile_f78291af6cf88191b302f7af6508b725",
+          "role": "policy",
+          "summary": "POWER_SHELL_ERROR_CHECKLIST.txt의 1~3번 및 기존 실행.cmd; 새로운 사용자 설치 오류를 관찰했다는 뜻은 아니다."
+        }
+      ],
+      "id": "JH-WINDOWS-ENCODING-ENTRY-20261031",
+      "kind": "preventive",
+      "resolution": "Windows 전달용은 루트 실행.cmd 존재, ASCII/CRLF, 비ASCII PowerShell의 명시적 BOM을 확인한다. 실제 경로 호출·누락 payload·첫 실행·실패 RESULT 보장은 기존 Windows 검증에서 별도로 확인한다.",
+      "scope": [
+        "windows_package"
+      ],
+      "state": "reviewed",
+      "symptom": "전달용 ZIP에 통일된 실행 진입점이 없거나 Windows 대상 문자 인코딩이 맞지 않으면 사용자가 첫 실행에서 실패할 수 있다."
+    },
+    {
+      "cause": "해당 오류는 PowerShell 해시 함수 이름에 한정됐다. 두 ZIP의 Android payload와 빌드·서명 스크립트는 동일했다.",
+      "checks": [],
+      "evidence": [
+        {
+          "ref": "library-file:libfile_4871b528101c8191b44a1c7543f107c3",
+          "role": "success",
+          "summary": "FIX16_BUILD_MODE REUSED_EXACT_PREVIOUSLY_VERIFIED_BINARY 및 BUILD_STEP REUSE_EXACT_PREVIOUSLY_TESTED_FIX16_APK_NO_REBUILD. 기능 검증 결과로 확대 해석하지 않는다."
+        }
+      ],
+      "id": "JH-REUSE-UNCHANGED-APK-20261031",
+      "kind": "practice",
+      "resolution": "소스·도구·검사·빌드 조건과 APK 해시가 같으면 검증된 APK를 재사용하고 달라진 실행기를 검사한다. 이 사례의 앱 ID/버전/해시는 다른 프로젝트에 자동 적용하지 않는다.",
+      "scope": [
+        "build_reuse",
+        "windows_package"
+      ],
+      "state": "verified",
+      "symptom": "실행기 오류만 수정했는데 이미 검증한 APK를 다시 빌드하면 반복 작업과 대기가 늘어난다."
+    },
+    {
+      "cause": "원래 package()가 ZIP을 먼저 교체한 뒤 sidecar를 쓰고, overwrite=True인 실패에는 새 ZIP 정리나 이전 ZIP 복원이 없었다. 독립 점검에서 저장 실패를 주입해 재현했다.",
+      "checks": [
+        "PACKAGE_PRESERVE_OUTPUTS"
+      ],
+      "evidence": [
+        {
+          "ref": "jh-dev-toolkit/scripts/jh_integrity.py@1c0e6ab7c4f5b0f53f9c9c6e8e5bd96aa781bf0c",
+          "role": "failure",
+          "summary": "독립 점검에서 _write_json OSError 주입 후 기존 ZIP 손실·이전 manifest 잔존을 재현. 사용자 휴대폰에서 발생한 오류가 아니라 개발 도구 자체의 재현 사례."
+        },
+        {
+          "ref": "scripts/jh_integrity.py:package",
+          "role": "fix",
+          "summary": "기존 출력 거부, 두 게시 모두 no-clobber, 새 manifest 실패 시 새 ZIP 제거."
+        },
+        {
+          "ref": "tests/test_jh_learning.py",
+          "role": "success",
+          "summary": "test_existing_package_bytes_are_preserved_even_with_overwrite 및 test_new_package_sidecar_failure_removes_new_zip_with_overwrite 통과. 관련 전체 unittest 21개 통과, 2026-10-31."
+        }
+      ],
+      "id": "JH-PACKAGE-PRESERVE-20261031",
+      "kind": "incident",
+      "observed_at": "2026-10-31",
+      "resolution": "검증된 ZIP/manifest는 불변으로 보존한다. 기존 출력이 있으면 overwrite=True도 거부하고 새 후보에는 새 이름을 사용한다. 새 출력은 둘 다 no-clobber로 게시하며 sidecar 저장 실패 시 이번에 만든 ZIP만 제거한다.",
+      "scope": [
+        "development_tools",
+        "packaging"
+      ],
+      "state": "verified",
+      "symptom": "기존 ZIP을 overwrite=True로 교체한 뒤 manifest 저장이 실패하면 새 ZIP과 이전 manifest가 남고 이전 ZIP은 사라진다."
+    },
+    {
+      "cause": "개별 성공 기록과 기존 작업 규칙에 나뉜 요구를 Windows APK 전달 ZIP의 한 기준으로 적용할 필요가 있다.",
+      "checks": [],
+      "context": "JH Windows APK 사용자 전달 ZIP에 적용. 기존 공통 작업 규칙과 확인된 실행기를 보존하며 일반 소스 ZIP에는 설치 단계를 강제하지 않는다.",
+      "evidence": [
+        {
+          "ref": "user:jh-zip-release-policy-20261031",
+          "role": "policy",
+          "summary": "사용자가 네 단계, POWER_SHELL_ERROR_CHECKLIST.txt 및 8개 반복 오류 방지 항목을 JH에 저장하도록 직접 요청했다."
+        }
+      ],
+      "id": "JH-ZIP-RELEASE-POLICY-20261031",
+      "kind": "preventive",
+      "observed_at": "2026-10-31",
+      "resolution": "references/zip-release-policy.md와 assets/POWER_SHELL_ERROR_CHECKLIST.txt를 적용한다. 현재 입력과 성공 기록 및 APK 해시가 일치하면 빌드를 재사용한다. 원래 PC의 기존 인증서만 사용하고 새 인증서를 만들지 않는다. 기존 앱 삭제 없이 같은 APK·기기·실행에서 업데이트를 한 번만 시도한다. 실제 설치 상태를 확인해 성공·실패·차단·미실행을 RESULT.txt에 기록한다. 실행 전에 압축 미해제, 스크립트 경로, 인코딩, $Matches 자동변수 충돌, 폴더 누락, 경로 길이, 해시 불일치, 중복 설치를 점검한다. 정적 검사 외 Windows 실행기 연결과 결과 저장은 실제 코드·실행 증거로 확인하며 규칙 저장을 전체 자동 구현 완료로 표현하지 않는다.",
+      "scope": [
+        "windows",
+        "powershell",
+        "apk",
+        "zip-release"
+      ],
+      "state": "reviewed",
+      "symptom": "사용자가 ZIP 제작 네 단계와 PowerShell 실행 전 8개 점검을 JH에 저장하도록 명시했다. 이번 요청은 정책 저장이며 새 빌드·서명·설치 성공을 관찰한 사건이 아니다."
+    }
+  ],
+  "schema": "jh.development-lessons.v1"
+}

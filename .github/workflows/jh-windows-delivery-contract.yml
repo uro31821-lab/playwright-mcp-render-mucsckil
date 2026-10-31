@@ -1,0 +1,70 @@
+name: JH Windows delivery contract
+
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-dev-tools/windows-delivery/**'
+      - '.github/workflows/jh-windows-delivery-contract.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jh-windows-delivery-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Verify the exact packaged-file contract and existing package behavior
+        run: python3 -B -m unittest discover -s jh-dev-tools/windows-delivery/tests -p 'test_*.py' -v
+  windows-failure-paths:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Require Windows PowerShell 5.1
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw 'Windows PowerShell 5.1 is required' }
+          $PSVersionTable.PSVersion.ToString()
+      - name: Parse the exact bundled PowerShell and check function alias collisions
+        run: |
+          $scripts = @(Get-ChildItem -LiteralPath './jh-dev-tools/windows-delivery/fixtures/fix16' -Filter '*.ps1' -File)
+          if ($scripts.Count -lt 4) { throw 'Expected the three pipeline scripts and the run safety helper' }
+          foreach ($script in $scripts) {
+            $parseTokens = $null
+            $parseErrors = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$parseTokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) { throw ('PowerShell parse error in ' + $script.Name + ': ' + $parseErrors[0].Message) }
+            $functions = $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
+            foreach ($function in @($functions)) {
+              if (Get-Alias -Name $function.Name -ErrorAction SilentlyContinue) { throw ('Function/alias collision: ' + $function.Name) }
+            }
+          }
+          Write-Output ('JH_WINDOWS_PARSE_FILES=' + $scripts.Count)
+      - name: Reproduce the original cleanup defect on synthetic files
+        run: |
+          & './jh-dev-tools/windows-delivery/tests/Test-LegacyRegression.ps1' -LegacyRoot './jh-dev-tools/windows-delivery/fixtures/legacy'
+          if (-not $?) { throw 'Legacy reproduction failed' }
+          exit 0
+      - name: Verify current-run results, output ownership and locking without device commands
+        run: |
+          & './jh-dev-tools/windows-delivery/tests/Test-RunSafety.ps1' -KitRoot './jh-dev-tools/windows-delivery/fixtures/fix16'
+          if (-not $?) { throw 'Run safety regressions failed' }
+          exit 0
+      - name: Verify the actual CMD bootstrap against harmless process stubs
+        run: |
+          & './jh-dev-tools/windows-delivery/tests/Test-JhBootstrap.ps1' -KitRoot './jh-dev-tools/windows-delivery/fixtures/fix16'
+          if (-not $?) { throw 'Bootstrap regressions failed' }
+          exit 0

@@ -1,0 +1,121 @@
+{
+  "schema": "jh.windows-apk-profiles.v1",
+  "profiles": [
+    {
+      "schema": "jh.windows-apk-profile.v1",
+      "id": "JH-WINDOWS-APK-FIX16-ORIGINAL",
+      "version": "1",
+      "entrypoint": "실행.cmd",
+      "required_files": {
+        "실행.cmd": {
+          "sha256": "cd7e73b17e85f74f7ce6c797a395516e46dbe40331f169634ba9738ca3be3b32",
+          "size": 1120
+        },
+        "ONECLICK.ps1": {
+          "sha256": "634c8c2915298927788e51528c21fae918b8a9a524286354cb0a9aab78201b46",
+          "size": 8802
+        },
+        "FIX16-APPLY.ps1": {
+          "sha256": "5ab7aa84edf377f4d695b65522afe62f86c9e4532fd862ee8dbce56d4af0b8d7",
+          "size": 19611
+        },
+        "SIGN-UPDATE-FIX16.ps1": {
+          "sha256": "b3a00110bbf8363016265578fe2e2bd907f3cf3927d70214f7e6fe2921fa22a2",
+          "size": 22606
+        },
+        "JH168HorizontalScrollPolicy.kt": {
+          "sha256": "693a4983733182e73d3b3a9619e0f8810b310e42b5c8fb3844a5f8d1deee8ec4",
+          "size": 6936
+        },
+        "JH168RightHorizontalScrollRuntime.kt": {
+          "sha256": "73a72f8107b15dc5f4e7b220028f39957b3a3fcb82f504118b0234b769ffea00",
+          "size": 18208
+        },
+        "JH168HorizontalScrollPolicyTest.kt": {
+          "sha256": "d9414e037c1ab698a1819ef1b5ca648557b4906f611ede3250d996fa4abb140f",
+          "size": 4391
+        },
+        "POWER_SHELL_ERROR_CHECKLIST.txt": {
+          "sha256": "048bf71f7d924698e684f01c3d3bae4f45cd1195581a84cf28f887d9e9d17001",
+          "size": 3220
+        },
+        "00-README-FIRST.txt": {
+          "sha256": "829288111f30a1affc28e97a83d29c297d1f021c08f511d4edd5e1b993e34534",
+          "size": 2024
+        }
+      },
+      "evidence_refs": [
+        "library:libfile_f78291af6cf88191b302f7af6508b725",
+        "sha256:bbc95a80a900417ccb5e8a146a2d2476772e4b239666c87143865086b078a21d",
+        "source:legacy-signer-cleanup-existing-output-defect",
+        "test:Test-LegacyRegression.ps1"
+      ],
+      "limitations": [
+        "Historical success does not cover failed startup or pre-existing output cleanup.",
+        "Blocked because original cleanup can delete existing signed/aligned files and bootstrap can omit failure RESULT."
+      ],
+      "review_status": "blocked"
+    },
+    {
+      "schema": "jh.windows-apk-profile.v1",
+      "id": "JH-WINDOWS-APK-FIX16-HARDENED-1",
+      "version": "1",
+      "entrypoint": "실행.cmd",
+      "required_files": {
+        "실행.cmd": {
+          "sha256": "c0d81ca3b0fa4d25695f3bf4e15c5f4d1eee94f176975f8a70441a243a8afe69",
+          "size": 5559
+        },
+        "ONECLICK.ps1": {
+          "sha256": "2e3c5f0716453f44e6b053141186bde652420da39f0cb83bcb56dd7670c1b504",
+          "size": 10839
+        },
+        "FIX16-APPLY.ps1": {
+          "sha256": "5ab7aa84edf377f4d695b65522afe62f86c9e4532fd862ee8dbce56d4af0b8d7",
+          "size": 19611
+        },
+        "SIGN-UPDATE-FIX16.ps1": {
+          "sha256": "34eb206b30846ad60be4465b49dd162c808475c52dce3d20a45508b4d8f29fe2",
+          "size": 25192
+        },
+        "JH168HorizontalScrollPolicy.kt": {
+          "sha256": "693a4983733182e73d3b3a9619e0f8810b310e42b5c8fb3844a5f8d1deee8ec4",
+          "size": 6936
+        },
+        "JH168RightHorizontalScrollRuntime.kt": {
+          "sha256": "73a72f8107b15dc5f4e7b220028f39957b3a3fcb82f504118b0234b769ffea00",
+          "size": 18208
+        },
+        "JH168HorizontalScrollPolicyTest.kt": {
+          "sha256": "d9414e037c1ab698a1819ef1b5ca648557b4906f611ede3250d996fa4abb140f",
+          "size": 4391
+        },
+        "POWER_SHELL_ERROR_CHECKLIST.txt": {
+          "sha256": "18ccaa7813f11a17e400a91f416285efa0790b17f2d73439d8441f9f0bbab412",
+          "size": 3254
+        },
+        "00-README-FIRST.txt": {
+          "sha256": "c9824123a493bc4cf3096e6dd8af4655d815ae4bb4deb95f0ad5a9ca3a6a081b",
+          "size": 2387
+        },
+        "JH-RUN-SAFETY.ps1": {
+          "sha256": "9ebb716ab9cdb54f47e46c785c11412c4d8ae9c20d2f011376d4e721ca8aae0f",
+          "size": 7311
+        }
+      },
+      "evidence_refs": [
+        "library:libfile_f78291af6cf88191b302f7af6508b725",
+        "source:jh-dev-tools/windows-delivery/fixtures/fix16",
+        "test:Test-RunSafety.ps1",
+        "test:Test-JhBootstrap.ps1",
+        "test:test_jh_windows_delivery.py"
+      ],
+      "limitations": [
+        "Source-reviewed historical FIX16 regression reference only; not a current JH mobile release or device execution approval.",
+        "Windows tests use synthetic files and harmless process stubs; actual build/sign/install and current device state remain NOT_RUN.",
+        "Packaging pins required file bytes and does not prove external PC inputs, certificates, device state or installation."
+      ],
+      "review_status": "reviewed"
+    }
+  ]
+}
