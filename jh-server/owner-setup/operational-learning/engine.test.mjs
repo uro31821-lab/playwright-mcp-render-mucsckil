@@ -147,6 +147,27 @@ test('an out-of-order observation cannot regress the latest verified result', ()
   assert.equal(proposalsOf(state, 'rule_fix').length, 0);
 });
 
+test('observed and pending states are not verified outcomes or proposal evidence', () => {
+  const observations = ['observed', 'pending'].flatMap(outcome => [1, 2, 3].map(n => event(outcome + '-' + n, {
+    outcome, errorCode: undefined, evidenceRefs: [],
+  })));
+  const state = ingestAll(observations);
+  assert.equal(Object.keys(state.attempts).length, 6);
+  assert.equal(propose(state, { now: NOW }).proposals.length, 0);
+});
+
+test('new observation and pending events cannot downgrade an existing verified outcome', () => {
+  for (const verified of ['success_verified', 'failure_verified']) {
+    const original = event('verified-' + verified, { outcome: verified });
+    let state = ingest(createState(), original).state;
+    for (const [index, outcome] of ['observed', 'pending'].entries()) state = ingest(state, event('after-' + outcome, {
+      taskId: original.taskId, attemptId: original.attemptId, sequence: index + 2,
+      outcome, evidenceRefs: [], errorCode: undefined,
+    })).state;
+    assert.equal(Object.values(state.attempts)[0].outcome, verified);
+  }
+});
+
 test('a reviewed lesson begins as a candidate and does not affect recall', () => {
   const state = addLesson(createState(), lesson());
   assert.deepEqual(recall(state, query()), []);

@@ -7,7 +7,7 @@ const DOMAINS = new Set([
 ]);
 const OUTCOMES = new Set([
   'success_verified', 'failure_verified', 'completion_unknown',
-  'blocked', 'cancelled', 'correction',
+  'blocked', 'cancelled', 'correction', 'observed', 'pending',
 ]);
 const SOURCES = new Set(['host_verified', 'user_explicit', 'user_reported']);
 const VERIFIED = new Set(['success_verified', 'failure_verified']);
@@ -148,7 +148,7 @@ export function ingest(state, event) {
   if (!previous) capacity(state, 'attempts');
   const next = clone(state);
   next.events[event.eventId] = clone(event);
-  const inconclusive = ['completion_unknown', 'blocked', 'cancelled'].includes(event.outcome);
+  const inconclusive = ['completion_unknown', 'blocked', 'cancelled', 'observed', 'pending'].includes(event.outcome);
   const losesVerification = previous && VERIFIED.has(previous.outcome) && inconclusive;
   if (!previous || (event.sequence > previous.sequence && !losesVerification)) {
     const projected = clone(event);

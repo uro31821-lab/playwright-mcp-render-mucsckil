@@ -4,12 +4,12 @@ on:
   pull_request:
     branches: ['jh-fix3-secure-server']
     paths:
-      - 'jh-server/owner-setup/operational-learning/**'
+      - 'jh-server/owner-setup/**'
       - '.github/workflows/jh-operational-learning.yml'
   push:
     branches: ['jh-fix3-secure-server']
     paths:
-      - 'jh-server/owner-setup/operational-learning/**'
+      - 'jh-server/owner-setup/**'
       - '.github/workflows/jh-operational-learning.yml'
 
 permissions:
@@ -32,7 +32,22 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22'
-      - name: Verify the independent learning module
+      - name: Install existing host dependencies without lifecycle scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Verify learning, actual owner bootstrap, authenticated MCP and restart persistence
         env:
           CI: 'true'
         run: node jh-server/owner-setup/operational-learning/verify.mjs
+      - name: Verify unchanged authentication and durable dispatch boundaries
+        run: |
+          node jh-server/verification/build-auth-candidate.mjs
+          for file in \
+            jh-server/verification/auth-rejection.test.mjs \
+            jh-server/verification/job-deadline.test.mjs \
+            jh-server/verification/durable-computer-policy.test.mjs \
+            jh-server/verification/durable-live-release.test.mjs; do
+            node "$file"
+          done
