@@ -1,3 +1,4 @@
+import {patchJHEvidenceSearchRuntime56} from './jh-perplexity-search-composition.mjs';
 import {patchJH167ConnectionV2Runtime} from './jh167-connection-v2-runtime.mjs';
 import {patchJH167RightPaneOrchestrator56} from './jh167-right-pane-orchestrator-repair.mjs';
 import {patchJH167OpenCompletion56} from './jh167-open-completion.mjs';
@@ -132,5 +133,6 @@ export function patchJH167OperationalArticleReview56(runtimeSource){
  if(!candidate.startsWith(importLine)||
     withoutImport.replace(/\n  \/\/ NEWS ADDON REVIEW-ONLY\.[\s\S]*?\n  }(?=\n)/,'')!==withGuides)
    throw Error('JH167_NEWS_COMPOSITION_SCOPE_CHANGED');
- return patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate)))));
+ const reviewed=patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate)))));
+ return patchJHEvidenceSearchRuntime56(reviewed);
 }
