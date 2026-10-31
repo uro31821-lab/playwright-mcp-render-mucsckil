@@ -138,7 +138,9 @@ test('pending polls, repeated completion, and receipt calls do not add attempts 
     'life_android_action_approval_status', 'life_android_screen_consent_status']) {
     await runtime.invoke(call('poll-' + name, { name }), () => response());
   }
-  await runtime.invoke(call('mode-status', { name: 'life_android_split_screen_assistant', mode: 'STATUS' }), () => response());
+  for (const mode of ['STATUS', 'READBACK_PENDING']) {
+    await runtime.invoke(call('mode-' + mode, { name: 'life_android_split_screen_assistant', mode }), () => response());
+  }
   assert.deepEqual(await store.read(), before);
   runtime.jobCompleted(job('poll', { status: 'complete', verifiedOutcome: 'success_verified', evidenceDigest: DIGEST }));
   await runtime.status();
@@ -354,6 +356,9 @@ test('unscoped requests can receive existing advice again while receipt polling 
   assert.equal(notice(first).proposals[0].id, notice(second).proposals[0].id);
   const receipt = response();
   assert.strictEqual(await runtime.invoke(call('receipt-offer', { name: 'life_job_status', commandId: undefined }), () => receipt), receipt);
+  const readback = response();
+  assert.strictEqual(await runtime.invoke(call('readback-offer', { name: 'life_android_split_screen_assistant',
+    mode: 'READBACK_PENDING', commandId: undefined }), () => readback), readback);
 });
 
 test('a second controller can complete a just-created job before its first write without losing caller scope', async t => {

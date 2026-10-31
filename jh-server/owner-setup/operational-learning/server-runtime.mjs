@@ -7,7 +7,7 @@ const RECEIPT_TOOLS = new Set([
   'life_job_status', 'job_status', 'life_android_pending_approval_receipt_status',
   'life_android_action_approval_status', 'life_android_screen_consent_status',
 ]);
-const RECEIPT_MODES = new Set(['STATUS', 'RECEIPT_STATUS']);
+const RECEIPT_MODES = new Set(['STATUS', 'RECEIPT_STATUS', 'READBACK_PENDING']);
 const VERIFIED = new Set(['success_verified', 'failure_verified']);
 const SAFE_CODES = new Set([
   'JOB_ERROR', 'JOB_EXPIRED', 'TIMEOUT', 'ACCESS_DENIED', 'APPROVAL_REQUIRED',
