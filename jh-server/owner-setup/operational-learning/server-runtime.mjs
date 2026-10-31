@@ -239,11 +239,24 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     } catch (error) { failed(error); }
   }
 
-  function suggestions(current, lessons = [], offerKey) {
+  function proposalMatchesScope(item, query) {
+    const scope = item?.scope;
+    if (!scope || typeof scope !== 'object' || Array.isArray(scope) ||
+      !['domain', 'operation', 'engine', 'context'].every(key => Object.hasOwn(scope, key)) ||
+      !scope.context || typeof scope.context !== 'object' || Array.isArray(scope.context) ||
+      !['platform', 'version', 'environment'].every(key => Object.hasOwn(scope.context, key) &&
+        scope.context[key] === query.context[key])) return false;
+    // Additional-learning evaluation can span operations only within its own
+    // domain and environment. Other proposal kinds never get a wildcard scope.
+    return scope.domain === query.domain && scope.engine === query.engine &&
+      (scope.operation === query.operation ||
+        (item.kind === 'learning_evaluation' && scope.operation === '*'));
+  }
+  function suggestions(current, lessons = [], offerKey, query) {
     if (!current) return { lessons: [], proposals: [] };
     return {
       lessons: lessons.filter(item => !offered.has(offerKey + ':lesson:' + item.id + ':' + item.inputFingerprint)).slice(0, 3),
-      proposals: Object.values(current.proposals).filter(item => item.status === 'open' &&
+      proposals: Object.values(current.proposals).filter(item => proposalMatchesScope(item, query) && item.status === 'open' &&
         !offered.has(offerKey + ':proposal:' + item.id)).sort((a, b) => a.id.localeCompare(b.id)).slice(0, 3),
     };
   }
@@ -256,6 +269,9 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       lessons: advice.lessons.map(item => ({ id: item.id, operation: item.operation, ruleVersion: item.ruleVersion,
         guidance: shortText(item.guidance), evidenceRefs: item.evidenceRefs.slice(0, 4) })),
       proposals: advice.proposals.map(item => ({ id: item.id, kind: item.kind, status: item.status,
+        scope: { domain: item.scope.domain, operation: item.scope.operation, engine: item.scope.engine,
+          context: { platform: item.scope.context.platform, version: item.scope.context.version,
+            environment: item.scope.context.environment } },
         independentTaskCount: item.independentTaskCount, reason: shortText(item.reason),
         proposedChange: shortText(item.proposedChange), savings: null })),
       observationScope: 'JH tool events only; ordinary chat is not observed', librarySync: 'not_connected',
@@ -327,7 +343,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       // Another controller may quarantine or replace a lesson while this handler runs.
       const { taskId: unused, ...query } = invocation.scope;
       lessons = current ? adviceFor(current, query, { limit: 20, maxChars: 16384 }).lessons : [];
-      return appendAdvice(value, suggestions(current, lessons, invocation.offerKey), invocation.offerKey);
+      return appendAdvice(value, suggestions(current, lessons, invocation.offerKey, query), invocation.offerKey);
     });
     return enriched === undefined ? value : enriched;
   }
@@ -466,7 +482,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     return {
       enabled: Boolean(store && environment && !closed), degraded: failures > 0,
       apiVersion: 3, capabilities: { preflightContext: true, reviewedCandidates: true,
-        temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true },
+        temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true,
+        scopedProposals: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,
