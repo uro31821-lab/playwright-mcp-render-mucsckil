@@ -2,9 +2,17 @@ import { pathToFileURL } from 'node:url';
 import { access } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { FileLearningStore } from './store.mjs';
-import { ingest, recall, propose, addLesson, setProposalStatus } from './engine.mjs';
+import { ingest, recall, recallContext, propose, addLesson, setProposalStatus } from './engine.mjs';
 import { bindRegression, checkLesson } from './regression.mjs';
 import { evaluateConstraints } from './constraints.mjs';
+import { prepareReview, createReviewedCandidate } from './curation.mjs';
+import { evaluateTrajectory } from './trajectory.mjs';
+
+function evaluatorFor(suite) {
+  if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
+  if (suite.evaluator === 'jh.trajectory.v1') return evaluateTrajectory;
+  throw new TypeError('Unknown trusted evaluator');
+}
 
 function options(args) {
   const [command, ...rest] = args;
@@ -32,6 +40,16 @@ export async function execute(args, input) {
         proposals: Object.values(state.proposals), lessons: Object.values(state.lessons).map(({ id, domain, operation, state }) => ({ id, domain, operation, state })) };
     }
     case 'recall': return { lessons: recall(await store.read(), input) };
+    case 'context': {
+      if (!input || Object.keys(input).some(key => !['query', 'options'].includes(key))) throw new TypeError('context requires query and optional options');
+      return recallContext(await store.read(), input.query, input.options);
+    }
+    case 'review': return prepareReview(await store.read(), input);
+    case 'curate': {
+      if (!input || Object.keys(input).some(key => !['review', 'suite'].includes(key))) throw new TypeError('curate requires review and suite');
+      evaluatorFor(input.suite);
+      return createReviewedCandidate(await store.read(), input.review, input.suite);
+    }
     case 'ingest': {
       const events = Array.isArray(input) ? input : [input];
       if (!events.length || events.length > 100) throw new TypeError('Ingest 1–100 structured events');
@@ -53,6 +71,7 @@ export async function execute(args, input) {
     }
     case 'candidate': {
       if (!input || Object.keys(input).some(key => !['lesson', 'suite'].includes(key))) throw new TypeError('candidate requires lesson and suite only');
+      evaluatorFor(input.suite);
       const bound = bindRegression(input.lesson, input.suite);
       const result = await store.transact(state => addLesson(state, bound), transactionOptions);
       return { revision: result.revision, lesson: result.lessons[bound.id] };
@@ -60,13 +79,13 @@ export async function execute(args, input) {
     case 'check': {
       if (expectedRevision !== undefined) throw new TypeError('check uses an atomic lesson transaction, not a caller-supplied state revision');
       if (!input || Object.keys(input).some(key => !['lesson', 'suite'].includes(key))) throw new TypeError('check requires lesson and suite only');
-      return checkLesson(store, input.lesson, input.suite, evaluateConstraints);
+      return checkLesson(store, input.lesson, input.suite, evaluatorFor(input.suite));
     }
     case 'proposal-status': {
       const result = await store.transact(state => setProposalStatus(state, input.id, input.status, input.verification), transactionOptions);
       return { revision: result.revision, proposal: result.proposals[input.id] };
     }
-    default: throw new TypeError('Use status, ingest, recall, propose, candidate, check, or proposal-status');
+    default: throw new TypeError('Use status, ingest, recall, context, review, curate, propose, candidate, check, or proposal-status');
   }
 }
 

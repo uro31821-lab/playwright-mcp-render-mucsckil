@@ -1,11 +1,13 @@
-/** Outermost, reversible observation patch for the complete operator runtime.
- * It adds no MCP tool, executor, approval, dispatch, or authentication decision.
+/** Outermost, reversible learning patch for the complete operator runtime.
+ * Memory tools add no executor, approval, dispatch, or authentication decision.
  * The original source and its security/receipt patches must be verified first.
  */
-const PREFIX = 'import {describeOpenCompletion as jhLearningDescribeOpen56} from "../deployment/jh167-open-completion.mjs";\n';
+const PREFIX = 'import {describeOpenCompletion as jhLearningDescribeOpen56} from "../deployment/jh167-open-completion.mjs";\n' +
+  'import {registerLearningTools as jhRegisterLearningTools56} from "../operational-learning/mcp-tools.mjs";\n';
 const CONTEXT = 'const jhCommandContext56=new JhAsyncLocalStorage56();';
 const REGISTER = 'const scoped=jhCommandTool56(name,config,handler);';
-const REGISTERED = 'const scoped=jhCommandTool56(name,config,jhLearningHandler56(name,handler));';
+const REGISTERED = 'const scoped=jhCommandTool56(name,config,jhLearningHandler56(name,handler));if(name===\'life_learning_context\'||name===\'life_learning_review\')scoped.config.description=config.description;';
+const TOOL_ANCHOR = '  registerOAuthTool("life_status",{';
 const CREATED = '  return cacheSet(recentJobs,key,j);';
 const COMPLETED = '    j.status="complete";j.result=body.result;j.completedAt=new Date().toISOString();';
 const RETENTION = '    if((j.status==="complete"||j.status==="error"||j.status==="expired") && j.completedAt && now-Date.parse(j.completedAt)>COMPLETED_JOB_RETENTION_MS)jobs.delete(id);';
@@ -104,7 +106,8 @@ export function installOperationalLearning56(controller){
   const methods=['invoke','jobCreated','jobCompleted','status','close'];
   if(!controller||methods.some(key=>typeof controller[key]!=='function'))
     throw Error('LEARNING_CONTROLLER_REQUIRED');
-  const installed=Object.freeze(Object.fromEntries(methods.map(key=>[key,controller[key].bind(controller)])));
+  const exposed=[...methods,...['context','review'].filter(key=>typeof controller[key]==='function')];
+  const installed=Object.freeze(Object.fromEntries(exposed.map(key=>[key,controller[key].bind(controller)])));
   jhLearningController56=installed;jhLearningInstalled56=true;
   let closed=false;
   return Object.freeze({installed:true,automaticReplayAllowed:false,close(){
@@ -117,6 +120,7 @@ export function installOperationalLearning56(controller){
 const PAIRS = [
   [CONTEXT, CONTEXT + SHARED],
   [REGISTER, REGISTERED],
+  [TOOL_ANCHOR, '  jhRegisterLearningTools56({registerOAuthTool,z,textResult,getController:()=>jhLearningController56});\n' + TOOL_ANCHOR],
   [CREATED, '  jhLearningObserveJob56("jobCreated",j);\n' + CREATED],
   [COMPLETED, COMPLETED + '\n    jhLearningObserveJob56("jobCompleted",j);'],
   [RETENTION, '    if(j.status==="error"||j.status==="expired")jhLearningObserveJob56("jobCompleted",j);\n' + RETENTION],

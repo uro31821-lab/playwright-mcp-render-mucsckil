@@ -68,6 +68,37 @@ try {
   assert.equal(first.operationalLearning.stateAvailable, true);
   assert.equal(first.operationalLearning.librarySync, 'not_connected');
   const beforeUnauthorized = readFileSync(file);
+  const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
+  assert.equal(preflight.ok, true);
+  assert.equal(preflight.delivery, 'before_execution');
+  assert.equal(preflight.targetExecuted, false);
+  assert.equal(preflight.scope.operation, 'life_android_open');
+  assert.equal(preflight.revision, first.operationalLearning.revision);
+  assert.deepEqual(preflight.lessons, []);
+  assert.deepEqual(readFileSync(file), beforeUnauthorized);
+  const deniedMemory = await call('unauthorized-context', 'life_learning_context', { target_tool: 'life_android_open' }, false);
+  assert.equal(deniedMemory.envelope.result.isError, true);
+  assert.ok(deniedMemory.envelope.result._meta['mcp/www_authenticate'].length > 0);
+  assert.deepEqual(readFileSync(file), beforeUnauthorized);
+  const deniedReview = await call('unauthorized-review', 'life_learning_review', { mode: 'CANDIDATE', payload: '{}' }, false);
+  assert.equal(deniedReview.envelope.result.isError, true);
+  assert.ok(deniedReview.envelope.result._meta['mcp/www_authenticate'].length > 0);
+  assert.deepEqual(readFileSync(file), beforeUnauthorized);
+  const invalidReview = await call('invalid-review', 'life_learning_review', { mode: 'PREPARE', payload: '{"proposalId":"missing"}' });
+  assert.equal(invalidReview.code, 'LEARNING_REQUEST_INVALID');
+  assert.deepEqual(readFileSync(file), beforeUnauthorized);
+  const catalogResponse = await fetch(origin + '/mcp', { method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream',
+      authorization: 'Bearer ' + process.env.LIFE_HUB_TOKEN },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 'memory-catalog', method: 'tools/list' }),
+    signal: AbortSignal.timeout(10000) });
+  const catalog = (await catalogResponse.json()).result.tools;
+  for (const name of ['life_learning_context', 'life_learning_review']) {
+    const tool = catalog.find(item => item.name === name);
+    assert.ok(tool, name);
+    assert.equal(tool.description.includes('Start each NEW user instruction'), false);
+    assert.ok(tool.securitySchemes?.some(item => item.type === 'oauth2') || tool._meta?.securitySchemes?.some(item => item.type === 'oauth2'));
+  }
   const unauthorized = await call('unauthorized', 'life_status', {}, false);
   assert.equal(unauthorized.status, 200); // Existing MCP authentication challenge contract.
   assert.equal(unauthorized.envelope.result.isError, true);
@@ -91,6 +122,6 @@ try {
     attempts: second.operationalLearning.counts.attempts,
     revision: second.operationalLearning.revision,
     authenticated: true, unauthorizedRejected: true, receiptDedupe: true,
-    ownerBootstrapInstalled: true, externalRequests, realDevices: 0,
+    ownerBootstrapInstalled: true, memoryPreflight: true, memoryReviewAuth: true, externalRequests, realDevices: 0,
   }));
 } finally { key.fill(0); await running?.close(); }

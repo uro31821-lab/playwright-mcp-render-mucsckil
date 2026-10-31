@@ -24,6 +24,12 @@ JH가 실제로 처리한 도구 호출·오류·완료 결과를 구조화해 �
 
 ## 서버에서의 사용과 상태 확인
 
+### 첫 동작 전에 기억 조회
+
+`life_learning_context`는 실행하려는 `target_tool`과 선택 `target_mode`에 맞는 현재 교훈을 **동작 전에** 읽는 MCP 도구다. 인증된 동일 owner 저장소만 사용하고 기기 명령·승인·작업 시작을 수행하지 않는다. 기본 5개·안내문 4000자 안에서 반환하며 `revision`, `fingerprint`, `validUntil`, `conflicts`, `omitted`를 함께 확인한다. 같은 작업에서 유효한 결과는 재사용하고 대상/모드/유효기간/기억 변경이 확인된 경우만 다시 조회한다. 카탈로그가 아직 갱신되지 않아 도구가 없으면 조회됐다고 추정하지 않는다.
+
+기존 응답에 붙는 `jh_operational_learning`은 `timing: "after_execution"`으로 표시한다. 이 응답만으로 그 첫 동작 전에 교훈을 읽었다고 표현하지 않는다. 개인 스킬의 별도 대화 기억은 기존 저장소와 CLI 경로를 유지한다.
+
 기존 owner 설정과 영속 저장소를 사용하므로 별도 학습 활성화 환경변수나 매 작업마다 입력하는 학습 명령은 없습니다. 호출 시 조건에 맞는 활성 교훈을 조회하고, 처리 결과를 기록한 뒤 개선 제안을 계산합니다. 반환할 조언은 도구 응답에 `type: "jh_operational_learning"` 항목으로 덧붙입니다. 동일 작업 내 중복 안내를 억제하고 새 작업에서는 다시 조회합니다.
 
 인증된 `life_status`의 `operationalLearning`에서 실제 상태를 확인합니다.
@@ -35,6 +41,7 @@ JH가 실제로 처리한 도구 호출·오류·완료 결과를 구조화해 �
 | `attemptOutcomes`, `availableAdvice`, `proposals` | 결과 분포와 활용 가능한 교훈·제안 |
 | `diagnostics` | 저장·검증 문제의 제한된 오류 코드 |
 | `identityModel`, `observationScope`, `librarySync` | 개인 서버 owner 기준, JH 도구 이벤트 범위, Library 연결 여부 |
+| `apiVersion`, `capabilities` | 현재 학습 API와 사전조회·검토 후보·기간 규칙·trace 검사 지원 여부 |
 
 hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장소가 손상되거나 사용할 수 없으면 `degraded` 상태를 알리고 기존 JH 작업을 계속합니다. 정상 종료에서는 진행 중인 호출과 대기 중인 기록을 제한 시간 안에서 정리하고, 끝나지 않은 호출을 완료 미확정으로 기록합니다.
 
@@ -80,11 +87,29 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 ## 교훈은 검사 후에만 활용
 
+### 경험에서 구체적인 후보를 작성
+
+`life_learning_review`는 `mode`와 JSON 문자열 `payload`를 받는다. `PREPARE`는 `{proposalId,maxAttempts?}`로 실제 제안과 현재 근거를 읽는다. `CANDIDATE`는 `{review,suite}`를 받아 현재 packet의 revision/fingerprint, 사건·범위·출처를 대조하고 구체적인 후보만 저장한다. `CHECK`는 `{lesson,suite,expectedRevision}`로 저장된 후보와 동일한 정의를 실제 평가한 뒤 활성/격리 상태를 기록한다. 두 도구의 호출 자체는 새로운 실패나 반복 업무 횟수로 세지 않는다.
+
+검토의 `cause`, `resolution`, `expectedEffect`, `guidance`는 에이전트가 실제 근거를 읽고 작성한다. `reflection.assessment: "reviewed_inference"`와 `provenance: "model_inferred"`로 보존하며 사용자 지시로 승격하지 않는다. 에이전트 추론을 수행하는 별도 모델 서비스는 실행하지 않는다. 직접 사용하는 함수와 필드는 [curation.mjs](curation.mjs), 사용 가능한 검증 사례는 [curation.test.mjs](curation.test.mjs)를 참고한다. 기각·완료 제안, 오래된 검토 packet, 중복된 polling과 미확인 결과만으로 규칙을 만들지 않는다.
+
 새 교훈은 `candidate`로 시작합니다. [regression.mjs](regression.mjs)가 교훈 정의·규칙 버전·시험 입력·기대값을 fingerprint로 묶고, 실제 실행 결과를 연결합니다. 통과 1건 이상, 실패 0, 건너뜀 0과 일치하는 근거가 있어야 `active`가 됩니다.
 
 실패한 검사는 교훈을 `quarantined`로 격리합니다. 이미 대체된 검증 영수증이나 최신 영수증보다 오래된·충돌하는 시각의 증거를 다시 적용할 수 없습니다. 입력·버전이 바뀌면 새 후보 ID/버전으로 검사하며 과거 통과를 붙이지 않습니다.
 
 recall은 활성 교훈 중 영역·작업·엔진·플랫폼·버전·환경이 모두 일치하는 것만 반환합니다. 서버에서는 허용 mode를 포함한 작업 종류가 같아야 하므로 같은 도구의 서로 다른 동작에 교훈을 섞지 않습니다. 활성화된 교훈도 조언이며 기존 승인·권한·실행 경계를 바꾸지 않습니다.
+
+### 기억 종류와 규칙 변경 이력
+
+선택 metadata는 `memoryKind`(fact/episode/procedure), `provenance`(user_explicit/host_verified/model_inferred/legacy), `validFrom`, `validUntil`, `supersedes`, `conflictKey`, `reflection`이다. 구형 metadata 없는 기록과 fingerprint는 그대로 읽는다. 새 metadata도 회귀 fingerprint에 묶이며 변경된 정의에 이전 검사를 재사용하지 않는다.
+
+낮은 출처의 규칙은 더 높은 출처를 대체하지 못한다. 동급의 같은 `conflictKey`에서 내용이 다르면 함께 적용하지 않고 충돌로 반환한다. 최근 시각만으로 우선순위를 결정하지 않는다. 대체 후보는 통과하고 유효 시작 시점에 도달해야 효력이 생긴다. 이미 대체된 이전 규칙은 이력으로 보존하며 후속 규칙 만료·격리 시 자동으로 부활시키지 않는다. 이 정책은 학습 교훈 내부의 선택 기준이며 시스템 지시·인증·승인 규칙을 변경하지 않는다.
+
+### 실행 과정 재발 검사
+
+suite에 `evaluator: "jh.trajectory.v1"`을 명시하면 [trajectory.mjs](trajectory.mjs)가 도구 횟수·순서·인수·전체 단계 수와 성공 주장/결과 근거의 대응을 검사한다. trace나 검사가 없으면 통과시키지 않는다. 검사 종류도 suite fingerprint에 포함한다. 기존 JSON 검사는 미지정 또는 `jh.constraints.v1`로 유지하며 임의 코드·모듈 이름을 실행할 수 없다.
+
+[fixtures/learning-trajectories.json](fixtures/learning-trajectories.json)은 APK 중복 설치/삭제, 화면 대상 혼동, 근거 없는 조사 성공, 출력 순서 등의 **합성** 양성·음성 사례다. 실제 실패를 확보했으면 개인정보를 제거한 입력과 기대 결과를 추가한다. `evaluatePromptfooTrajectory()`는 동일 입력을 promptfoo custom assertion 결과로 바꾸는 선택적 adapter이며 promptfoo 설치나 모델 평가 실행을 뜻하지 않는다. [참고 원본과 적용 결정](design-sources.md)에 범위와 한계를 기록했다.
 
 ## 개인 저장소
 
@@ -111,6 +136,9 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `status` | 없음: 현재 상태 요약 |
 | `ingest` | 이벤트 객체 또는 1~100개 이벤트 배열 |
 | `recall` | `{domain, operation, engine, context}` |
+| `context` | `{query:{domain,operation,engine,context},options?:{now,limit,maxChars}}`: 기간·충돌·예산을 적용한 읽기 |
+| `review` | `{proposalId,maxAttempts?}`: 실제 근거 검토 packet 읽기 |
+| `curate` | `{review,suite}`: 구체적인 검토 결과를 검증된 형식의 후보 정의로 변환. 저장·활성화는 별도 |
 | `propose` | `{}` 또는 `{now, thresholds}` |
 | `candidate` | `{lesson, suite}`: 시험에 연결된 후보 등록, 활성화하지 않음 |
 | `check` | `{lesson, suite}`: 등록과 실제 제약검사·평가 반영 |

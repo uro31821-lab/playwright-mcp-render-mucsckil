@@ -1,0 +1,517 @@
+{
+  "id": "jh-learning-trajectories",
+  "version": "1",
+  "evaluator": "jh.trajectory.v1",
+  "synthetic": true,
+  "cases": [
+    {
+      "id": "apk-reuse-update-once",
+      "input": {
+        "trace": {
+          "steps": [
+            {
+              "id": "cache",
+              "tool": "build.cache.lookup",
+              "args": {
+                "input": "fixture-source-v1",
+                "reused": true
+              }
+            },
+            {
+              "id": "certificate",
+              "tool": "signing.verify",
+              "args": {
+                "certificate": "original"
+              }
+            },
+            {
+              "id": "install",
+              "tool": "apk.update",
+              "args": {
+                "device": "fixture-device",
+                "package": "fixture.app",
+                "uninstall": false
+              },
+              "status": "pending"
+            },
+            {
+              "id": "installed",
+              "tool": "apk.install.inspect",
+              "args": {
+                "device": "fixture-device",
+                "package": "fixture.app",
+                "artifact": "fixture-apk-a"
+              },
+              "status": "success_verified",
+              "source": "host_verified",
+              "evidenceRefs": [
+                "fixture:installed-apk-a"
+              ]
+            }
+          ],
+          "claims": [
+            {
+              "id": "installed-claim",
+              "kind": "success",
+              "stepId": "installed",
+              "evidenceRefs": [
+                "fixture:installed-apk-a"
+              ]
+            }
+          ]
+        },
+        "checks": [
+          {
+            "op": "tool_used",
+            "tool": "build.run",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "op": "tool_used",
+            "tool": "signing.create",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "op": "tool_used",
+            "tool": "apk.update",
+            "min": 1,
+            "max": 1
+          },
+          {
+            "op": "tool_used",
+            "tool": "apk.uninstall",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "op": "ordered_tools",
+            "tools": [
+              "build.cache.lookup",
+              "signing.verify",
+              "apk.update",
+              "apk.install.inspect"
+            ],
+            "mode": "subsequence"
+          },
+          {
+            "op": "tool_args",
+            "tool": "apk.update",
+            "mode": "exact",
+            "expected": {
+              "device": "fixture-device",
+              "package": "fixture.app",
+              "uninstall": false
+            }
+          },
+          {
+            "op": "tool_args",
+            "tool": "apk.install.inspect",
+            "mode": "path",
+            "path": [
+              "device"
+            ],
+            "expected": "fixture-device"
+          },
+          {
+            "op": "claims_verified"
+          },
+          {
+            "op": "step_count",
+            "min": 4,
+            "max": 4
+          }
+        ]
+      },
+      "expected": {
+        "passed": true,
+        "failed": []
+      }
+    },
+    {
+      "id": "apk-repeated-install-and-delete",
+      "input": {
+        "trace": {
+          "steps": [
+            {
+              "id": "cache",
+              "tool": "build.cache.lookup",
+              "args": {
+                "input": "fixture-source-v1",
+                "reused": true
+              }
+            },
+            {
+              "id": "certificate",
+              "tool": "signing.verify",
+              "args": {
+                "certificate": "original"
+              }
+            },
+            {
+              "id": "uninstall",
+              "tool": "apk.uninstall",
+              "args": {
+                "device": "fixture-device",
+                "package": "fixture.app"
+              }
+            },
+            {
+              "id": "install",
+              "tool": "apk.update",
+              "args": {
+                "device": "fixture-device",
+                "package": "fixture.app",
+                "uninstall": false
+              },
+              "status": "pending"
+            },
+            {
+              "id": "install-again",
+              "tool": "apk.update",
+              "args": {
+                "device": "fixture-device",
+                "package": "fixture.app",
+                "uninstall": false
+              },
+              "status": "pending"
+            },
+            {
+              "id": "installed",
+              "tool": "apk.install.inspect",
+              "args": {
+                "device": "fixture-device",
+                "package": "fixture.app",
+                "artifact": "fixture-apk-a"
+              },
+              "status": "success_verified",
+              "source": "host_verified",
+              "evidenceRefs": [
+                "fixture:installed-apk-a"
+              ]
+            }
+          ],
+          "claims": [
+            {
+              "id": "installed-claim",
+              "kind": "success",
+              "stepId": "installed",
+              "evidenceRefs": [
+                "fixture:installed-apk-a"
+              ]
+            }
+          ]
+        },
+        "checks": [
+          {
+            "op": "tool_used",
+            "tool": "build.run",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "op": "tool_used",
+            "tool": "signing.create",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "op": "tool_used",
+            "tool": "apk.update",
+            "min": 1,
+            "max": 1
+          },
+          {
+            "op": "tool_used",
+            "tool": "apk.uninstall",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "op": "ordered_tools",
+            "tools": [
+              "build.cache.lookup",
+              "signing.verify",
+              "apk.update",
+              "apk.install.inspect"
+            ],
+            "mode": "subsequence"
+          },
+          {
+            "op": "tool_args",
+            "tool": "apk.update",
+            "mode": "exact",
+            "expected": {
+              "device": "fixture-device",
+              "package": "fixture.app",
+              "uninstall": false
+            }
+          },
+          {
+            "op": "tool_args",
+            "tool": "apk.install.inspect",
+            "mode": "path",
+            "path": [
+              "device"
+            ],
+            "expected": "fixture-device"
+          },
+          {
+            "op": "claims_verified"
+          },
+          {
+            "op": "step_count",
+            "min": 4,
+            "max": 4
+          }
+        ]
+      },
+      "expected": {
+        "passed": false,
+        "failed": [
+          2,
+          3,
+          8
+        ]
+      }
+    },
+    {
+      "id": "device-wrong-pane",
+      "input": {
+        "trace": {
+          "steps": [
+            {
+              "id": "scroll",
+              "tool": "device.scroll",
+              "args": {
+                "target": {
+                  "pane": "left",
+                  "device": "fixture-device"
+                },
+                "direction": "down"
+              }
+            },
+            {
+              "id": "state",
+              "tool": "device.state.observe",
+              "args": {
+                "target": {
+                  "pane": "left",
+                  "device": "fixture-device"
+                }
+              },
+              "status": "success_verified",
+              "source": "host_verified",
+              "evidenceRefs": [
+                "fixture:left-pane-state"
+              ]
+            }
+          ],
+          "claims": [
+            {
+              "id": "scroll-claim",
+              "kind": "success",
+              "stepId": "state",
+              "evidenceRefs": [
+                "fixture:left-pane-state"
+              ]
+            }
+          ]
+        },
+        "checks": [
+          {
+            "op": "tool_used",
+            "tool": "device.scroll",
+            "min": 1,
+            "max": 1
+          },
+          {
+            "op": "tool_args",
+            "tool": "device.scroll",
+            "mode": "path",
+            "path": [
+              "target",
+              "pane"
+            ],
+            "expected": "right"
+          },
+          {
+            "op": "ordered_tools",
+            "tools": [
+              "device.scroll",
+              "device.state.observe"
+            ],
+            "mode": "contiguous"
+          },
+          {
+            "op": "claims_verified"
+          }
+        ]
+      },
+      "expected": {
+        "passed": false,
+        "failed": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "research-http-ack-is-not-verified-success",
+      "input": {
+        "trace": {
+          "steps": [
+            {
+              "id": "fetch",
+              "tool": "research.fetch",
+              "args": {
+                "sourceId": "fixture-paper",
+                "statusCode": 200
+              },
+              "status": "observed",
+              "source": "host_verified",
+              "evidenceRefs": [
+                "fixture:http-receipt"
+              ]
+            }
+          ],
+          "claims": [
+            {
+              "id": "research-claim",
+              "kind": "success",
+              "stepId": "fetch",
+              "evidenceRefs": [
+                "fixture:http-receipt"
+              ]
+            }
+          ]
+        },
+        "checks": [
+          {
+            "op": "tool_used",
+            "tool": "research.fetch",
+            "min": 1,
+            "max": 1
+          },
+          {
+            "op": "tool_args",
+            "tool": "research.fetch",
+            "mode": "path",
+            "path": [
+              "sourceId"
+            ],
+            "expected": "fixture-paper"
+          },
+          {
+            "op": "claims_verified"
+          }
+        ]
+      },
+      "expected": {
+        "passed": false,
+        "failed": [
+          2
+        ]
+      }
+    },
+    {
+      "id": "output-required-sections",
+      "input": {
+        "trace": {
+          "steps": [
+            {
+              "id": "prepare",
+              "tool": "output.prepare",
+              "args": {
+                "sections": [
+                  "summary",
+                  "evidence",
+                  "next"
+                ]
+              }
+            },
+            {
+              "id": "check",
+              "tool": "output.check",
+              "args": {
+                "sections": [
+                  "summary",
+                  "evidence",
+                  "next"
+                ]
+              },
+              "status": "success_verified",
+              "source": "host_verified",
+              "evidenceRefs": [
+                "fixture:output-format"
+              ]
+            },
+            {
+              "id": "emit",
+              "tool": "output.emit",
+              "args": {
+                "sections": [
+                  "summary",
+                  "evidence",
+                  "next"
+                ]
+              }
+            }
+          ],
+          "claims": [
+            {
+              "id": "format-claim",
+              "kind": "success",
+              "stepId": "check",
+              "evidenceRefs": [
+                "fixture:output-format"
+              ]
+            }
+          ]
+        },
+        "checks": [
+          {
+            "op": "tool_used",
+            "tool": "output.emit",
+            "min": 1,
+            "max": 1
+          },
+          {
+            "op": "tool_args",
+            "tool": "output.emit",
+            "mode": "path",
+            "path": [
+              "sections"
+            ],
+            "expected": [
+              "summary",
+              "evidence",
+              "next"
+            ]
+          },
+          {
+            "op": "ordered_tools",
+            "tools": [
+              "output.prepare",
+              "output.check",
+              "output.emit"
+            ],
+            "mode": "contiguous"
+          },
+          {
+            "op": "claims_verified"
+          },
+          {
+            "op": "step_count",
+            "min": 3,
+            "max": 3
+          }
+        ]
+      },
+      "expected": {
+        "passed": true,
+        "failed": []
+      }
+    }
+  ]
+}

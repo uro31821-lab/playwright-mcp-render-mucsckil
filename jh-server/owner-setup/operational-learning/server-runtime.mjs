@@ -1,11 +1,16 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import { FileLearningStore } from './store.mjs';
-import { ingest, recall, propose } from './engine.mjs';
+import { ingest, recall, recallContext, propose, addLesson, evaluateLesson } from './engine.mjs';
+import { prepareReview, createReviewedCandidate } from './curation.mjs';
+import { bindRegression, runRegression } from './regression.mjs';
+import { evaluateConstraints } from './constraints.mjs';
+import { evaluateTrajectory } from './trajectory.mjs';
 
 const RECEIPT_TOOLS = new Set([
   'life_job_status', 'job_status', 'life_android_pending_approval_receipt_status',
   'life_android_action_approval_status', 'life_android_screen_consent_status',
+  'life_learning_context', 'life_learning_review',
 ]);
 const RECEIPT_MODES = new Set(['STATUS', 'RECEIPT_STATUS', 'READBACK_PENDING']);
 const VERIFIED = new Set(['success_verified', 'failure_verified']);
@@ -236,7 +241,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     if ((!advice.lessons.length && !advice.proposals.length) || !value || typeof value !== 'object' ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(value)) || !Array.isArray(value.content)) return value;
     const notice = {
-      type: 'jh_operational_learning', delivery: 'offered', advisoryOnly: true, externalEffects: false,
+      type: 'jh_operational_learning', delivery: 'offered', timing: 'after_execution', advisoryOnly: true, externalEffects: false,
+      revision: state?.revision ?? null, preflightTool: 'life_learning_context',
       lessons: advice.lessons.map(item => ({ id: item.id, operation: item.operation, ruleVersion: item.ruleVersion,
         guidance: shortText(item.guidance), evidenceRefs: item.evidenceRefs.slice(0, 4) })),
       proposals: advice.proposals.map(item => ({ id: item.id, kind: item.kind, status: item.status,
@@ -327,6 +333,89 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     finally { inFlight.delete(flight); finish(); }
   }
 
+  function unavailableResult() {
+    return { ok: false, code: 'LEARNING_UNAVAILABLE', replayAllowed: false };
+  }
+  function requestFields(input, required, optional = []) {
+    if (!input || typeof input !== 'object' || Array.isArray(input) ||
+        ![Object.prototype, null].includes(Object.getPrototypeOf(input)) ||
+        Object.keys(input).some(key => ![...required, ...optional].includes(key)) ||
+        required.some(key => !Object.hasOwn(input, key))) throw new TypeError('LEARNING_REQUEST_INVALID');
+  }
+  function evaluatorFor(suite) {
+    if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
+    if (suite.evaluator === 'jh.trajectory.v1') return evaluateTrajectory;
+    throw new TypeError('LEARNING_EVALUATOR_UNSUPPORTED');
+  }
+
+  /** Explicit read before the target action; retrieval never executes that target. */
+  async function preflightContext(input) {
+    requestFields(input, ['target_tool'], ['target_mode', 'limit', 'max_chars']);
+    if (typeof input.target_tool !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(input.target_tool)) {
+      throw new TypeError('LEARNING_TARGET_INVALID');
+    }
+    const mode = input.target_mode ?? '';
+    if (typeof mode !== 'string' || (mode && !/^[A-Z][A-Z0-9_]{0,23}$/.test(mode))) {
+      throw new TypeError('LEARNING_MODE_INVALID');
+    }
+    await queue;
+    const current = await refresh();
+    if (!current || closed || closing) return unavailableResult();
+    const { taskId: unused, ...scope } = scopeFor(input.target_tool + (mode ? '.' + mode.toLowerCase() : ''), null);
+    const recalled = recallContext(current, scope, { now: clock(),
+      ...(input.limit === undefined ? {} : { limit: input.limit }),
+      ...(input.max_chars === undefined ? {} : { maxChars: input.max_chars }) });
+    return { ok: true, type: 'jh_learning_context', delivery: 'before_execution',
+      advisoryOnly: true, externalEffects: false, targetExecuted: false, scope,
+      revision: recalled.revision, fingerprint: recalled.fingerprint, omitted: recalled.omitted,
+      conflicts: recalled.conflicts,
+      lessons: recalled.lessons.map(item => ({ id: item.id, ruleVersion: item.ruleVersion,
+        memoryKind: item.memoryKind ?? 'procedure', provenance: item.provenance ?? 'legacy',
+        guidance: item.guidance, evidenceRefs: item.evidenceRefs.slice(0, 4),
+        validFrom: item.validFrom ?? null, validUntil: item.validUntil ?? null })),
+      observationScope: 'JH tool events only', librarySync: 'not_connected' };
+  }
+
+  /** Structured review only. An agent inference cannot claim user authority. */
+  async function review(mode, input) {
+    if (!['PREPARE', 'CANDIDATE', 'CHECK'].includes(mode)) throw new TypeError('LEARNING_REVIEW_MODE_INVALID');
+    await queue;
+    const current = await refresh();
+    if (!current || closed || closing) return unavailableResult();
+    if (mode === 'PREPARE') {
+      return { ok: true, mode, packet: prepareReview(current, input), externalEffects: false };
+    }
+    if (mode === 'CANDIDATE') {
+      requestFields(input, ['review', 'suite']);
+      evaluatorFor(input.suite);
+      const candidate = createReviewedCandidate(current, input.review, input.suite);
+      const saved = await store.transact(value => addLesson(value, candidate.lesson),
+        { expectedRevision: input.review.baseRevision });
+      state = saved;
+      return { ok: true, mode, revision: saved.revision,
+        lesson: saved.lessons[candidate.lesson.id], suite: candidate.suite,
+        reviewSummary: candidate.reviewSummary, externalEffects: false, activatedByThisCall: false };
+    }
+    requestFields(input, ['lesson', 'suite', 'expectedRevision']);
+    if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0 ||
+        input.expectedRevision !== current.revision) {
+      return { ok: false, code: 'LEARNING_REVISION_CONFLICT', revision: current.revision, replayAllowed: false };
+    }
+    const bound = bindRegression(input.lesson, input.suite);
+    const existing = current.lessons[bound.id];
+    if (!existing || existing.inputFingerprint !== bound.inputFingerprint) {
+      throw new TypeError('LEARNING_REGISTERED_CANDIDATE_REQUIRED');
+    }
+    const checked = await runRegression(bound, input.suite, evaluatorFor(input.suite), { now: clock() });
+    const saved = await store.transact(value => evaluateLesson(value, bound.id, checked.evaluation),
+      { expectedRevision: input.expectedRevision });
+    state = saved;
+    return { ok: true, mode, revision: saved.revision, lessonId: bound.id,
+      lessonState: saved.lessons[bound.id].state, report: checked.report,
+      validationScope: input.suite.evaluator === 'jh.trajectory.v1' ? 'recorded_trajectory_contract' : 'json_contract',
+      liveExecutionVerified: false, externalEffects: false };
+  }
+
   async function status() {
     await queue;
     const current = await refresh();
@@ -337,6 +426,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       independentTaskCount: item.independentTaskCount, advisoryOnly: true }));
     return {
       enabled: Boolean(store && environment && !closed), degraded: failures > 0,
+      apiVersion: 2, capabilities: { preflightContext: true, reviewedCandidates: true,
+        temporalRules: true, trajectoryRegression: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,
@@ -381,5 +472,5 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     })();
     return closing;
   }
-  return Object.freeze({ invoke, jobCreated, jobCompleted, status, close });
+  return Object.freeze({ invoke, jobCreated, jobCompleted, context: preflightContext, review, status, close });
 }
