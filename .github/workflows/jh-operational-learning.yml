@@ -1,0 +1,38 @@
+name: JH Operational Learning
+
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/operational-learning/**'
+      - '.github/workflows/jh-operational-learning.yml'
+  push:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/operational-learning/**'
+      - '.github/workflows/jh-operational-learning.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jh-operational-learning-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  operational-learning:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Use Node.js 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Verify the independent learning module
+        env:
+          CI: 'true'
+        run: node jh-server/owner-setup/operational-learning/verify.mjs
