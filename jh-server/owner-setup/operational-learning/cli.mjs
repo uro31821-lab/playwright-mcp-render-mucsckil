@@ -1,0 +1,91 @@
+import { pathToFileURL } from 'node:url';
+import { access } from 'node:fs/promises';
+import { createInterface } from 'node:readline';
+import { FileLearningStore } from './store.mjs';
+import { ingest, recall, propose, addLesson, setProposalStatus } from './engine.mjs';
+import { bindRegression, checkLesson } from './regression.mjs';
+import { evaluateConstraints } from './constraints.mjs';
+
+function options(args) {
+  const [command, ...rest] = args;
+  const flags = {};
+  for (let i = 0; i < rest.length; i += 2) {
+    if (!['--store', '--owner', '--revision'].includes(rest[i]) || rest[i + 1] === undefined || Object.hasOwn(flags, rest[i])) throw new TypeError('Invalid CLI arguments');
+    flags[rest[i]] = rest[i + 1];
+  }
+  const expectedRevision = flags['--revision'] === undefined ? undefined : Number(flags['--revision']);
+  if (expectedRevision !== undefined && (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0)) throw new TypeError('Invalid expected revision');
+  return { command, store: new FileLearningStore({ file: flags['--store'], ownerScope: flags['--owner'] }), expectedRevision };
+}
+
+/** Input is parsed JSON data, never a shell command or dynamically loaded module. */
+export async function execute(args, input) {
+  const { command, store, expectedRevision } = options(args);
+  const transactionOptions = { expectedRevision };
+  switch (command) {
+    case 'status': {
+      const state = await store.read();
+      let exists = true;
+      try { await access(store.file); } catch { exists = false; }
+      return { schema: state.schema, revision: state.revision, persisted: exists,
+        counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key, Object.keys(state[key]).length])),
+        proposals: Object.values(state.proposals), lessons: Object.values(state.lessons).map(({ id, domain, operation, state }) => ({ id, domain, operation, state })) };
+    }
+    case 'recall': return { lessons: recall(await store.read(), input) };
+    case 'ingest': {
+      const events = Array.isArray(input) ? input : [input];
+      if (!events.length || events.length > 100) throw new TypeError('Ingest 1–100 structured events');
+      const result = await store.transact(state => {
+        let recorded = 0; let duplicates = 0;
+        for (const event of events) {
+          const next = ingest(state, event);
+          state = next.state;
+          if (next.duplicate) duplicates++; else recorded++;
+        }
+        return { ...propose(state), recorded, duplicates };
+      }, transactionOptions);
+      return { revision: result.state.revision, recorded: result.recorded,
+        duplicates: result.duplicates, newProposals: result.proposals };
+    }
+    case 'propose': {
+      const result = await store.transact(state => propose(state, input ?? {}), transactionOptions);
+      return { revision: result.state.revision, newProposals: result.proposals };
+    }
+    case 'candidate': {
+      if (!input || Object.keys(input).some(key => !['lesson', 'suite'].includes(key))) throw new TypeError('candidate requires lesson and suite only');
+      const bound = bindRegression(input.lesson, input.suite);
+      const result = await store.transact(state => addLesson(state, bound), transactionOptions);
+      return { revision: result.revision, lesson: result.lessons[bound.id] };
+    }
+    case 'check': {
+      if (expectedRevision !== undefined) throw new TypeError('check uses an atomic lesson transaction, not a caller-supplied state revision');
+      if (!input || Object.keys(input).some(key => !['lesson', 'suite'].includes(key))) throw new TypeError('check requires lesson and suite only');
+      return checkLesson(store, input.lesson, input.suite, evaluateConstraints);
+    }
+    case 'proposal-status': {
+      const result = await store.transact(state => setProposalStatus(state, input.id, input.status, input.verification), transactionOptions);
+      return { revision: result.revision, proposal: result.proposals[input.id] };
+    }
+    default: throw new TypeError('Use status, ingest, recall, propose, candidate, check, or proposal-status');
+  }
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  let source = '';
+  if (!['status'].includes(args[0])) {
+    for await (const line of createInterface({ input: process.stdin, crlfDelay: Infinity })) {
+      source += line + '\n';
+      if (Buffer.byteLength(source) > 1024 * 1024) throw new TypeError('JSON input exceeds 1 MiB');
+    }
+  }
+  const result = await execute(args, source.trim() ? JSON.parse(source) : undefined);
+  process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(error => {
+    // A malformed payload can contain private data. Do not print it or the error stack.
+    process.stderr.write(JSON.stringify({ ok: false, code: error.code ?? 'LEARNING_INPUT_OR_OPERATION_FAILED' }) + '\n');
+    process.exitCode = 1;
+  });
+}
