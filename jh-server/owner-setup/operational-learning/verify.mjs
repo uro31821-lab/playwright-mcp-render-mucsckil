@@ -9,3 +9,7 @@ import './runtime-patch.test.mjs';
 import './owner-host.test.mjs';
 import './owner-patch.test.mjs';
 import './http-runtime.test.mjs';
+import './lifecycle.test.mjs';
+import './curation.test.mjs';
+import './trajectory.test.mjs';
+import './preflight.test.mjs';

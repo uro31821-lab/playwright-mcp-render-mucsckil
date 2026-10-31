@@ -57,11 +57,15 @@ function register(name,handler,config={}){
   const registerOAuthTool=(name,config,handler)=>{const scoped=jhCommandTool56(name,config,handler);return server.registerTool(name,{...scoped.config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},async(...a)=>{jhV2State56.activeMcpCalls++;try{const result=await scoped.handler(...a);jhV2State56.lastMcpAt=Date.now();return result;}finally{jhV2State56.activeMcpCalls--;}});};
   return registerOAuthTool(name,config,handler);
 }
+function memoryCatalogFixture(){
+  const registerOAuthTool=()=>{};
+  registerOAuthTool("life_status",{});
+}
 `;
 
 function host() {
   const patched = applyOperationalLearningPatch(source);
-  const executable = patched.replace(/^import[^\n]+\n/, '').replace('export function installOperationalLearning56', 'function installOperationalLearning56');
+  const executable = patched.replace(/^(?:import[^\n]+\n)+/, '').replace('export function installOperationalLearning56', 'function installOperationalLearning56');
   const sandbox = {
     JhAsyncLocalStorage56: AsyncLocalStorage,
     jhLearningDescribeOpen56: describeOpenCompletion,

@@ -26,7 +26,7 @@ function validateSuite(suite) {
 /** Bind a lesson to its definition AND actual replay inputs/expected outputs. */
 export function bindRegression(definition, suite) {
   validateSuite(suite);
-  const { inputFingerprint, state, advisoryOnly, evaluation, evaluationHistory, ...candidate } = definition;
+  const { inputFingerprint, state, advisoryOnly, evaluation, evaluationHistory, supersessionHistory, ...candidate } = definition;
   return { ...candidate, inputFingerprint: digest({ candidate, suite }) };
 }
 
@@ -39,6 +39,7 @@ export async function runRegression(lesson, suite, evaluator, { now = new Date()
   if (typeof evaluator !== 'function') throw new TypeError('Trusted evaluator callback required');
   const bound = bindRegression(lesson, suite);
   if (lesson.inputFingerprint !== bound.inputFingerprint) throw new TypeError('Regression inputs differ from lesson fingerprint');
+  const definitionFingerprint = digest(bound);
   const cases = [];
   for (const item of suite.cases) {
     try {
@@ -52,11 +53,11 @@ export async function runRegression(lesson, suite, evaluator, { now = new Date()
     }
   }
   const report = { schema: 'jh.operational-regression.v1', lessonId: lesson.id,
-    ruleVersion: lesson.ruleVersion, inputFingerprint: lesson.inputFingerprint,
+    ruleVersion: lesson.ruleVersion, inputFingerprint: lesson.inputFingerprint, definitionFingerprint,
     suiteId: suite.id, suiteVersion: suite.version, timestamp: now, cases,
     passed: cases.filter(item => item.passed).length,
     failed: cases.filter(item => !item.passed).length, skipped: 0 };
-  return { report, evaluation: { ruleVersion: lesson.ruleVersion,
+  return { report, evaluation: { lessonId: lesson.id, definitionFingerprint, ruleVersion: lesson.ruleVersion,
     inputFingerprint: lesson.inputFingerprint, passed: report.passed, failed: report.failed,
     skipped: 0, timestamp: now, evidenceRefs: ['regression:' + digest(report)], caseResults: structuredClone(cases) } };
 }
