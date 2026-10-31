@@ -1,8 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import { FileLearningStore } from './store.mjs';
-import { ingest, recall, recallContext, propose, addLesson, evaluateLesson } from './engine.mjs';
+import { ingest, recallContexts, propose, addLesson, evaluateLesson } from './engine.mjs';
 import { prepareReview, createReviewedCandidate } from './curation.mjs';
+import { createInstructionCandidate } from './instructions.mjs';
 import { bindRegression, runRegression } from './regression.mjs';
 import { evaluateConstraints } from './constraints.mjs';
 import { evaluateTrajectory } from './trajectory.mjs';
@@ -152,6 +153,15 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     return { taskId: taskId(commandId), domain: domainFor(operation), operation,
       engine: ENGINE, context: clone(environment) };
   }
+  // A real cross-task policy scope, never a fabricated tool execution or event.
+  function commonRuleScope() {
+    return { domain: 'orchestration', operation: 'jh.common.rules', engine: ENGINE, context: clone(environment) };
+  }
+  function adviceFor(current, scope, options = {}) {
+    const common = commonRuleScope();
+    const scopes = scope.domain === common.domain && scope.operation === common.operation ? [scope] : [scope, common];
+    return recallContexts(current, scopes, { now: clock(), ...options });
+  }
   function queueWork(callback) {
     if (!store || !environment || closed) return;
     queued++;
@@ -277,7 +287,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       const current = await refresh();
       if (current && !invocation.receipt) {
         const { taskId: unused, ...query } = scope;
-        lessons = recall(current, query);
+        lessons = adviceFor(current, query, { limit: 20, maxChars: 16384 }).lessons;
       }
     });
     let value;
@@ -316,7 +326,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     const enriched = await safely(() => {
       // Another controller may quarantine or replace a lesson while this handler runs.
       const { taskId: unused, ...query } = invocation.scope;
-      lessons = current ? recall(current, query) : [];
+      lessons = current ? adviceFor(current, query, { limit: 20, maxChars: 16384 }).lessons : [];
       return appendAdvice(value, suggestions(current, lessons, invocation.offerKey), invocation.offerKey);
     });
     return enriched === undefined ? value : enriched;
@@ -348,6 +358,15 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     throw new TypeError('LEARNING_EVALUATOR_UNSUPPORTED');
   }
 
+  function targetScope(target, mode = '') {
+    if (typeof target !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(target) ||
+        typeof mode !== 'string' || (mode && !/^[A-Z][A-Z0-9_]{0,23}$/.test(mode))) {
+      throw new TypeError('LEARNING_TARGET_INVALID');
+    }
+    const { taskId: unused, ...scope } = scopeFor(target + (mode ? '.' + mode.toLowerCase() : ''), null);
+    return scope;
+  }
+
   /** Explicit read before the target action; retrieval never executes that target. */
   async function preflightContext(input) {
     requestFields(input, ['target_tool'], ['target_mode', 'limit', 'max_chars']);
@@ -361,8 +380,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     await queue;
     const current = await refresh();
     if (!current || closed || closing) return unavailableResult();
-    const { taskId: unused, ...scope } = scopeFor(input.target_tool + (mode ? '.' + mode.toLowerCase() : ''), null);
-    const recalled = recallContext(current, scope, { now: clock(),
+    const scope = targetScope(input.target_tool, mode);
+    const recalled = adviceFor(current, scope, {
       ...(input.limit === undefined ? {} : { limit: input.limit }),
       ...(input.max_chars === undefined ? {} : { maxChars: input.max_chars }) });
     return { ok: true, type: 'jh_learning_context', delivery: 'before_execution',
@@ -371,6 +390,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       conflicts: recalled.conflicts,
       lessons: recalled.lessons.map(item => ({ id: item.id, ruleVersion: item.ruleVersion,
         memoryKind: item.memoryKind ?? 'procedure', provenance: item.provenance ?? 'legacy',
+        appliesTo: item.domain === 'orchestration' && item.operation === 'jh.common.rules' ? 'all_jh_tasks' : 'target_operation',
         guidance: item.guidance, evidenceRefs: item.evidenceRefs.slice(0, 4),
         validFrom: item.validFrom ?? null, validUntil: item.validUntil ?? null })),
       observationScope: 'JH tool events only', librarySync: 'not_connected' };
@@ -386,6 +406,25 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       return { ok: true, mode, packet: prepareReview(current, input), externalEffects: false };
     }
     if (mode === 'CANDIDATE') {
+      if (Object.hasOwn(input, 'instruction')) {
+        requestFields(input, ['instruction', 'suite', 'expectedRevision']);
+        if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0 ||
+            input.expectedRevision !== current.revision) {
+          return { ok: false, code: 'LEARNING_REVISION_CONFLICT', revision: current.revision, replayAllowed: false };
+        }
+        evaluatorFor(input.suite);
+        const appliesTo = input.instruction?.appliesTo;
+        const scope = appliesTo?.kind === 'all_jh_tasks' ? commonRuleScope()
+          : appliesTo?.kind === 'tool' ? targetScope(appliesTo.target_tool, appliesTo.target_mode ?? '') : null;
+        if (!scope) throw new TypeError('LEARNING_INSTRUCTION_SCOPE_INVALID');
+        const candidate = createInstructionCandidate(current, input.instruction, input.suite, { scope });
+        const saved = await store.transact(value => addLesson(value, candidate.lesson),
+          { expectedRevision: input.expectedRevision });
+        state = saved;
+        return { ok: true, mode, revision: saved.revision,
+          lesson: saved.lessons[candidate.lesson.id], suite: candidate.suite,
+          instructionSummary: candidate.instructionSummary, externalEffects: false, activatedByThisCall: false };
+      }
       requestFields(input, ['review', 'suite']);
       evaluatorFor(input.suite);
       const candidate = createReviewedCandidate(current, input.review, input.suite);
@@ -426,8 +465,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       independentTaskCount: item.independentTaskCount, advisoryOnly: true }));
     return {
       enabled: Boolean(store && environment && !closed), degraded: failures > 0,
-      apiVersion: 2, capabilities: { preflightContext: true, reviewedCandidates: true,
-        temporalRules: true, trajectoryRegression: true },
+      apiVersion: 3, capabilities: { preflightContext: true, reviewedCandidates: true,
+        temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,

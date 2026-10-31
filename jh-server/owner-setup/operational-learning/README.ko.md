@@ -87,6 +87,20 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 ## 교훈은 검사 후에만 활용
 
+### 사용자가 직접 정한 규칙의 첫 등록
+
+반복 경험 제안이 없어도 사용자가 실제로 정한 규칙은 별도 후보로 등록할 수 있다. 같은 `life_learning_review`의 `CANDIDATE`에 `{instruction,suite,expectedRevision}`를 보낸다. 기존 `{review,suite}` 추론 경로와 섞지 않는다.
+
+`instruction`의 필수 필드는 `lessonId`, `ruleVersion`, 원문 그대로의 `text`, `user:`로 시작하는 불투명 `sourceRef`, UTF-8 원문 SHA-256인 `sourceSha256`, `appliesTo`, `confirmation: "explicit_user_instruction"`이다. 선택 `sourceRecordRef`는 원래 기록을 가리키는 `library:`·`source:`·`artifact:` 참조이며, 기간·대체·충돌 metadata도 선택할 수 있다. 알려진 인증정보 형식은 거부하지만 완전한 개인정보 탐지기를 뜻하지 않는다.
+
+`appliesTo`는 실제 모든 JH 작업에 적용하라고 정한 지시일 때만 `{kind:"all_jh_tasks"}`를 사용한다. 특정 작업 지시는 `{kind:"tool",target_tool:"실제 도구 이름",target_mode:"허용 mode"}`이며 mode는 필요할 때만 넣는다. 서버가 owner의 고정 환경과 실제 대상 scope를 결정하므로 입력으로 owner·엔진·환경을 바꿀 수 없다. 공통 규칙은 `orchestration / jh.common.rules` 범위에 저장하며 허구의 도구 사건이 아니다.
+
+출처 경계는 **인증된 owner 호출자가 실제 사용자 지시임을 확인하는 것**이다. 서버가 대화 원문이나 Library를 독립적으로 읽어 진위를 인증하는 기능이 아니다. 현재 에이전트는 실제로 읽은 사용자 지시만 전달하고, 자신의 제안·추론을 `user_explicit`으로 제출하지 않는다. 원문은 그대로 guidance에, 참조·내용 해시는 evidenceRefs에 보존되어 회귀 정의와 함께 묶인다.
+
+등록은 `user_explicit` 후보만 저장하며 사건·독립 작업 수·proposal을 만들지 않는다. 이후 반환된 `lesson/suite/revision`으로 기존 `CHECK`를 수행한다. 통과한 공통 규칙은 각 실제 도구의 `life_learning_context`와 이후 조언에 함께 제공된다. 여러 scope를 합친 뒤 전체에 권위·충돌·기간·예산을 적용하므로 특정 작업 규칙이 공통 규칙과 충돌해도 검사에서 빠지지 않는다. 현재 사용자 지시·기존 승인·인증 경계가 우선이며 규칙 자체는 계속 advisory다.
+
+이 기능은 원문 지시 한 건의 명시적 등록이며 전체 기억 자동 이전·동기화가 아니다. `apiVersion:3`의 `explicitInstructions`와 `commonRules` capability로 지원 여부를 확인한다.
+
 ### 경험에서 구체적인 후보를 작성
 
 `life_learning_review`는 `mode`와 JSON 문자열 `payload`를 받는다. `PREPARE`는 `{proposalId,maxAttempts?}`로 실제 제안과 현재 근거를 읽는다. `CANDIDATE`는 `{review,suite}`를 받아 현재 packet의 revision/fingerprint, 사건·범위·출처를 대조하고 구체적인 후보만 저장한다. `CHECK`는 `{lesson,suite,expectedRevision}`로 저장된 후보와 동일한 정의를 실제 평가한 뒤 활성/격리 상태를 기록한다. 두 도구의 호출 자체는 새로운 실패나 반복 업무 횟수로 세지 않는다.

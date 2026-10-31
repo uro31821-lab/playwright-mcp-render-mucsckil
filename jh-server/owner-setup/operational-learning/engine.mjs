@@ -351,15 +351,15 @@ function retiredLessons(state, scoped, at) {
   return retired;
 }
 
-function selectContext(state, currentContext, { now, limit, maxChars }) {
-  stateCheck(state);
-  fields(currentContext, ['domain', 'operation', 'engine', 'context'], [], 'recall context'); scope(currentContext);
-  iso(now, 'now'); const at = Date.parse(now);
+function eligibleForContext(state, currentContext, at) {
   const scoped = Object.values(state.lessons).filter(lesson => same(scopeOf(lesson), currentContext));
   for (const lesson of scoped) lessonMetadata(lesson);
   const retired = retiredLessons(state, scoped, at);
-  const eligible = scoped.filter(lesson => activeProof(lesson) && !retired.has(lesson.id) &&
+  return scoped.filter(lesson => activeProof(lesson) && !retired.has(lesson.id) &&
     (!lesson.validFrom || Date.parse(lesson.validFrom) <= at) && (!lesson.validUntil || at < Date.parse(lesson.validUntil)));
+}
+
+function selectLessons(eligible, { limit, maxChars }, deduplicateGuidance = false) {
   const chosen = eligible.filter(lesson => !lesson.conflictKey);
   const conflicts = [];
   for (const group of groupBy(eligible.filter(lesson => lesson.conflictKey), lesson => lesson.conflictKey)) {
@@ -371,26 +371,75 @@ function selectContext(state, currentContext, { now, limit, maxChars }) {
   }
   chosen.sort((a, b) => authority(b) - authority(a) || a.id.localeCompare(b.id));
   conflicts.sort((a, b) => a.conflictKey.localeCompare(b.conflictKey));
-  const lessons = []; let chars = 0;
+  const lessons = []; const includedGuidance = new Set(); let chars = 0;
   for (const lesson of chosen) {
     const length = [...lesson.guidance].length;
-    if (lessons.length >= limit || chars + length > maxChars) continue;
-    lessons.push(clone(lesson)); chars += length;
+    if (lessons.length >= limit || chars + length > maxChars ||
+        (deduplicateGuidance && includedGuidance.has(lesson.guidance))) continue;
+    lessons.push(clone(lesson)); chars += length; includedGuidance.add(lesson.guidance);
   }
   const omitted = eligible.length - lessons.length;
+  return { lessons, conflicts, omitted };
+}
+
+function selectContext(state, currentContext, { now, limit, maxChars }) {
+  stateCheck(state);
+  fields(currentContext, ['domain', 'operation', 'engine', 'context'], [], 'recall context'); scope(currentContext);
+  iso(now, 'now'); const at = Date.parse(now);
+  const { lessons, conflicts, omitted } = selectLessons(eligibleForContext(state, currentContext, at), { limit, maxChars });
   return { lessons, conflicts, omitted, fingerprint: hash({ scope: currentContext,
     lessons: lessons.map(lessonDefinition), conflicts, omitted, limit, maxChars }), revision: state.revision };
 }
 
-/** Bounded advisory context; complete guidance is omitted rather than truncated. */
-export function recallContext(state, currentContext, options = {}) {
+function recallOptions(options) {
   fields(options, [], ['now', 'limit', 'maxChars'], 'recall options');
   const now = own(options, 'now') ? options.now : new Date().toISOString();
   const limit = own(options, 'limit') ? options.limit : 5;
   const maxChars = own(options, 'maxChars') ? options.maxChars : 4000;
   integer(limit, 'limit', 20); integer(maxChars, 'maxChars', 16384);
   if (limit < 1 || maxChars < 1) fail('Recall limits must be positive');
-  return selectContext(state, currentContext, { now, limit, maxChars });
+  return { now, limit, maxChars };
+}
+
+/** Bounded advisory context; complete guidance is omitted rather than truncated. */
+export function recallContext(state, currentContext, options = {}) {
+  return selectContext(state, currentContext, recallOptions(options));
+}
+
+/** Combine up to three exact scopes within one owner-bound state and engine context.
+ * Conflicts, identical guidance and budgets are resolved across the complete set.
+ * A one-scope call retains the existing single-context contract and fingerprint.
+ */
+export function recallContexts(state, contexts, options = {}) {
+  const settings = recallOptions(options);
+  stateCheck(state);
+  if (!Array.isArray(contexts) || contexts.length < 1 || contexts.length > 3 ||
+      Object.getOwnPropertySymbols(contexts).length ||
+      Object.getOwnPropertyNames(contexts).some(key => key !== 'length' && !/^[0-2]$/.test(key))) {
+    fail('Recall contexts must contain one to three exact scopes');
+  }
+  const scopes = []; const seen = new Set();
+  for (let index = 0; index < contexts.length; index++) {
+    const descriptor = Object.getOwnPropertyDescriptor(contexts, String(index));
+    if (!descriptor || !own(descriptor, 'value')) fail('Recall contexts cannot contain holes or accessors');
+    const currentContext = descriptor.value;
+    fields(currentContext, ['domain', 'operation', 'engine', 'context'], [], 'recall context'); scope(currentContext);
+    const key = canonical(currentContext);
+    if (seen.has(key)) fail('Duplicate recall context');
+    seen.add(key);
+    if (scopes.length && (scopes[0].engine !== currentContext.engine || !same(scopes[0].context, currentContext.context))) {
+      fail('Recall contexts must share the same engine and context');
+    }
+    scopes.push(scopeOf(currentContext));
+  }
+  if (scopes.length === 1) return selectContext(state, scopes[0], settings);
+  iso(settings.now, 'now'); const at = Date.parse(settings.now);
+  scopes.sort((a, b) => canonical(a).localeCompare(canonical(b)));
+  const eligible = scopes.flatMap(currentContext => eligibleForContext(state, currentContext, at));
+  const { lessons, conflicts, omitted } = selectLessons(eligible, settings, true);
+  return { lessons, conflicts, omitted, fingerprint: hash({ scopes,
+    lessons: lessons.map(lessonDefinition), conflicts, omitted,
+    limit: settings.limit, maxChars: settings.maxChars }), revision: state.revision };
 }
 
 /** Preserve the legacy array/all-results contract while sharing lifecycle filters. */

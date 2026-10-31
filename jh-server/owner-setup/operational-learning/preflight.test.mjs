@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
@@ -19,6 +20,12 @@ const suite = { id: 'source-required', version: '1', cases: [
   { id: 'present', input: { value: { source: 'fixture:source' }, constraints: [{ path: ['source'], op: 'exists' }] }, expected: { passed: true, failed: [] } },
   { id: 'absent', input: { value: {}, constraints: [{ path: ['source'], op: 'exists' }] }, expected: { passed: false, failed: [0] } },
 ] };
+// Synthetic owner attestation; no external record or ordinary chat is read by these tests.
+function explicitInstruction(lessonId, appliesTo = { kind: 'all_jh_tasks' }, text = 'Keep verified evidence with every JH result before reporting success.') {
+  return { lessonId, ruleVersion: '1', text, sourceRef: 'user:synthetic-explicit-instruction',
+    sourceSha256: createHash('sha256').update(text, 'utf8').digest('hex'), appliesTo,
+    confirmation: 'explicit_user_instruction', sourceRecordRef: 'artifact:synthetic-instruction-record' };
+}
 async function setup(t) {
   const dir = await mkdtemp(path.join(tmpdir(), 'jh-learning-preflight-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
@@ -129,4 +136,137 @@ test('CLI context and trajectory regression use the same persisted engine with a
   const recalled = await execute(['context', ...flags], { query: scope, options: { now: NOW, limit: 2, maxChars: 1000 } });
   assert.equal(recalled.lessons[0].id, lesson.id);
   await assert.rejects(execute(['check', ...flags], { lesson, suite: { ...trajectorySuite, evaluator: 'run-shell' } }));
+});
+
+test('explicit owner instructions remain candidates until CHECK and then apply across JH target scopes', async t => {
+  const { file, store, runtime } = await setup(t);
+  const instruction = explicitInstruction('explicit-common-v1');
+  const initial = await store.read();
+  const status = await runtime.status();
+  assert.equal(status.apiVersion, 3);
+  assert.equal(status.capabilities.explicitInstructions, true);
+  assert.equal(status.capabilities.commonRules, true);
+  const candidate = await runtime.review('CANDIDATE', { instruction, suite, expectedRevision: initial.revision });
+  assert.equal(candidate.ok, true);
+  assert.equal(candidate.lesson.state, 'candidate');
+  assert.equal(candidate.lesson.provenance, 'user_explicit');
+  assert.equal(candidate.lesson.guidance, instruction.text);
+  assert.equal(candidate.lesson.domain, 'orchestration');
+  assert.equal(candidate.lesson.operation, 'jh.common.rules');
+  assert.equal(candidate.lesson.engine, 'jh-server');
+  assert.deepEqual(candidate.lesson.context, context);
+  assert.equal(candidate.activatedByThisCall, false);
+  assert.equal(candidate.externalEffects, false);
+  assert.equal(candidate.instructionSummary.sourceAuthentication, 'authenticated_owner_attestation');
+  for (const reference of [instruction.sourceRef, 'sha256:' + instruction.sourceSha256, instruction.sourceRecordRef]) {
+    assert.ok(candidate.lesson.evidenceRefs.includes(reference));
+  }
+  for (const target_tool of ['life_status', 'life_android_open']) {
+    const inactive = await runtime.context({ target_tool });
+    assert.deepEqual(inactive.lessons, []);
+    assert.equal(inactive.targetExecuted, false);
+  }
+  const checked = await runtime.review('CHECK', { lesson: candidate.lesson, suite,
+    expectedRevision: candidate.revision });
+  assert.equal(checked.ok, true);
+  assert.equal(checked.lessonState, 'active');
+  assert.equal(checked.report.passed, suite.cases.length);
+  assert.equal(checked.liveExecutionVerified, false);
+  assert.equal(checked.externalEffects, false);
+  const afterCheck = await readFile(file, 'utf8');
+  for (const query of [{ target_tool: 'life_status' },
+    { target_tool: 'life_android_open', target_mode: 'SCROLL_ONCE' }]) {
+    const recalled = await runtime.context(query);
+    assert.equal(recalled.ok, true);
+    assert.equal(recalled.delivery, 'before_execution');
+    assert.equal(recalled.targetExecuted, false);
+    assert.equal(recalled.externalEffects, false);
+    assert.equal(recalled.librarySync, 'not_connected');
+    assert.equal(recalled.lessons.length, 1);
+    assert.equal(recalled.lessons[0].id, instruction.lessonId);
+    assert.equal(recalled.lessons[0].guidance, instruction.text);
+    assert.equal(recalled.lessons[0].provenance, 'user_explicit');
+    assert.equal(recalled.lessons[0].appliesTo, 'all_jh_tasks');
+    for (const reference of [instruction.sourceRef, 'sha256:' + instruction.sourceSha256, instruction.sourceRecordRef]) {
+      assert.ok(recalled.lessons[0].evidenceRefs.includes(reference));
+    }
+  }
+  assert.equal(await readFile(file, 'utf8'), afterCheck);
+  const stored = await store.read();
+  for (const key of ['events', 'attempts', 'proposals']) assert.deepEqual(stored[key], initial[key]);
+  assert.equal((await runtime.status()).activity.calls, 0);
+});
+
+test('explicit tool instructions preserve exact tool and mode isolation', async t => {
+  const { store, runtime } = await setup(t);
+  const instruction = explicitInstruction('explicit-table-v1',
+    { kind: 'tool', target_tool: 'life_output_format', target_mode: 'TABLE' },
+    'Keep the requested table fields in their given order.');
+  const initial = await store.read();
+  const candidate = await runtime.review('CANDIDATE', { instruction, suite, expectedRevision: initial.revision });
+  assert.equal(candidate.lesson.domain, 'output');
+  assert.equal(candidate.lesson.operation, 'life_output_format.table');
+  assert.deepEqual((await runtime.context({ target_tool: 'life_output_format', target_mode: 'TABLE' })).lessons, []);
+  const checked = await runtime.review('CHECK', { lesson: candidate.lesson, suite, expectedRevision: candidate.revision });
+  assert.equal(checked.lessonState, 'active');
+  const exact = await runtime.context({ target_tool: 'life_output_format', target_mode: 'TABLE' });
+  assert.equal(exact.lessons.length, 1);
+  assert.equal(exact.lessons[0].id, instruction.lessonId);
+  assert.equal(exact.lessons[0].appliesTo, 'target_operation');
+  for (const query of [{ target_tool: 'life_output_format' },
+    { target_tool: 'life_output_format', target_mode: 'SUMMARY' },
+    { target_tool: 'life_android_open', target_mode: 'TABLE' }, { target_tool: 'life_status' }]) {
+    assert.deepEqual((await runtime.context(query)).lessons, []);
+  }
+  const stored = await store.read();
+  for (const key of ['events', 'attempts', 'proposals']) assert.deepEqual(stored[key], initial[key]);
+});
+
+test('explicit instruction MCP rejects mismatched source, credentials, selectors, ambiguous branches and stale revisions without writes', async t => {
+  const { file, store, runtime } = await setup(t);
+  const registered = new Map();
+  registerLearningTools({ z, textResult: value => value, getController: () => runtime,
+    registerOAuthTool: (name, config, handler) => registered.set(name, handler) });
+  const original = explicitInstruction('explicit-existing-v1');
+  const first = await runtime.review('CANDIDATE', { instruction: original, suite,
+    expectedRevision: (await store.read()).revision });
+  const baseline = await readFile(file, 'utf8');
+  const before = await store.read();
+  const candidatePayload = () => ({ instruction: explicitInstruction('explicit-invalid-v1'), suite,
+    expectedRevision: first.revision });
+  const mutations = [
+    value => { value.instruction.text += ' Altered after hashing.'; },
+    value => { value.instruction.sourceSha256 = 'f'.repeat(64); },
+    value => { value.instruction.sourceRef = 'event:cannot-attest-user-instruction'; },
+    value => { value.instruction.sourceRef = 'user:ghp_' + 'X'.repeat(32); },
+    value => { value.instruction.sourceRecordRef = 'artifact:ghp_' + 'X'.repeat(32); },
+    value => { value.instruction.confirmation = 'inferred_user_instruction'; },
+    value => {
+      value.instruction.text = 'Bearer ' + 'X'.repeat(32);
+      value.instruction.sourceSha256 = createHash('sha256').update(value.instruction.text, 'utf8').digest('hex');
+    },
+    value => { value.ownerScope = 'different-owner'; },
+    value => { value.instruction.ownerScope = 'different-owner'; },
+    value => { value.instruction.provenance = 'host_verified'; },
+    value => { value.instruction.arbitrary = 'ignored-input'; },
+    value => { value.instruction.appliesTo.target_tool = 'life_status'; },
+    value => { value.instruction.sourceRecordRef = 'https://private.invalid/raw-record'; },
+    value => { value.review = {}; },
+  ];
+  for (const mutate of mutations) {
+    const payload = candidatePayload(); mutate(payload);
+    const result = await registered.get('life_learning_review')({ mode: 'CANDIDATE', payload: JSON.stringify(payload) });
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'LEARNING_REQUEST_INVALID');
+    assert.equal(result.replayAllowed, false);
+    assert.equal(JSON.stringify(result).includes('X'.repeat(32)), false);
+    assert.equal(await readFile(file, 'utf8'), baseline);
+  }
+  const stale = candidatePayload(); stale.expectedRevision = first.revision - 1;
+  const rejected = await registered.get('life_learning_review')({ mode: 'CANDIDATE', payload: JSON.stringify(stale) });
+  assert.equal(rejected.code, 'LEARNING_REVISION_CONFLICT');
+  assert.equal(rejected.replayAllowed, false);
+  assert.equal(await readFile(file, 'utf8'), baseline);
+  assert.deepEqual(await store.read(), before);
+  assert.equal((await runtime.status()).activity.calls, 0);
 });

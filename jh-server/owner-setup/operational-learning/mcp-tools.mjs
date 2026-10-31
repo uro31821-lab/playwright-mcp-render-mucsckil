@@ -16,7 +16,7 @@ export function registerLearningTools({ registerOAuthTool, z, textResult, getCon
   };
   registerOAuthTool('life_learning_context', {
     title: 'Recall JH experience before a task',
-    description: 'Read only. Before the first action for a new task or operation, retrieve verified, unexpired, nonconflicting owner advice for target_tool and target_mode. Reuse its revision and validity within that task. This does not execute the target, begin a phone command, grant approval, or read ordinary chats. Apply only advice relevant to the current user request.',
+    description: 'Read only. Before the first action for a new task or operation, retrieve verified, unexpired, nonconflicting owner advice for target_tool and target_mode, including explicitly registered common JH rules. Reuse its revision and validity within that task. This does not execute the target, begin a phone command, grant approval, or read ordinary chats. Apply only advice relevant to the current user request.',
     inputSchema: {
       target_tool: z.string().min(1).max(96), target_mode: z.string().max(24).optional(),
       limit: z.number().int().min(1).max(20).optional(),
@@ -26,7 +26,7 @@ export function registerLearningTools({ registerOAuthTool, z, textResult, getCon
   }, args => call('context', args));
   registerOAuthTool('life_learning_review', {
     title: 'Review JH experience and validate a rule candidate',
-    description: 'Owner memory only; never executes phone actions or model training. PREPARE reads a proposal review packet. CANDIDATE stores an agent-reviewed, evidence-linked inference without activating it. CHECK runs a registered candidate\'s bounded JSON or trajectory regression and records active/quarantined status. payload is a JSON object. Use the current revision and exact definitions. Never send secrets or raw conversation/screen content.',
+    description: 'Owner memory only; never executes phone actions or model training. PREPARE reads an existing proposal. CANDIDATE accepts either {review,suite} for a reviewed inference, or {instruction,suite,expectedRevision} for an actual explicit user instruction; preserve its exact text, user source reference and SHA-256, and specify all_jh_tasks or one tool/mode. It stores only a candidate, never fabricated events or proposals. CHECK runs the registered candidate\'s bounded regression and records active/quarantined status. payload is a JSON object. The authenticated caller attests the instruction source; the server does not read chats or Library. Never send secrets or raw screen content.',
     inputSchema: { mode: z.enum(['PREPARE', 'CANDIDATE', 'CHECK']), payload: z.string().min(2).max(65536) },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   }, async ({ mode, payload }) => {
