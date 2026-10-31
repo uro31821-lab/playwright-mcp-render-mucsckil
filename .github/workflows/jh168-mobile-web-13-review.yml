@@ -1,0 +1,82 @@
+name: JH168 mobile web 13-route review (no deploy)
+on:
+  push:
+    branches: ['feat/jh168-mobile-web-13-securebase-20261031']
+permissions:
+  contents: read
+jobs:
+  source-only-mobile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Validate modified source syntax
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.mjs
+          node --check jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs
+      - name: Nine alias routing and fail-closed tests
+        run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs
+      - name: Build actual generated Secure56 runtime without starting service
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          import path from 'node:path';
+          import {pathToFileURL} from 'node:url';
+          import assert from 'node:assert/strict';
+          import {buildCleanRestartRelease56} from './jh-server/owner-setup/deployment/durable-clean-restart-news-review-entry.mjs';
+          const clean=buildCleanRestartRelease56();
+          const mod=await import(pathToFileURL(clean.file).href);
+          const built=mod.buildDurableRoutedRuntime(path.resolve('jh-server/owner-setup'));
+          const s=readFileSync(built.file,'utf8');
+          const a=s.indexOf('  registerOAuthTool("life_web_navigate",{');
+          const b=s.indexOf('  registerOAuthTool("life_android_devices",{',a);
+          assert(a>=0&&b>a);
+          const v=s.slice(a,b);
+          assert.equal((v.match(/registerOAuthTool\("life_web_/g)||[]).length,9);
+          assert(!v.includes('browserTool('));
+          assert(v.includes('MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT'));
+          assert(v.includes('MOBILE_KEY_NOT_VERIFIED'));
+          assert(s.includes('OPEN: use life_open_service on signed phone RIGHT Chrome.'));
+          assert(s.includes('title:"Naver Mail — RIGHT Chrome"'));
+          const toolBlock=(name,end)=>{
+            const at=s.indexOf('  registerOAuthTool("'+name+'",{');
+            const stop=s.indexOf(end,at);
+            assert(at>=0&&stop>at,'MISSING_ROUTE_'+name);
+            return s.slice(at,stop);
+          };
+          const route=toolBlock('life_route','  registerOAuthTool("life_open_service",{');
+          assert(route.includes('const nativeHints=[];'));
+          assert(!route.includes('Use Playwright as the primary web'));
+          const service=toolBlock('life_open_service','  registerOAuthTool("life_naver_mail",{');
+          assert(service.includes('jhRightWebOpen56=async'));
+          assert(service.includes('target:"right_web_link"'));
+          assert(!service.includes('browserTool('));
+          const mail=toolBlock('life_naver_mail','  registerOAuthTool("life_web_navigate",{');
+          assert(mail.includes('jhRightWebOpen56({service:"네이버 메일"})'));
+          assert(!mail.includes('browserTool('));
+          const androidOpen=toolBlock('life_android_open','  const cuSchema56={');
+          assert(androidOpen.includes('jhNativeReturnTarget56'));
+          assert(androidOpen.includes('return jhRightWebOpen56({service:raw});'));
+          assert(!androidOpen.includes('browserTool('));
+          console.log('JH168_FOUR_ENTRYPOINTS_PHONE_RIGHT=PASS');
+          console.log('JH168_GENERATED_RUNTIME_9_ALIASES_NO_REMOTE_PLAYWRIGHT=PASS');
+          NODE
+      - name: Existing Secure56 and right-pane regression tests
+        run: |
+          node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs
+          node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-g6-real-durable-host.test.mjs
+          node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-news-v4-real-boot.test.mjs
+      - name: Explicit no deployment or APK change
+        run: |
+          test -z "$(printenv RENDER_SERVICE_ID || true)"
+          test -z "$(printenv JH_PENDING_APPROVAL_OPERATOR_ENABLE || true)"
+          echo JH168_REVIEW_ONLY_NO_DEPLOY_NO_DEVICE_ACTION

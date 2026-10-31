@@ -1,5 +1,6 @@
 import {patchJH167ConnectionV2Runtime} from './jh167-connection-v2-runtime.mjs';
 import {patchJH167RightPaneOrchestrator56} from './jh167-right-pane-orchestrator-repair.mjs';
+import {patchJH168MobileWebCommands56} from '../jh168-mobile-unification/mobile-web-tool-patch.mjs';
 import {patchJH167OpenCompletion56} from './jh167-open-completion.mjs';
 /** JH167 NEWS offline/opt-in composition over the actual Secure56 patch order.
  * On pinned 2026-10-22 source, the existing JH167 official registrar applies the split namespace/readback patches exactly once.
@@ -132,5 +133,5 @@ export function patchJH167OperationalArticleReview56(runtimeSource){
  if(!candidate.startsWith(importLine)||
     withoutImport.replace(/\n  \/\/ NEWS ADDON REVIEW-ONLY\.[\s\S]*?\n  }(?=\n)/,'')!==withGuides)
    throw Error('JH167_NEWS_COMPOSITION_SCOPE_CHANGED');
- return patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate)))));
+ return patchJH168MobileWebCommands56(patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate))))));
 }
