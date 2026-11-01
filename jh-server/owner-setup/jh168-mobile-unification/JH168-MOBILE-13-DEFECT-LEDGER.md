@@ -2,27 +2,32 @@
 
 **사용자 확정 원칙:** **9개 웹 명령 + 4개 진입 경로의 검증을 모두 마친 뒤 문제를 분류해 한 번에 수정**한다. 각 오류가 발견될 때마다 Android/서버 기능을 고치거나 APK를 다시 설치하지 않는다. 보안상 즉시 위험할 때만 해당 실행을 중지한다.
 
+**이번 소스 재대조 기준:** 고정 후보 `4c71890021fc299838e6a8ce45ccf5f64712f354`와 기존 설치 기록에 연결된 Stage27 원본 producer다. WEB04/06/07/08/09는 `SOURCE_CONFIRMED_CODE_GAP`에 따라 **실행 상태 `BLOCKED`, 실기기 증거 `NOT_RUN`**으로 구분한다. 기존 G02/G03/G04/G06에 근거를 보강하며 새 결함 ID를 만들지 않는다. 이 기록은 배포 완료·현재 기기 연결·실기기 실패를 관찰했다는 뜻이 아니며, 저장된 실기기 PASS는 **0/13**이다.
+
 ## 구분해야 할 시험 결과
 - SOURCE-ROUTE: [GitHub CI 41281264302](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41281264302)에서 9/9 모바일 웹 alias, 4/4 진입 경로의 생성 소스 라우팅 PASS. 이는 source-only 결과임.
 - GENERATED-ALIAS-CONTRACT: [GitHub CI 41281758552](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41281758552)에서 생성된 9개 handler의 실함수 호출 (오프라인·무효과 mock) 10/10 PASS. 개인 기기 UI 실행 증거가 아님.
 - GENERATED-ENTRY-CONTRACT: [GitHub CI 41282199180](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41282199180) **5/5 PASS**; 실제 생성된 4개 entry handler를 무효과 signed Android job doubles로 호출하여 동일 RIGHT opener, 원본 앱/화면 복귀 분리, 원격 Playwright 불호출 확인. **실기기 미실시.** 테스트 환경에서 원본 헬퍼 재선언·완료 헬퍼 누락으로 2차례 수정 후 최종 실행 성공 (제품 기능 수정 0건).
 - INSTALLED-ANDROID-STATIC: 앞서 서명·설치 확인된 JH168 Stage27 APK SHA256 `129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359`를 로컬에서 정적으로 판독. 컴파일 문자열/타입 `JH168NestedScrollPolicy`, `JH168InputFocusPolicy`, `JH168RightVerticalScrollRuntime`, `JH168RightHorizontalScrollRuntime`, `JH168OriginalSecure56NativeDispatch12`, `NATIVE_IME_ENTER_ONE_SHOT_GRANT_REQUIRED`, `ACTION_SCROLL_LEFT`, `ACTION_SCROLL_RIGHT`, `JH168_STAGE27_CHROME_POPUP_READBACK_V1` 확인. **포함된 타입/문구 ≠ 실제 사용자 작업 정상 실행**, 해당 APK가 PR #72 서버 alias와 통합돼 배포된 것도 아님.
-- DEPLOYED-MCP-ROUTE: 실제 연결된 JH 도구 설명에 `life_web_navigate/snapshot/click/type/select/press_key/wait/back/screenshot`은 여전히 server Playwright/별도 브라우저로 기재. `life_open_service`, `life_naver_mail`, `life_android_open`은 phone RIGHT Chrome 경로 안내, `life_route`은 분류. **PR #72 신규 웹 alias가 운영에 적용됐다는 증거가 없음.**
-- REAL-DEVICE-MIGRATED-E2E: **0/13 PASS; 13/13 아직 NOT_RUN**. Stage27 독립 Chrome 메뉴 CLICK 성공은 보존하지만, WEB-03 migration alias E2E로 중복 계산하지 않는다.
+- DEPLOYED-MCP-ROUTE 이력: 당시 연결된 JH 도구 설명에 `life_web_navigate/snapshot/click/type/select/press_key/wait/back/screenshot`은 server Playwright/별도 브라우저로 기재됐다. `life_open_service`, `life_naver_mail`, `life_android_open`은 phone RIGHT Chrome 경로 안내, `life_route`은 분류였다. 이 관찰을 후속 배포의 현재 상태로 연장하지 않는다. 고정 후보의 실제 적용 SHA·선택값·카탈로그는 [활성화 확인 절차](JH168-MOBILE-VERIFICATION-ACTIVATION.md)에 따라 별도로 대조한다.
+- REAL-DEVICE-MIGRATED-E2E: **0/13 PASS; 13/13 실행 증거 NOT_RUN**. 이 가운데 WEB04/06/07/08/09의 실행 가능 상태는 소스 근거로 **BLOCKED**다. Stage27 독립 Chrome 메뉴 CLICK 성공은 보존하지만, WEB-03 migration alias E2E로 중복 계산하지 않는다.
 
 ## 13개 고정 결과
-| ID | 대상 | 소스 | 함수 모의시험 | 모바일 교체된 실기기 |
+
+`소스 라우트 PASS`와 과거 모의시험 PASS는 원본 durable 정책·Android producer를 포함한 실행 계약의 통과가 아니다. 아래 다섯 행의 `SOURCE_CONFIRMED_CODE_GAP / BLOCKED`는 소스에서 확인한 차단이며 실기기 FAIL로 세지 않는다.
+
+| ID | 대상 | 소스 라우트 / 현재 계약 판정 | 함수 모의시험의 확인 범위 | 모바일 교체 실행 상태 / 실기기 증거 |
 |---|---|---|---|---|
 | WEB01 | `life_web_navigate` | PASS | signed opener 동작/URL 거부 PASS | NOT_RUN |
 | WEB02 | `life_web_snapshot` | PASS | START/STATUS·context 거부 PASS | NOT_RUN |
 | WEB03 | `life_web_click` | PASS | fresh item/ref·단일 CLICK PASS | NOT_RUN |
-| WEB04 | `life_web_type` | PASS | input preflight/SET_TEXT·submit 거부 PASS | NOT_RUN |
+| WEB04 | `life_web_type` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G04)** | input preflight/SET_TEXT stub·submit 거부 PASS; 실제 durable 허용 미검증 | **BLOCKED / NOT_RUN** |
 | WEB05 | `life_web_select` | PASS | OPEN→PICK·내부값 거부 PASS | NOT_RUN |
-| WEB06 | `life_web_press_key` | PASS | BACK만 허용·Enter/Tab/Escape 거부 PASS | NOT_RUN |
-| WEB07 | `life_web_wait` | PASS | STATUS만 조회·조건 미확인 PASS | NOT_RUN |
-| WEB08 | `life_web_back` | PASS | BACK 1회, 브라우저 history 성공 가정 금지 PASS | NOT_RUN |
-| WEB09 | `life_web_screenshot` | PASS | local consent 인자·원본 capture stub PASS | NOT_RUN |
-| ENTRY01 | `life_route` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
+| WEB06 | `life_web_press_key` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G02)** | BACK 입력 분기·다른 키 거부 PASS; BACK의 실제 durable 실행 허용은 아님 | **BLOCKED / NOT_RUN** |
+| WEB07 | `life_web_wait` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G03)** | STATUS 호출·`conditionVerified:false` 반환 PASS; 조건 대기 미구현 | **BLOCKED / NOT_RUN** |
+| WEB08 | `life_web_back` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G02)** | BACK 요청 생성·history 성공 가정 금지 PASS; 실제 durable는 DENY | **BLOCKED / NOT_RUN** |
+| WEB09 | `life_web_screenshot` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G06)** | local consent 인자·capture stub 위임 PASS; 원 producer의 action 파싱 미검증 | **BLOCKED / NOT_RUN** |
+| ENTRY01 | `life_route` | 웹 분류 PASS; **native 의도 분류 누락 (G08)** | 기존 모의시험은 웹 분류만 확인 | **LIVE_CLASSIFICATION_PARTIAL**; 웹 문장 기대 일치, native 문장 오분류. 폰 효과 0, E2E NOT_RUN |
 | ENTRY02 | `life_open_service` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
 | ENTRY03 | `life_naver_mail` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
 | ENTRY04 | `life_android_open` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
@@ -30,14 +35,14 @@
 ## 발견·미해결 항목 — 이번에는 수정하지 않고 취합
 | 분류 | 항목 | 근거·관찰 | 일괄 수정 후보 / 필요한 확인 |
 |---|---|---|---|
-| G01 배포/경로 | 운영 9개 웹 alias는 여전히 Playwright를 설명 | 현재 JH MCP 카탈로그 vs PR #72 소스 차이 | 최신 main에 통합된 단일 모바일 실행 엔진 적용 후보를 검증한 뒤 독립 승인으로 배포 |
-| G02 입력/IME | 서버 `press_key`는 BACK만 지원, Enter/Tab/Escape 불허 | 생성 handler 모의시험에서 확인. APK에는 IME_ENTER 관련 코드 문자열 존재 | native 원본 Secure56 1회 허가·대상 포커스 재확인 후 보안 계약이 실제 연결되는지 검증. 키별 지원을 임의 선언하지 말 것 |
-| G03 대기 | `life_web_wait`는 `MOBILE_WAIT_CONDITION_UNVERIFIED` 반환 | 실제 생성 핸들러 동작 확인 | 창/화면 재조회·조건 판정 계약 확보. 기다린 시간만으로 성공 판정 금지 |
-| G04 입력 | `type.submit=true` 거부, CSS selector 거부 | 실제 생성 handler 테스트 PASS (fail closed) | 원본 접근성에서 텍스트 + 엔터 별도 승인/증거, 사용자가 원한 기능과 일치 여부 점검 |
+| G01 배포/경로 | 과거 카탈로그의 9개 웹 alias는 Playwright 설명·입력 형태 | 당시 JH MCP 카탈로그 vs PR #72 소스 차이; 후속 적용 결과는 별도 확인 | 승인된 고정 후보의 실제 배포 SHA·선택값·모바일 입력 스키마를 확인한 뒤 실행 |
+| G02 입력/IME·BACK | `press_key`는 BACK 입력만 분기하지만 실제 FOLLOW_UP BACK은 durable DENY; Enter/Tab/Escape는 alias 거부 | WEB06/08 **SOURCE_CONFIRMED_CODE_GAP**. `durableNativeJobPolicy`는 FOLLOW_UP `CLICK`만 허용하여 BACK은 `DURABLE_OPERATION_NOT_SUPPORTED`; 다른 키는 `MOBILE_KEY_NOT_VERIFIED` | **BLOCKED** 유지. 원본 승인·포커스·원 작업 결속을 보존한 공통 계약 수정 후 검증; 별도 Computer Use로 alias 통과를 대체하지 않음 |
+| G03 대기 | `life_web_wait`는 `MOBILE_WAIT_CONDITION_UNVERIFIED`, `conditionVerified:false` 반환 | WEB07 **SOURCE_CONFIRMED_CODE_GAP**. STATUS 호출은 실제 조건 판정을 구현하지 않음 | **BLOCKED** 유지. 조건 검증 없는 반복 STATUS·경과시간을 성공으로 삼지 않음 |
+| G04 입력 | TYPE의 `split_screen_session_input_preflight`와 후속 `SET_TEXT`는 durable DENY; 기존 submit/CSS 제한도 유지 | WEB04 **SOURCE_CONFIRMED_CODE_GAP**. preflight는 허용 목록에 없고 FOLLOW_UP은 CLICK만 허용하여 `DURABLE_OPERATION_NOT_SUPPORTED` | **BLOCKED** 유지. input grant·로컬 승인·원 작업 결속을 포함한 공통 입력 계약을 전수 조사 후 수정; 거절 확인용 폰 실행 금지 |
 | G05 선택 | `select` OPEN·PICK은 2개 개별 CLICK, 다음 항목 재획득 필요 | handler 동작 확인 | 화면 재조회/변경된 windowId/새 option itemRef 연계 전후 증거 |
-| G06 스크린샷 | 원본 화면 공유 동의·일회성 lease 필요 | 새 alias가 원본 캡처 함수로 전달되는 소스 확인 | 실제 phone local consent/lease 및 UI readback 필요; 더 쉬운 무승인 capture 경로 금지 |
+| G06 스크린샷 | 모바일 screenshot alias가 원 capture에 필요한 `action: SCREENSHOT`을 선언·주입하지 않음; 원본 동의·lease 요구는 유지 | WEB09 **SOURCE_CONFIRMED_CODE_GAP**. `computerPayload56`는 빈 action을 만들고 기존 Stage27 `captureToFrameSink`의 `parseAction`은 `invalid_computer_action`으로 거절 | **BLOCKED** 유지. 동의·lease를 소모해 누락을 재현하지 않으며 원 task/run/창 결속을 보존하는 통합 수정 후 검증 |
 | G07 포커스/스크롤 | APK에 네이티브 수직·수평·중첩 scroll/inputFocus 클래스 있음 | 서명 APK 정적 타입 명칭 확인, 운영 alias E2E 없음 | 실제 창·windowId/포커스 editable/스크롤 컨테이너 내부 레벨·재입력 안전성 1회 시험 |
-| G08 진입 경로 | 4개 원본 진입의 signed RIGHT 분류는 source PASS, 동적/실기기 미확인 | 실제 생성 runtime 정적 검증 | 4개 실제 앱·Chrome·웹→앱 동작에서 단일 원본 명령/동의/결과 귀속 확인 |
+| G08 진입 경로 | ENTRY01의 명시적 native 자유문장이 웹으로 분류됨; 다른 entry의 실기기 결과 미확인 | 고정4c live `life_route`: 웹 fixture 문장과 `휴대폰 설정 앱 열기` 모두 owner:web. 생성 classifier의 nativeHints=[] 및 native 복귀 전용 Android 분기와 일치 | native 분류 누락을 통합 수정 대상으로 보존. 별도 life_android_open의 명시적 앱 문법 존재와 구분하고 실제 앱 실행 불능으로 확대하지 않음 |
 | G09 이전 CI | 4개 관련 CI 실패: 3개 보호 원본 diff 기준, 1개 옛 click 에러 메시지 기대 | PR #72 당시 Actions 41204321123/21253/21130, 41204321189 | 실제 모듈 보안 불일치인지 test baseline drift인지 전수 검토 후 동시에 정리 |
 | G10 원본 Playwright 잔존 | 9+4 바깥의 기존 서버 Playwright 코드도 있음 | PR #72 설명상 후행 정리 대상 | 13개 완전 교체 검증 후 의도된 legacy-only 범위 확정, 다른 기능 임의 삭제 금지 |
 | G11 통합/속도 | Android 원본 Native vs 웹 alias 진입 경로·중간개입·속도 실측 미완료 | 실기기 alias 0/13 | 한 세션에서 원본 명령/장치/동의/복귀·지연 측정, 임의 시간·성능 향상 주장 금지 |
@@ -49,7 +54,24 @@
 - 과거 SQLite 29건을 지우거나 완료 처리하지 않는다. 별도 문제이며 이 전환 과제의 진행 단계로 전용하지 않는다.
 - 안전상 차단된 기능을 서버 Playwright로 몰래 폴백시키지 않는다.
 
-**다음 차례:** 13개 생성 핸들러의 동적 계약까지 **전부 PASS (9개 10 tests + 4개 5 tests)**. 이제 실제 설치 APK의 Android native 포커스·중첩 스크롤·창 ID/캡처/IME 권한 계약을 확인하고, 최신 main과 PR #72의 차이를 한 번에 분석한다. 실기기 alias 13개 E2E는 새 경로가 운영 미배포이므로 여전히 **NOT_RUN/BLOCKED**. 후보 배포/기기 승인이 필요하면 명시적 출시 게이트를 거친다. 그 후 전 기능에서 발견된 공통 원인만 **일괄 1회 수정**.
+**이전 모의시험과 다음 차례:** 기존 **9개 10 tests + 4개 5 tests PASS** 기록은 무효과 doubles를 사용한 handler 계약 근거로 보존한다. 이번 재대조는 그 범위 밖의 실제 durable 허용·원 producer 입력 누락을 확인했다. 전 13개를 각각 실제 실행 증거 또는 구체적인 `BLOCKED` 근거까지 점검하고, 미점검 행을 남긴 채 기능별 수정을 시작하지 않는다. 문서에 저장된 실기기 PASS는 **0/13**이며, 배포·연결 상태는 별도 실제 관찰로만 갱신한다. 이후 전 기능에서 발견된 공통 원인만 **일괄 1회 수정 → 전체 회귀·실기기 재검증**한다.
+
+### 고정 후보의 원본 실행 계약 재대조 — G02/G03/G04/G06 근거 보강
+
+대상은 `4c71890021fc299838e6a8ce45ccf5f64712f354`의 소스와 PHONE_RIGHT 생성물 SHA-256 `a25982af7c31f71fcb875176d9431be6c226e348bc0f3c48b478c503b0c3f45f`다. 생성 SHA는 [후보 CI의 합성 HTTP 검사](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41290019157)와 일치하며 운영 활성화 증거로 사용하지 않는다. 아래 판정은 읽기 전용 소스 대조이며 새 테스트·폰 실행 결과가 아니다.
+
+- **G04 / WEB04:** [모바일 alias](mobile-web-tool-patch.mjs)의 `jhMobileWebFollow56`는 SET_TEXT에 앞서 `split_screen_session_input_preflight`를 요청한다. [durable 정책](../deployment/durable-native-job-policy.mjs)의 `durableNativeJobPolicy`에는 해당 type 허용이 없으며, 후속 `split_screen_session_followup`도 `action === 'CLICK'`와 정확한 허용 필드만 받는다. [lifecycle 예외](../deployment/jh167-split-lifecycle-policy.mjs)는 SAVE_ANALYSIS/FINISH만 다룬다. 따라서 preflight와 SET_TEXT 모두 `DURABLE_OPERATION_NOT_SUPPORTED`인 소스 계약이다.
+- **G02 / WEB06·WEB08:** BACK을 모바일 helper에 전달하는 alias 분기는 존재하지만 같은 FOLLOW_UP 정책에서 거절된다. [durable host](../deployment/durable-native-host.mjs)의 `capture → beforeDispatch`가 DENY를 유지하고 [원 dispatch patch](../deployment/durable-native-runtime-candidate.mjs)는 `job.status = error`, `job.error = durableAdmission.code`로 기록한 뒤 기기에 job을 전달하지 않는다. `BACK 입력 허용`을 `BACK 실제 실행 지원`으로 읽지 않는다. Enter/Tab/Escape의 별도 alias 거절 `MOBILE_KEY_NOT_VERIFIED`도 유지한다.
+- **G03 / WEB07:** 모바일 WAIT는 한 번의 STATUS 호출 뒤 `MOBILE_WAIT_CONDITION_UNVERIFIED`를 반환한다. 조건이 화면에서 변했거나 시간이 지났다는 사실만으로 이 도구의 조건 판정이 구현됐다고 보지 않는다.
+- **G06 / WEB09:** 모바일 screenshot schema는 task/run/screen grant/consent/lease만 선언하고 `jhMobileWebCapture56(args)`로 전달한다. 원 runtime의 `computerPayload56`는 action 누락을 빈 문자열로 만든다. 기존 설치 기록에 연결된 Stage27 `BridgeService.kt::captureSecureFrame`는 frame permit/sink만 더하고, `AndroidComputerUseTransport.kt::captureToFrameSink → parseAction`은 SCREENSHOT action을 요구한다. `issueScreenFramePermit`의 로컬 SCREENSHOT 객체는 검사에만 사용되며 전달 payload의 action을 보완하지 않는다. 이는 원 producer의 `invalid_computer_action` 거절 근거이지 이번 폰에서 실제 오류를 수신했다는 기록이 아니다. 원본 연결 기준은 [Stage27 producer 계약 감사](../operational-learning/ANDROID-PRODUCER-COMPATIBILITY.md)를 따른다.
+- **모의시험 범위:** [기존 handler 계약 시험](mobile-web-13-runtime-contract.test.mjs)은 `jhSplitScreenJob56`을 무효과 double로 바꾸고 screenshot도 `fakeCapture`로 받는다. 과거 PASS는 보존하지만 실제 durable admission·Android action 파싱을 통과했다는 근거로 확대하지 않는다.
+
+### 2026-11-01 고정4c 운영 관찰 — G01·G08
+
+- [활성화 기록](JH168-MOBILE-VERIFICATION-ACTIVATION.md)의 정확한 배포는 `dep-dbjg01ijnfac73fssde0`, Live 시각은 `2026-11-01T09:02:54.665289Z`다. 실제 생성 SHA a25982af…와 PHONE_RIGHT 상태 응답, 고정4자산 HTTP/해시를 확인했다. 이는 위 CI 합성 결과와 구별되는 운영 관찰이다.
+- **G01:** 서버 모드는 전환됐으나 현재 대화의 호출 schema는 이전 Playwright 형태다. click의 context_id/request_id, select의 phase 등 모바일 입력을 사용할 수 없으므로 Primary Refresh 후 실제 등록을 대조할 때까지 효과 검증을 보류한다. 최근 등록 기기 1대(active, ageSeconds 9) 관찰은 signed 세션·UI 성공 증거가 아니다.
+- **G08 / ENTRY01:** 실제 무효과 분류에서 웹 fixture 요청은 기대한 owner:web을 반환했다. `휴대폰 설정 앱 열기`도 같은 웹 rule을 반환했으며, 고정 후보의 nativeHints=[]와 일치한다. [원 classifier 변환](../deployment/jh167-right-pane-orchestrator-repair.mjs)이 원래의 `휴대폰 설정` native 힌트를 제거하고, `patchJH168MobileNativeAppEntry56`는 life_android_open만 바꿔 classifier를 복원하지 않았다. 자유문장 분류 누락을 확인한 것이며 별도 실행 도구의 입력 문법 문제로 축소하지 않는다. 실제 앱 실행 실패로도 확대하지 않는다.
+- **현재 계수:** 소스 계약으로 차단된 WEB04/06/07/08/09, 실제 분류 누락이 확인된 ENTRY01을 구분한다. 나머지 7개 행은 카탈로그 갱신과 원 기기 조건 확인 후 실행한다. 새 BEGIN·폰 효과 0건, 실기기 PASS **0/13**이다. 후속 개발 branch706ff5c의 WAIT 변경은 배포된4c의 결과를 해결된 것으로 바꾸지 않는다.
 
 ## 추가 정적 확인: 27단계 실제 서명 APK
 - 사용자 휴대폰에 설치 성공했던 원본 서명 APK SHA-256: `129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359`.
