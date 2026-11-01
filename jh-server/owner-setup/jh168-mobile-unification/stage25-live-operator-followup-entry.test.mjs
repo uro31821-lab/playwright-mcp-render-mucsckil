@@ -76,6 +76,7 @@ test('historical npm start and router do not auto-select Stage25',()=>{
  assert.equal(pkg.scripts.start,'node owner-setup/deployment/published-host-router.mjs');
  const router=readFileSync(path.join(root,'deployment/published-host-router.mjs'),'utf8');
  assert.ok(router.includes("await import('../server-integration/pending-approval-operator-entry.mjs')"));
- assert.ok(!router.includes('stage25-live-operator-followup-entry.mjs'));
+ assert.ok(router.includes("if(selectJH168FollowupOperator56(process.env)==='followup')"));
+ assert.ok(router.includes("await import('../server-integration/pending-approval-operator-entry.mjs')"));
 });
 
