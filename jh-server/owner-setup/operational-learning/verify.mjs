@@ -33,3 +33,5 @@ import './lesson-view-cli.test.mjs';
 import './rule-usage.test.mjs';
 import './rule-usage-host.test.mjs';
 import './rule-usage-cli.test.mjs';
+import './rule-use-review.test.mjs';
+import './rule-use-review-cli.test.mjs';

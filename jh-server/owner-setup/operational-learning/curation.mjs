@@ -81,7 +81,7 @@ function proposalFor(state, proposalId) {
   validScope(proposal.scope, proposal.kind === 'learning_evaluation');
   return proposal;
 }
-function matchesProposal(event, proposal) {
+export function matchesProposal(event, proposal) {
   if (!within(event, proposal.scope)) return false;
   let pattern;
   if (proposal.kind === 'rule_fix' && ['failure_verified', 'correction', 'blocked'].includes(event.outcome)) pattern = [event.outcome, event.errorCode ?? 'unspecified'];
