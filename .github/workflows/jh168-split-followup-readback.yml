@@ -25,12 +25,14 @@ jobs:
             jh-server/owner-setup/server-integration \
             jh-server/owner-setup/deployment \
             jh-server/owner-setup/android-direct \
+            ':(exclude)jh-server/owner-setup/deployment/durable-native-host.mjs' \
             ':(exclude)jh-server/owner-setup/deployment/published-host-router.mjs' \
             ':(exclude)jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs' \
             ':(exclude)jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs' \
             ':(exclude)jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs'
 
-      - name: Verify only original mobile composition and one reviewed legacy click-test contract changed
+      # The host exclusion above requires exact three-edit reversal, pinned SHA and upstream byte equality here.
+      - name: Verify exact mobile composition, three host edits and reviewed legacy click-test contract
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
       - name: Verify syntax and isolated original-click receipt tests
         run: |
