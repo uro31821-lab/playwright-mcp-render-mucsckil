@@ -550,7 +550,8 @@ test('patched status helper reconciles one original attempt through the real con
 
 test('actual split START, STATUS and comfort STATUS receipts report bounded layout without task success', async () => {
   for (const type of ['split_screen_session_start', 'split_screen_session_status', 'split_comfort_status']) {
-    const api = host(), baseline = host({ learning: false }), completed = [], observations = [];
+    const followup = type === 'split_comfort_status';
+    const api = host({ followup }), baseline = host({ learning: false, followup }), completed = [], observations = [];
     api.install(controller({ jobCompleted: meta => completed.push(meta), receiptObserved: meta => observations.push(meta) }));
     const fixture = splitReceiptFixture(type);
     const { job, receipt } = installSplitFixture(api, fixture);
@@ -689,7 +690,7 @@ test('real split helper/controller/store records layout observation once without
     const runtime = await createServerLearning({ file, ownerScope, runtimeId: 'fixture-split-runtime',
       context: { platform: 'server', version: 'fixture-v1', environment: 'synthetic-test' } });
     runtimes.push(runtime);
-    const store = new FileLearningStore({ file, ownerScope }), api = host();
+    const store = new FileLearningStore({ file, ownerScope }), api = host({ followup: type === 'split_comfort_status' });
     api.install(missedCompletion ? { ...runtime, jobCompleted() {} } : runtime);
     api.devices.set('fixture-device', { secureBridgeVersion: 56 });
     const fixture = splitReceiptFixture(type), failure = new Error('synthetic initial split wait failed'); let job;
