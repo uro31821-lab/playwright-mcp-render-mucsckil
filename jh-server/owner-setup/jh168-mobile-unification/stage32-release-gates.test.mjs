@@ -80,7 +80,7 @@ test('all owner-side check booleans cannot authorize actions through this report
  assert.equal(out.protectedAndroidActionPermitted,false);
  assert.equal(out.existingClickReexecutionPermitted,false);
 });
-test('previous exact commits are ancestors of the review candidate; git only reads',()=>{
+test('historical exact review commits remain available as evidence after current-main content replay',()=>{
  const seq=[
  '473e8ed20b5d651d7c05f05c2af97f1779038ecb',
  '6cf8ad81ab84ba5366341a190435696103dfdfe8',
@@ -89,8 +89,10 @@ test('previous exact commits are ancestors of the review candidate; git only rea
  '2b6ab1a918e837211d586dcc547885580c998e29'
  ];
  for(const sha of seq){
-  const p=spawnSync('git',['merge-base','--is-ancestor',sha,'HEAD'],{encoding:'utf8'});
+  // Rebased review HEAD does NOT make former feature commits ancestors.
+  const p=spawnSync('git',['cat-file','-t',sha],{encoding:'utf8'});
   assert.equal(p.status,0,sha+' '+p.stderr);
+  assert.equal(p.stdout.trim(),'commit');
  }
 });
 test('source is pure and cannot invoke phone or network effect tools',()=>{
