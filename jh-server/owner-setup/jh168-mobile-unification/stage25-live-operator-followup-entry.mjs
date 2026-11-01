@@ -18,6 +18,9 @@ import {
   applyJH168SplitFollowupReceiptPatch,
   reverseJH168SplitFollowupReceiptPatch
 } from './split-followup-receipt-patch.mjs';
+import {
+  applyStage26CompletionAckPatch56,reverseStage26CompletionAckPatch56
+} from './stage26-completion-delivery-patch.mjs';
 
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const SERVICE='srv-db0fjl2d0e5s73be114g';
@@ -39,6 +42,14 @@ const prod=env=>env?.CI!=='true'&&
   env.JH_DURABLE_RELEASE==='SERVE_READY_V1'&&env.RENDER_SERVICE_ID===SERVICE&&
   env.JH_OWNER_DEFER_LISTEN===undefined;
 function gate(env){if(!ci(env)&&!prod(env))fail('JH_STAGE25_FOLLOWUP_OPERATOR_NOT_AUTHORIZED');}
+const STAGE26_ACK_FLAG='EXPLICIT_IDENTICAL_SIGNED_RESULT_V1';
+export function selectStage26CompletionAck56(env=process.env){
+ const flag=env?.JH_STAGE26_SIGNED_COMPLETION_ACK;
+ if(flag===undefined||flag==='')return false;
+ if(flag!==STAGE26_ACK_FLAG)fail('JH_STAGE26_ACK_FLAG_INVALID');
+ if(!ci(env)&&!prod(env))fail('JH_STAGE26_ACK_ORIGINAL_OPERATOR_REQUIRED');
+ return true;
+}
 const exact=(src,oldText,newText)=>{
  if(typeof src!=='string'||src.split(oldText).length!==2||src.includes(newText))
   fail('JH_STAGE25_ORIGINAL_OPERATOR_SOURCE_DRIFT');
@@ -80,6 +91,7 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
       .every(s=>/^[a-f0-9]{64}$/.test(s||'')))
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_INVALID');
  if(old.sha256!==stamp.parentSha256)fail('JH_STAGE25_ORIGINAL_OPERATOR_CHANGED');
+ const stage26Ack=selectStage26CompletionAck56(env);
  const original=readFileSync(old.file,'utf8');
  const runtime=readFileSync(p.runtime,'utf8');
  if(sha(original)!==stamp.parentSha256||
@@ -87,7 +99,8 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     sha(readFileSync(p.owner,'utf8'))!==stamp.ownerSha256||
     sha(readFileSync(p.unified,'utf8'))!==stamp.unifiedSha256||
     sha(readFileSync(p.entry,'utf8'))!==stamp.operationalSha256||
-    reverseJH168SplitFollowupReceiptPatch(runtime)!==original)
+    reverseJH168SplitFollowupReceiptPatch(stage26Ack?
+      reverseStage26CompletionAckPatch56(runtime):runtime)!==original)
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_SCOPE_CHANGED');
  return Object.freeze({file:p.runtime,sha256:stamp.runtimeSha256,
   noNewExecutor:true,automaticReplayAllowed:false,originalOperatorVerified:true});
@@ -110,8 +123,11 @@ export async function buildStage25PendingOperatorEntrypoint56(
     !original.includes('durableNativeHooks56?.acceptedCompletion(')||
     !original.includes('jhRequireCommand56('))
   fail('JH_STAGE25_EXISTING_OPERATOR_GUARDS_REQUIRED');
- const runtime=applyJH168SplitFollowupReceiptPatch(original);
- if(reverseJH168SplitFollowupReceiptPatch(runtime)!==original||
+ const stage26Ack=selectStage26CompletionAck56(env);
+ const withFollowup=applyJH168SplitFollowupReceiptPatch(original);
+ const runtime=stage26Ack?applyStage26CompletionAckPatch56(withFollowup):withFollowup;
+ if(reverseJH168SplitFollowupReceiptPatch(stage26Ack?
+       reverseStage26CompletionAckPatch56(runtime):runtime)!==original||
     runtime.split('jhSplitFollowupReceipts56.issue(').length!==2||
     runtime.split('jhSplitFollowupReceipts56.read(').length!==2)
   fail('JH_STAGE25_FOLLOWUP_PATCH_NOT_EXACT');
@@ -146,6 +162,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
    originalPendingApprovalOperator:true,
    originalSplitRead:true,originalComputerInspect:true,
    originalOperationalLearning:true,
+   ...(stage26Ack?{signedCompletionAckStage26:true}:{}),
    productionEnabled:false,automaticReplayAllowed:false
  });
  emit(p.stamp,JSON.stringify(stamp,null,2)+'\n');
@@ -167,6 +184,14 @@ export async function main(env=process.env){
   existingPendingApprovalPreserved:true,existingLearningPreserved:true,
   automaticReplayAllowed:false,apkChanged:false
  }));
+ if(selectStage26CompletionAck56(env)){
+  console.log('JH_STAGE26_SIGNED_COMPLETION_ACK_ACTIVE '+JSON.stringify({
+   schema:'JH168_STAGE26_SIGNED_COMPLETION_ACK_V1',
+   sha256:built.stamp.runtimeSha256,
+   originalStage25Preserved:true,automaticClickReplay:false,
+   additionalHttpCompletionAckOnly:true,apkChanged:false
+  }));
+ }
  return running;
 }
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
