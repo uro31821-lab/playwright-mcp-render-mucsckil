@@ -61,7 +61,29 @@ const HOST=[
  [
  "  close(){if(closed)return;closed=true;journal.close()}",
  "  close(){if(closed)return;closed=true;try{journal.close()}finally{stage30Writer.close()}}"
- ]
+ ],
+ [
+ "    records.set(job,{recordId:receipt.recordId,sessionId:job.secureSessionId,deviceId:job.targetDeviceId,type:job.type});",
+ [
+ "    const stage30OriginalKeys=['id','type','mcpToolName','secureRequestedEffect','action',",
+ "      'targetDeviceId','targetDeviceDigest','secureSessionId','commandId',",
+ "      'taskDigest','requestId','contextId','targetItemRef','expiresAtMs'];",
+ "    const stage30OriginalIdentity=job.type==='split_screen_session_followup'&&",
+ "      job.action==='CLICK'?Object.freeze(Object.fromEntries(",
+ "       stage30OriginalKeys.map(k=>[k,job[k]]))):null;",
+ "    records.set(job,{recordId:receipt.recordId,sessionId:job.secureSessionId,",
+ "      deviceId:job.targetDeviceId,type:job.type,stage30OriginalIdentity});"
+ ].join('\n')],
+ [
+ "   const record=records.get(job);",
+ [
+ "   const record=records.get(job);",
+ "   // The original work binding is frozen BEFORE device dispatch.",
+ "   // Authenticated completion must match the exact originally dispatched job.",
+ "   if(record?.stage30OriginalIdentity&&",
+ "      Object.entries(record.stage30OriginalIdentity).some(([k,v])=>job[k]!==v))",
+ "     return deny('STAGE30_ORIGINAL_HOST_BINDING_CHANGED',409);"
+ ].join('\n')]
 ];
 const RUNTIME=[[
  'import {createDurableNativeHooks} from "../deployment/durable-native-host.mjs";',
