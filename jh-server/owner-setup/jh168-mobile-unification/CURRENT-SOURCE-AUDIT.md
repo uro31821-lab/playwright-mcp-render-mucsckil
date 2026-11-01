@@ -77,6 +77,12 @@ files are added to the diagnostic trigger. The five broad mobile workflows and
 Stage39 already consume the compatibility test; their runtime checks remain.
 The unrelated historical Stage28–38/42 release-candidate workflows are unchanged.
 
+Stage39 runs the source audit before its generated-runtime fixtures. Its original
+tests create untracked execution modules in deployment/server-integration, so a
+post-generation untracked-input audit would misclassify test outputs as source.
+The audit is moved, not skipped; a final tracked-input diff additionally rejects
+source changes after all runtime tests. No broad output ignore or cleanup is used.
+
 Regression fixtures exercise harmless descendant commits including a merged
 base, changed protected base/candidate/working files, file shape/mode changes,
 missing refs and unrelated histories. Final GitHub checks must run on the actual
