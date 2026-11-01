@@ -15,6 +15,9 @@ const DIGEST = 'a'.repeat(64);
 const OTHER_DIGEST = 'b'.repeat(64);
 const SPLIT_SCOPE = 'SPLIT_READ_LAYOUT_ONLY';
 const SPLIT_REFERENCE = 'source:jh-split-read-layout-only';
+const FOLLOWUP_TYPE = 'split_screen_session_followup';
+const FOLLOWUP_SCOPE = 'SPLIT_FOLLOWUP_CLICK_ONLY';
+const FOLLOWUP_REFERENCE = 'source:jh-split-followup-click-only';
 
 async function setup(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'jh-receipt-reconciliation-'));
@@ -53,6 +56,10 @@ function splitReceipt(id, extra = {}) {
     verifiedObservationScope: SPLIT_SCOPE, evidenceDigest: DIGEST, ...extra });
 }
 
+function followupReceipt(id, extra = {}) {
+  return receipt(id, { type: FOLLOWUP_TYPE, verifiedOutcomeScope: FOLLOWUP_SCOPE, ...extra });
+}
+
 function response(value = { ok: true, signed: 'PRIVATE_UNMODIFIED_RESULT' }) {
   return { content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value };
 }
@@ -76,6 +83,10 @@ async function seedJob(runtime, id, outcome = 'completion_unknown', options = {}
 const seedSplitRead = (runtime, id, outcome = 'completion_unknown', type = 'split_screen_session_start') =>
   seedJob(runtime, id, outcome, { job: { type }, call: { name: 'life_android_split_screen_assistant',
     mode: type === 'split_screen_session_start' ? 'START' : 'STATUS' } });
+
+const seedFollowup = (runtime, id, outcome = 'completion_unknown') =>
+  seedJob(runtime, id, outcome, { job: { type: FOLLOWUP_TYPE },
+    call: { name: 'life_android_split_screen_assistant', mode: 'FOLLOW_UP' } });
 
 const soleAttempt = state => {
   assert.equal(Object.keys(state.attempts).length, 1);
@@ -529,4 +540,147 @@ test('three layout-only observations cannot become candidate evidence or a verif
   assert.equal(soleGap(completed).status, 'resolved');
   assert.equal(soleGap(completed).verification, undefined);
   assert.equal(Object.values(completed.proposals).some(item => item.kind === 'workflow_automation'), false);
+});
+
+test('verified follow-up receipts reconcile the original click attempt and retain the narrow evidence scope', async t => {
+  for (const initial of ['pending', 'observed', 'completion_unknown']) {
+    const { runtime, store, file } = await setup(t);
+    await seedFollowup(runtime, initial, initial);
+    const before = await store.read(), original = soleAttempt(before);
+    runtime.receiptObserved(followupReceipt(initial, {
+      result: { screen: 'PRIVATE_FOLLOWUP_SCREEN' }, commandText: 'PRIVATE_FOLLOWUP_COMMAND',
+      receiptRef: 'PRIVATE_FOLLOWUP_RECEIPT', grantToken: 'PRIVATE_FOLLOWUP_GRANT',
+    }));
+    const status = await runtime.status(), after = await store.read(), corrected = soleAttempt(after);
+    for (const field of ['taskId', 'attemptId', 'operation', 'domain', 'engine', 'context']) {
+      assert.deepEqual(corrected[field], original[field], field);
+    }
+    assert.equal(corrected.operation, 'life_android_split_screen_assistant.follow_up');
+    assert.equal(corrected.outcome, 'success_verified');
+    assert.deepEqual(corrected.evidenceRefs, ['sha256:' + DIGEST, FOLLOWUP_REFERENCE]);
+    assert.equal(corrected.errorCode, undefined);
+    assert.equal(corrected.sequence, original.sequence + 1);
+    assert.equal(Object.keys(after.events).length, Object.keys(before.events).length + 1);
+    assert.deepEqual(after.events[original.eventId], before.events[original.eventId]);
+    assert.equal(Object.keys(after.lessons).length, 0);
+    assert.equal(status.capabilities.splitFollowupClickReceiptReconciliation, true);
+    assert.equal(status.degraded, false);
+    if (initial === 'completion_unknown') {
+      assert.equal(soleGap(after).status, 'resolved');
+      assert.equal(soleGap(after).verification, undefined, 'receipt completion is not proof of improvement effectiveness');
+    }
+    assert.doesNotMatch(await readFile(file, 'utf8'), /PRIVATE_FOLLOWUP|private-job|private-command|grantToken|receiptRef/);
+  }
+});
+
+test('follow-up receipts require an own exact click scope, success and an unmixed complete receipt', async t => {
+  const { runtime, store, file } = await setup(t);
+  await seedFollowup(runtime, 'followup-metadata');
+  const baseline = await readFile(file, 'utf8');
+  const invalid = [
+    ...[undefined, null, '', 'SPLIT_FOLLOWUP', 'PRIVATE_OTHER_SCOPE', ['SPLIT_FOLLOWUP_CLICK_ONLY']]
+      .map(verifiedOutcomeScope => ({ verifiedOutcomeScope })),
+    ...[undefined, null, 'observed', 'failure_verified'].map(verifiedOutcome => ({ verifiedOutcome })),
+    ...[undefined, null, SPLIT_SCOPE].map(verifiedObservationScope => ({ verifiedObservationScope })),
+    ...['open_url', 'split_screen_session_start', 'split_screen_session_status', 'agent_snapshot',
+      'SPLIT_SCREEN_SESSION_FOLLOWUP'].map(type => ({ type })),
+    ...['queued', 'in_progress', 'error', 'expired'].map(status => ({ status })),
+    { evidenceDigest: undefined }, { evidenceDigest: 'PRIVATE_INVALID_DIGEST' },
+    { commandId: undefined }, { commandId: '' }, { commandId: 'private-command-wrong-task' },
+  ];
+  for (const change of invalid) runtime.receiptObserved(followupReceipt('followup-metadata', change));
+  const unscoped = followupReceipt('followup-metadata');
+  delete unscoped.verifiedOutcomeScope;
+  runtime.receiptObserved(unscoped);
+  const inherited = followupReceipt('followup-metadata');
+  delete inherited.verifiedOutcomeScope;
+  Object.setPrototypeOf(inherited, { verifiedOutcomeScope: FOLLOWUP_SCOPE });
+  runtime.receiptObserved(inherited);
+  assert.equal((await runtime.status()).degraded, false);
+  assert.equal(await readFile(file, 'utf8'), baseline);
+  assert.equal(soleAttempt(await store.read()).outcome, 'completion_unknown');
+});
+
+test('follow-up success metadata is receipt-only while ordinary complete jobs remain observations', async t => {
+  const { runtime, store, file } = await setup(t);
+  for (const meta of [followupReceipt('not-created'),
+    followupReceipt('not-created', { verifiedOutcomeScope: 'PRIVATE_OTHER_SCOPE' }),
+    receipt('not-created', { type: FOLLOWUP_TYPE })]) {
+    runtime.jobCreated(meta);
+    runtime.jobCompleted(meta);
+  }
+  assert.equal((await runtime.status()).counts.events, 0);
+  await assert.rejects(readFile(file), { code: 'ENOENT' });
+  await seedFollowup(runtime, 'ordinary-followup', 'pending');
+  runtime.jobCompleted(job('ordinary-followup', { type: FOLLOWUP_TYPE, status: 'complete', evidenceDigest: DIGEST }));
+  await runtime.status();
+  const observed = soleAttempt(await store.read());
+  assert.equal(observed.outcome, 'observed');
+  assert.deepEqual(observed.evidenceRefs, ['sha256:' + DIGEST]);
+  assert.equal(observed.evidenceRefs.includes(FOLLOWUP_REFERENCE), false);
+});
+
+test('follow-up receipt recovery requires an existing unique attempt in the original runtime and full context', async t => {
+  const { runtime, controller, store, file } = await setup(t);
+  runtime.receiptObserved(followupReceipt('never-dispatched'));
+  assert.equal((await runtime.status()).counts.attempts, 0);
+  await assert.rejects(readFile(file), { code: 'ENOENT' });
+  await seedFollowup(runtime, 'bound-followup');
+  const baseline = await readFile(file, 'utf8');
+  const readers = [await controller({ runtimeId: 'different-followup-runtime' })];
+  for (const field of ['platform', 'version', 'environment']) {
+    readers.push(await controller({ context: { ...CONTEXT, [field]: 'different-followup-' + field } }));
+  }
+  for (const reader of readers) {
+    reader.receiptObserved(followupReceipt('bound-followup'));
+    assert.equal((await reader.status()).degraded, false);
+  }
+  runtime.receiptObserved(followupReceipt('bound-followup', { commandId: 'private-command-other-task' }));
+  await runtime.status();
+  assert.equal(await readFile(file, 'utf8'), baseline);
+  await store.transact(state => {
+    const original = soleAttempt(state);
+    return ingest(state, { ...original, eventId: 'synthetic-followup-ambiguous', taskId: 'synthetic-other-task' }).state;
+  });
+  const ambiguous = await readFile(file, 'utf8');
+  runtime.receiptObserved(followupReceipt('bound-followup'));
+  await runtime.status();
+  assert.equal(await readFile(file, 'utf8'), ambiguous);
+});
+
+test('follow-up receipts cannot replace blocked, cancelled or already verified outcomes', async t => {
+  for (const outcome of ['blocked', 'cancelled', 'success_verified', 'failure_verified']) {
+    const { runtime, store, file } = await setup(t);
+    await seedFollowup(runtime, outcome, 'pending');
+    await store.transact(state => {
+      const original = soleAttempt(state);
+      return ingest(state, { ...original, eventId: 'synthetic-followup-terminal-' + outcome,
+        sequence: original.sequence + 1, outcome, evidenceRefs: ['sha256:' + OTHER_DIGEST] }).state;
+    });
+    const baseline = await readFile(file, 'utf8');
+    runtime.receiptObserved(followupReceipt(outcome));
+    assert.equal((await runtime.status()).degraded, false);
+    assert.equal(await readFile(file, 'utf8'), baseline, outcome);
+  }
+});
+
+test('concurrent repeated follow-up receipts add one correction and later generic or conflicting reports cannot erase it', async t => {
+  const { runtime, controller, store, file } = await setup(t);
+  await seedFollowup(runtime, 'same-followup');
+  const before = await store.read(), other = await controller();
+  runtime.receiptObserved(followupReceipt('same-followup'));
+  other.receiptObserved(followupReceipt('same-followup'));
+  await Promise.all([runtime.status(), other.status()]);
+  const after = await store.read(), baseline = await readFile(file, 'utf8');
+  assert.equal(Object.keys(after.events).length, Object.keys(before.events).length + 1);
+  assert.equal(soleAttempt(after).sequence, soleAttempt(before).sequence + 1);
+  for (let index = 0; index < 3; index++) runtime.receiptObserved(followupReceipt('same-followup'));
+  runtime.receiptObserved(followupReceipt('same-followup', { evidenceDigest: OTHER_DIGEST }));
+  runtime.receiptObserved(followupReceipt('same-followup', { verifiedOutcome: 'failure_verified' }));
+  runtime.jobCreated(job('same-followup', { type: FOLLOWUP_TYPE }));
+  runtime.jobCompleted(job('same-followup', { type: FOLLOWUP_TYPE, status: 'complete', evidenceDigest: OTHER_DIGEST }));
+  runtime.jobCompleted(receipt('same-followup', { type: FOLLOWUP_TYPE, evidenceDigest: OTHER_DIGEST }));
+  runtime.jobCompleted(job('same-followup', { type: FOLLOWUP_TYPE, status: 'expired', code: 'JOB_EXPIRED' }));
+  assert.equal((await runtime.status()).degraded, false);
+  assert.equal(await readFile(file, 'utf8'), baseline);
 });

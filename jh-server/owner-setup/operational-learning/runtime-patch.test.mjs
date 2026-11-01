@@ -13,6 +13,8 @@ import { describeOpenCompletion, awaitOpenCompletion, patchJH167OpenCompletion56
   OPEN_COMPLETION_WAIT_MS, OPEN_STATUS_WAIT_MS } from '../deployment/jh167-open-completion.mjs';
 import { applyJH168SplitReadReceiptPatch } from '../jh168-mobile-unification/split-read-receipt-patch.mjs';
 import { createSplitReadReceiptRegistry56 } from '../jh168-mobile-unification/split-read-receipts.mjs';
+import { applyJH168SplitFollowupReceiptPatch } from '../jh168-mobile-unification/split-followup-receipt-patch.mjs';
+import { createSplitFollowupReceiptRegistry56 } from '../jh168-mobile-unification/split-followup-receipts.mjs';
 import { inspectSplitEvidence } from '../deployment/split-screen-evidence.mjs';
 
 const command = 'a'.repeat(32);
@@ -125,8 +127,9 @@ function splitReceiptTool(){
 }
 `));
 
-function host({ learning = true } = {}) {
-  const patched = learning ? applyOperationalLearningPatch(source) : source;
+function host({ learning = true, followup = false } = {}) {
+  let patched = learning ? applyOperationalLearningPatch(source) : source;
+  if (followup) patched = applyJH168SplitFollowupReceiptPatch(patched);
   const executable = patched.replace(/^(?:import[^\n]+\n)+/, '').replace('export function installOperationalLearning56', 'function installOperationalLearning56');
   let receiptNow = null, receiptNonce = 0;
   const sandbox = {
@@ -141,6 +144,9 @@ function host({ learning = true } = {}) {
     createSplitReadReceiptRegistry56: () => createSplitReadReceiptRegistry56({
       clock: () => receiptNow ?? Date.now(), token: () => String(++receiptNonce).padStart(32, '0'),
     }),
+    createSplitFollowupReceiptRegistry56: () => createSplitFollowupReceiptRegistry56({
+      clock: () => receiptNow ?? Date.now(), token: () => String(++receiptNonce).padStart(32, '0'),
+    }),
     fixtureInspectSplitEvidence: inspectSplitEvidence,
     fixtureSetReceiptNow: value => { receiptNow = value; },
     createComputerInspectReceiptRegistry56: () => ({}),
@@ -150,6 +156,10 @@ globalThis.api={install:typeof installOperationalLearning56==='function'?install
   register,mk,complete,cleanupJobs,jobs,devices,httpServer,receiptTool,splitReceiptTool,
   issueSplit:job=>jhSplitReadReceipts56.issue({job,deviceId:job.targetDeviceId,
     sessionId:job.secureSessionId,commandId:job.commandId,taskDigest:job.taskDigest}),
+  issueFollowup:typeof jhSplitFollowupReceipts56==='undefined'?null:job=>jhSplitFollowupReceipts56.issue({
+    job,deviceId:job.targetDeviceId,deviceDigest:job.targetDeviceDigest,
+    sessionId:job.secureSessionId,commandId:job.commandId,taskDigest:job.taskDigest}),
+  observeFollowup:typeof jhLearningObserveFollowupReceipt56==='undefined'?null:jhLearningObserveFollowupReceipt56,
   splitRead:jhSplitReadStatus56,setReceiptNow:fixtureSetReceiptNow,setDevice:value=>{selectedDevice=value;},
   openDirect:fixtureDirectOpen,openAlias:fixtureAliasOpen,
   wrap:typeof jhLearningHandler56==='function'?jhLearningHandler56:null,
@@ -192,6 +202,22 @@ function installSplitFixture(api, fixture) {
   const job = copy(fixture.job); api.jobs.set(job.id, job);
   const receipt = api.issueSplit(job);
   assert.ok(receipt?.receiptRef);
+  return { job, receipt };
+}
+
+function followupReceiptFixture(at = Date.now()) {
+  const fixture = splitReceiptFixture('split_screen_session_followup', at);
+  Object.assign(fixture.job, { mcpToolName: 'life_android_execute_computer_action',
+    secureRequestedEffect: 'REVERSIBLE_WRITE', action: 'CLICK', targetDeviceDigest: 'd'.repeat(64),
+    requestId: 'e'.repeat(32), contextId: 'ssc_' + 'f'.repeat(32), targetItemRef: 'item_' + '1'.repeat(16) });
+  Object.assign(fixture.result, { action: 'CLICK', code: 'SYNTHETIC_CLICK_RESULT' });
+  return fixture;
+}
+
+function installFollowupFixture(api, fixture) {
+  api.devices.set('fixture-device', { secureBridgeVersion: 56, deviceDigest: fixture.job.targetDeviceDigest });
+  const job = copy(fixture.job); api.jobs.set(job.id, job);
+  const receipt = api.issueFollowup(job); assert.ok(receipt?.receiptRef);
   return { job, receipt };
 }
 
@@ -668,6 +694,158 @@ test('existing cleanup observes expired/error outcomes before retention removal 
   api.cleanupJobs();
   assert.equal(received.at(-1).status, 'error'); assert.equal(received.at(-1).code, 'HOST_ERROR');
   assert.equal(api.jobs.has(job.id), false); assert.equal(creations, 1);
+});
+
+test('actual FOLLOW_UP readback reports only the original verified CLICK scope', async () => {
+  const api = host({ followup: true }), baseline = host({ learning: false, followup: true });
+  const completed = [], observations = [];
+  api.install(controller({ jobCompleted: meta => completed.push(meta), receiptObserved: meta => observations.push(meta) }));
+  const fixture = followupReceiptFixture(), { job, receipt } = installFollowupFixture(api, fixture);
+  const original = installFollowupFixture(baseline, fixture);
+  assert.equal(api.complete(job, { result: fixture.result }, false), 401);
+  assert.equal(observations.length, 0); assert.equal(completed.length, 0);
+  assert.equal(api.complete(job, { result: fixture.result }), 200);
+  Object.assign(original.job, copy(job));
+  assert.equal(Object.hasOwn(completed[0], 'verifiedOutcome'), false);
+  assert.equal(Object.hasOwn(completed[0], 'verifiedOutcomeScope'), false);
+  const args = { command_id: command, mode: 'READBACK_PENDING', receipt_ref: receipt.receiptRef };
+  const before = copy(job), result = await api.splitReceiptTool().handler(args);
+  assert.deepEqual(copy(result), copy(await baseline.splitReceiptTool().handler(args)));
+  assert.equal(JSON.parse(result.content[0].text).code, 'SPLIT_FOLLOWUP_CLICK_VERIFIED');
+  assert.equal(observations.length, 1);
+  const meta = observations[0];
+  assert.equal(Object.isFrozen(meta), true);
+  assert.deepEqual(Object.keys(meta).sort(),
+    ['id', 'type', 'commandId', 'status', 'evidenceDigest', 'verifiedOutcome', 'verifiedOutcomeScope'].sort());
+  assert.equal(meta.verifiedOutcome, 'success_verified');
+  assert.equal(meta.verifiedOutcomeScope, 'SPLIT_FOLLOWUP_CLICK_ONLY');
+  assert.equal(meta.evidenceDigest, completed[0].evidenceDigest);
+  assert.equal(meta.commandId, command); assert.equal(meta.id, job.id);
+  assert.doesNotMatch(JSON.stringify(meta), /private|https:|secureSession|receiptRef|taskDigest|contextId|targetItemRef|requestId|splitScreen/);
+  await api.splitReceiptTool().handler(args);
+  assert.deepEqual(copy(observations[1]), copy(meta));
+  assert.deepEqual(copy(job), before); assert.equal(api.jobs.size, 1); assert.equal(api.waits(), 0);
+});
+
+test('FOLLOW_UP observer cannot elevate unconfirmed, expired or differently bound readbacks', async () => {
+  const cases = [
+    ['pending', (_api, job) => { job.status = 'in_progress'; }],
+    ['device failure', (_api, job) => { job.result = { ok: false, actionDispatched: false }; }],
+    ['unverified click', (_api, job) => { job.result.resultVerified = false; }],
+    ['stale screen proof', (_api, job) => { job.result.splitScreen.observedAtMs = String(Date.now() - 60000); }],
+    ['changed original action target', (_api, job) => { job.targetItemRef = 'item_' + '2'.repeat(16); }],
+    ['changed original request', (_api, job) => { job.requestId = '2'.repeat(32); }],
+    ['changed original context', (_api, job) => { job.contextId = 'ssc_' + '2'.repeat(32); }],
+    ['current session changed', api => api.setSession('other-session')],
+    ['current command changed', (_api, _job, _receipt, args) => { args.command_id = '2'.repeat(32); }],
+    ['device replaced', api => api.devices.set('fixture-device', { secureBridgeVersion: 56, deviceDigest: '2'.repeat(64) })],
+    ['expired receipt', (api, _job, receipt) => api.setReceiptNow(receipt.expiresAt)],
+    ['original job removed', (api, job) => api.jobs.delete(job.id)],
+  ];
+  for (const [name, change] of cases) {
+    const api = host({ followup: true }), baseline = host({ learning: false, followup: true });
+    let observations = 0;
+    api.install(controller({ receiptObserved: () => observations++ }));
+    const fixture = followupReceiptFixture(), setups = [];
+    for (const current of [api, baseline]) {
+      const { job, receipt } = installFollowupFixture(current, fixture);
+      current.complete(job, { result: copy(fixture.result) });
+      const args = { command_id: command, mode: 'READBACK_PENDING', receipt_ref: receipt.receiptRef };
+      change(current, job, receipt, args); setups.push({ job, args, size: current.jobs.size });
+    }
+    Object.assign(setups[1].job, copy(setups[0].job));
+    const before = copy(setups[0].job), result = await api.splitReceiptTool().handler(setups[0].args);
+    assert.equal(JSON.parse(result.content[0].text).ok, false, name);
+    assert.deepEqual(copy(result), copy(await baseline.splitReceiptTool().handler(setups[1].args)), name);
+    assert.equal(observations, 0, name); assert.equal(api.jobs.size, setups[0].size, name);
+    assert.equal(api.waits(), 0, name); assert.deepEqual(copy(setups[0].job), before, name);
+  }
+});
+
+test('FOLLOW_UP receipt metadata cannot be substituted after the original read', async () => {
+  const api = host({ followup: true }), observations = [];
+  api.install(controller({ receiptObserved: meta => observations.push(meta) }));
+  const fixture = followupReceiptFixture(), { job, receipt } = installFollowupFixture(api, fixture);
+  api.complete(job, { result: fixture.result });
+  const returned = await api.splitReceiptTool().handler({ command_id: command, mode: 'READBACK_PENDING', receipt_ref: receipt.receiptRef });
+  const valid = JSON.parse(returned.content[0].text);
+  const binding = { deviceId: job.targetDeviceId, deviceDigest: job.targetDeviceDigest, sessionId: job.secureSessionId,
+    commandId: job.commandId, taskDigest: job.taskDigest, requestId: job.requestId,
+    contextId: job.contextId, targetItemRef: job.targetItemRef };
+  assert.equal(observations.length, 1);
+  for (const substitute of [
+    { ...valid, confirmationScope: 'WHOLE_TASK_SUCCESS' }, { ...valid, executionStatus: 'UNKNOWN' },
+    { ...valid, code: 'SPLIT_READ_LAYOUT_VERIFIED' }, { ...valid, automaticReplay: true },
+    { ...valid, newJobCreated: true }, { ...valid, jobDigest: '0'.repeat(64) },
+    { ...valid, taskDigest: '0'.repeat(64) }, { ...valid, resultVerified: false },
+  ]) api.observeFollowup(job, substitute, binding);
+  api.observeFollowup(copy(job), valid, binding);
+  api.observeFollowup(job, valid, { ...binding, requestId: '2'.repeat(32) });
+  api.observeFollowup(job, valid, { ...binding, taskDigest: '2'.repeat(64) });
+  assert.equal(observations.length, 1);
+});
+
+test('FOLLOW_UP observer errors preserve the original successful receipt without another action', async () => {
+  for (const mode of ['absent', 'sync', 'async']) {
+    const api = host({ followup: true }), baseline = host({ learning: false, followup: true });
+    const receiptObserved = mode === 'sync' ? () => { throw Error('synthetic observer failure'); }
+      : async () => { throw Error('synthetic observer failure'); };
+    api.install(controller(mode === 'absent' ? {} : { receiptObserved }));
+    const fixture = followupReceiptFixture(), { job, receipt } = installFollowupFixture(api, fixture);
+    const original = installFollowupFixture(baseline, fixture);
+    api.complete(job, { result: fixture.result }); Object.assign(original.job, copy(job));
+    const before = copy(job), args = { command_id: command, mode: 'READBACK_PENDING', receipt_ref: receipt.receiptRef };
+    assert.deepEqual(copy(await api.splitReceiptTool().handler(args)), copy(await baseline.splitReceiptTool().handler(args)), mode);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(api.jobs.size, 1, mode); assert.equal(api.waits(), 0, mode);
+    assert.deepEqual(copy(job), before, mode);
+  }
+});
+
+test('real FOLLOW_UP helper/controller/store reconciles the same original attempt once', async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'jh-learning-followup-click-')), runtimes = [];
+  t.after(async () => {
+    try { for (const runtime of runtimes) await runtime.close(); }
+    finally { await rm(dir, { recursive: true, force: true }); }
+  });
+  for (const missedCompletion of [false, true]) {
+    const file = path.join(dir, missedCompletion ? 'missed.json' : 'completed.json'), ownerScope = 'fixture-followup-owner';
+    const runtime = await createServerLearning({ file, ownerScope, runtimeId: 'fixture-followup-runtime',
+      context: { platform: 'server', version: 'fixture-v1', environment: 'synthetic-test' } });
+    runtimes.push(runtime);
+    const store = new FileLearningStore({ file, ownerScope }), api = host({ followup: true });
+    api.install(missedCompletion ? { ...runtime, jobCompleted() {} } : runtime);
+    const fixture = followupReceiptFixture(), failure = new Error('synthetic original wait failed');
+    api.devices.set('fixture-device', { secureBridgeVersion: 56, deviceDigest: fixture.job.targetDeviceDigest });
+    const { id: unusedId, type, status: unusedStatus, commandId: unusedCommand, ...payload } = fixture.job;
+    let job;
+    const pending = api.register('life_android_split_screen_assistant', () => {
+      job = api.mk(type, payload); if (missedCompletion) throw failure; return job;
+    }).handler({ command_id: command, mode: 'FOLLOW_UP' });
+    if (missedCompletion) await assert.rejects(pending, error => error === failure); else await pending;
+    const receipt = api.issueFollowup(job); assert.ok(receipt);
+    api.complete(job, { result: fixture.result }); await runtime.status();
+    const before = await store.read(), prior = Object.values(before.attempts)[0];
+    assert.equal(Object.keys(before.attempts).length, 1);
+    assert.equal(prior.outcome, missedCompletion ? 'completion_unknown' : 'observed');
+    const args = { command_id: command, mode: 'READBACK_PENDING', receipt_ref: receipt.receiptRef };
+    const result = await api.splitReceiptTool().handler(args);
+    assert.equal(JSON.parse(result.content[0].text).code, 'SPLIT_FOLLOWUP_CLICK_VERIFIED');
+    const after = await store.read(), reconciled = Object.values(after.attempts)[0];
+    assert.equal(Object.keys(after.attempts).length, 1);
+    assert.equal(Object.keys(after.events).length, Object.keys(before.events).length + 1);
+    for (const field of ['attemptId', 'taskId', 'operation', 'domain', 'engine', 'context'])
+      assert.deepEqual(reconciled[field], prior[field], field);
+    assert.equal(reconciled.outcome, 'success_verified');
+    assert.deepEqual(reconciled.evidenceRefs.slice(1), ['source:jh-split-followup-click-only']);
+    assert.match(reconciled.evidenceRefs[0], /^sha256:[a-f0-9]{64}$/);
+    const bytes = await readFile(file, 'utf8');
+    await api.splitReceiptTool().handler(args);
+    assert.equal(await readFile(file, 'utf8'), bytes);
+    assert.doesNotMatch(bytes, /private-session|private\.invalid|synthetic-private|sfr_|ssc_|item_/);
+    assert.equal(api.jobs.size, 1); assert.equal(api.waits(), 0);
+    assert.equal((await runtime.status()).degraded, false);
+  }
 });
 
 test('sync and async observer failures leave created jobs and accepted responses intact', async () => {
