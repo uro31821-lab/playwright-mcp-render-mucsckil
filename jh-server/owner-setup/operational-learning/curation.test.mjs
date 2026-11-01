@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { createState, ingest, propose, addLesson, evaluateLesson, setProposalStatus, recall } from './engine.mjs';
 import { prepareReview, createReviewedCandidate } from './curation.mjs';
 import { bindRegression, runRegression } from './regression.mjs';
@@ -173,6 +174,109 @@ test('verification gaps and blocked attempts yield review packets, not verified 
     assert.equal(packet(state).candidateEligible, false);
     assert.throws(() => createReviewedCandidate(state, review(state), SUITE), /verified or an explicit correction/);
   }
+});
+
+test('unknown outcomes remain ineligible despite opaque hashes and separate successful evidence', () => {
+  const state = sourceState([event('a', { outcome: 'completion_unknown', evidenceRefs: ['sha256:' + 'a'.repeat(64)] }),
+    event('b', { outcome: 'completion_unknown', evidenceRefs: ['sha256:' + 'b'.repeat(64)] }),
+    event('fixed', { outcome: 'success_verified', errorCode: undefined })]);
+  const before = structuredClone(state);
+  const result = packet(state);
+  assert.equal(result.candidateEligible, false);
+  assert.deepEqual(result.evidenceReadiness, {
+    schema: 'jh.learning-evidence-readiness.v1', status: 'more_evidence_required',
+    reasonCode: 'VERIFIED_OUTCOME_REQUIRED', currentVerifiedOutcomeCount: 0,
+    currentEligibleCount: 0, visibleEligibleCount: 0,
+    nextEvidence: ['READ_ORIGINAL_BOUND_RECEIPT', 'CORRECT_ORIGINAL_ATTEMPT_FROM_VERIFIED_RECEIPT',
+      'REVIEW_SEPARATE_VERIFIED_IMPROVEMENT_EVIDENCE'],
+    automaticReplayAllowed: false, outcomeInferenceAllowed: false, activationPerformed: false,
+  });
+  assert.throws(() => createReviewedCandidate(state, review(state), SUITE), /verified or an explicit correction/);
+  assert.throws(() => createReviewedCandidate(state, review(state, { eventIds: ['fixed'] }), SUITE), /proposal pattern/);
+  assert.deepEqual(state, before);
+});
+
+test('blocked and unconfirmed reported corrections explain missing evidence without relaxing eligibility', () => {
+  for (const [outcome, source, reasonCode] of [
+    ['blocked', 'host_verified', 'BLOCKED_ATTEMPT_NEEDS_ELIGIBLE_EVIDENCE'],
+    ['correction', 'user_reported', 'VERIFIED_OR_EXPLICIT_CORRECTION_REQUIRED'],
+  ]) {
+    const state = sourceState([event('a', { outcome, source }), event('b', { outcome, source })]);
+    const result = packet(state);
+    assert.equal(result.candidateEligible, false);
+    assert.equal(result.evidenceReadiness.status, 'more_evidence_required');
+    assert.equal(result.evidenceReadiness.reasonCode, reasonCode);
+    assert.equal(result.evidenceReadiness.currentEligibleCount, 0);
+    assert.equal(result.evidenceReadiness.visibleEligibleCount, 0);
+    assert.equal(result.evidenceReadiness.automaticReplayAllowed, false);
+    assert.throws(() => createReviewedCandidate(state, review(state), SUITE), /verified or an explicit correction/);
+  }
+});
+
+test('eligible failures, verified workflows and explicit corrections are ready for review without activation', () => {
+  for (const [outcome, source, count, verifiedCount] of [
+    ['failure_verified', 'host_verified', 2, 2],
+    ['success_verified', 'host_verified', 3, 3],
+    ['correction', 'user_explicit', 2, 0],
+  ]) {
+    const state = sourceState(Array.from({ length: count }, (_, i) => event('ready-' + i, { outcome, source })));
+    const before = structuredClone(state);
+    const result = packet(state);
+    assert.equal(result.candidateEligible, true);
+    assert.equal(result.evidenceReadiness.status, 'ready_for_review');
+    assert.equal(result.evidenceReadiness.reasonCode, 'ELIGIBLE_CURRENT_EVIDENCE_VISIBLE');
+    assert.equal(result.evidenceReadiness.currentVerifiedOutcomeCount, verifiedCount);
+    assert.equal(result.evidenceReadiness.currentEligibleCount, count);
+    assert.equal(result.evidenceReadiness.visibleEligibleCount, count);
+    assert.equal(result.evidenceReadiness.activationPerformed, false);
+    assert.equal(result.evidenceReadiness.outcomeInferenceAllowed, false);
+    assert.deepEqual(state, before);
+  }
+});
+
+test('eligible evidence hidden by the packet limit or task representative is not reported as visible readiness', () => {
+  const explicit = event('older-explicit', { outcome: 'correction', source: 'user_explicit',
+    timestamp: '2026-10-31T09:00:00.000Z' });
+  const reported = event('newer-reported', { outcome: 'correction', source: 'user_reported' });
+  const state = sourceState([explicit, reported]);
+  const limited = packet(state, { maxAttempts: 1 });
+  assert.equal(limited.candidateEligible, true, 'preserve the existing full-source eligibility contract');
+  assert.equal(limited.attempts[0].eventId, 'newer-reported');
+  assert.equal(limited.evidenceReadiness.status, 'evidence_not_visible');
+  assert.equal(limited.evidenceReadiness.reasonCode, 'ELIGIBLE_EVIDENCE_OUTSIDE_VISIBLE_PACKET');
+  assert.equal(limited.evidenceReadiness.currentEligibleCount, 1);
+  assert.equal(limited.evidenceReadiness.visibleEligibleCount, 0);
+  const expanded = packet(state, { maxAttempts: 2 });
+  assert.equal(expanded.evidenceReadiness.status, 'ready_for_review');
+  assert.equal(expanded.evidenceReadiness.visibleEligibleCount, 1);
+  assert.notEqual(limited.packetFingerprint, expanded.packetFingerprint);
+  const sameTask = sourceState([explicit, { ...reported, taskId: explicit.taskId },
+    event('second-task', { outcome: 'correction', source: 'user_reported' })]);
+  const grouped = packet(sameTask, { maxAttempts: 32 });
+  assert.equal(grouped.truncated, false);
+  assert.equal(grouped.evidenceReadiness.currentEligibleCount, 1);
+  assert.equal(grouped.evidenceReadiness.visibleEligibleCount, 0);
+  assert.equal(grouped.evidenceReadiness.status, 'evidence_not_visible');
+});
+
+test('readiness is bounded readonly metadata included in the review packet fingerprint', () => {
+  const state = sourceState(); const before = structuredClone(state);
+  const result = packet(state);
+  const stable = value => value && typeof value === 'object'
+    ? Array.isArray(value) ? '[' + value.map(stable).join(',') + ']'
+      : '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stable(value[key])).join(',') + '}'
+    : JSON.stringify(value);
+  const hash = value => createHash('sha256').update(stable(value)).digest('hex');
+  const { packetFingerprint, ...body } = result;
+  assert.equal(packetFingerprint, hash({ packet: body, sourceSet: result.attempts, lessonSet: [] }));
+  const { evidenceReadiness: metadata, ...without } = body;
+  assert.notEqual(packetFingerprint, hash({ packet: without, sourceSet: result.attempts, lessonSet: [] }));
+  const serialized = JSON.stringify(metadata);
+  assert.ok(serialized.length < 1200);
+  assert.doesNotMatch(serialized, /fixture:|sha256:|event:|https?:|\"(?:command|raw|messages|responseBody)\"/);
+  result.evidenceReadiness.nextEvidence.push('CHANGED_LOCAL_COPY');
+  assert.deepEqual(state, before);
+  assert.notDeepEqual(packet(state).evidenceReadiness, result.evidenceReadiness);
 });
 
 test('definition and suite equality deduplicate candidates across requested IDs without mutating state', () => {

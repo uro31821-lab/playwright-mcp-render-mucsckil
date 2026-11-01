@@ -74,6 +74,16 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 - 알려진 실행 전 거부는 `blocked`로 구분합니다. handler 예외·job 만료·검증되지 않은 오류는 완료 미확정으로 기록하며, 오류 문자열만으로 실제 작업 실패를 확정하지 않습니다.
 - 근거는 `fixture:…`, `regression:…`, `artifact:…` 등 지원하는 식별자입니다. 원문 URL은 받지 않습니다. 실제 허용 필드·형식은 [engine.mjs](engine.mjs)에 정의되어 있습니다.
 
+### 기존 영수증을 읽을 때 원래 시도 보완
+
+`capabilities.existingReceiptReconciliation: true`는 기존 호스트의 검증된 영수증 조회를 같은 학습 시도에 연결하는 기능입니다. 새 MCP 쓰기 모드나 사용자 입력의 성공 플래그를 받지 않습니다. 현재 연결 지점은 `jhOpenCompletion56()`이며, 원래 `life_job_status` 또는 open 완료 확인이 기존 명령·세션·job 일치 검사와 엄격한 오른쪽 Chrome 주소 검증을 통과했을 때만 동작합니다.
+
+호스트 전용 `receiptObserved(job)`는 검증된 결과와 근거 digest가 있는 완료 메타데이터를 받습니다. 파일 잠금 안에서 현재 runtime의 **이미 존재하는 유일한 원래 attempt**, 명령에 연결된 task, host 출처, 엔진·환경을 대조합니다. `pending`, `observed`, `completion_unknown`만 원래 scope와 attempt를 보존하며 보완합니다. 조회 자체를 새 시도나 독립 경험으로 만들지 않고, 같은 검증 결과는 중복 처리합니다. 서로 다른 기존 검증 결과, 연결 불일치, 차단·취소, 원래 시도 누락은 덮어쓰지 않습니다. 원래 응답·예외·실행 횟수는 유지됩니다.
+
+이 결과의 의미는 **영수증 수신 당시 요청 주소가 오른쪽 Chrome에서 확인됨**입니다. 현재 화면, 전체 페이지 내용이나 이후 작업 완료를 뜻하지 않습니다. 일반 `ok:true`, 서명된 결과 수신 또는 durable journal의 수신 상태만으로 성공을 만들지 않습니다.
+
+현재 기기 job·영수증은 메모리 Map에 있으므로 실제 서버 재시작 후 복원되지 않습니다. 새 runtimeId에서 과거 `job_1` 같은 번호를 이용해 기억을 추측 연결하지 않습니다. 학습 기억의 재시작 보존과 기기 영수증의 재시작 복구는 서로 다른 기능입니다. 이 보완은 원래 작업에서 필요한 기존 결과 조회에만 적용하며 학습을 위해 기기 작업을 추가하거나 재실행하지 않습니다. 정정 후 기존 `open` 확인 제안은 남은 미확정 시도가 없을 때 `resolved`가 되며, 사용자가 채택·기각한 상태와 판단 이력은 유지합니다.
+
 ## 네 종류의 개선 제안
 
 | 종류 | 기본 생성 조건 | 제안 내용 |
@@ -122,6 +132,10 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 ### 경험에서 구체적인 후보를 작성
 
 `life_learning_review`는 `mode`와 JSON 문자열 `payload`를 받는다. `PREPARE`는 `{proposalId,maxAttempts?}`로 실제 제안과 현재 근거를 읽는다. `CANDIDATE`는 `{review,suite}`를 받아 현재 packet의 revision/fingerprint, 사건·범위·출처를 대조하고 구체적인 후보만 저장한다. `CHECK`는 `{lesson,suite,expectedRevision}`로 저장된 후보와 동일한 정의를 실제 평가한 뒤 활성/격리 상태를 기록한다. 두 도구의 호출 자체는 새로운 실패나 반복 업무 횟수로 세지 않는다.
+
+`capabilities.reviewReadiness: true`인 서버는 PREPARE packet에 `evidenceReadiness`를 함께 반환한다. 현재 패턴에 일치하는 검증 결과 수(`currentVerifiedOutcomeCount`), 적격 근거 수(`currentEligibleCount`), 실제 표시된 적격 근거 수(`visibleEligibleCount`)를 구분한다. `ready_for_review`는 근거를 검토할 수 있다는 뜻이며 규칙 활성화나 실제 개선 성공이 아니다. 전체에 적격 근거가 있지만 현재 packet에 표시되지 않았으면 `evidence_not_visible`, 근거가 부족하면 `more_evidence_required`로 표시한다.
+
+`verification_gap`은 `VERIFIED_OUTCOME_REQUIRED` 사유로 원래 시도에 묶인 기존 영수증 확인(`READ_ORIGINAL_BOUND_RECEIPT`), 신뢰된 검증 결과로 같은 시도 정정(`CORRECT_ORIGINAL_ATTEMPT_FROM_VERIFIED_RECEIPT`), 별도의 검증된 개선 경험 검토(`REVIEW_SEPARATE_VERIFIED_IMPROVEMENT_EVIDENCE`)를 요구한다. 이 코드는 실행 명령이나 새 조회 권한이 아니다. 불투명한 해시만으로 원문이나 원인을 읽었다고 판단하지 않는다. 이 metadata도 packet fingerprint에 포함되며 기존 `candidateEligible`과 후보 적격성 검사는 완화하지 않는다. 자동 재실행·결과 추정·활성화 여부는 모두 false다.
 
 검토의 `cause`, `resolution`, `expectedEffect`, `guidance`는 에이전트가 실제 근거를 읽고 작성한다. `reflection.assessment: "reviewed_inference"`와 `provenance: "model_inferred"`로 보존하며 사용자 지시로 승격하지 않는다. 에이전트 추론을 수행하는 별도 모델 서비스는 실행하지 않는다. 직접 사용하는 함수와 필드는 [curation.mjs](curation.mjs), 사용 가능한 검증 사례는 [curation.test.mjs](curation.test.mjs)를 참고한다. 기각·완료 제안, 오래된 검토 packet, 중복된 polling과 미확인 결과만으로 규칙을 만들지 않는다.
 
