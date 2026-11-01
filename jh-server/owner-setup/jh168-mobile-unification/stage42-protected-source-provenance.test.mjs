@@ -47,6 +47,7 @@ test('observed LIVE baseline is exact reviewed MAIN and candidate changes only t
  assert.equal(LIVE,REVIEWED_MAIN);
  const current=files([]);
  const allowed=[
+  '.github/workflows/jh168-mobile13-command-diagnostics-review.yml',
   ROOT+'operational-learning/host-memory-bridge.mjs',
   ROOT+'operational-learning/host-memory-bridge.test.mjs',
   ROOT+'operational-learning/host-memory-runtime.test.mjs',

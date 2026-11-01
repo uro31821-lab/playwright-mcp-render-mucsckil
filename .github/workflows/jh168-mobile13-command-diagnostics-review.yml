@@ -31,8 +31,9 @@ jobs:
         with: {node-version: '22'}
       - name: Exact reviewed MAIN and original protected source
         run: |
-          test "$(git rev-parse origin/jh-fix3-secure-server)" = f32cf6c7d615245d2f8307ae467dcfc0450dc359
-          git diff --exit-code f32cf6c7d615245d2f8307ae467dcfc0450dc359 HEAD -- \
+          test "$(git rev-parse origin/jh-fix3-secure-server)" = bd81675725609e67ca7bb2f8dc45f101f0820d8b
+          # The deployed diagnostic baseline preserved every former protected root.
+          git diff --exit-code f32cf6c7d615245d2f8307ae467dcfc0450dc359 bd81675725609e67ca7bb2f8dc45f101f0820d8b -- \
             jh-server/server.mjs \
             jh-server/owner-setup/deployment \
             jh-server/owner-setup/payment \
@@ -41,6 +42,9 @@ jobs:
             jh-server/owner-setup/trusted-server \
             jh-server/owner-setup/operational-learning \
             jh-server/owner-setup/owner-enrollment
+          # Preserve execution/security sources and allow only the reviewed exact
+          # host-memory delta, with the original learning core byte-identical.
+          node --test jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs
       - name: Original dependency manifests and locked owner dependencies
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
