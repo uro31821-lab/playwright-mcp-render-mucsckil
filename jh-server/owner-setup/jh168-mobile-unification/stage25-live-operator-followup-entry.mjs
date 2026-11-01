@@ -25,6 +25,8 @@ import {applyComputerExecutionReceiptPatch,reverseComputerExecutionReceiptPatch}
  from './computer-execution-receipt-patch.mjs';
 import {applyStage40OwnerAdmissionDiagnostics,reverseStage40OwnerAdmissionDiagnostics}
  from './stage40-owner-admission-diagnostics-patch.mjs';
+import {applyStage41CommandLifecyclePatch,reverseStage41CommandLifecyclePatch}
+ from './stage41-command-lifecycle-patch.mjs';
 
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const SERVICE='srv-db0fjl2d0e5s73be114g';
@@ -46,6 +48,17 @@ const prod=env=>env?.CI!=='true'&&
   env.JH_DURABLE_RELEASE==='SERVE_READY_V1'&&env.RENDER_SERVICE_ID===SERVICE&&
   env.JH_OWNER_DEFER_LISTEN===undefined;
 function gate(env){if(!ci(env)&&!prod(env))fail('JH_STAGE25_FOLLOWUP_OPERATOR_NOT_AUTHORIZED');}
+const STAGE41_DIAG_FLAG='EXPLICIT_SIGNED_COMMAND_CAUSE_V1';
+export function selectStage41CommandLifecycle56(env=process.env){
+ const flag=env?.JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS;
+ if(flag===undefined||flag==='')return false;
+ if(flag!==STAGE41_DIAG_FLAG)fail('STAGE41_DIAGNOSTICS_FLAG_INVALID');
+ if(!ci(env)&&!prod(env))fail('STAGE41_ORIGINAL_OPERATOR_REQUIRED');
+ if(env.JH_MOBILE_WEB_13_MODE!=='EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1'||
+   env.JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS!=='EXPLICIT_ORIGINAL_OWNER_REASON_V1')
+   fail('STAGE41_SIGNED_MOBILE40_SCOPE_REQUIRED');
+ return true;
+}
 const STAGE40_DIAG_FLAG='EXPLICIT_ORIGINAL_OWNER_REASON_V1';
 export function selectStage40OwnerAdmissionDiagnostics56(env=process.env){
  const flag=env?.JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS;
@@ -103,12 +116,14 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     !/^[a-f0-9]{64}$/.test(stamp.runtimeSha256||'')||
     stamp.computerExecutionReceiptStage38!==true||
     stamp.stage40OwnerAdmissionDiagnostics!==selectStage40OwnerAdmissionDiagnostics56(env)||
+    stamp.stage41CommandLifecycleDiagnostics!==selectStage41CommandLifecycle56(env)||
     ![stamp.ownerSha256,stamp.unifiedSha256,stamp.operationalSha256]
       .every(s=>/^[a-f0-9]{64}$/.test(s||'')))
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_INVALID');
  if(old.sha256!==stamp.parentSha256)fail('JH_STAGE25_ORIGINAL_OPERATOR_CHANGED');
  const stage26Ack=selectStage26CompletionAck56(env);
  const stage40=selectStage40OwnerAdmissionDiagnostics56(env);
+ const stage41=selectStage41CommandLifecycle56(env);
  const original=readFileSync(old.file,'utf8');
  const runtime=readFileSync(p.runtime,'utf8');
  if(sha(original)!==stamp.parentSha256||
@@ -117,8 +132,8 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     sha(readFileSync(p.unified,'utf8'))!==stamp.unifiedSha256||
     sha(readFileSync(p.entry,'utf8'))!==stamp.operationalSha256||
     reverseJH168SplitFollowupReceiptPatch(stage26Ack?
-      reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(runtime):runtime)):
-      reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(runtime):runtime))!==original)
+      reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(runtime):runtime):(stage41?reverseStage41CommandLifecyclePatch(runtime):runtime))):
+      reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(runtime):runtime):(stage41?reverseStage41CommandLifecyclePatch(runtime):runtime)))!==original)
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_SCOPE_CHANGED');
  return Object.freeze({file:p.runtime,sha256:stamp.runtimeSha256,
   noNewExecutor:true,automaticReplayAllowed:false,originalOperatorVerified:true});
@@ -143,19 +158,23 @@ export async function buildStage25PendingOperatorEntrypoint56(
   fail('JH_STAGE25_EXISTING_OPERATOR_GUARDS_REQUIRED');
  const stage26Ack=selectStage26CompletionAck56(env);
  const stage40=selectStage40OwnerAdmissionDiagnostics56(env);
+ const stage41=selectStage41CommandLifecycle56(env);
  const withFollowup=applyJH168SplitFollowupReceiptPatch(original);
  const stage26Runtime=stage26Ack?applyStage26CompletionAckPatch56(withFollowup):withFollowup;
  const afterReceipt=applyComputerExecutionReceiptPatch(stage26Runtime);
- const runtime=stage40?applyStage40OwnerAdmissionDiagnostics(afterReceipt):afterReceipt;
+ const afterStage40=stage40?applyStage40OwnerAdmissionDiagnostics(afterReceipt):afterReceipt;
+ const runtime=stage41?applyStage41CommandLifecyclePatch(afterStage40):afterStage40;
  if(reverseJH168SplitFollowupReceiptPatch(stage26Ack?
-       reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(runtime):runtime)):
-       reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(runtime):runtime))!==original||
+       reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(runtime):runtime):(stage41?reverseStage41CommandLifecyclePatch(runtime):runtime))):
+       reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(runtime):runtime):(stage41?reverseStage41CommandLifecyclePatch(runtime):runtime)))!==original||
     runtime.split('jhSplitFollowupReceipts56.issue(').length!==2||
     runtime.split('jhSplitFollowupReceipts56.read(').length!==2||
     runtime.split('computerExecutionReceipts56.issue(').length!==2||
     runtime.split('computerExecutionReceipts56.read(').length!==2||
     (stage40 && (runtime.split('jhOwnerAdmissionNote40(').length!==3||
-      runtime.split('jhOwnerAdmissionTake40(').length!==3)))
+      runtime.split('jhOwnerAdmissionTake40(').length!==3))||
+    (stage41&&(runtime.split('const jhCommandCauses41=new Map();').length!==2||
+      runtime.split('function jhCommandCause41(').length!==2)))
   fail('JH_STAGE25_FOLLOWUP_PATCH_NOT_EXACT');
  emit(p.runtime,runtime);
 
@@ -190,6 +209,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
    originalOperationalLearning:true,
    computerExecutionReceiptStage38:true,
    stage40OwnerAdmissionDiagnostics:stage40,
+   stage41CommandLifecycleDiagnostics:stage41,
    ...(stage26Ack?{signedCompletionAckStage26:true}:{}),
    productionEnabled:false,automaticReplayAllowed:false
  });
@@ -206,6 +226,7 @@ export async function main(env=process.env){
  // Capture the exact checked enablement BEFORE that known internal mutation.
  const stage26EnabledAtBootstrap=selectStage26CompletionAck56(env);
  const stage40EnabledAtBootstrap=selectStage40OwnerAdmissionDiagnostics56(env);
+ const stage41EnabledAtBootstrap=selectStage41CommandLifecycle56(env);
  const root=path.resolve(import.meta.dirname,'..');
  const built=await buildStage25PendingOperatorEntrypoint56(root,env);
  const module=await import(pathToFileURL(built.file).href+'?sha='+built.stamp.operationalSha256);
@@ -231,7 +252,13 @@ export async function main(env=process.env){
    diagnosticValuesOnly:true,phoneApprovalUnchanged:true
   }));
  }
- return running;
+ if(stage41EnabledAtBootstrap){
+    console.log('JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS_ACTIVE '+JSON.stringify({
+      originalCommandVersionFencePreserved:true,originalDiscardSignaturePreserved:true,
+      fullIdsLogged:false,autoReplay:false,apkChanged:false
+    }));
+  }
+  return running;
 }
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
  main().catch(e=>{console.error(typeof e?.code==='string'?e.code:'JH_STAGE25_OPERATOR_START_FAILED');process.exitCode=1;});
