@@ -1,0 +1,175 @@
+name: JH168 mobile 9+4 — six existing safety test suites, strict diff gate
+on:
+  push:
+    branches: [feat/jh168-mobile-web-13-securebase-20261031]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/**'
+      - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
+      - 'jh-server/owner-setup/deployment/durable-native-host.mjs'
+      - '.github/workflows/jh168-mobile-13-six-safety-suites.yml'
+permissions:
+  contents: read
+jobs:
+  verify-real-original-security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Verify original security sources except separately exact-reversed composition and host hooks
+        run: |
+          git diff --exit-code origin/jh-fix3-secure-server -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/deployment \
+            ':(exclude)jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/durable-native-host.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs'
+
+      - name: Exact-reverse three host edits and verify reviewed composition and legacy click-test contracts
+        run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
+      - name: Original signed server dependencies
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Original signed HMAC duplicate ACK
+        id: stage26
+        continue-on-error: true
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-receipts.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+      - name: Original split-read pending receipt
+        id: split_read
+        continue-on-error: true
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/split-read-receipts.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-real-runtime-candidate.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs \
+            jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs
+      - name: Original FOLLOW_UP and signed operator
+        id: followup
+        continue-on-error: true
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-receipts.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-receipt-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-generated-runtime.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage22-generated-server-candidate.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs
+      - name: Original protected pending approval
+        id: pending
+        continue-on-error: true
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-real-runtime-candidate.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs \
+            jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs
+      - name: Original signed Computer Use readback
+        id: computer
+        continue-on-error: true
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/computer-inspect-receipts.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/computer-inspect-receipt-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-read-receipts.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
+            jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs
+      - name: Prepare original generated auth fixture exactly as legacy Connection V2 CI
+        run: (cd jh-server && node verification/build-auth-candidate.mjs)
+      - name: Original Connection V2 and browser-click migration contract
+        id: connection
+        continue-on-error: true
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/connection-v2/*.test.mjs \
+            jh-server/owner-setup/deployment/jh167-connection-v2-runtime.test.mjs \
+            jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs \
+            jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs \
+            jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs \
+            jh-server/owner-setup/deployment/jh167-open-completion.test.mjs \
+            jh-server/owner-setup/deployment/readback-budget.test.mjs \
+            jh-server/verification/jh167-exact-right-click-durable.test.mjs \
+            jh-server/verification/jh167-open-completion-http.test.mjs \
+            jh-server/verification/jh167-split-lifecycle-safe.test.mjs \
+            jh-server/verification/durable-computer-policy.test.mjs \
+            jh-server/verification/job-deadline.test.mjs \
+            jh-server/verification/right-pane-open-route.test.mjs \
+            jh-server/owner-setup/trusted-server/dispatch-receipts.test.mjs
+      - name: Summarize six original suites without masking failures
+        if: always()
+        env:
+          STAGE26: ${{ steps.stage26.outcome }}
+          SPLIT_READ: ${{ steps.split_read.outcome }}
+          FOLLOWUP: ${{ steps.followup.outcome }}
+          PENDING: ${{ steps.pending.outcome }}
+          COMPUTER: ${{ steps.computer.outcome }}
+          CONNECTION: ${{ steps.connection.outcome }}
+        run: |
+          echo '| Original safety suite | Outcome |' >> "$GITHUB_STEP_SUMMARY"
+          echo '|---|---|' >> "$GITHUB_STEP_SUMMARY"
+          bad=0
+          echo 'STAGE26='$STAGE26
+          echo '| STAGE26 | '"$STAGE26"' |' >> "$GITHUB_STEP_SUMMARY"
+          test "$STAGE26" = success || bad=1
+          echo 'SPLIT_READ='$SPLIT_READ
+          echo '| SPLIT_READ | '"$SPLIT_READ"' |' >> "$GITHUB_STEP_SUMMARY"
+          test "$SPLIT_READ" = success || bad=1
+          echo 'FOLLOWUP='$FOLLOWUP
+          echo '| FOLLOWUP | '"$FOLLOWUP"' |' >> "$GITHUB_STEP_SUMMARY"
+          test "$FOLLOWUP" = success || bad=1
+          echo 'PENDING='$PENDING
+          echo '| PENDING | '"$PENDING"' |' >> "$GITHUB_STEP_SUMMARY"
+          test "$PENDING" = success || bad=1
+          echo 'COMPUTER='$COMPUTER
+          echo '| COMPUTER | '"$COMPUTER"' |' >> "$GITHUB_STEP_SUMMARY"
+          test "$COMPUTER" = success || bad=1
+          echo 'CONNECTION='$CONNECTION
+          echo '| CONNECTION | '"$CONNECTION"' |' >> "$GITHUB_STEP_SUMMARY"
+          test "$CONNECTION" = success || bad=1
+          echo SOURCE_FIXES_REQUIRE_PHONE_RETEST=YES
+          echo LIVE_DEVICE_ACTIONS=0
+          echo RENDER_DEPLOY=0
+          echo ORIGINAL_CHROME_CLICK_REPLAY=0
+          if test "$bad" != 0; then
+            echo MOBILE_13_ORIGINAL_SECURITY_TEST_GAPS_REMAIN=YES
+            exit 1
+          fi
+          echo MOBILE_13_ALL_SIX_ORIGINAL_SECURITY_SUITES_PASS

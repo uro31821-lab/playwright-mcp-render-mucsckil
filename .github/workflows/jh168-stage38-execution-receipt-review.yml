@@ -1,0 +1,70 @@
+name: JH168 Stage38 original-result receipt readback (NO RELEASE)
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/computer-execution-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage38-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'
+      - '.github/workflows/jh168-stage38-execution-receipt-review.yml'
+permissions:
+  contents: read
+jobs:
+  exact-secure56-readback-and-back:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Original server, approvals, signing and owner database source protected
+        run: |
+          set -eu
+          # The MOBILE overlay intentionally changes EXACTLY 3 reviewed host
+          # source files + one non-secret producer compatibility document.
+          # Pin those bytes to PR72 before allowing ANY receipt-only test.
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs
+          git diff --exit-code origin/jh-fix3-secure-server HEAD -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct
+          echo JH_ORIGINAL_OAUTH_HMAC_OWNER_ANDROID_UNCHANGED=YES
+          echo EXACT_REVIEWED_PR72_MOBILE_ADMISSION_SOURCE=VERIFIED
+      - name: Install exact existing Node owner dependencies
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: New original EXECUTE receipt and original durable action safety regressions
+        run: |
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipts.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipt-patch.test.mjs
+          node --test --test-reporter=spec jh-server/verification/durable-computer-policy.test.mjs
+      - name: Actual original generated Secure56 Stage25 plus Stage26 ACK and receipt
+        run: |
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage38-generated-operator.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/split-followup-generated-runtime.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/computer-inspect-receipts.test.mjs
+      - name: Enforce release boundaries
+        run: |
+          echo STAGE38_SOURCE_REVIEW_ONLY=YES
+          echo RENDER_DEPLOY=0
+          echo MAIN_BRANCH_MERGE=0
+          echo APK_BUILD_INSTALL=0
+          echo OWNER_SQLITE_MIGRATION=0
+          echo PHONE_ACTION_REPLAY=0
+          echo ORIGINAL_PENDING_WRITE_OUTCOME_UNKNOWN=NO_RETRY
+          echo DEVICE_E2E_ON_THIS_NEW_SOURCE=NOT_RUN

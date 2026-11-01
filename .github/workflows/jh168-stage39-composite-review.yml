@@ -1,0 +1,75 @@
+name: JH168 Stage39 shared Android/web orchestration integration (NO RELEASE)
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/**'
+      - 'jh-server/owner-setup/deployment/durable-native-host.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
+      - '.github/workflows/jh168-stage39-composite-review.yml'
+permissions:
+  contents: read
+jobs:
+  no-sqlite-cleanup-source-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 28
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+      JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+      JH_STAGE26_SIGNED_COMPLETION_ACK: EXPLICIT_IDENTICAL_SIGNED_RESULT_V1
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Ensure original global durable journal, OAuth, HMAC, Android and startup router are byte-identical
+        run: |
+          git diff --exit-code origin/jh-fix3-secure-server HEAD -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment/durable-native-job-policy.mjs \
+            jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs \
+            jh-server/owner-setup/deployment/durable-owner-storage.mjs \
+            jh-server/owner-setup/deployment/published-host-router.mjs \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct
+          echo STAGE39_ORIGINAL_GLOBAL_SECURITY_AND_OWNER_JOURNAL_BYTE_PRESERVED=YES
+      - name: Install original server dependencies in isolated CI worker
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Owner 29 unknown actions remain fenced while unrelated development continues
+        run: node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage39-pending-independent.test.mjs
+      - name: Real generated Stage25 mobile 9+4 plus native Computer Use and new original execute receipt
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-stage25-operator.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage38-generated-operator.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipts.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs
+      - name: Actual generated mobile handlers against original synthetic SQLite, owner and signed contract
+        run: node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs
+      - name: Stage29-37 owner receipt source-only compatibility
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage37-client-delivery-e2e.test.mjs
+      - name: Existing original phone security and global browser retirement boundaries
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/verification/durable-computer-policy.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-browser-retirement.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
+      - name: No release, production database cleanup, replay, phone touch or protected policy broadening
+        run: |
+          test -z "${RENDER_SERVICE_ID:-}"
+          echo OWNER_HISTORIC_29_UNKNOWN_RECORDS=UNCHANGED
+          echo OWNER_SQLITE_MIGRATION=NOT_RUN
+          echo OWNER_PRIOR_EFFECT_REPLAY=0
+          echo DEPLOY_OR_RESTART=0
+          echo PHONE_EFFECT=0
+          echo APK_REINSTALL=0
+          echo STAGE39_REAL_PHONE_9PLUS4_E2E=NOT_RUN
