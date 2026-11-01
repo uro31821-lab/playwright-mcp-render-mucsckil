@@ -93,5 +93,40 @@ export function selectJH168MobileWeb13Mode56(env=process.env){
 }
 export function patchJH168MobileWeb13VerifiedMode56(source,env=process.env){
  const mode=selectJH168MobileWeb13Mode56(env);
- return mode==='ORIGINAL'?source:patchJH168MobileWebCommands56(source);
+ return mode==='ORIGINAL'?source:
+   patchJH168MobileStatusOnly56(patchJH168MobileWebCommands56(source));
+}
+
+/** Mobile diagnostic ONLY: do not initialize or call the separate Playwright
+ * server from life_status when 13-route PHONE_RIGHT mode is explicitly enabled.
+ * Obtain ONLY the already verified Secure56 signed-poll evidence from the
+ * original connection V2 observer. Neither signed poll nor status is proof
+ * that a screenshot or UI action succeeded.
+ *
+ * Original/default status remains byte-for-byte unchanged; reversible patch.
+ */
+export function patchJH168MobileStatusOnly56(source){
+ const start='  registerOAuthTool("life_status",{';
+ const end='  registerOAuthTool("life_route",{';
+ if(typeof source!=='string'||source.split(start).length!==2||source.split(end).length!==2)
+   throw Error('JH168_MOBILE_STATUS_BOUNDARY_CHANGED');
+ const a=source.indexOf(start),b=source.indexOf(end,a);
+ if(a<0||b<=a)throw Error('JH168_MOBILE_STATUS_ORDER_CHANGED');
+ const old=source.slice(a,b);
+ const legacy='    let browser="unknown";\n'+
+   '    try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }';
+ const mobile='    const browser="not_applicable_mobile_right";\n'+
+   '    const signedPollVerified=typeof jhV2SignedPollEvidence56==="function"&&\n'+
+   '      jhV2SignedPollEvidence56()?.verified===true;\n'+
+   '    const mobileRightStatus56={signedPollVerified,uiVerified:false,\n'+
+   '      phoneActionVerified:false,automaticReplay:false,cloudBrowserProbed:false};';
+ const marker='registeredAndroidDevices:devices.size,secureBridgeVersion:56';
+ if(old.split(legacy).length!==2||old.split(marker).length!==2||old.includes('mobileRightStatus56'))
+   throw Error('JH168_MOBILE_STATUS_SOURCE_DRIFT');
+ const changed=old.replace(legacy,mobile).replace(marker,marker+',mobileRightStatus56');
+ if(changed.replace(marker+',mobileRightStatus56',marker).replace(mobile,legacy)!==old)
+   throw Error('JH168_MOBILE_STATUS_NOT_REVERSIBLE');
+ if(changed.includes('await ensureBrowser()')||changed.includes('browserTool(')||
+   changed.includes('browserRpc('))throw Error('JH168_MOBILE_STATUS_CLOUD_PROBE_REMAINS');
+ return source.slice(0,a)+changed+source.slice(b);
 }

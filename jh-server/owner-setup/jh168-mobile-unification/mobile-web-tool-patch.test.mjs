@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {patchJH168MobileWebCommands56,patchJH168MobileWeb13VerifiedMode56,selectJH168MobileWeb13Mode56,JH168_MOBILE_13_VERIFY_MODE56} from './mobile-web-tool-patch.mjs';
+import vm from 'node:vm';
+import {patchJH168MobileWebCommands56,patchJH168MobileWeb13VerifiedMode56,patchJH168MobileStatusOnly56,selectJH168MobileWeb13Mode56,JH168_MOBILE_13_VERIFY_MODE56} from './mobile-web-tool-patch.mjs';
 
 const original=readFileSync(new URL('../../server.mjs',import.meta.url),'utf8');
 const marker='  registerOAuthTool("life_web_navigate",{';
@@ -109,4 +110,67 @@ test('temporary explicit original-owner gate uses no new secure grant or catalog
  const result=patchJH168MobileWeb13VerifiedMode56(prepared,env);
  assert.match(result,/MOBILE_REQUEST_ID_REQUIRED/);
  assert.match(result,/automaticReplay:false/);
+});
+
+test('status-only mobile patch is exact, reversible, preserves outside original Secure56 bytes',()=>{
+ const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+   JH_MOBILE_WEB_13_MODE:JH168_MOBILE_13_VERIFY_MODE56};
+ const updated=patchJH168MobileWeb13VerifiedMode56(prepared,env);
+ const start='  registerOAuthTool("life_status",{';
+ const end='  registerOAuthTool("life_route",{';
+ const a=prepared.indexOf(start),b=prepared.indexOf(end,a);
+ const x=updated.indexOf(start),y=updated.indexOf(end,x);
+ assert(a>=0&&b>a&&x>=0&&y>x);
+ const original=prepared.slice(a,b),status=updated.slice(x,y);
+ assert.equal(updated.slice(0,x),prepared.slice(0,a));
+ assert.equal(status.includes('await ensureBrowser()'),false);
+ assert.equal(status.includes('browserTool('),false);
+ assert.match(status,/browser="not_applicable_mobile_right"/);
+ assert.match(status,/mobileRightStatus56/);
+ assert.match(status,/jhV2SignedPollEvidence56/);
+ assert.equal(status.includes('phoneActionVerified:true'),false);
+ assert.equal(status.includes('signedPollVerified:true'),false);
+ const legacy='    let browser="unknown";\n'+
+   '    try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }';
+ const mobile='    const browser="not_applicable_mobile_right";\n'+
+   '    const signedPollVerified=typeof jhV2SignedPollEvidence56==="function"&&\n'+
+   '      jhV2SignedPollEvidence56()?.verified===true;\n'+
+   '    const mobileRightStatus56={signedPollVerified,uiVerified:false,\n'+
+   '      phoneActionVerified:false,automaticReplay:false,cloudBrowserProbed:false};';
+ assert.equal(status.replace('secureBridgeVersion:56,mobileRightStatus56',
+   'secureBridgeVersion:56').replace(mobile,legacy),original);
+ assert.throws(()=>patchJH168MobileStatusOnly56(updated),/STATUS_SOURCE_DRIFT/);
+});
+test('phone-only life_status reads signed poll evidence with NO legacy cloud browser RPC',async()=>{
+ const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+   JH_MOBILE_WEB_13_MODE:JH168_MOBILE_13_VERIFY_MODE56};
+ const src=patchJH168MobileWeb13VerifiedMode56(prepared,env);
+ const a=src.indexOf('  registerOAuthTool("life_status",{');
+ const b=src.indexOf('  registerOAuthTool("life_route",{',a);
+ const part=src.slice(a,b);
+ for(const verified of [false,true]){
+  let call,probes=0;
+  const sandbox={
+   registerOAuthTool:(name,config,handler)=>{if(name==='life_status')call=handler},
+   z:new Proxy(()=>z,{get:()=>z,apply:()=>z}),
+   devices:new Map([['phone-1',{}]]),
+   textResult:v=>({content:[{type:'text',text:JSON.stringify(v)}]}),
+   jhV2SignedPollEvidence56:()=>{probes++;return {verified}},
+   ensureBrowser:()=>{throw Error('UNEXPECTED_LEGACY_BROWSER_CONNECTION')}
+  };
+  vm.runInNewContext(part,sandbox,{timeout:1000});
+  const response=JSON.parse((await call()).content[0].text);
+  assert.equal(response.browser,'not_applicable_mobile_right');
+  assert.equal(response.mobileRightStatus56.signedPollVerified,verified);
+  assert.equal(response.mobileRightStatus56.uiVerified,false);
+  assert.equal(response.mobileRightStatus56.cloudBrowserProbed,false);
+  assert.equal(response.registeredAndroidDevices,1);
+  assert.equal(probes,1);
+ }
+});
+test('status patch refuses changed browser probe, missing status or duplicate marker',()=>{
+ assert.throws(()=>patchJH168MobileStatusOnly56(prepared.replace(
+  'await ensureBrowser()','await anUnreviewedBrowser()')),/STATUS_SOURCE_DRIFT/);
+ assert.throws(()=>patchJH168MobileStatusOnly56(prepared.replace(
+  '  registerOAuthTool("life_status",{','')),/STATUS_BOUNDARY_CHANGED/);
 });

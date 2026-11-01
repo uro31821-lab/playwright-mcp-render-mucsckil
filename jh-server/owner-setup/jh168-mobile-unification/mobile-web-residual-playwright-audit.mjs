@@ -48,6 +48,9 @@ for(let i=0;i<offsets.length;i++){
 assert.equal(active.length,13,'MOBILE_THIRTEEN_MISSING_OR_DUPLICATED');
 assert.equal(active.filter(r=>!r.direct&&!r.legacyRoute).length,13,
  'MOBILE_THIRTEEN_STILL_HAS_CLOUD_FALLBACK');
+assert.equal(cloud.length,0,'MOBILE_REGISTERED_TOOLS_MUST_NOT_CALL_CLOUD_BROWSER');
+assert.ok(source.includes('cloudBrowserProbed:false'),
+ 'MOBILE_STATUS_SIGNED_POLL_NOT_CONNECTED');
 assert.ok(source.includes('async function browserTool('),
  'LEGACY_BROWSER_HELPER_ALREADY_REMOVED_REVISIT_INVENTORY');
 const globalLegacy={
