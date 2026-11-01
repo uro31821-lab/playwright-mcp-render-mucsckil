@@ -7,7 +7,8 @@ const H64=/^[0-9a-f]{64}$/;
 export function decideExactSignedCompletionAck56(job,rawDigest) {
  if(!job||typeof job!=='object'||!H64.test(rawDigest||''))
    return 'DENY';
- if(job.status!=='complete')return 'FIRST_COMPLETION';
+ if(job.status==='in_progress')return 'FIRST_COMPLETION';
+ if(job.status!=='complete')return 'CONFLICT_OR_UNKNOWN';
  const prior=job.stage26CompletionDigest56;
  if(typeof job.secureSessionId!=='string'||!job.secureSessionId||
     !H64.test(prior||''))return 'CONFLICT_OR_UNKNOWN';
