@@ -1,0 +1,57 @@
+name: JH168 Stage27 installer contract
+
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-dev-tools/windows-delivery/stage27/**'
+      - '.github/workflows/jh168-stage27-install.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jh168-stage27-install-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-powershell-contract:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Confirm host and exact source identity
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw 'Windows PowerShell 5.1 required' }
+          Write-Output ('WINDOWS_POWERSHELL_VERSION=' + $PSVersionTable.PSVersion)
+          Write-Output ('CHECKED_OUT_SHA=' + (git rev-parse HEAD))
+          Get-ChildItem './jh-dev-tools/windows-delivery/stage27/installer' -Recurse -File | ForEach-Object {
+            Write-Output ('SOURCE_SHA256 ' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash + ' ' + $_.Name)
+          }
+      - name: Parse production and test scripts without executing device operations
+        run: |
+          $files = @(Get-ChildItem './jh-dev-tools/windows-delivery/stage27' -Recurse -Filter '*.ps1' -File)
+          if ($files.Count -lt 2) { throw 'Missing Stage27 production or test script' }
+          foreach ($file in $files) {
+            $parseTokens = $null
+            $parseErrors = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$parseTokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) { throw ($file.Name + ': ' + $parseErrors[0].Message) }
+            foreach ($fn in @($ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true))) {
+              if (Get-Alias -Name $fn.Name -ErrorAction SilentlyContinue) { throw ('Function/alias collision: ' + $fn.Name) }
+            }
+          }
+          Write-Output ('POWERSHELL_PARSE_PASS=' + $files.Count)
+      - name: Test update-only result, locking and failure contracts with synthetic fixtures
+        run: |
+          & './jh-dev-tools/windows-delivery/stage27/tests/Test-Stage27Installer.ps1' -KitRoot './jh-dev-tools/windows-delivery/stage27/installer'
+          if (-not $?) { throw 'Stage27 installer contract failed' }
+      - name: Test CMD bootstrap failure reports without device operations
+        run: |
+          & './jh-dev-tools/windows-delivery/stage27/tests/Test-Stage27Bootstrap.ps1' -KitRoot './jh-dev-tools/windows-delivery/stage27/installer'
+          if (-not $?) { throw 'Stage27 bootstrap contract failed' }
