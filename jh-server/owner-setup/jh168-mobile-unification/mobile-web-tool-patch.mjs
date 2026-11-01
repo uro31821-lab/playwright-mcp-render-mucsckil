@@ -67,3 +67,31 @@ export function patchJH168MobileWebCommands56(source){
     throw Error("JH168_MOBILE_CAPTURE_OUTSIDE_SCOPE_CHANGED");
   return updated;
 }
+
+
+/** Temporary, reversible verification selector. The final JH system removes
+ * this switch along with ALL legacy Playwright/server-browser paths after
+ * parity is proven. Disabled/blank MUST preserve every byte of original
+ * Secure56 route registration and catalog. Never treat a CI simulation
+ * as production authorization.
+ */
+export const JH168_MOBILE_13_VERIFY_MODE56='EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1';
+export function selectJH168MobileWeb13Mode56(env=process.env){
+ const flag=env?.JH_MOBILE_WEB_13_MODE;
+ if(flag===undefined||flag==='')return 'ORIGINAL';
+ if(flag!==JH168_MOBILE_13_VERIFY_MODE56)throw Error('JH168_MOBILE_13_MODE_INVALID');
+ const synthetic=env.CI==='true'&&env.NODE_ENV==='test'&&
+   env.JH_OWNER_DEFER_LISTEN==='1'&&env.RENDER_SERVICE_ID===undefined&&
+   env.JH_DURABLE_RELEASE===undefined;
+ const approvedLiveBoundary=env.CI!=='true'&&
+   env.RENDER_SERVICE_ID==='srv-db0fjl2d0e5s73be114g'&&
+   env.JH_DURABLE_RELEASE==='SERVE_READY_V1'&&
+   env.JH_PENDING_APPROVAL_OPERATOR_ENABLE==='EXPLICIT_OPERATOR_APPROVAL_RECEIPT_V1'&&
+   env.JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE==='EXPLICIT_FOLLOWUP_CLICK_RECEIPT_V1';
+ if(!synthetic&&!approvedLiveBoundary)throw Error('JH168_MOBILE_13_MODE_RELEASE_SCOPE_BLOCKED');
+ return 'PHONE_RIGHT';
+}
+export function patchJH168MobileWeb13VerifiedMode56(source,env=process.env){
+ const mode=selectJH168MobileWeb13Mode56(env);
+ return mode==='ORIGINAL'?source:patchJH168MobileWebCommands56(source);
+}

@@ -29,9 +29,9 @@ const show=path=>execFileSync('git',['show',UPSTREAM+':'+path],{
 });
 const current=path=>readFileSync(path,'utf8');
 const original='jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs';
-const importMobile="import {patchJH168MobileWebCommands56} from '../jh168-mobile-unification/mobile-web-tool-patch.mjs';\n";
+const importMobile="import {patchJH168MobileWeb13VerifiedMode56} from '../jh168-mobile-unification/mobile-web-tool-patch.mjs';\n";
 const oldReturn=' return patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate)))));';
-const newReturn=' return patchJH168MobileWebCommands56(patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate))))));';
+const newReturn=' return patchJH168MobileWeb13VerifiedMode56(patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate))))));';
 
 test('reviewed current main commit is available with full history (NO source update)',()=>{
  const type=execFileSync('git',['cat-file','-t',UPSTREAM],{encoding:'utf8'}).trim();
@@ -51,8 +51,8 @@ test('mobile alias routing changes ONLY the original composition import + final 
  assert.equal(candidate.split(newReturn).length,2,'one mobile wrapper');
  const reconstructed=candidate.replace(importMobile,'').replace(newReturn,oldReturn);
  assert.equal(reconstructed,latest,'EVERY OTHER COMPOSITION BYTE MUST MATCH LATEST MAIN');
- assert.equal((candidate.match(/patchJH168MobileWebCommands56\(/g)||[]).length,1);
- assert.equal((latest.match(/patchJH168MobileWebCommands56\(/g)||[]).length,0);
+ assert.equal((candidate.match(/patchJH168MobileWeb13VerifiedMode56\(/g)||[]).length,1);
+ assert.equal((latest.match(/patchJH168MobileWeb13VerifiedMode56\(/g)||[]).length,0);
 });
 test('protected original main route metadata is not masquerading as migrated phone E2E',()=>{
  const raw=show('jh-server/server.mjs');

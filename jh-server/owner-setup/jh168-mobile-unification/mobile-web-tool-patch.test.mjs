@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {patchJH168MobileWebCommands56} from './mobile-web-tool-patch.mjs';
+import {patchJH168MobileWebCommands56,patchJH168MobileWeb13VerifiedMode56,selectJH168MobileWeb13Mode56,JH168_MOBILE_13_VERIFY_MODE56} from './mobile-web-tool-patch.mjs';
 
 const original=readFileSync(new URL('../../server.mjs',import.meta.url),'utf8');
 const marker='  registerOAuthTool("life_web_navigate",{';
@@ -55,7 +55,7 @@ test('fail closed if legacy route or signed prerequisites drift',()=>{
 });
 test('review composition wires mobile override after signed right-pane patch',()=>{
  const composition=readFileSync(new URL('../deployment/jh167-article-operational-review-composition.mjs',import.meta.url),'utf8');
- assert.match(composition,/patchJH168MobileWebCommands56\(patchJH167OpenCompletion56\(patchJH167RightPaneOrchestrator56\(/);
+ assert.match(composition,/patchJH168MobileWeb13VerifiedMode56\(patchJH167OpenCompletion56\(patchJH167RightPaneOrchestrator56\(/);
 });
 
 test('additional generated tool after capture remains unchanged',()=>{
@@ -65,4 +65,47 @@ test('additional generated tool after capture remains unchanged',()=>{
  const updated=patchJH168MobileWebCommands56(changed);
  assert(updated.includes(added));
  assert.equal((updated.match(/jhMobileWebCapture56=async/g)||[]).length,1);
+});
+
+test('temporary verified mode: default and empty restore ORIGINAL source byte-for-byte',()=>{
+ assert.equal(selectJH168MobileWeb13Mode56({}),'ORIGINAL');
+ assert.equal(selectJH168MobileWeb13Mode56({JH_MOBILE_WEB_13_MODE:''}),'ORIGINAL');
+ assert.equal(patchJH168MobileWeb13VerifiedMode56(prepared,{}),prepared);
+ assert.equal(patchJH168MobileWeb13VerifiedMode56(prepared,{JH_MOBILE_WEB_13_MODE:''}),prepared);
+});
+test('temporary mode FAILS CLOSED: invalid flag, wrong host, wrong stage25 scope, CI cannot claim production',()=>{
+ const key='JH_MOBILE_WEB_13_MODE';
+ for(const env of [
+  {[key]:'true'},
+  {[key]:JH168_MOBILE_13_VERIFY_MODE56},
+  {[key]:JH168_MOBILE_13_VERIFY_MODE56,RENDER_SERVICE_ID:'wrong-host'},
+  {[key]:JH168_MOBILE_13_VERIFY_MODE56,RENDER_SERVICE_ID:'srv-db0fjl2d0e5s73be114g',JH_DURABLE_RELEASE:'SERVE_READY_V1'},
+  {[key]:JH168_MOBILE_13_VERIFY_MODE56,CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',RENDER_SERVICE_ID:'srv-db0fjl2d0e5s73be114g'}
+ ]){
+  assert.throws(()=>patchJH168MobileWeb13VerifiedMode56(prepared,env),
+    /JH168_MOBILE_13_MODE_(INVALID|RELEASE_SCOPE_BLOCKED)/);
+ }
+});
+test('temporary exact scoped mobile mode enables 9 PHONE aliases without cloud fallback',()=>{
+ const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+   JH_MOBILE_WEB_13_MODE:JH168_MOBILE_13_VERIFY_MODE56};
+ const result=patchJH168MobileWeb13VerifiedMode56(prepared,env);
+ const a=result.indexOf('  registerOAuthTool("life_web_navigate",{');
+ const b=result.indexOf('  registerOAuthTool("life_android_devices",{',a);
+ assert.ok(a>=0&&b>a);
+ const selected=result.slice(a,b);
+ assert.equal((selected.match(/registerOAuthTool\("life_web_/g)||[]).length,9);
+ assert.doesNotMatch(selected,/browserTool\(/);
+ assert.match(selected,/MOBILE_REQUEST_ID_REQUIRED/);
+});
+test('temporary explicit original-owner gate uses no new secure grant or catalog authority',()=>{
+ const env={JH_MOBILE_WEB_13_MODE:JH168_MOBILE_13_VERIFY_MODE56,
+  RENDER_SERVICE_ID:'srv-db0fjl2d0e5s73be114g',
+  JH_DURABLE_RELEASE:'SERVE_READY_V1',
+  JH_PENDING_APPROVAL_OPERATOR_ENABLE:'EXPLICIT_OPERATOR_APPROVAL_RECEIPT_V1',
+  JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE:'EXPLICIT_FOLLOWUP_CLICK_RECEIPT_V1'};
+ assert.equal(selectJH168MobileWeb13Mode56(env),'PHONE_RIGHT');
+ const result=patchJH168MobileWeb13VerifiedMode56(prepared,env);
+ assert.match(result,/MOBILE_REQUEST_ID_REQUIRED/);
+ assert.match(result,/automaticReplay:false/);
 });
