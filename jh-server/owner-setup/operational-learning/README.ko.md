@@ -193,6 +193,71 @@ suite에 `evaluator: "jh.trajectory.v1"`을 명시하면 [trajectory.mjs](trajec
 
 파일 lock·revision·임시 파일 저장 후 교체로 기록을 보존합니다. 손상된 JSON·소유자 불일치·충돌은 오류로 알리고 내용을 초기화하지 않습니다. 정상 동시 기록은 순서대로 처리하며, 바쁜 lock은 제한된 대기 후 오류로 반환합니다. 소유자 표시는 암호화나 별도 인증 권한을 대신하지 않습니다.
 
+## 호스트 관찰 기록과 작업 재개
+
+일반 대화에서 에이전트가 실제 확인한 사용자 수정·검토·결과는 `task-view → observe`로 연결합니다. 서버가 이미 관찰한 같은 JH 도구 사건은 이 경로로 복제하지 않습니다. 이 기능은 기존 저장 스키마를 사용하며 새로운 MCP 도구·mode, 배경 메시지 수집, 서버와 Library의 자동 동기화를 추가하지 않습니다.
+
+`taskId`는 사용자 목표 하나에 대해 유지합니다. 계속·조회·저장 재시도는 같은 목표·같은 시도입니다. 사용자 수정은 원래 시도에 남기고 실제 개선 작업을 수행했다면 같은 taskId의 새 attemptId를 사용합니다. 현재 제안 계산은 시도별 유효 결과를 사용하므로 실제 다른 실행까지 원래 시도에 덮어쓰면 수정 지적이 제안 집계에서 빠질 수 있습니다. 새 시도도 별개의 사용자 목표로 부풀리지 않습니다.
+
+### 읽기 전용 task-view
+
+입력은 `{taskId,attemptId?,limit?}`이며 `limit` 기본값은 8, 허용 범위는 1~32입니다. 현재 저장소를 한 번 읽고 실제 해당 작업·시도만 반환합니다. taskId를 추측하거나 가장 최근 작업을 자동 선택하지 않습니다. 없는 파일·작업을 생성하지 않습니다.
+
+반환은 `schema:"jh.learning-task-view.v1"`, `revision`, `taskId`, 선택한 `attemptId` 또는 null, `taskFound`, `found`, `counts`, `attempts`, `omittedAttempts`를 포함합니다. 각 시도는 다음을 구별합니다.
+
+| 필드 | 의미 |
+| --- | --- |
+| `scope` | 저장된 영역·작업·엔진·전체 환경 |
+| `projection` | 엔진이 현재 유효하게 유지하는 시도 결과 |
+| `latestObservation` | 해당 시도의 가장 높은 순서 관찰 |
+| `eventCount`, `maxSequence`, `nextSequence` | 요약만이 아니라 전체 사건에서 계산한 개수·순서 |
+| `latestObservedAt` | 전체 사건의 최대 실제 관찰 시각 |
+| `sequenceExhausted` | 순서가 1,000,000,000에 도달한 경우 true, 다음 순서는 null |
+
+검증된 성공 뒤 `pending`이 기록됐다면 projection은 성공이고 latestObservation은 pending일 수 있습니다. 요약의 사건 ID·원래 시각·outcome·source와 근거를 함께 읽습니다. 근거는 각 요약에서 최대 8개를 반환하고 `evidenceRefsOmitted/evidenceRefsTruncated`로 생략을 표시합니다. `observationRef`는 저장된 근거 참조로 사건 ID를 재계산해 일치할 때만 복구하며 생략된 근거와 별도로 보존합니다. 예전 사건의 참조는 추측하지 않고 null로 둡니다. projection의 누적 metrics는 해당 사건 원문 하나의 측정값과 다를 수 있습니다.
+
+조회는 `readOnly:true`, `externalEffects:false`, `replayAllowed:false`입니다. 조회 결과가 실제 업무의 재실행 승인이나 현재 성공의 독립 재검증은 아닙니다.
+
+### observe 입력과 원자적 기록
+
+```json
+{
+  "taskId": "example-task-stable",
+  "attemptId": "example-actual-attempt",
+  "observationRef": "user:example-observation-reference",
+  "scope": {
+    "domain": "output",
+    "operation": "summary.format",
+    "engine": "jh-agent",
+    "context": {
+      "platform": "chatgpt",
+      "version": "operational-learning-v1",
+      "environment": "personal"
+    }
+  },
+  "observation": {
+    "timestamp": "2026-11-01T00:00:00.000Z",
+    "outcome": "correction",
+    "source": "user_explicit",
+    "errorCode": "OUTPUT_FORMAT_CORRECTION",
+    "evidenceRefs": ["user:example-observation-reference"]
+  },
+  "expectedRevision": 0
+}
+```
+
+예시는 형식 설명이며 실제 경험으로 넣지 않습니다. 현재 기억의 revision과 실제 관찰 값을 사용합니다. `observation`의 선택 필드는 기존 사건과 같은 `errorCode/metrics/labels`이며 알 수 없는 필드·접근자·Proxy 등 데이터가 아닌 입력은 거절합니다.
+
+`observationRef`는 하나의 실제 관찰을 가리키는 안정적인 불투명 참조입니다. 호출자가 `evidenceRefs`에 같은 참조를 포함해야 하며 자동 삽입하지 않습니다. `success_verified/failure_verified`에는 `host_verified/user_explicit` 출처와 **observationRef 이외의 실제 결과 근거**도 필요합니다. 이 검사는 참조 계약을 검증할 뿐 호스트의 분류나 원문 결과를 독립 확인하지 않습니다. 과거 자료를 지금 처음 확인했다면 timestamp는 지금의 관찰 시각이며, 자료의 원격 생성 시각과 구분합니다.
+
+사건 ID는 `host-observation-`와 UTF-8 `JSON.stringify([taskId,attemptId,observationRef])`의 SHA-256으로 정합니다. 내용 해시를 ID에 넣지 않으므로 같은 참조의 다른 내용은 충돌로 드러납니다. JSON 키 순서는 동일성에 영향을 주지 않지만 근거 배열 순서·원래 timestamp·내용은 재전송에서도 그대로 유지합니다.
+
+잠금 안에서 동일 사건을 먼저 대조합니다. 정확한 재전송은 오래된 expectedRevision과 timestamp여도 원래 사건을 반환하고 제안을 다시 계산하거나 파일·revision을 바꾸지 않습니다. 새로운 사건에만 expectedRevision을 검사하고, 해당 시도 **전체 사건**의 최대 sequence에 1을 더합니다. 관찰 시각은 전체 사건의 최대 시각보다 과거일 수 없고, 시간대 표기는 파싱된 시각으로 비교합니다. 같은 시각은 트랜잭션 순서로 정합니다. 순서가 소진됐거나 scope가 바뀌면 거절합니다. 이후 기존 `ingest → propose` 결과를 한 번에 저장합니다. 기존 verified 결과를 약한 후속 상태로 낮추지 않는 엔진 규칙도 유지합니다.
+
+CLI `observe`는 payload의 expectedRevision을 사용하므로 `--revision`을 함께 받지 않습니다. 독립 API `observeTask(state,input,{now?})`는 store의 transaction 안에서 호출하며 바깥 transaction의 revision 검사에 중복 복구를 가로막게 하지 않습니다. CLI 반환은 `revision,event,duplicate,recorded,projectionChanged,current,newProposals,externalEffects:false,replayAllowed:false`입니다. event는 원래 관찰 영수증이고 current는 **현재** 시도 요약입니다. 과거 관찰을 재전송해도 현재 결과를 과거로 되돌리지 않습니다. 기록됐다는 사실과 유효 결과가 바뀌었다는 사실을 구분합니다.
+
+새 관찰의 오래된 revision은 최신 상태를 다시 읽어 검토하고 저장 변경분만 재적용합니다. 같은 참조의 다른 내용을 새 ID로 포장하거나 과거 관찰 시각을 현재로 고쳐 거절을 우회하지 않습니다. 응답 불명확 시 같은 payload만 재전송하고 실제 업무를 다시 실행하지 않습니다. 기존 `ingest`의 명시적 역사 기록·배열 입력·호환 동작은 유지되며, 일반 호스트 관찰의 충돌 검사를 피하는 대체 경로로 쓰지 않습니다.
+
 ## CLI 사용
 
 독립 CLI·엔진은 Node.js 22의 표준 라이브러리만 사용합니다. 아래 명령은 개발자·플러그인 연결용이며, 자동 서버 hook을 사용하는 일반 작업마다 입력할 필요는 없습니다. 전체 HTTP 통합시험에는 뒤에서 설명하는 기존 서버 의존성이 필요합니다.
@@ -206,6 +271,8 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | 명령 | 표준입력 JSON |
 | --- | --- |
 | `status` | 없음: 현재 상태 요약 |
+| `task-view` | `{taskId,attemptId?,limit?}`: 기존 작업·시도의 유효 결과와 최신 관찰 읽기 |
+| `observe` | `{taskId,attemptId,observationRef,scope,observation,expectedRevision}`: 동일 관찰 멱등 기록, `--revision`과 함께 사용 금지 |
 | `ingest` | 이벤트 객체 또는 1~100개 이벤트 배열 |
 | `recall` | `{domain, operation, engine, context}` |
 | `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 |

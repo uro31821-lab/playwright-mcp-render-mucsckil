@@ -11,6 +11,8 @@ import './decision-runtime.test.mjs';
 import './progress.test.mjs';
 import './progress-runtime.test.mjs';
 import './progress-cli.test.mjs';
+import './host-observations.test.mjs';
+import './host-observations-cli.test.mjs';
 import './receipt-reconciliation.test.mjs';
 import './runtime-patch.test.mjs';
 import './owner-host.test.mjs';
