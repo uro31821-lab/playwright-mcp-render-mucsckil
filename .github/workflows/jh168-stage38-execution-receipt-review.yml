@@ -1,4 +1,4 @@
-name: JH168 Stage38 original-result receipt and exact BACK review (NO RELEASE)
+name: JH168 Stage38 original-result receipt readback (NO RELEASE)
 on:
   pull_request:
     branches: [jh-fix3-secure-server]
@@ -6,7 +6,6 @@ on:
       - 'jh-server/owner-setup/jh168-mobile-unification/computer-execution-*'
       - 'jh-server/owner-setup/jh168-mobile-unification/stage38-*'
       - 'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'
-      - 'jh-server/owner-setup/deployment/durable-native-job-policy.mjs'
       - '.github/workflows/jh168-stage38-execution-receipt-review.yml'
 permissions:
   contents: read
@@ -36,11 +35,10 @@ jobs:
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
-      - name: New original EXECUTE receipt and exact BACK safety regressions
+      - name: New original EXECUTE receipt and original durable action safety regressions
         run: |
           node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipts.test.mjs
           node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipt-patch.test.mjs
-          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage38-back-policy.test.mjs
           node --test --test-reporter=spec jh-server/verification/durable-computer-policy.test.mjs
       - name: Actual original generated Secure56 Stage25 plus Stage26 ACK and receipt
         run: |

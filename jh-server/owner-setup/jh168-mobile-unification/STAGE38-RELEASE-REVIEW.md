@@ -13,10 +13,10 @@
 - Only a safe projection of the ORIGINAL result is returned. `ok:true` means lookup succeeded or original result received, not user task success. No raw screen, value, token, lease, or personal data is returned.
 - Different session, changed HMAC/job, expired original job, absent in-memory record or server restart fail closed UNKNOWN; the durable Stage29–37 draft remains a separate future production migration and is not claimed active.
 
-## Change 2 — exact split BACK 
-- Existing durable split policy allowed only CLICK; an explicit BACK was rejected even when bound to a real current RIGHT itemRef. New policy allows precisely CLICK or BACK as separately journaled signed reversible job types. Same fresh contextId, new requestId, commandId, targetItemRef, original phone-local policy and complete HMAC/nonce remain mandatory.
-- Other split actions, unbound BACK, secret values, non-original tool/effect and unrelated Computer Use BACK remain denied.
-- The BACK change requires a new phone E2E and is not proof the Android UI has performed the action.
+## Separate security-sensitive BACK policy review
+- Durable split BACK remains a protected original server policy change and is **not changed by this PR**.
+- Dedicated [Draft PR #110](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/110) holds the exact BACK policy change and negative tests. Original protected policy CI deliberately refuses policy edits until separately owner-reviewed.
+- This PR changes only the additive original EXECUTE receipt and Stage25/26 generated operator wrapping; a release of readback alone must not imply BACK support.
 
 ## Hard deployment gate
 - **DO NOT MERGE/DEPLOY** until original owner journal unknown count, /var/data free/WAL/backup bytes and rollback are verified; current Render runtime `4c71890021fc299838e6a8ce45ccf5f64712f354` differs from main and contains Mobile13 test routing. Android APK currently hardcodes production poll and a GitHub CI run is NOT live-phone validation.

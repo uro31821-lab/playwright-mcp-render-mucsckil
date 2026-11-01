@@ -51,9 +51,7 @@ export function durableNativeJobPolicy(job,payload){
  // This is NOT a blanket durable bypass. The existing Secure56 phone path
  // still resolves the itemRef, validates the current split, and obtains a
  // local one-shot approval for protected controls before making any click.
- // Only explicit CLICK or BACK on a fresh, selected RIGHT target item may
- // pass; AUTO, SET_TEXT and all other actions remain denied. Both have an
- // immutable identity and require the original signed Secure56 job fence.
+ // Other FOLLOW_UP actions (AUTO, SET_TEXT, BACK, etc.) stay denied.
  if(job.type==='split_screen_session_followup'){
    const allowFields=new Set([
      'contextId','requestId','action','command','targetItemRef',
@@ -67,7 +65,7 @@ export function durableNativeJobPolicy(job,payload){
      Object.keys(payload).every(k=>allowFields.has(k)) &&
      typeof payload.contextId==='string' && /^ssc_[a-f0-9]{32}$/.test(payload.contextId) &&
      typeof payload.requestId==='string' && /^[a-f0-9]{32}$/.test(payload.requestId) &&
-     (payload.action==='CLICK'||payload.action==='BACK') &&
+     payload.action==='CLICK' &&
      typeof payload.targetItemRef==='string' && /^item_[a-f0-9]{16}$/.test(payload.targetItemRef) &&
      typeof payload.command==='string' && payload.command.trim().length>0 &&
      payload.command.length<=2000 && !Object.hasOwn(payload,'value') &&
@@ -77,7 +75,7 @@ export function durableNativeJobPolicy(job,payload){
    const commandDigest=createHash('sha256').update(payload.command,'utf8').digest('hex');
    return answer('JOURNAL',{identityPayload:{
      contextId:payload.contextId,requestId:payload.requestId,
-     action:payload.action,targetItemRef:payload.targetItemRef,commandDigest
+     action:'CLICK',targetItemRef:payload.targetItemRef,commandDigest
    },approvalGranted:false,screenConsentGranted:false});
  }
  if(readTools.has(job.type))return job.secureRequestedEffect==='READ_ONLY'&&job.mcpToolName===readTools.get(job.type)
