@@ -1,0 +1,47 @@
+name: JH168 Stage45 native select popup original-window proof (SOURCE ONLY)
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage45-*'
+      - '.github/workflows/jh168-stage45-native-select-proof.yml'
+permissions:
+  contents: read
+jobs:
+  original-signed-native-window-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22'}
+      - name: Freeze original owner, signing, command, Android and split evidence source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse origin/jh-fix3-secure-server)" = "f32cf6c7d615245d2f8307ae467dcfc0450dc359"
+          git diff --exit-code origin/jh-fix3-secure-server HEAD -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/payment \
+            jh-server/owner-setup/owner-enrollment \
+            jh-server/owner-setup/operational-learning \
+            jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.mjs
+          echo JH_STAGE45_ORIGINAL_SECURE56_DEVICE_AND_JOURNAL_UNCHANGED=YES
+      - name: Signed owner-pane native popup invariant plus explicit no replay negative tests
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage45-native-select-popup-proof.test.mjs
+      - name: Release boundary audit
+        run: |
+          echo JH_STAGE45_POPUP_OBSERVATION_ONLY=YES
+          echo JH_STAGE45_NATIVE_APK_PRODUCER_EVIDENCE=NOT_AVAILABLE
+          echo JH_STAGE45_PICK_AUTHORIZATION=NEVER_GRANTED_BY_THIS_MODULE
+          echo JH_STAGE45_OLD_OPEN_RETRY=0
+          echo JH_STAGE45_SQLITE_MIGRATION=0
+          echo JH_STAGE45_RENDER_DEPLOY=0
+          echo JH_STAGE45_APK_INSTALL=0
+          echo JH_STAGE45_REAL_SELECT_PICK=NOT_RUN
