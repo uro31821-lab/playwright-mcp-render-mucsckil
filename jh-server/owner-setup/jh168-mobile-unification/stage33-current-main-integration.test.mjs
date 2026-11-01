@@ -39,6 +39,7 @@ test('actual current-main upstream commit is an ancestor, and only new review fi
             p.startsWith('jh-server/owner-setup/jh168-mobile-unification/stage3')||
             p.startsWith('jh-server/owner-setup/jh168-mobile-unification/STAGE')||
             p==='jh-server/owner-setup/jh168-mobile-unification/RELEASE-CURRENT-MAIN-READINESS.md'||
+            p==='.github/workflows/jh168-current-live-overlay-compat.yml'||
             p==='.github/workflows/jh168-one-release-candidate-current-main.yml',
     'unexpected protected main path changed: '+p);
  }
