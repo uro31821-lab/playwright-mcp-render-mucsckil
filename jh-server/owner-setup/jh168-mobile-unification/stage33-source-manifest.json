@@ -1,0 +1,102 @@
+{
+  "schema": "JH168_STAGE33_CURRENT_MAIN_SOURCE_REPLAY_V1",
+  "upstreamMainCommit": "08c2de330a2d0747b26671f0241eb5b22e768e94",
+  "originalStage32ReviewCommit": "f0dcf727b2321b77dfae1b597a6ed872c09d131b",
+  "originalStage32TestBlobSha1": "126c471e224aa43bf2c8f3870ebdb42f7165e10c",
+  "historicalTestAdapted": "previous commits checked by existence rather than ancestor after replay",
+  "sourceBlobCount": 17,
+  "sources": [
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/STAGE28-TRANSPORT-RECOVERY-REVIEW.md",
+      "gitBlobSha1": "40531043c59f3c28817baf8ae72ebbeae4803195",
+      "size": 3934
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/STAGE32-LIVE-RELEASE-READONLY-REVIEW.md",
+      "gitBlobSha1": "545d9fc79265912d39b5d8ac41200e13d8c14b2e",
+      "size": 5467
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage28-transport-recovery.test.mjs",
+      "gitBlobSha1": "d7a9e48a15f60d73946656d7bba426162c880438",
+      "size": 11864
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage29-OWNER-RESTART-READBACK-REVIEW.md",
+      "gitBlobSha1": "66dbd427d48900630f8627294032ce41323a6fa3",
+      "size": 6305
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs",
+      "gitBlobSha1": "7d547ef824a799dbf241e17d04ba7b612db899c8",
+      "size": 12738
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.test.mjs",
+      "gitBlobSha1": "5fa2028a1a965d6532a7a65957f26177887e4bc2",
+      "size": 12986
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage30-ATOMIC-OWNER-HOST-REVIEW.md",
+      "gitBlobSha1": "c8e230ecd994c6497f7cce156ca25b397a8205fc",
+      "size": 4143
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-host-integration.test.mjs",
+      "gitBlobSha1": "806869a346ea60091929189a975cf6b841489b79",
+      "size": 11543
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-receipt-writer.mjs",
+      "gitBlobSha1": "a08cf5bc6bc6c74e8455ad4a00ceef7fdfd0718a",
+      "size": 6315
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage30-candidate-compose.mjs",
+      "gitBlobSha1": "a02cadd84753b0a7a9604758e1dec7818653d1ab",
+      "size": 8226
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage30-crash-worker.mjs",
+      "gitBlobSha1": "fde207789ef66605ee2d8278d865f0247418fde7",
+      "size": 2436
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage30-generated-secure-runtime.test.mjs",
+      "gitBlobSha1": "063a729345c67c45d0dc5ae01eb9140698f0c2ae",
+      "size": 2980
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage31-OWNER-ADDON-PREFLIGHT-REVIEW.md",
+      "gitBlobSha1": "4f067a1eec2b32d454df6536848c91c3e5529aa0",
+      "size": 3432
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.mjs",
+      "gitBlobSha1": "cd129996e266c3f2d344cd8eec46caab46ee6b57",
+      "size": 10807
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.test.mjs",
+      "gitBlobSha1": "3e7571e3a5857fea951c4da0ccd276ca8ce5d978",
+      "size": 12931
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage32-inspection-evidence.json",
+      "gitBlobSha1": "c28980250e65c99bfadef0a71f661c399b290210",
+      "size": 3998
+    },
+    {
+      "path": "jh-server/owner-setup/jh168-mobile-unification/stage32-release-gates.mjs",
+      "gitBlobSha1": "7c17be1e3f348cdc11464349e59beca71e01aea7",
+      "size": 4404
+    }
+  ],
+  "oldWorkflowsIntentionallyOmitted": true,
+  "combinedWorkflow": "jh168-stage33-current-main-integration.yml",
+  "productionDeploy": false,
+  "androidChanged": false,
+  "originalSecure56Changed": false,
+  "reintegratedCurrentMainAtStage37": true,
+  "reintegratedSourceCommit": "a356e08dbddb1cd015a4b272103f242e5a3b33ac"
+}
