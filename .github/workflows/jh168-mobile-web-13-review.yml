@@ -90,6 +90,8 @@ jobs:
           NODE_ENV: test
           JH_OWNER_DEFER_LISTEN: '1'
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-stage25-operator.test.mjs
+      - name: Audit ALL remaining server Playwright tool registrations after 13 mobile aliases
+        run: node jh-server/owner-setup/jh168-mobile-unification/mobile-web-residual-playwright-audit.mjs
       - name: Existing Secure56 and right-pane regression tests
         run: |
           node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs
