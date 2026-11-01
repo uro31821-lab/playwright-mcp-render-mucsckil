@@ -50,7 +50,7 @@ function harness(){
   devices:new Map([['mock-phone',true]]),
   notifications:notices
  };
- vm.runInNewContext('  let jhRightWebOpen56=null;\n'+chunks.join('\n'),context,
+ vm.runInNewContext(chunks.join('\n'),context,
   {timeout:3000,filename:'JH168-four-original-generated-entrypoints.mjs'});
  for(const n of names)assert.equal(typeof tools.get(n),'function','missing '+n);
  return {tools,jobs,remote,call:(n,args)=>tools.get(n)(args),
