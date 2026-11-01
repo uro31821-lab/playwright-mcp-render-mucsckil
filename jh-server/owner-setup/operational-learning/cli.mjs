@@ -14,6 +14,7 @@ import { taskView, observeTask } from './host-observations.mjs';
 import { proposalContext } from './proposal-context.mjs';
 import { createHostInstructionCandidate } from './instructions.mjs';
 import { lessonView } from './lesson-view.mjs';
+import { prepareRuleUse } from './rule-usage.mjs';
 
 function evaluatorFor(suite) {
   if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
@@ -97,6 +98,10 @@ export async function execute(args, input) {
       if (expectedRevision !== undefined) throw new TypeError('lesson-view is read-only and does not accept a revision selector');
       return lessonView(await store.read(), input);
     }
+    case 'usage-prepare': {
+      if (expectedRevision !== undefined) throw new TypeError('usage-prepare is read-only and does not accept a revision selector');
+      return prepareRuleUse(await store.read(), input, { now: new Date().toISOString() });
+    }
     case 'progress': return proposalProgressView(await store.read(), input);
     case 'task-view': return taskView(await store.read(), input);
     case 'observe': {
@@ -162,7 +167,7 @@ export async function execute(args, input) {
       const result = await store.transact(state => setProposalStatus(state, input.id, input.status, input.verification), transactionOptions);
       return { revision: result.revision, proposal: result.proposals[input.id] };
     }
-    default: throw new TypeError('Use status, ingest, observe, task-view, recall, context, review, instruction, decision-view, lesson-view, progress, decide, curate, curate-register, propose, candidate, check, or proposal-status');
+    default: throw new TypeError('Use status, ingest, observe, task-view, recall, context, review, instruction, decision-view, lesson-view, usage-prepare, progress, decide, curate, curate-register, propose, candidate, check, or proposal-status');
   }
 }
 

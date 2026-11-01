@@ -30,3 +30,6 @@ import './host-instructions.test.mjs';
 import './host-instructions-cli.test.mjs';
 import './lesson-view.test.mjs';
 import './lesson-view-cli.test.mjs';
+import './rule-usage.test.mjs';
+import './rule-usage-host.test.mjs';
+import './rule-usage-cli.test.mjs';
