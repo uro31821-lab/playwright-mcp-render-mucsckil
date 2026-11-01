@@ -1,0 +1,65 @@
+name: JH168 Stage40 original owner-admission diagnosis (NO RELEASE)
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage40-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'
+      - '.github/workflows/jh168-stage40-owner-admission-review.yml'
+permissions:
+  contents: read
+jobs:
+  exact-owner-admission-signed-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with: {persist-credentials: false, fetch-depth: 0}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22'}
+      - name: Enforce ORIGINAL signed host/ledger/payment/phone/permissions byte preservation
+        run: |
+          git diff --exit-code origin/jh-fix3-secure-server HEAD -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment/jh155-all-modules-patch.mjs \
+            jh-server/owner-setup/deployment/jh-recovery-write-fence.mjs \
+            jh-server/owner-setup/deployment/durable-native-job-policy.mjs \
+            jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs \
+            jh-server/owner-setup/payment/payment-runtime-patch.mjs \
+            jh-server/owner-setup/deployment/jh-result-verification \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct
+          echo ORIGINAL_SIGNED_OWNER_AND_NATIVE_AUTHORITIES_UNCHANGED=YES
+      - name: Install original dependency-lock source
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Exact source reversibility, protected first-attempt owner bindings and sanitized diagnostic contract
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs
+      - name: Existing Stage25/26, Stage38, Stage39 and native original-guard regression
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage38-generated-operator.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage39-pending-independent.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/verification/durable-computer-policy.test.mjs
+      - name: Verify original mobile13 generated exact owner and 9+4 routes in synthetic session
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-stage25-operator.test.mjs
+      - name: Permanent no-release/approval/no-replay fence
+        run: |
+          test -z "${RENDER_SERVICE_ID:-}"
+          echo STAGE40_ORIGINAL_OWNER_REJECTION_CAUSE=SOURCE_DIAGNOSTICS_ONLY
+          echo ORIGINAL_OWNER_GRANTS_UNCHANGED=YES
+          echo ORIGINAL_29_UNKNOWN_ROWS_UNCHANGED=YES
+          echo RENDER_DEPLOY=0
+          echo ORIGINAL_PHONE_EFFECT_REPLAY=0
+          echo APK_CHANGE=0
+          echo STAGE40_REAL_DEVICE_NEW_CODE_E2E=NOT_RUN
