@@ -1,0 +1,78 @@
+name: JH168 Stage35 sealed original signed receipt handle (no phone)
+on:
+  pull_request:
+    branches: ['feat/jh168-stage34-original-receipt-readonly-20261101']
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage35-*'
+      - '.github/workflows/jh168-stage35-sealed-handoff.yml'
+permissions:
+  contents: read
+jobs:
+  sealed-original-reference-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Assert main, Android, original Secure56/auth, owner SQLite and Stage34 unchanged
+        run: |
+          git diff --exit-code origin/feat/jh168-stage34-original-receipt-readonly-20261101 -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/owner-enrollment \
+            jh-server/owner-setup/operational-learning \
+            jh-server/owner-setup/jh168-mobile-unification/stage28-transport-recovery.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-receipt-writer.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage34-original-receipt-reader.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage34-owner-runtime-patch.mjs
+      - name: Parse sealed AES-GCM owner key and original command binding sources
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage35-sealed-reference.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage35-sealed-handoff-patch.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage35-sealed-reference.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage35-generated-operator.test.mjs
+      - name: Original SQLite plus Stage35 encrypted client handoff, wrong owner, expiry and no-replay
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage35-sealed-reference.test.mjs
+      - name: Prepare original owner dependencies before generating operator
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Exact original Stage25/26/30/34 OAuth and signed device operator
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage35-generated-operator.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/verification/durable-owner-storage.test.mjs
+      - name: Source only; client token not persisted and no phone replay
+        run: |
+          echo STAGE35_SEALED_CLIENT_REFERENCE_ONLY=YES
+          echo CLIENT_TOKEN_STORAGE_IN_CHAT_NOT_GUARANTEED=YES
+          echo ORIGINAL_JOB_EXPIRY_NOT_EXTENDED=YES
+          echo ORIGINAL_SERVER_DB_SCHEMA_UNCHANGED=YES
+          echo ORIGINAL_AUTH_AND_LOCAL_APPROVAL=UNCHANGED
+          echo RENDER_DEPLOY=0
+          echo LIVE_OWNER_VOLUME_MIGRATION=0
+          echo PHONE_ACTIONS=0
+          echo APK_BUILD_INSTALL=0
+          echo PREVIOUS_CHROME_CLICK_REPLAY=0
