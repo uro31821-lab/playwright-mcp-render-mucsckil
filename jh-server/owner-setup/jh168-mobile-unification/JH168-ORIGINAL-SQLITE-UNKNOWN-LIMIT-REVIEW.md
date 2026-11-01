@@ -80,3 +80,30 @@ If global cap is genuinely reached, retain unknown records and audit journal/bac
 **Specific admission not yet attributable:** the historical `OWNER_ADMISSION_BLOCKED` response has no preserved original command/job/request correlation or raw underlying refusal code. HMAC-only circuit rows do not contain recoverable command text, target UI, job ID, approval grant, or an inverse mapping to a rejected request. Searching Render application logs did not find this exact tag or the lower-level durable denial code in the observed window. Therefore the specific refusal is **UNKNOWN**, and the 32 unknown rows must not be treated as 32 failed or incomplete business/UI actions.
 
 **Disposition:** no data deletion/cleanup, automatic retry, replay, policy bypass, or live rollout is needed to solve the (nonexistent) global capacity issue. Future original admission denials should expose only a bounded cause code through their already-authenticated original-job readback, preserving no-replay and preventing sensitive tokens/payloads in logs. Such an observer is a separately reviewed, unshipped source proposal and does not reconstruct missing evidence from an old attempt.
+
+
+## 2026-11-01 — ROOT EXECUTION PATH FOUND: OWNER_ADMISSION_BLOCKED is not a SQLite admission code
+
+**Exact production source verified:** live commit 4c718900 and this Draft use byte-identical Git blobs for:
+- jh155-all-modules-patch.mjs (original jhOwnerAdmission155 pre-dispatch helper)
+- jh-recovery-write-fence.mjs (original gateRecoveredDispatch)
+- jh-result-verification/result-verification-duplicate-guard.mjs
+- durable-manual-circuit-fence.mjs.
+
+**Origin:** ResultVerificationDuplicateGuard.execute invokes the injected original \`beforeDispatch\` callback after a separate durable execution CAS, before its executor/Android effect. If that callback returns anything other than true or throws, it persists state FAILED_PRE_DISPATCH (reason \`owner_admission_rejected_no_dispatch\`) and emits top-level **OWNER_ADMISSION_BLOCKED** with \`executed:false\`. That is an ORIGINAL RESULT-VERIFICATION OWNER ADMISSION FENCE. It is not thrown by SQLite manual-circuit MAX_UNKNOWN/MAX_ROWS.
+
+The original jhOwnerAdmission155 requests exactly one read-only agent_snapshot and checks:
+1. command version/epoch unchanged;
+2. original payment/owner lifecycle captureBinding + assertBinding validity;
+3. completed, signed, same-device/same-session snapshot;
+4. genuine, fresh split evidence (right work pane and left chat pane);
+5. unique PREPARING first-attempt reservation and no prior dispatch;
+6. authoritative recovery gate rejects stale/blocked/uncertain work and permits first dispatch only.
+
+Two original generated runtime tests already returned the SAME generic OWNER_ADMISSION_BLOCKED for distinct causes: owner binding mismatch and stale split evidence. The failed old click has no surviving cause-specific evidence, so one cannot choose between these causes retroactively.
+
+**Source-only fix candidate:** \`owner-admission-diagnostic-candidate.mjs\` creates an exact-byte reversible patch of the original jhOwnerAdmission155 helper. It preserves its bool authorization, one original snapshot, no extra phone effect and old error status. On future false returns, it emits only fixed rate-limited \`JH_OWNER_ADMISSION_DIAG\` reason codes, with no IDs, screen text, tokens, HMACs, raw exceptions or automatic replay. It is NOT called by live entrypoints and is NOT deployed.
+
+**Verification:** exact original helper source identity, reversibility, 10 original allow/deny scenarios plus rate-limit/non-leak, original SQLite capacity and duplicate fail-closed tests — **17/17 PASS** in [GitHub Actions #41300441598](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41300441598). All other 6 applicable original protected GitHub workflows (including operational learning) completed SUCCESS on the same candidate commit. Native phone E2E NOT_RUN. No original policy, CI baseline, runtime entrypoint, owner volume, Render environment, signed APK or credentials changed.
+
+**Next release gate (not automatic):** independently review the exact generated Stage25/owner entrypoint integration for this candidate, freeze its SHA, verify production original owner database/backup/rollback; obtain owner approval before any Render deployment. On the NEXT separately authorized harmless new action (never previously UNKNOWN or completed), read the bound reason-only host diagnostic. Fix only the cause demonstrated by that current event. Existing 32 unknown actions stay quarantined/no-replay. Do not claim the historical click has been retried, recovered or fixed.
