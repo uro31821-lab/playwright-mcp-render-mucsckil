@@ -46,6 +46,7 @@ export function createStage36InlineOriginalHandoff({clock=Date.now}={}){
      scope.originalAction!=='CLICK'||
      deviceResult.ok!==true||deviceResult.resultVerified!==true)
    return false;
+  if(privateHandoff.has(receipt))return false; // one issue per original result
   const now=safeNow(clock);
   if(now===null)return false;
   let result;
@@ -60,8 +61,6 @@ export function createStage36InlineOriginalHandoff({clock=Date.now}={}){
      !safeHandle(result.sealedHandle)||
      !Number.isSafeInteger(result.expiresAtMs)||result.expiresAtMs<=now)
    return false;
-  const prior=privateHandoff.get(receipt);
-  if(prior)return false; // never replace an already issued handle
   privateHandoff.set(receipt,Object.freeze({
    sealed_handle:result.sealedHandle,
    expires_at_ms:result.expiresAtMs,
