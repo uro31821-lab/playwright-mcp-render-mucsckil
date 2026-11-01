@@ -187,6 +187,16 @@ function history(state) {
   if ([...attempts.values()].some(group => !group.projection)) fail('Missing stored usage projection');
   return attempts;
 }
+
+/** Validated raw historical bindings for read-only host views. This checks all
+ * stored events/projections before older curation helpers inspect the snapshot.
+ * Callers must not mutate the returned references into the supplied state.
+ */
+export function readRuleUseHistory(state) {
+  stateCheck(state);
+  return history(state);
+}
+
 function linkableProposals(state) {
   const result = [];
   for (const [id, value] of Object.entries(state.proposals)) {

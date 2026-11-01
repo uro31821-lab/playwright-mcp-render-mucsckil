@@ -454,6 +454,45 @@ noticeFingerprint는 생략 전 전체 사용·현재 결과·일치하는 제�
 
 반환은 readOnly·advisoryOnly가 true, externalEffects·replayAllowed·applicationVerified·preActionTimingVerified·liveImprovementVerified·causalEffectVerified가 false이며 sourceAuthentication은 host_attestation입니다. 규칙 사용에 관한 호스트 확인과 실제 결과의 연결을 보여 주는 기능입니다. 사용의 독립 인증이나 인과 효과 증명으로 올려 설명하지 않습니다. 서버 MCP 입력·자동 배경 수집·기억 동기화·모델 가중치 학습을 추가하지 않습니다.
 
+## 개선 검토에 규칙 사용 근거 연결
+
+호스트 CLI `review-context`는 기존 제안 검토 packet과 그 결과에 선행한 규칙 사용 근거를 **하나의 저장소 스냅샷**에서 읽습니다. 순수 API는 `prepareReviewContext(state,input)`입니다. 입력은 `{proposalId,maxAttempts?,usageOptions?:{maxUsesPerResult?,maxChars?}}`이며, 실제 usage-review의 relatedProposals나 저장된 제안 조회에서 확인한 ID를 사용합니다. 외부에서 만든 packet·임의 eventIds·query·now·thresholds는 받지 않습니다. `--revision`도 사용하지 않습니다.
+
+반환 `schema:"jh.learning-review-context.v1"`은 `packet`과 `ruleUseEvidence`를 분리합니다. packet은 같은 상태와 기존 입력으로 실행한 prepareReview의 반환과 **완전히 동일**합니다. 기존 review 명령, packetFingerprint, attempts, candidateEligible, evidenceReadiness, currentLessons, 결정·후보 등록 계약을 그대로 유지합니다. 이 호스트 조회를 위한 서버 MCP mode 추가나 서버 배포는 필요하지 않습니다.
+
+### 현재 결과와 원래 사용의 구분
+
+ruleUseEvidence의 coverage는 visible_packet_attempts입니다. **packet.attempts에 실제로 표시된 taskId·attemptId·현재 resultEventId**만 대상으로 삼으며, 같은 task의 다른 시도나 maxAttempts 밖 결과를 가져오지 않습니다. learning_evaluation의 제안 scope가 operation:*여도 각 선택된 결과의 실제 업무 scope로 연결합니다. 별도의 범위 확장 조회를 하지 않습니다.
+
+각 행의 resultEventId는 현재 결과이며, precedingUses.items의 recordedEventId는 원래 사용이 기록된 사건입니다. 두 사건이 같을 수 있지만 근거 두 건이나 독립 작업 두 개로 세지 않습니다. 사용 후 별도 결과만 추가됐어도 원래 사용은 현재 결과에 이어집니다. 아래 두 조건을 모두 만족한 사용만 precedingUses에 표시합니다.
+
+```js
+currentResult.sequence >= recordedUseEvent.sequence
+  && Date.parse(currentResult.timestamp) >= Date.parse(usage.appliedAt)
+```
+
+현재 결과보다 뒤에 기록되거나 실제 적용 시각이 더 늦은 사용은 nonPrecedingUseCount로 따로 셉니다. 보존된 이전 성공을 늦은 사용의 성공으로 해석하지 않습니다. 사용 기록이 없는 행의 0은 **저장된 사용 확인이 없음**을 뜻하며 실제로 규칙을 사용하지 않았다는 증거가 아닙니다. 사용 기록만으로 미확인·차단 결과를 검증된 후보 근거로 승격하지 않습니다.
+
+### 당시 규칙 본문을 표시하는 조건
+
+선택 영수증에는 과거 guidance 전문이 없으므로 현재 같은 ID의 규칙을 그대로 과거 본문으로 사용하지 않습니다. lessonId·ruleVersion·inputFingerprint와 `ruleUseHash(ruleDefinition(currentLesson))`이 기록된 definitionFingerprint와 모두 일치할 때만 definition.status:matched, source:matching_stored_definition과 본문·정의 scope·제한된 근거를 제공합니다. 규칙의 정의 scope와 실제 사용 업무의 scope를 구분합니다.
+
+definition.status가 changed·missing·invalid이면 현재 본문으로 대신하지 않고 당시 식별자와 지문만 남깁니다. matched여도 현재 규칙을 적용할 수 있다는 판단이 아닙니다. 현재 만료·격리 여부로 과거 내용을 지우거나 평가를 다시 실행하지 않으며, historicalOnly:true와 currentSelectionVerified:false를 유지합니다. packet.currentLessons는 현재 저장 정의의 목록이고 sidecar의 matched 정의는 당시 지문과의 일치를 확인한 자료입니다. 다음 실제 행동에 적용할 규칙은 기존 context·usage-prepare 절차로 별도 판정합니다.
+
+### 집계·생략·지문
+
+sidecar에는 proposalId·baseRevision·reviewPacketFingerprint·selectedResultCount·items·totals·omittedResults·fingerprint가 있습니다. totals의 recordedUses·precedingUses·nonPrecedingUses·resultsWithUses·resultsWithPrecedingUses는 **표시된 원래 packet 결과들에 속한 전체 사용 이력**에서 계산합니다. 전체 제안이나 전체 기억의 사용 수로 확대하지 않습니다. 제한된 usage-review·task-view 반환을 집계 원본으로 사용하지 않습니다.
+
+기존 maxAttempts는 기본 12, 최대 32를 유지합니다. usageOptions.maxUsesPerResult는 기본 1, 최대 4이며 maxChars는 기본 12000, 최대 32768입니다. 각 사용·정의·결과의 근거는 최대 8개와 생략 표시를 제공합니다. 개별 사용 표본은 precedingUses.total/omitted, sidecar 행의 문자 예산 생략은 omittedResults, 기존 packet의 작업 생략은 packet.truncated로 구분합니다. 문자 예산은 sidecar 행 JSON의 Unicode 코드 포인트 수이며 행을 중간에서 자르지 않습니다. 제한 전 총수는 그대로 유지합니다.
+
+별도 fingerprint는 원래 검토 지문과 revision, 실제 선택된 결과 ID, 그 시도들의 생략 전 사용·현재 결과·정의 조회 상태 및 예산 설정을 묶습니다. 표시 밖의 사용이나 정확한 정의 근거가 바뀌어도 반영됩니다. 기존 packetFingerprint가 이 부가 근거까지 검증·승인했다는 뜻은 아닙니다.
+
+### 기존 검토·후보 절차로 이어가기
+
+검토자는 packet의 현재 결과와 ruleUseEvidence를 함께 읽고 원인·해결·기대 효과를 reviewed_inference로 작성합니다. 같은 규칙을 이미 사용했는지 살펴보되, 규칙이 실패의 원인이라고 자동 판정하지 않습니다. 결정·후보 등록에는 **packet의 기존 baseRevision·packetFingerprint**와 기존 계약에 맞는 현재 결과 eventIds를 사용합니다. sidecar fingerprint나 과거 recordedEventId를 대체 입력으로 넣지 않습니다. 기존 후보 생성이 허용하는 별도의 현재 검증된 개선 근거도 임의로 금지하지 않습니다.
+
+없는 제안이나 현재 지지 결과가 없는 제안을 이 조회가 만들어 주지 않습니다. 실제 제안 0건은 그대로 두고 원래 작업을 계속합니다. 후보·검사·제안 상태·labels·모델 학습을 변경하지 않으며, readOnly/advisoryOnly는 true이고 externalEffects/replayAllowed는 false입니다. 사용 확인의 출처는 host_attestation이며 독립 적용·사전 실행 시점·인과 개선 효과는 검증하지 않았다고 유지합니다.
+
 ## CLI 사용
 
 독립 CLI·엔진은 Node.js 22의 표준 라이브러리만 사용합니다. 아래 명령은 개발자·플러그인 연결용이며, 자동 서버 hook을 사용하는 일반 작업마다 입력할 필요는 없습니다. 전체 HTTP 통합시험에는 뒤에서 설명하는 기존 서버 의존성이 필요합니다.
@@ -473,6 +512,7 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `recall` | `{domain, operation, engine, context}` |
 | `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 두 형식 모두 선택 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}`와 독립적인 `usageReview:{limit?,maxChars?,seenNoticeFingerprints?}` 지원 |
 | `review` | `{proposalId,maxAttempts?}`: 실제 근거 검토 packet 읽기 |
+| `review-context` | `{proposalId,maxAttempts?,usageOptions?:{maxUsesPerResult,maxChars}}`: 원래 검토 packet과 선행 규칙 사용 근거를 같은 스냅샷에서 조회, `--revision` 금지 |
 | `instruction` | `{instruction,suite,scope,globalRecall?}`: 명시 사용자 규칙을 읽기 전용 준비, baseRevision 반환, `--revision` 금지 |
 | `lesson-view` | `{lessonId,query 또는 queries,options?}`: 저장 규칙·기존 평가·현재 조회 포함 상태의 읽기 전용 진단, `--revision` 금지 |
 | `usage-prepare` | `{taskId,attemptId,lessonId,scope,globalRecall?,options?:{limit,maxChars}}`: 실제 사용 전 규칙 선택을 읽기 전용 준비, `--revision` 금지 |
