@@ -37,3 +37,5 @@ import './rule-use-review.test.mjs';
 import './rule-use-review-cli.test.mjs';
 import './review-context.test.mjs';
 import './review-context-cli.test.mjs';
+import './candidate-evidence.test.mjs';
+import './candidate-evidence-cli.test.mjs';

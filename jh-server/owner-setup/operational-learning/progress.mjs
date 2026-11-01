@@ -125,6 +125,14 @@ function linksFor(state, proposal) {
   return links;
 }
 
+/** Read the existing registration links without evaluating current lessons or
+ * recall. Closed proposals and missing/changed current candidates remain readable.
+ */
+export function readProposalCandidateLinks(state, proposalId) {
+  const proposal = stateAndProposal(state, proposalId);
+  return { proposalId: proposal.id, currentStatus: proposal.status, links: clone(linksFor(state, proposal)) };
+}
+
 /** Register a reviewed definition and its first proposal link in one revision.
  * The host must call this inside its owner-bound store transaction. Fresh review
  * packets remain mandatory, including retries of an already registered link.
