@@ -56,10 +56,17 @@ jobs:
           NODE_ENV: test
           JH_OWNER_DEFER_LISTEN: '1'
         run: |
+          # These suites generate the SAME attested operator files.
+          # Running the file suites concurrently races the generated Stage26
+          # runtime and yields false STAGE26_COMPLETE_ACK_PREFIX_MISSING.
+          # Keep them sequential, without changing production Secure56 code.
           node --test --test-reporter=spec \
-            jh-server/owner-setup/jh168-mobile-unification/stage30-generated-secure-runtime.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs \
-            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-generated-secure-runtime.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+          node --test --test-reporter=spec \
             jh-server/verification/durable-owner-storage.test.mjs
       - name: Explicit no-effect boundary
         run: |
