@@ -49,7 +49,7 @@ jobs:
             jh-server/owner-setup/jh168-mobile-unification/stage36-inline-original-handoff.test.mjs
       - name: Explicit lost completion response remains unavailable, no replay
         run: |
-          grep -q 'lost original MCP response leaves NO handle' \
+          grep -q 'original completion response is LOST: no client handle can be recovered' \
             jh-server/owner-setup/jh168-mobile-unification/stage37-client-delivery-e2e.test.mjs
           echo STAGE37_LOST_COMPLETION_RESPONSE=RECOVERY_UNAVAILABLE_NO_REPLAY
           echo STAGE37_REAL_PHONE_E2E=NOT_RUN
