@@ -48,10 +48,10 @@ function Assert-Jhm13Throws([scriptblock]$Body, [string]$ExpectedPattern) {
 function Get-Jhm13Hash([string]$Path) {
     return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
 }
-function Invoke-Jhm13Case([string]$Name, [scriptblock]$Body) {
+function Invoke-Jhm13Case([string]$CaseLabel, [scriptblock]$Body) {
     $null = & $Body
-    $script:results.Add($Name)
-    Write-Host ('PASS MOBILE13: ' + $Name)
+    $script:results.Add($CaseLabel)
+    Write-Host ('PASS MOBILE13: ' + $CaseLabel)
 }
 function New-Jhm13Directory([string]$Name) {
     $path = Join-Path $testRoot $Name
