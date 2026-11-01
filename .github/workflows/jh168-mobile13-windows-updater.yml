@@ -1,0 +1,40 @@
+name: JH168 Mobile13 Windows updater
+
+on:
+  push:
+    branches: ['feat/jh168-mobile13-windows-updater-*']
+    paths:
+      - 'jh-dev-tools/windows-delivery/mobile13/**'
+      - 'jh-dev-tools/windows-delivery/tests/Test-Mobile13.ps1'
+      - '.github/workflows/jh168-mobile13-windows-updater.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jh168-mobile13-windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actual-windows-synthetic-updater:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Preserve the reviewed source bytes before checkout
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve source line endings' }
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Require Windows PowerShell 5.1
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw 'Actual Windows PowerShell 5.1 is required' }
+          $PSVersionTable.PSVersion.ToString()
+      - name: Parse exact scripts and verify effect-free bootstrap and result safety
+        run: |
+          & './jh-dev-tools/windows-delivery/tests/Test-Mobile13.ps1' -KitRoot './jh-dev-tools/windows-delivery/mobile13'
+          if (!$?) { throw 'Mobile13 Windows synthetic checks failed' }
