@@ -4,12 +4,17 @@
  */
 import {randomBytes,createHash} from 'node:crypto';
 
-const types=new Set(['split_screen_session_start','split_screen_session_status']);
+const types=new Set(['split_screen_session_start','split_screen_session_status','split_comfort_status']);
 const HEX32=/^[a-f0-9]{32}$/;
 const HEX64=/^[a-f0-9]{64}$/;
 const REF=/^srr_[A-Za-z0-9_-]{32}$/;
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const plain=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
+// Comfort STATUS shares this receipt only under its original read authority.
+// Other comfort modes, including writes, are not admitted by the type allowlist.
+const comfortAuthority=job=>job.type!=='split_comfort_status'||
+  (Object.hasOwn(job,'mcpToolName')&&job.mcpToolName==='life_android_capture_work_window'&&
+   Object.hasOwn(job,'secureRequestedEffect')&&job.secureRequestedEffect==='READ_ONLY');
 const deny=(code,extra={})=>Object.freeze({ok:false,code,automaticReplay:false,
   newJobCreated:false,readOnly:true,...extra});
 
@@ -27,7 +32,7 @@ export function createSplitReadReceiptRegistry56({
   };
   function issue({job,deviceId,sessionId,commandId,taskDigest}={}){
     tidy();
-    if(!plain(job)||!types.has(job.type)||
+    if(!plain(job)||!types.has(job.type)||!comfortAuthority(job)||
        !['queued','in_progress'].includes(job.status)||
        typeof job.id!=='string'||!/^job_[0-9]+$/.test(job.id)||
        typeof deviceId!=='string'||!deviceId||
@@ -61,7 +66,7 @@ export function createSplitReadReceiptRegistry56({
       return deny('SPLIT_READ_RECEIPT_SCOPE_CHANGED');
     let job;
     try{job=getOriginalJob(record.id);}catch{return deny('SPLIT_READ_JOB_UNAVAILABLE')}
-    if(!plain(job)||job.id!==record.id||job.type!==record.type||
+    if(!plain(job)||job.id!==record.id||job.type!==record.type||!comfortAuthority(job)||
        job.targetDeviceId!==deviceId||job.secureSessionId!==sessionId||
        job.commandId!==commandId||job.taskDigest!==record.taskDigest)
       return deny('SPLIT_READ_ORIGINAL_JOB_CHANGED');

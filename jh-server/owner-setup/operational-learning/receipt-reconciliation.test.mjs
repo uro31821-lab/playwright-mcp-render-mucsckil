@@ -15,6 +15,9 @@ const DIGEST = 'a'.repeat(64);
 const OTHER_DIGEST = 'b'.repeat(64);
 const SPLIT_SCOPE = 'SPLIT_READ_LAYOUT_ONLY';
 const SPLIT_REFERENCE = 'source:jh-split-read-layout-only';
+const COMFORT_STATUS_TYPE = 'split_comfort_status';
+const COMFORT_STATUS_META = { type: COMFORT_STATUS_TYPE, mcpToolName: 'life_android_capture_work_window',
+  secureRequestedEffect: 'READ_ONLY' };
 const FOLLOWUP_TYPE = 'split_screen_session_followup';
 const FOLLOWUP_SCOPE = 'SPLIT_FOLLOWUP_CLICK_ONLY';
 const FOLLOWUP_REFERENCE = 'source:jh-split-followup-click-only';
@@ -70,6 +73,10 @@ function inspectReceipt(id, extra = {}) {
     verifiedObservationScope: INSPECT_SCOPE, ...extra });
 }
 
+function comfortStatusReceipt(id, extra = {}) {
+  return splitReceipt(id, { ...COMFORT_STATUS_META, ...extra });
+}
+
 function response(value = { ok: true, signed: 'PRIVATE_UNMODIFIED_RESULT' }) {
   return { content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value };
 }
@@ -91,7 +98,8 @@ async function seedJob(runtime, id, outcome = 'completion_unknown', options = {}
 }
 
 const seedSplitRead = (runtime, id, outcome = 'completion_unknown', type = 'split_screen_session_start') =>
-  seedJob(runtime, id, outcome, { job: { type }, call: { name: 'life_android_split_screen_assistant',
+  seedJob(runtime, id, outcome, { job: type === COMFORT_STATUS_TYPE ? COMFORT_STATUS_META : { type },
+    call: { name: type === COMFORT_STATUS_TYPE ? 'life_android_split_comfort' : 'life_android_split_screen_assistant',
     mode: type === 'split_screen_session_start' ? 'START' : 'STATUS' } });
 
 const seedFollowup = (runtime, id, outcome = 'completion_unknown') =>
@@ -101,6 +109,12 @@ const seedFollowup = (runtime, id, outcome = 'completion_unknown') =>
 const seedInspect = (runtime, id, outcome = 'completion_unknown') =>
   seedJob(runtime, id, outcome, { job: INSPECT_META,
     call: { name: 'life_android_computer_inspect', mode: undefined } });
+
+const boundedReadReceipts = [
+  { label: 'INSPECT', meta: INSPECT_META, receipt: inspectReceipt, seed: seedInspect, reference: INSPECT_REFERENCE },
+  { label: 'comfort STATUS layout', meta: COMFORT_STATUS_META, receipt: comfortStatusReceipt,
+    seed: (runtime, id, outcome) => seedSplitRead(runtime, id, outcome, COMFORT_STATUS_TYPE), reference: SPLIT_REFERENCE },
+];
 
 const soleAttempt = state => {
   assert.equal(Object.keys(state.attempts).length, 1);
@@ -381,18 +395,21 @@ test('accepted improvement work and its decision history remain separate from re
 });
 
 test('split layout receipts preserve their narrow observation scope on the same original read attempt', async t => {
-  for (const type of ['split_screen_session_start', 'split_screen_session_status']) {
+  for (const type of ['split_screen_session_start', 'split_screen_session_status', COMFORT_STATUS_TYPE]) {
     for (const initial of ['pending', 'observed', 'completion_unknown']) {
       const { runtime, store, file } = await setup(t);
       const id = type + '-' + initial;
       await seedSplitRead(runtime, id, initial, type);
       const before = await store.read(), original = soleAttempt(before);
-      runtime.receiptObserved(splitReceipt(id, { type, result: { screen: 'PRIVATE_SPLIT_SCREEN' },
-        commandText: 'PRIVATE_SPLIT_COMMAND' }));
+      runtime.receiptObserved(splitReceipt(id, { ...(type === COMFORT_STATUS_TYPE ? COMFORT_STATUS_META : { type }),
+        result: { screen: 'PRIVATE_SPLIT_SCREEN' },
+        commandText: 'PRIVATE_SPLIT_COMMAND', receiptToken: 'PRIVATE_SPLIT_RECEIPT_TOKEN',
+        grantToken: 'PRIVATE_SPLIT_GRANT_TOKEN' }));
       const status = await runtime.status(), after = await store.read(), observation = soleAttempt(after);
       for (const field of ['taskId', 'attemptId', 'operation', 'domain', 'engine', 'context']) {
         assert.deepEqual(observation[field], original[field], field);
       }
+      if (type === COMFORT_STATUS_TYPE) assert.equal(observation.operation, 'life_android_split_comfort.status');
       assert.equal(observation.sequence, original.sequence + 1);
       assert.equal(Object.keys(after.events).length, Object.keys(before.events).length + 1);
       assert.equal(observation.outcome, 'observed');
@@ -400,12 +417,13 @@ test('split layout receipts preserve their narrow observation scope on the same 
       assert.equal(observation.errorCode, undefined);
       assert.deepEqual(status.attemptOutcomes, { observed: 1 });
       assert.equal(status.capabilities.splitReadObservationReconciliation, true);
+      assert.equal(status.capabilities.splitComfortStatusReceiptReconciliation, true);
       assert.equal(status.degraded, false);
       if (initial === 'completion_unknown') {
         assert.equal(soleGap(after).status, 'resolved', 'receipt uncertainty is resolved, not task success');
         assert.equal(soleGap(after).verification, undefined);
       }
-      assert.doesNotMatch(await readFile(file, 'utf8'), /PRIVATE_SPLIT_SCREEN|PRIVATE_SPLIT_COMMAND|private-job|private-command/);
+      assert.doesNotMatch(await readFile(file, 'utf8'), /PRIVATE_SPLIT|private-job|private-command|receiptToken|grantToken/);
     }
   }
 });
@@ -770,62 +788,109 @@ test('INSPECT observations require the own exact read-only scope and reject succ
   assert.equal(soleAttempt(await store.read()).outcome, 'completion_unknown');
 });
 
-test('generic INSPECT hooks cannot manufacture scoped evidence or verified outcomes', async t => {
+test('comfort STATUS requires an own exact layout scope and read-only route without any outcome claim', async t => {
   const { runtime, store, file } = await setup(t);
-  for (const input of [inspectReceipt('not-created'),
-    inspectReceipt('not-created', { verifiedObservationScope: 'PRIVATE_OTHER_SCOPE' }),
-    receipt('not-created', { ...INSPECT_META }),
-    receipt('not-created', { ...INSPECT_META, verifiedOutcome: 'failure_verified' })]) {
+  await seedSplitRead(runtime, 'comfort-metadata', 'completion_unknown', COMFORT_STATUS_TYPE);
+  const baseline = await readFile(file, 'utf8');
+  const invalid = [
+    ...[undefined, null, '', INSPECT_SCOPE, 'PRIVATE_OTHER_SCOPE', [SPLIT_SCOPE]]
+      .map(verifiedObservationScope => ({ verifiedObservationScope })),
+    ...[undefined, null, 'observed', 'success_verified', 'failure_verified'].map(verifiedOutcome => ({ verifiedOutcome })),
+    ...[undefined, null, FOLLOWUP_SCOPE].map(verifiedOutcomeScope => ({ verifiedOutcomeScope })),
+    ...['open_url', 'agent_snapshot', INSPECT_TYPE, FOLLOWUP_TYPE, 'split_comfort_manual_handoff',
+      'split_comfort_keyboard_advice', 'split_comfort_restore_info', 'split_comfort_scroll_once',
+      'split_comfort_zoom', 'split_comfort_zoom_reset'].map(type => ({ type })),
+    ...[undefined, null, 'life_android_computer_inspect', 'life_android_execute_computer_action']
+      .map(mcpToolName => ({ mcpToolName })),
+    ...[undefined, null, 'REVERSIBLE_WRITE', 'MUTATION'].map(secureRequestedEffect => ({ secureRequestedEffect })),
+    ...['queued', 'in_progress', 'error', 'expired'].map(status => ({ status })),
+    { evidenceDigest: undefined }, { evidenceDigest: 'PRIVATE_INVALID_DIGEST' },
+    { commandId: undefined }, { commandId: '' }, { commandId: 'private-command-other-task' },
+  ];
+  for (const change of invalid) runtime.receiptObserved(comfortStatusReceipt('comfort-metadata', change));
+  const unscoped = comfortStatusReceipt('comfort-metadata');
+  delete unscoped.verifiedObservationScope;
+  runtime.receiptObserved(unscoped);
+  for (const [key, value] of [
+    ['verifiedObservationScope', SPLIT_SCOPE], ['mcpToolName', COMFORT_STATUS_META.mcpToolName],
+    ['secureRequestedEffect', 'READ_ONLY'], ['verifiedOutcome', 'success_verified'],
+    ['verifiedOutcomeScope', FOLLOWUP_SCOPE],
+  ]) {
+    const inherited = comfortStatusReceipt('comfort-metadata');
+    delete inherited[key];
+    Object.setPrototypeOf(inherited, { [key]: value });
+    runtime.receiptObserved(inherited);
+  }
+  for (const verifiedOutcome of ['success_verified', 'failure_verified']) {
+    runtime.receiptObserved(receipt('comfort-metadata', { ...COMFORT_STATUS_META, verifiedOutcome }));
+  }
+  assert.equal((await runtime.status()).degraded, false);
+  assert.equal(await readFile(file, 'utf8'), baseline);
+  assert.equal(soleAttempt(await store.read()).outcome, 'completion_unknown');
+});
+
+for (const { label, meta, receipt: readReceipt, seed: seedRead, reference } of boundedReadReceipts) {
+test(`generic ${label} hooks cannot manufacture scoped evidence or verified outcomes`, async t => {
+  const { runtime, store, file } = await setup(t);
+  const invalid = [readReceipt('not-created'),
+    readReceipt('not-created', { verifiedObservationScope: 'PRIVATE_OTHER_SCOPE' }),
+    ...[undefined, null, 'success_verified', 'failure_verified']
+      .map(verifiedOutcome => receipt('not-created', { ...meta, verifiedOutcome }))];
+  for (const verifiedOutcome of [undefined, null, 'success_verified', 'failure_verified']) {
+    invalid.push(Object.assign(Object.create({ verifiedOutcome }),
+      job('not-created', { ...meta, status: 'complete', evidenceDigest: DIGEST })));
+  }
+  for (const input of invalid) {
     runtime.jobCreated(input);
     runtime.jobCompleted(input);
   }
   assert.equal((await runtime.status()).counts.events, 0);
   await assert.rejects(readFile(file), { code: 'ENOENT' });
-  await seedInspect(runtime, 'plain-inspect', 'pending');
-  runtime.jobCompleted(job('plain-inspect', { ...INSPECT_META, status: 'complete', evidenceDigest: DIGEST,
+  await seedRead(runtime, 'plain-read', 'pending');
+  runtime.jobCompleted(job('plain-read', { ...meta, status: 'complete', evidenceDigest: DIGEST,
     result: { ok: true } }));
   await runtime.status();
   const observed = soleAttempt(await store.read());
   assert.equal(observed.outcome, 'observed');
   assert.deepEqual(observed.evidenceRefs, ['sha256:' + DIGEST]);
-  assert.equal(observed.evidenceRefs.includes(INSPECT_REFERENCE), false);
+  assert.equal(observed.evidenceRefs.includes(reference), false);
 });
 
-test('INSPECT receipt recovery requires the original unique attempt, command, runtime and complete context', async t => {
+test(`${label} receipt recovery requires the original unique attempt, command, runtime and complete context`, async t => {
   const { runtime, controller, store, file } = await setup(t);
-  runtime.receiptObserved(inspectReceipt('never-dispatched'));
+  runtime.receiptObserved(readReceipt('never-dispatched'));
   assert.equal((await runtime.status()).counts.attempts, 0);
   await assert.rejects(readFile(file), { code: 'ENOENT' });
-  await seedInspect(runtime, 'bound-inspect');
+  await seedRead(runtime, 'bound-read');
   const baseline = await readFile(file, 'utf8');
-  const readers = [await controller({ runtimeId: 'different-inspect-runtime' })];
+  const readers = [await controller({ runtimeId: 'different-read-runtime' })];
   for (const field of ['platform', 'version', 'environment']) {
-    readers.push(await controller({ context: { ...CONTEXT, [field]: 'different-inspect-' + field } }));
+    readers.push(await controller({ context: { ...CONTEXT, [field]: 'different-read-' + field } }));
   }
   for (const reader of readers) {
-    reader.receiptObserved(inspectReceipt('bound-inspect'));
+    reader.receiptObserved(readReceipt('bound-read'));
     assert.equal((await reader.status()).degraded, false);
   }
-  runtime.receiptObserved(inspectReceipt('bound-inspect', { commandId: 'private-command-other-task' }));
+  runtime.receiptObserved(readReceipt('bound-read', { commandId: 'private-command-other-task' }));
   await runtime.status();
   assert.equal(await readFile(file, 'utf8'), baseline);
   await store.transact(state => {
     const original = soleAttempt(state);
-    return ingest(state, { ...original, eventId: 'synthetic-inspect-ambiguous', taskId: 'synthetic-other-task' }).state;
+    return ingest(state, { ...original, eventId: 'synthetic-read-ambiguous', taskId: 'synthetic-other-task' }).state;
   });
   const ambiguous = await readFile(file, 'utf8');
-  runtime.receiptObserved(inspectReceipt('bound-inspect'));
+  runtime.receiptObserved(readReceipt('bound-read'));
   await runtime.status();
   assert.equal(await readFile(file, 'utf8'), ambiguous);
 });
 
-test('INSPECT receipts preserve terminal outcomes and do not adopt foreign or untrusted attempts', async t => {
+test(`${label} receipts preserve terminal outcomes and do not adopt foreign or untrusted attempts`, async t => {
   for (const change of [
     { outcome: 'blocked' }, { outcome: 'cancelled' }, { outcome: 'success_verified' }, { outcome: 'failure_verified' },
-    { engine: 'other-inspect-engine' }, { source: 'user_reported' },
+    { engine: 'other-read-engine' }, { source: 'user_reported' },
   ]) {
     const { runtime, store, file } = await setup(t);
-    await seedInspect(runtime, 'protected-inspect', 'pending');
+    await seedRead(runtime, 'protected-read', 'pending');
     await store.transact(state => {
       const original = soleAttempt(state);
       if (change.engine || change.source) {
@@ -834,44 +899,44 @@ test('INSPECT receipts preserve terminal outcomes and do not adopt foreign or un
         state.revision++;
         return state;
       }
-      return ingest(state, { ...original, eventId: 'synthetic-inspect-terminal-' + change.outcome,
+      return ingest(state, { ...original, eventId: 'synthetic-read-terminal-' + change.outcome,
         sequence: original.sequence + 1, ...change, evidenceRefs: ['sha256:' + OTHER_DIGEST] }).state;
     });
     const baseline = await readFile(file, 'utf8');
-    runtime.receiptObserved(inspectReceipt('protected-inspect'));
+    runtime.receiptObserved(readReceipt('protected-read'));
     assert.equal((await runtime.status()).degraded, false);
     assert.equal(await readFile(file, 'utf8'), baseline, JSON.stringify(change));
   }
 });
 
-test('INSPECT receipt observations deduplicate across readers and resist later generic or conflicting reports', async t => {
+test(`${label} receipt observations deduplicate across readers and resist later generic or conflicting reports`, async t => {
   const { runtime, controller, store, file } = await setup(t);
-  await seedInspect(runtime, 'same-inspect');
+  await seedRead(runtime, 'same-read');
   const before = await store.read(), other = await controller();
-  runtime.receiptObserved(inspectReceipt('same-inspect'));
-  other.receiptObserved(inspectReceipt('same-inspect'));
+  runtime.receiptObserved(readReceipt('same-read'));
+  other.receiptObserved(readReceipt('same-read'));
   await Promise.all([runtime.status(), other.status()]);
   const after = await store.read(), baseline = await readFile(file, 'utf8');
   assert.equal(Object.keys(after.events).length, Object.keys(before.events).length + 1);
   assert.equal(soleAttempt(after).sequence, soleAttempt(before).sequence + 1);
-  for (let index = 0; index < 3; index++) runtime.receiptObserved(inspectReceipt('same-inspect'));
-  runtime.receiptObserved(inspectReceipt('same-inspect', { evidenceDigest: OTHER_DIGEST }));
-  runtime.jobCreated(job('same-inspect', INSPECT_META));
-  runtime.jobCompleted(job('same-inspect', { ...INSPECT_META, status: 'complete', evidenceDigest: OTHER_DIGEST }));
-  runtime.jobCompleted(job('same-inspect', { ...INSPECT_META, status: 'expired', code: 'JOB_EXPIRED' }));
+  for (let index = 0; index < 3; index++) runtime.receiptObserved(readReceipt('same-read'));
+  runtime.receiptObserved(readReceipt('same-read', { evidenceDigest: OTHER_DIGEST }));
+  runtime.jobCreated(job('same-read', meta));
+  runtime.jobCompleted(job('same-read', { ...meta, status: 'complete', evidenceDigest: OTHER_DIGEST }));
+  runtime.jobCompleted(job('same-read', { ...meta, status: 'expired', code: 'JOB_EXPIRED' }));
   for (const verifiedOutcome of ['success_verified', 'failure_verified']) {
-    runtime.jobCompleted(receipt('same-inspect', { ...INSPECT_META, verifiedOutcome }));
-    runtime.receiptObserved(receipt('same-inspect', { ...INSPECT_META, verifiedOutcome }));
+    runtime.jobCompleted(receipt('same-read', { ...meta, verifiedOutcome }));
+    runtime.receiptObserved(receipt('same-read', { ...meta, verifiedOutcome }));
   }
   assert.equal((await runtime.status()).degraded, false);
   assert.equal(await readFile(file, 'utf8'), baseline);
 });
 
-test('repeated INSPECT receipts never count as verified task successes or candidate evidence', async t => {
+test(`repeated ${label} receipts never count as verified task successes or candidate evidence`, async t => {
   const { runtime, store } = await setup(t);
-  for (const id of ['inspect-one', 'inspect-two', 'inspect-three', 'inspect-unknown']) await seedInspect(runtime, id);
+  for (const id of ['read-one', 'read-two', 'read-three', 'read-unknown']) await seedRead(runtime, id);
   const proposalId = soleGap(await store.read()).id;
-  for (const id of ['inspect-one', 'inspect-two', 'inspect-three']) runtime.receiptObserved(inspectReceipt(id));
+  for (const id of ['read-one', 'read-two', 'read-three']) runtime.receiptObserved(readReceipt(id));
   const status = await runtime.status(), state = await store.read();
   assert.deepEqual(status.attemptOutcomes, { completion_unknown: 1, observed: 3 });
   assert.equal(Object.values(state.proposals).some(item => item.kind === 'workflow_automation'), false);
@@ -881,9 +946,10 @@ test('repeated INSPECT receipts never count as verified task successes or candid
   assert.equal(prepared.packet.evidenceReadiness.currentVerifiedOutcomeCount, 0);
   assert.equal(prepared.packet.evidenceReadiness.currentEligibleCount, 0);
   assert.equal(prepared.packet.attempts.length, 1);
-  runtime.receiptObserved(inspectReceipt('inspect-unknown'));
+  runtime.receiptObserved(readReceipt('read-unknown'));
   assert.deepEqual((await runtime.status()).attemptOutcomes, { observed: 4 });
   const completed = await store.read();
   assert.equal(soleGap(completed).status, 'resolved');
   assert.equal(soleGap(completed).verification, undefined);
 });
+}

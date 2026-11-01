@@ -27,7 +27,7 @@ const TIMEOUT_NEW=[
   "    if(!completed||completed.status!=='complete'){",
   "      const pending=effect==='READ_ONLY'&&",
   "        secureToolName==='life_android_capture_work_window'&&",
-  "        ['split_screen_session_start','split_screen_session_status'].includes(type)&&",
+  "        ['split_screen_session_start','split_screen_session_status','split_comfort_status'].includes(type)&&",
   "        ['queued','in_progress'].includes(completed?.status);",
   "      const receipt=pending?jhSplitReadReceipts56.issue({",
   "        job:j,deviceId:device,sessionId:auth.sessionId,",
@@ -35,6 +35,9 @@ const TIMEOUT_NEW=[
   "      }):null;",
   "      return {ok:false,code:completed?.error||'split_screen_device_result_unconfirmed',",
   "        ...(receipt?{...receipt,jobStatus:completed.status}:{}),",
+  "        ...(receipt&&type==='split_comfort_status'?{followUp:{",
+  "          tool:'life_android_split_screen_assistant',readOnly:true,",
+  "          arguments:{mode:'READBACK_PENDING',receipt_ref:receipt.receiptRef,command_id:commandId}}}:{}),",
   "        automaticReplay:false};",
   "    }"
 ].join('\n');

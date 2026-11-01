@@ -92,6 +92,10 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 기존의 검증된 결과·차단·취소는 보존합니다. 같은 제한 관찰의 반복은 새 사건이 아니며 이후 일반 대기·미확정·관찰 통지가 이 근거를 지우지 않습니다. 실제 검증된 업무 결과가 생겼을 때만 기존 계약에 따라 더 강한 결과로 진행합니다. 기존 엔진이 미확정 상태가 없어진 `open` verification_gap을 `resolved`로 정리해도 **결과 수신의 불확실성이 해소된 것**이며 업무 성공·규칙 활성화·개선 효과 검증을 뜻하지 않습니다.
 
+`capabilities.splitComfortStatusReceiptReconciliation: true`인 호스트는 늦게 도착하는 `life_android_split_comfort`의 `STATUS`도 이 경로에 연결합니다. 기존 28초 대기 뒤 원래 `split_comfort_status` job이 아직 queued/in_progress인 경우에만 기존 `srr_` 영수증을 발급합니다. 해당 응답의 `followUp`에는 원래 영수증과 명령을 사용하는 정확한 읽기 전용 호출을 제공합니다. 반환된 `receiptRef`와 같은 `command_id`를 사용해 `life_android_split_screen_assistant`의 `READBACK_PENDING` (`receipt_ref`) 또는 기존 STATUS 영수증 별칭으로 조회합니다. 조회는 기기 작업을 만들지 않으며 원래 `life_android_split_comfort.status` 시도의 식별자와 범위를 유지합니다.
+
+추가된 STATUS 유형은 발급·조회 모두 원래 job의 자체 `mcpToolName: life_android_capture_work_window`와 `secureRequestedEffect: READ_ONLY`를 요구합니다. 원래 완료 결과에 유효한 split proof가 있을 때만 같은 `SPLIT_READ_LAYOUT_ONLY` 관찰을 기록합니다. 별도 fallback `agent_snapshot`이나 `scopeVerified: true`는 원래 결과의 증거가 아니며 대신 사용하지 않습니다. 다른 comfort 모드·쓰기 동작은 포함하지 않고 영수증 수명·권한·서명 검사를 유지합니다. 이 서버 경로의 지원은 실제 Android STATUS 결과에 해당 증거가 포함된다는 실기기 검증을 대신하지 않습니다.
+
 ### FOLLOW_UP 클릭 완료 근거 연결
 
 `capabilities.splitFollowupClickReceiptReconciliation: true`는 학습 런타임이 FOLLOW_UP 클릭의 제한된 완료 근거를 받을 수 있다는 표시입니다. 기존 FOLLOW_UP readback 패치가 함께 적용된 호스트에서는 `READBACK_PENDING`의 `sfr_` 영수증 조회가 검증된 결과를 원래 학습 시도에 연결합니다. 새 조회 도구·역조회 저장소·영수증 발급·클릭 재실행을 추가하지 않습니다.

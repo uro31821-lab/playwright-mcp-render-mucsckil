@@ -33,7 +33,7 @@ function fixture(t) {
 
 function runPhase({ dir, root, data }, phase) {
   return spawnSync(process.execPath, [path.join(root, 'operational-learning/http-runtime.fixture.mjs'), data, phase], {
-    cwd: root, encoding: 'utf8', timeout: 35000,
+    cwd: root, encoding: 'utf8', timeout: phase === 'comfort' ? 45000 : 35000,
     env: { PATH: process.env.PATH, CI: 'true', NODE_ENV: 'test', JH_OWNER_DEFER_LISTEN: '1',
       LIFE_HUB_TOKEN: 'SYNTHETIC_LEARNING_HTTP_TOKEN_20261031',
       JH_OAUTH_STATE_FILE: path.join(dir, 'oauth.json') },
@@ -63,6 +63,7 @@ test('real owner bootstrap records authenticated MCP calls across clients and pr
     assert.equal(result.splitReadObservationReconciliationCapability, true);
     assert.equal(result.splitFollowupClickReceiptReconciliationCapability, true);
     assert.equal(result.computerInspectReceiptReconciliationCapability, true);
+    assert.equal(result.splitComfortStatusReceiptReconciliationCapability, true);
     assert.equal(result.proposalDecisionCatalog, true);
     assert.equal(result.proposalDecisions, 2);
     assert.equal(result.decisionRetryNoop, true);
@@ -88,4 +89,22 @@ test('generated runtime reconciles a real cir_ HTTP readback from a synthetic si
   assert.equal(result.realDevices, 0);
   assert.equal(result.externalRequests, 0);
   assert.equal(result.additionalJobs, 0);
+});
+
+test('generated runtime reconciles a real srr_ HTTP readback from synthetic signed comfort STATUS only', { timeout: 60000 }, t => {
+  const child = runPhase(fixture(t), 'comfort');
+  assert.equal(child.status, 0, (child.error?.message ?? '') + '\n' + child.stderr + '\n' + child.stdout);
+  const line = child.stdout.split('\n').find(item => item.startsWith('LEARNING_COMFORT_HTTP_RESULT '));
+  assert.ok(line, child.stdout);
+  const result = JSON.parse(line.slice('LEARNING_COMFORT_HTTP_RESULT '.length));
+  for (const field of ['generatedRuntime', 'syntheticEnrollmentPort', 'originalReceiptIssued',
+    'originalReadbackReconciled', 'observedOnly', 'unauthorizedRejected', 'badCompletionMacRejected',
+    'changedBindingRejected', 'pendingUnchanged', 'repeatNoop', 'originalResultPreserved', 'sensitiveEvidenceRedacted',
+    'splitComfortStatusReceiptReconciliationCapability'])
+    assert.equal(result[field], true, field);
+  assert.ok(result.originalWaitElapsedMs >= 28000);
+  assert.equal(result.realDevices, 0);
+  assert.equal(result.externalRequests, 0);
+  assert.equal(result.additionalJobs, 0);
+  assert.equal(result.fallbackSnapshotCreated, false);
 });

@@ -19,7 +19,8 @@ const RECEIPT_MODES = new Set(['STATUS', 'RECEIPT_STATUS', 'READBACK_PENDING']);
 const VERIFIED = new Set(['success_verified', 'failure_verified']);
 const SPLIT_READ_SCOPE = 'SPLIT_READ_LAYOUT_ONLY';
 const SPLIT_READ_REFERENCE = 'source:jh-split-read-layout-only';
-const SPLIT_READ_TYPES = new Set(['split_screen_session_start', 'split_screen_session_status']);
+const SPLIT_COMFORT_STATUS_TYPE = 'split_comfort_status';
+const SPLIT_READ_TYPES = new Set(['split_screen_session_start', 'split_screen_session_status', SPLIT_COMFORT_STATUS_TYPE]);
 const SPLIT_FOLLOWUP_TYPE = 'split_screen_session_followup';
 const SPLIT_FOLLOWUP_SCOPE = 'SPLIT_FOLLOWUP_CLICK_ONLY';
 const SPLIT_FOLLOWUP_REFERENCE = 'source:jh-split-followup-click-only';
@@ -250,6 +251,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       verifiedObservationScope: job.verifiedObservationScope,
       inspectReadOnly: Object.hasOwn(job, 'mcpToolName') && job.mcpToolName === 'life_android_computer_inspect' &&
         Object.hasOwn(job, 'secureRequestedEffect') && job.secureRequestedEffect === 'READ_ONLY',
+      comfortStatusReadOnly: Object.hasOwn(job, 'mcpToolName') && job.mcpToolName === 'life_android_capture_work_window' &&
+        Object.hasOwn(job, 'secureRequestedEffect') && job.secureRequestedEffect === 'READ_ONLY',
       outcomeScopeSupplied: 'verifiedOutcomeScope' in job,
       verifiedOutcomeScope: Object.hasOwn(job, 'verifiedOutcomeScope') ? job.verifiedOutcomeScope : null,
       verifiedOutcomeSupplied: 'verifiedOutcome' in job,
@@ -273,7 +276,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     try {
       const input = snapshotJob(job);
       if (input.observationScopeSupplied || input.outcomeScopeSupplied ||
-          ([SPLIT_FOLLOWUP_TYPE, COMPUTER_INSPECT_TYPE].includes(input.type) && input.verifiedOutcomeSupplied)) return;
+          ([SPLIT_FOLLOWUP_TYPE, COMPUTER_INSPECT_TYPE, SPLIT_COMFORT_STATUS_TYPE].includes(input.type) && input.verifiedOutcomeSupplied)) return;
       const caller = calls.getStore();
       if (caller) { caller.hasJobs = true; caller.jobAttempts.add(input.attemptId); }
       const scope = bindings.get(input.attemptId) ?? caller?.scope ?? scopeFor(input.operation, input.commandId);
@@ -287,7 +290,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     try {
       const input = snapshotJob(job);
       if (input.observationScopeSupplied || input.outcomeScopeSupplied ||
-          ([SPLIT_FOLLOWUP_TYPE, COMPUTER_INSPECT_TYPE].includes(input.type) && input.verifiedOutcomeSupplied)) return;
+          ([SPLIT_FOLLOWUP_TYPE, COMPUTER_INSPECT_TYPE, SPLIT_COMFORT_STATUS_TYPE].includes(input.type) && input.verifiedOutcomeSupplied)) return;
       const scope = bindings.get(input.attemptId) ?? scopeFor(input.operation, input.commandId);
       queueWork(() => record(input.attemptId, scope, jobObservation(input, 'completed')));
     } catch (error) { failed(error); }
@@ -295,6 +298,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
 
   /** Trusted host readback of an existing completed job; not a public write tool.
    * Layout-only read receipts are observations, never task success or failure.
+   * The host validates the original comfort STATUS result's direct split proof;
+   * a separate fallback snapshot cannot supply this observation.
    * An INSPECT receipt confirms only receipt of that original read-only result,
    * including a device-reported failure; its body is not an outcome assertion.
    * Follow-up success confirms only the approved click and receipt-time right
@@ -316,7 +321,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       } else if (input.observationScopeSupplied) {
         if (input.verifiedOutcomeSupplied) return;
         let reference;
-        if (input.verifiedObservationScope === SPLIT_READ_SCOPE && SPLIT_READ_TYPES.has(input.type)) {
+        if (input.verifiedObservationScope === SPLIT_READ_SCOPE && SPLIT_READ_TYPES.has(input.type) &&
+            (input.type !== SPLIT_COMFORT_STATUS_TYPE || (input.observationScopeOwned && input.comfortStatusReadOnly))) {
           reference = SPLIT_READ_REFERENCE;
         } else if (input.verifiedObservationScope === COMPUTER_INSPECT_SCOPE &&
             input.observationScopeOwned && input.type === COMPUTER_INSPECT_TYPE && input.inspectReadOnly) {
@@ -324,7 +330,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
         } else return;
         observation = { outcome: 'observed', evidenceRefs: ['sha256:' + input.evidenceDigest, reference] };
       } else {
-        if (input.type === COMPUTER_INSPECT_TYPE || !input.verifiedOutcome) return;
+        if ([COMPUTER_INSPECT_TYPE, SPLIT_COMFORT_STATUS_TYPE].includes(input.type) || !input.verifiedOutcome) return;
         observation = jobObservation(input, 'completed');
       }
       queueWork(() => record(input.attemptId, null, observation,
@@ -606,7 +612,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
         temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true,
         scopedProposals: true, proposalDecisions: true, proposalProgress: true,
         existingReceiptReconciliation: true, reviewReadiness: true, splitReadObservationReconciliation: true,
-        splitFollowupClickReceiptReconciliation: true, computerInspectReceiptReconciliation: true },
+        splitFollowupClickReceiptReconciliation: true, computerInspectReceiptReconciliation: true,
+        splitComfortStatusReceiptReconciliation: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,
