@@ -1,0 +1,57 @@
+name: JH168 Stage38 explicit BACK policy scoped review (NO RELEASE)
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/deployment/durable-native-job-policy.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage38-back-policy.test.mjs'
+      - '.github/workflows/jh168-stage38-back-policy-review.yml'
+permissions:
+  contents: read
+jobs:
+  exact-back-policy-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Lock original Secure56 server, HMAC, OAuth, SQLite and all Android source
+        run: |
+          git diff --exit-code origin/jh-fix3-secure-server HEAD -- jh-server/server.mjs jh-server/owner-setup/deployment/durable-native-host.mjs jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs jh-server/owner-setup/operational-learning jh-server/owner-setup/android-direct
+          echo ORIGINAL_SIGNER_OAUTH_ANDROID_DB_UNCHANGED=YES
+      - name: Verify exact scoped policy source change only (other policy branches identical)
+        run: |
+          node --input-type=module <<'EOF'
+          import {readFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          import assert from 'node:assert/strict';
+          const path='jh-server/owner-setup/deployment/durable-native-job-policy.mjs';
+          let old=execFileSync('git',['show','origin/jh-fix3-secure-server:'+path],{encoding:'utf8'});
+          let now=readFileSync(path,'utf8');
+          const edits=[
+           [" // Other FOLLOW_UP actions (AUTO, SET_TEXT, BACK, etc.) stay denied.",
+            " // Only explicit CLICK or BACK on a fresh, selected RIGHT target item may\n // pass; AUTO, SET_TEXT and all other actions remain denied. Both have an\n // immutable identity and require the original signed Secure56 job fence."],
+           ["     payload.action==='CLICK' &&","     (payload.action==='CLICK'||payload.action==='BACK') &&"],
+           ["     action:'CLICK',targetItemRef:payload.targetItemRef,commandDigest",
+            "     action:payload.action,targetItemRef:payload.targetItemRef,commandDigest"]
+          ];
+          for(const [a,b] of edits){assert.equal(old.split(a).length,2);old=old.replace(a,b);}
+          assert.equal(now,old,'Anything beyond 3 source-reviewed changes is forbidden');
+          console.log('STAGE38_ONLY_EXACT_BACK_POLICY_DIFF=YES');
+          EOF
+      - name: No-bypass original durable Computer Use and exact split BACK tests
+        run: |
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage38-back-policy.test.mjs
+          node --test --test-reporter=spec jh-server/verification/durable-computer-policy.test.mjs
+      - name: Release boundaries
+        run: |
+          echo MAIN_BRANCH_MERGE=0
+          echo RENDER_DEPLOY=0
+          echo OWNER_SQLITE_MIGRATION=0
+          echo PHONE_ACTIONS=0
+          echo OLD_PROTECTED_POLICY_WORKFLOWS_NEED_OWNER_RELEASE_REVIEW=YES
