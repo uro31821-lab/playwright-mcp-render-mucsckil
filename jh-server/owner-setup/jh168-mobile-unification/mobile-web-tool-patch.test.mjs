@@ -96,7 +96,8 @@ test('temporary exact scoped mobile mode enables 9 PHONE aliases without cloud f
  const selected=result.slice(a,b);
  assert.equal((selected.match(/registerOAuthTool\("life_web_/g)||[]).length,9);
  assert.doesNotMatch(selected,/browserTool\(/);
- assert.match(selected,/MOBILE_REQUEST_ID_REQUIRED/);
+ assert.match(result,/MOBILE_REQUEST_ID_REQUIRED/);
+ assert.match(selected,/request_id:z\.string\(\)/);
 });
 test('temporary explicit original-owner gate uses no new secure grant or catalog authority',()=>{
  const env={JH_MOBILE_WEB_13_MODE:JH168_MOBILE_13_VERIFY_MODE56,

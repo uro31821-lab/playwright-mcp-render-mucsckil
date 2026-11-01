@@ -22,6 +22,7 @@ const flags={
  RENDER_SERVICE_ID:'srv-db0fjl2d0e5s73be114g'
 };
 const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+ JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1',
  JH_STAGE26_SIGNED_COMPLETION_ACK:'EXPLICIT_IDENTICAL_SIGNED_RESULT_V1'};
 let stage25Runtime;
 test('published npm start selector in original Secure56 chooses explicit FOLLOWUP operator',()=>{
