@@ -15,6 +15,7 @@ import { proposalContext } from './proposal-context.mjs';
 import { createHostInstructionCandidate } from './instructions.mjs';
 import { lessonView } from './lesson-view.mjs';
 import { prepareRuleUse } from './rule-usage.mjs';
+import { usageReview } from './rule-use-review.mjs';
 
 function evaluatorFor(suite) {
   if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
@@ -23,14 +24,26 @@ function evaluatorFor(suite) {
 }
 
 function contextRequest(input) {
-  const fail = () => { throw new TypeError('context requires exactly one of query or queries, and optional options and proposals'); };
+  const fail = () => { throw new TypeError('context requires exactly one of query or queries, and optional options, proposals and usageReview'); };
   if (!input || typeof input !== 'object' || types.isProxy(input) || Array.isArray(input) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(input))) fail();
   const descriptors = Object.getOwnPropertyDescriptors(input);
-  if (Reflect.ownKeys(input).some(key => typeof key !== 'string' || !['query', 'queries', 'options', 'proposals'].includes(key)) ||
+  if (Reflect.ownKeys(input).some(key => typeof key !== 'string' || !['query', 'queries', 'options', 'proposals', 'usageReview'].includes(key)) ||
       Object.values(descriptors).some(item => !Object.hasOwn(item, 'value') || !item.enumerable) ||
       Object.hasOwn(input, 'query') === Object.hasOwn(input, 'queries')) fail();
   if (Object.hasOwn(input, 'proposals') && input.proposals === undefined) fail();
+  if (Object.hasOwn(input, 'usageReview') && input.usageReview === undefined) fail();
+}
+
+function usageReviewRequest(input) {
+  const fail = () => { throw new TypeError('usage-review requires exactly one of query or queries, and optional options'); };
+  if (!input || typeof input !== 'object' || types.isProxy(input) || Array.isArray(input) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(input))) fail();
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  if (Reflect.ownKeys(input).some(key => typeof key !== 'string' || !['query', 'queries', 'options'].includes(key)) ||
+      Object.values(descriptors).some(item => !Object.hasOwn(item, 'value') || !item.enumerable) ||
+      Object.hasOwn(input, 'query') === Object.hasOwn(input, 'queries')) fail();
+  if (Object.hasOwn(input, 'options') && input.options === undefined) fail();
 }
 
 function instructionRequest(input) {
@@ -73,13 +86,16 @@ export async function execute(args, input) {
       contextRequest(input);
       // All scopes share one snapshot and one authority/conflict/budget decision.
       const state = await store.read();
+      const queries = Object.hasOwn(input, 'queries') ? input.queries : [input.query];
+      // Validate opted-in usage scopes before invoking the older recall helpers.
+      const usage = Object.hasOwn(input, 'usageReview') ? usageReview(state, queries, input.usageReview) : undefined;
       const advice = Object.hasOwn(input, 'queries')
         ? recallContexts(state, input.queries, input.options)
         : recallContext(state, input.query, input.options);
-      if (!Object.hasOwn(input, 'proposals')) return advice;
-      // Advice and recoverable open proposals use the same owner snapshot and scopes.
-      const queries = Object.hasOwn(input, 'queries') ? input.queries : [input.query];
-      return { ...advice, proposalContext: proposalContext(state, queries, input.proposals) };
+      // All opt-in views use the exact same owner snapshot and requested scopes.
+      return { ...advice,
+        ...(Object.hasOwn(input, 'proposals') ? { proposalContext: proposalContext(state, queries, input.proposals) } : {}),
+        ...(Object.hasOwn(input, 'usageReview') ? { usageReview: usage } : {}) };
     }
     case 'review': return prepareReview(await store.read(), input);
     case 'instruction': {
@@ -101,6 +117,13 @@ export async function execute(args, input) {
     case 'usage-prepare': {
       if (expectedRevision !== undefined) throw new TypeError('usage-prepare is read-only and does not accept a revision selector');
       return prepareRuleUse(await store.read(), input, { now: new Date().toISOString() });
+    }
+    case 'usage-review': {
+      if (expectedRevision !== undefined) throw new TypeError('usage-review is read-only and does not accept a revision selector');
+      usageReviewRequest(input);
+      const state = await store.read();
+      const queries = Object.hasOwn(input, 'queries') ? input.queries : [input.query];
+      return usageReview(state, queries, input.options);
     }
     case 'progress': return proposalProgressView(await store.read(), input);
     case 'task-view': return taskView(await store.read(), input);
@@ -167,7 +190,7 @@ export async function execute(args, input) {
       const result = await store.transact(state => setProposalStatus(state, input.id, input.status, input.verification), transactionOptions);
       return { revision: result.revision, proposal: result.proposals[input.id] };
     }
-    default: throw new TypeError('Use status, ingest, observe, task-view, recall, context, review, instruction, decision-view, lesson-view, usage-prepare, progress, decide, curate, curate-register, propose, candidate, check, or proposal-status');
+    default: throw new TypeError('Use status, ingest, observe, task-view, recall, context, review, instruction, decision-view, lesson-view, usage-prepare, usage-review, progress, decide, curate, curate-register, propose, candidate, check, or proposal-status');
   }
 }
 

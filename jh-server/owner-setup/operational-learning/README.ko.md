@@ -412,6 +412,48 @@ CLI는 기억을 한 번만 읽고 호스트 현재 시각을 사용합니다. `
 
 모든 사용 요약은 `sourceAuthentication:"host_attestation"`이고 `applicationVerified,preActionTimingVerified,liveImprovementVerified`는 false입니다. 사용 확인과 결과의 연결은 독립 실행 증명·성공의 인과 효과·절감률을 증명하지 않습니다. labels의 reviewed/ruleRemediationTried/holdout, 규칙 활성·제안 상태·추가 학습 기준도 자동으로 바꾸지 않습니다.
 
+## 규칙 사용 결과의 범위별 검토
+
+호스트 CLI `usage-review`는 저장된 규칙 사용과 **같은 시도의 현재 유효 결과**를 업무 범위별로 읽습니다. 순수 API는 `usageReview(state, queries, options?)`이며 상태·사건·제안·규칙을 바꾸지 않습니다. 기존 `observe → propose`가 만드는 개선 제안을 재생성하지 않고, 현재 결과의 문제 유형이 일치하는 기존 검토 경로를 연결합니다.
+
+입력은 `{query,options?}` 또는 `{queries,options?}` 중 하나입니다. query는 실제 `{domain,operation,engine,context}`이며 queries는 같은 엔진·전체 context의 고유 exact scope 1~3개입니다. `--revision`, 임의 now·thresholds·lessonId 필터는 받지 않습니다. `context`에 선택적인 `usageReview:{}`를 넣으면 교훈·선택적인 proposalContext·사용 검토를 **한 번 읽은 동일 스냅샷**에서 반환합니다. proposals와 usageReview는 독립적으로 선택할 수 있고, 둘 다 생략한 기존 context 출력과 교훈 지문은 유지합니다.
+
+```js
+// 값은 실제 binding과 현재 업무 범위에서 가져옵니다.
+{
+  queries: [globalRecall, actualScope],
+  proposals: {},
+  usageReview: {}
+}
+```
+
+조회 그룹은 `lessonId + ruleVersion + inputFingerprint + definitionFingerprint + 실제 사용 scope`입니다. 공통 규칙도 사용한 업무가 다르면 분리하고, 같은 ID라도 정의·검사 입력·버전이 달라지면 합산하지 않습니다. 현재 lesson이 변경·격리·만료·삭제됐어도 과거의 구조가 유효한 사용 영수증은 남깁니다. 현재 규칙을 재활성화하거나 과거 사용을 현재 정의로 바꾸어 해석하지 않습니다.
+
+전체 원본 events를 검증·집계한 뒤 표시를 제한합니다. 시도당 8개·작업당 32개로 제한된 task-view 출력을 통계 원본으로 쓰지 않습니다. 사건 map key, 전역 useRef 중복, 선택 지문, 시도 projection과 저장 사건의 일치, 같은 시도의 범위를 검사합니다. 손상된 기록을 사용 0건으로 바꾸지 않고 조회 오류로 반환합니다. 접근자·Proxy·실행 가능한 입력은 실행 없이 거절합니다.
+
+그룹의 counts에는 recordedUses·distinctAttempts·independentTasks와 다음 네 가지 **배타적인 독립 작업 수**가 있습니다. 한 task의 여러 attempt·여러 사용·반복 결과 조회는 독립 작업을 늘리지 않습니다.
+
+| 작업 분류 | 의미 |
+| --- | --- |
+| successOnlyTasks | 연결된 모든 사용의 현재 결과가 사용 이후 검증된 성공 |
+| failureOnlyTasks | 연결된 모든 사용의 현재 결과가 사용 이후 검증된 실패 |
+| unconfirmedOnlyTasks | 어느 사용에도 사용 이후의 검증된 결과가 연결되지 않음 |
+| mixedTasks | 같은 task에서 성공·실패·미확인 종류가 섞임 |
+
+네 값의 합은 그룹의 independentTasks와 같습니다. afterUse는 현재 결과 sequence가 원래 사용 사건 sequence 이상이고 결과 시각이 appliedAt 이상일 때만 참입니다. 이전 verified projection이 보존됐다고 그 뒤 새로 기록된 사용까지 성공으로 세지 않습니다. blocked·cancelled·pending·observed·completion_unknown·correction은 검증 실패로 승격하지 않습니다. 혼합 결과도 자동으로 실패나 성공 하나로 바꾸지 않습니다.
+
+`schema:"jh.learning-rule-use-review.v1"`의 groups에는 identity·counts·samples·relatedProposals·reasonCodes·nextSteps·noticeFingerprint가 있습니다. samples는 독립 task별 사례이며 원래 recordedEventId, 현재 result.eventId, 사용과 결과의 시간 관계·검증 여부를 구분합니다. 최상위 totals는 모든 요청 범위의 matchingGroups·recordedUses·distinctAttempts·independentTasks입니다. totals의 시도·작업 수는 여러 그룹에 걸친 실제 고유 개수이므로 그룹별 수를 단순 합산한 값과 다를 수 있습니다.
+
+검증 실패만 있는 독립 task가 2개 이상이면 반복 실패 검토를, 미확인 task가 있으면 기존 결과 근거 확인을, 혼합 task가 있으면 상반된 기록 검토를 안내합니다. 성공 한 task만 있으면 반복 근거 부족으로 표시합니다. 성공률·개선율·절감률이나 자동 추가 학습 필요성을 계산하지 않습니다.
+
+relatedProposals에는 **현재 open/accepted이고 실제 scope가 같으며 제안의 kind·pattern에 사용 이후 현재 결과가 일치하는** 제안만 연결합니다. 같은 scope의 다른 errorCode, 과거에만 맞았던 제안, 기각·종료된 제안, 다른 operation의 학습 제안은 연결하지 않습니다. 일반적인 불완전 과거 제안도 기존 proposalContext와 같이 연결에서 제외하며, 유효한 사용 이력 집계는 유지합니다. 실행 가능한 값·접근자·Proxy는 제안 안에 있어도 전체 읽기를 거절합니다. relationship은 current_result_pattern이며 규칙이 실패 원인이라는 뜻이 아닙니다. 필요한 실제 proposalId로 기존 review를 새로 읽고 그 packet의 현재 사건·지문을 사용합니다. archived 사용 사건 ID나 noticeFingerprint를 후보 검토 입력으로 대체하지 않습니다. 조회 결과만으로 제안을 채택·재개·검증 완료로 바꾸지 않습니다.
+
+선택 options는 limit(기본 3, 최대 10), maxChars(기본 12000, 최대 32768), seenNoticeFingerprints(고유 SHA-256 최대 64개)입니다. 문자 예산은 반환할 그룹 전체 JSON의 Unicode 코드 포인트 수이며 그룹을 중간에서 자르지 않고 통째로 생략합니다. 독립 task 사례 최대 4개, 사례당 사용 영수증 1개, 각 사용/결과의 근거 최대 8개, 관련 제안 최대 4개를 표시합니다. 각각 total/omitted 또는 근거 생략 수를 확인합니다. 한 사례의 bucket은 생략 전 전체 사용에서 계산하므로 표시된 영수증 하나만으로 혼합 결과를 다시 판정하지 않습니다. 필요한 경우 반환된 실제 taskId로 기존 task-view를 읽습니다. `omitted`는 예산·개수 제한으로 생략한 그룹, `suppressed`는 실제 안내한 같은 지문으로 제외한 그룹입니다. 집계 총수는 표시 한도·seen에 영향을 받지 않습니다.
+
+noticeFingerprint는 생략 전 전체 사용·현재 결과·일치하는 제안의 상태까지 반영합니다. 무관한 revision 증가로 새 안내를 만들지 않고, 숨겨진 근거가 바뀌면 지문도 바뀝니다. seen은 현재 대화에서 실제로 안내한 내용만 담는 힌트이며 영속적인 전달 완료·승인 이력이 아닙니다. 유효한 같은 조회는 재사용하고 새 관찰·제안 상태·업무 범위가 바뀌었을 때만 필요한 조회를 갱신합니다.
+
+반환은 readOnly·advisoryOnly가 true, externalEffects·replayAllowed·applicationVerified·preActionTimingVerified·liveImprovementVerified·causalEffectVerified가 false이며 sourceAuthentication은 host_attestation입니다. 규칙 사용에 관한 호스트 확인과 실제 결과의 연결을 보여 주는 기능입니다. 사용의 독립 인증이나 인과 효과 증명으로 올려 설명하지 않습니다. 서버 MCP 입력·자동 배경 수집·기억 동기화·모델 가중치 학습을 추가하지 않습니다.
+
 ## CLI 사용
 
 독립 CLI·엔진은 Node.js 22의 표준 라이브러리만 사용합니다. 아래 명령은 개발자·플러그인 연결용이며, 자동 서버 hook을 사용하는 일반 작업마다 입력할 필요는 없습니다. 전체 HTTP 통합시험에는 뒤에서 설명하는 기존 서버 의존성이 필요합니다.
@@ -429,11 +471,12 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `observe` | `{taskId,attemptId,observationRef,scope,observation,expectedRevision}`: 동일 관찰 멱등 기록, `--revision`과 함께 사용 금지 |
 | `ingest` | 이벤트 객체 또는 1~100개 이벤트 배열 |
 | `recall` | `{domain, operation, engine, context}` |
-| `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 두 형식 모두 선택 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}` 지원 |
+| `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 두 형식 모두 선택 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}`와 독립적인 `usageReview:{limit?,maxChars?,seenNoticeFingerprints?}` 지원 |
 | `review` | `{proposalId,maxAttempts?}`: 실제 근거 검토 packet 읽기 |
 | `instruction` | `{instruction,suite,scope,globalRecall?}`: 명시 사용자 규칙을 읽기 전용 준비, baseRevision 반환, `--revision` 금지 |
 | `lesson-view` | `{lessonId,query 또는 queries,options?}`: 저장 규칙·기존 평가·현재 조회 포함 상태의 읽기 전용 진단, `--revision` 금지 |
 | `usage-prepare` | `{taskId,attemptId,lessonId,scope,globalRecall?,options?:{limit,maxChars}}`: 실제 사용 전 규칙 선택을 읽기 전용 준비, `--revision` 금지 |
+| `usage-review` | `{query 또는 queries,options?:{limit,maxChars,seenNoticeFingerprints}}`: 실제 범위의 전체 사용·현재 결과를 읽기 전용 집계, `--revision` 금지 |
 | `curate` | `{review,suite}`: 구체적인 검토 결과를 검증된 형식의 후보 정의로 변환. 저장·활성화는 별도 |
 | `propose` | `{}` 또는 `{now, thresholds}` |
 | `candidate` | `{lesson, suite}`: 시험에 연결된 후보 등록, 활성화하지 않음 |
@@ -444,7 +487,7 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 
 ### 범위별 열린 제안 조회와 복구
 
-동봉 CLI `context`는 선택적인 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}`를 받습니다. 이 입력을 생략하면 기존 단일·다중 context의 반환과 교훈 지문을 그대로 유지합니다. `proposals:{}`를 넣으면 **동일한 저장소 읽기 결과**에서 기존 교훈과 함께 `proposalContext`를 반환합니다. 서버 MCP `life_learning_context`의 입력이나 응답을 바꾸지 않습니다.
+동봉 CLI `context`는 선택적인 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}`를 받습니다. 이 입력을 생략하면 proposalContext를 추가하지 않고 기존 교훈 반환과 지문을 유지합니다. 독립적인 usageReview 선택 여부에는 영향을 주지 않습니다. `proposals:{}`를 넣으면 **동일한 저장소 읽기 결과**에서 기존 교훈과 함께 `proposalContext`를 반환합니다. 서버 MCP `life_learning_context`의 입력이나 응답을 바꾸지 않습니다.
 
 `proposalContext`는 `schema:"jh.learning-proposal-context.v1"`, `revision`, `items`, `omitted`, `suppressed`, `fingerprint`, `readOnly:true`, `advisoryOnly:true`, `externalEffects:false`를 포함합니다. 호출만으로 사건·시도·제안을 만들거나 제안을 재계산하지 않습니다.
 
