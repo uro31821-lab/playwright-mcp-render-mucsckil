@@ -90,7 +90,10 @@ const HOST_PAIRS=[
  [HOST_BEFORE,HOST_READ+HOST_BEFORE],
  [HOST_CLOSE,HOST_NEW_CLOSE]
 ];
-const RUNTIME_PAIRS=[[REGISTER_ANCHOR,ROUTE+REGISTER_ANCHOR]];
+const RUNTIME_IMPORT='import {createDurableNativeHooks} from "../deployment/stage30-durable-native-host-candidate.mjs";';
+const RUNTIME_NEW_IMPORT='import {createDurableNativeHooks} from "../deployment/stage34-durable-native-host-candidate.mjs";';
+const RUNTIME_PAIRS=[[RUNTIME_IMPORT,RUNTIME_NEW_IMPORT],
+ [REGISTER_ANCHOR,ROUTE+REGISTER_ANCHOR]];
 const patch=(source,pairs)=>{
  let out=source;
  for(const [from,to]of pairs)out=exact(out,from,to);
