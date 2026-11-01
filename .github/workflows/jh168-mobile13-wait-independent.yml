@@ -1,0 +1,26 @@
+name: JH168 mobile13 WAIT independent workstream
+on:
+  push:
+    branches:
+      - feat/jh168-mobile13-wait-evidence-20261101
+permissions:
+  contents: read
+jobs:
+  wait-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Verify one signed STATUS condition reader, fail-closed
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-wait-condition.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-wait-condition.test.mjs
+      - name: Explicitly no owner rollout or phone E2E
+        run: |
+          test -z "$(printenv RENDER_SERVICE_ID || true)"
+          echo "WAIT_CONDITION_PURE_HELPER_TEST_PASS_PHONE_E2E_NOT_RUN"
