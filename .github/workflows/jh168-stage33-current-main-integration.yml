@@ -1,0 +1,99 @@
+name: JH168 Stage33 exact current-main Secure56 source integration (no deploy)
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage28-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage29-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage30-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage31-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage32-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage33-*'
+      - '.github/workflows/jh168-stage33-current-main-integration.yml'
+permissions:
+  contents: read
+jobs:
+  source-preserving-current-main-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Fail closed if original main advanced since reviewed source freeze
+        run: |
+          test "$(git rev-parse origin/jh-fix3-secure-server)" = "a875b3f3b3e369f49e31250c83035582e2498cc9"
+          git merge-base --is-ancestor a875b3f3b3e369f49e31250c83035582e2498cc9 HEAD
+      - name: Original Secure56 owner, Android, learning and runtime remain unchanged
+        run: |
+          git diff --exit-code a875b3f3b3e369f49e31250c83035582e2498cc9 HEAD -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/operational-learning \
+            jh-server/owner-setup/owner-enrollment
+          echo STAGE33_PROTECTED_MAIN_FILES_UNCHANGED=YES
+      - name: Git blob evidence, exact current-main ancestry and read-only release blockers
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage33-current-main-integration.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage32-release-gates.test.mjs
+      - name: Prepare original pinned owner and Secure56 dependencies once
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Stage28 original CLICK receipt and dropped ACK transport
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage28-transport-recovery.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-receipts.test.mjs
+      - name: Stage29 original HMAC owner journal readback
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.test.mjs
+      - name: Stage30 original SQLite same COMMIT crash and signer binding
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-host-integration.test.mjs
+      - name: Stage31 offline volume, owner lock, backup and no replay
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.test.mjs
+      - name: Sequential original Stage25/26 Secure56 operator and trusted owner tests
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-generated-secure-runtime.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/verification/durable-owner-storage.test.mjs
+      - name: Latest original-main operational learning compatibility
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/operational-learning/host-instructions.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/operational-learning/review-context.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/operational-learning/rule-use-review.test.mjs
+      - name: Exact source-only boundary, no live changes
+        run: |
+          echo STAGE33_CURRENT_MAIN_SOURCE_REVIEW_ONLY=YES
+          echo RENDER_DEPLOY=0
+          echo MAIN_BRANCH_MERGE=0
+          echo LIVE_OWNER_JOURNAL_MIGRATION=0
+          echo APK_BUILD_INSTALL=0
+          echo PHONE_ACTIONS=0
+          echo PREVIOUS_CLICK_REPLAY=0
