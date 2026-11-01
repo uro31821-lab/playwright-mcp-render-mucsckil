@@ -111,7 +111,13 @@ export function createStage35OriginalReferenceHandoff({
   if(!isValidHandle(sealedHandle))return unknown('STAGE35_SEALED_HANDLE_INVALID');
   let data=null;
   try{
-   const raw=Buffer.from(sealedHandle.slice(PREFIX.length),'base64url');
+   const encoded=sealedHandle.slice(PREFIX.length);
+   const raw=Buffer.from(encoded,'base64url');
+   // Node accepts noncanonical base64url tails/pad bits. They can decode to
+   // the exact same authenticated ciphertext; reject textual aliases before
+   // attempting AES-GCM to preserve one exact opaque handle representation.
+   if(raw.toString('base64url')!==encoded)
+    return unknown('STAGE35_SEALED_HANDLE_NONCANONICAL');
    if(raw.length<12+16+4||raw.length>MAX_PLAINTEXT_BYTES+28)
     return unknown('STAGE35_SEALED_HANDLE_INVALID');
    const nonce=raw.subarray(0,12),tag=raw.subarray(raw.length-16);
