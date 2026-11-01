@@ -1,0 +1,65 @@
+name: JH168 Stage30 original-journal atomic result (no device)
+on:
+  pull_request:
+    branches:
+      - jh-fix3-secure-server
+      - feat/jh168-stage29-owner-journal-readback-20261101
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage30-*'
+      - '.github/workflows/jh168-stage30-atomic-receipt.yml'
+permissions:
+  contents: read
+jobs:
+  owner-original-atomic-receipt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Original Secure56 executor and owner storage files remain unchanged
+        run: |
+          git diff --exit-code origin/feat/jh168-stage29-owner-journal-readback-20261101 -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery-policy.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery-patch.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs
+      - name: Node22 syntax and real original fence + SQLite crash atomicity
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-receipt-writer.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage30-candidate-compose.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-host-integration.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage30-crash-worker.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-host-integration.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage28-transport-recovery.test.mjs
+      - name: Preserve exact existing Stage26 auth, pending approval and owner SQLite contracts
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
+            jh-server/verification/durable-owner-storage.test.mjs
+      - name: No device or production rollout
+        run: |
+          echo STAGE30_SOURCE_REVIEW_ONLY=YES
+          echo ORIGINAL_OWNER_SCHEMA_MIGRATION=NOT_RUN
+          echo PHONE_ACTIONS=0
+          echo APK_BUILD_OR_INSTALL=0
+          echo RENDER_DEPLOY=0
+          echo LIVE_PROCESS_RESTART=NOT_RUN
