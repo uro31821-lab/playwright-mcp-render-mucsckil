@@ -174,6 +174,9 @@ export async function buildStage25PendingOperatorEntrypoint56(
 }
 export async function main(env=process.env){
  if(!prod(env))fail('JH_STAGE25_EXPLICIT_PENDING_OPERATOR_REQUIRED');
+ // Owner startup sets JH_OWNER_DEFER_LISTEN=1 before opening its listener.
+ // Capture the exact checked enablement BEFORE that known internal mutation.
+ const stage26EnabledAtBootstrap=selectStage26CompletionAck56(env);
  const root=path.resolve(import.meta.dirname,'..');
  const built=await buildStage25PendingOperatorEntrypoint56(root,env);
  const module=await import(pathToFileURL(built.file).href+'?sha='+built.stamp.operationalSha256);
@@ -184,7 +187,7 @@ export async function main(env=process.env){
   existingPendingApprovalPreserved:true,existingLearningPreserved:true,
   automaticReplayAllowed:false,apkChanged:false
  }));
- if(selectStage26CompletionAck56(env)){
+ if(stage26EnabledAtBootstrap){
   console.log('JH_STAGE26_SIGNED_COMPLETION_ACK_ACTIVE '+JSON.stringify({
    schema:'JH168_STAGE26_SIGNED_COMPLETION_ACK_V1',
    sha256:built.stamp.runtimeSha256,

@@ -103,3 +103,19 @@ test('exact original Stage25 operator remains untouched if Stage26 flag absent, 
  const restored=await buildStage25PendingOperatorEntrypoint56(root,env);
  assert.equal(readFileSync(restored.runtimeFile,'utf8'),pristine);
 });
+
+test('post-listen activation log uses PRE-validated opt-in, not mutable process.env',()=>{
+ const source=readFileSync(path.join(root,'jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'),'utf8');
+ const gateIndex=source.indexOf('const stage26EnabledAtBootstrap=selectStage26CompletionAck56(env);');
+ const startIndex=source.indexOf('const running=await module.main(env);');
+ const logIndex=source.indexOf("console.log('JH_STAGE26_SIGNED_COMPLETION_ACK_ACTIVE '");
+ assert.ok(gateIndex>0 && startIndex>gateIndex && logIndex>startIndex);
+ assert.ok(source.includes('if(stage26EnabledAtBootstrap){'));
+ assert.ok(!source.includes('if(selectStage26CompletionAck56(env)){'));
+ // The original owner process explicitly sets JH_OWNER_DEFER_LISTEN=1
+ // during startConfiguredOwnerServer. Re-evaluating prod(env) later is wrong.
+ const pre={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+  JH_STAGE26_SIGNED_COMPLETION_ACK:'EXPLICIT_IDENTICAL_SIGNED_RESULT_V1'};
+ assert.equal(selectStage26CompletionAck56(pre),true);
+});
+
