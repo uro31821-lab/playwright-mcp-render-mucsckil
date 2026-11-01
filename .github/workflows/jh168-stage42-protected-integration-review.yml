@@ -1,0 +1,51 @@
+name: JH168 Stage42 exact reviewed mobile overlay and original security integrity (NO RELEASE)
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage42-*'
+      - '.github/workflows/jh168-stage42-protected-integration-review.yml'
+      - '.github/workflows/jh168-stage38-execution-receipt-review.yml'
+      - '.github/workflows/jh168-one-release-candidate-current-main.yml'
+      - '.github/workflows/jh168-current-live-overlay-compat.yml'
+permissions:
+  contents: read
+jobs:
+  reviewed-original-guards-unchanged:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+      JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+      JH_STAGE26_SIGNED_COMPLETION_ACK: EXPLICIT_IDENTICAL_SIGNED_RESULT_V1
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22'}
+      - name: Verify exact reviewed files against MAIN, PR72 and observed LIVE
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs
+      - name: Reversible source edits in original mobile admission host and original 9+4 route
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
+      - name: Existing original signer/security and exact mode tests
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/verification/durable-computer-policy.test.mjs
+      - name: Preserve all deployment, original SQLite and phone protections
+        run: |
+          echo STAGE42_ORIGINAL_HMAC_OWNER_APP_AND_JOURNAL_UNCHANGED=YES
+          echo STAGE42_REVIEWED_PR72_SOURCE_EXACT=YES
+          echo STAGE42_RELEASE_CANDIDATE_ONLY=YES
+          echo STAGE42_ORIGINAL_29_UNKNOWN_RECORDS_UNCHANGED=YES
+          echo STAGE42_REAL_PHONE_E2E=NOT_RUN
+          echo RENDER_DEPLOY=0
+          echo APK_INSTALL=0
+          echo OLD_ACTION_REPLAY=0
