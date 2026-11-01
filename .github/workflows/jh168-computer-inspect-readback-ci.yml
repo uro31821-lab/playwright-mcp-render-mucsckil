@@ -24,7 +24,8 @@ jobs:
             jh-server/server.mjs \
             jh-server/owner-setup/server-integration/server.mjs \
             jh-server/owner-setup/deployment \
-            jh-server/owner-setup/trusted-server
+            jh-server/owner-setup/trusted-server \
+            ':(exclude)jh-server/owner-setup/deployment/published-host-router.mjs'
       - name: Install original signed owner dependencies without scripts
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
@@ -43,6 +44,7 @@ jobs:
       - name: Preserve original operator opt-out and fail-closed routing
         run: |
           node --test --test-reporter=spec jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs
       - name: No new approval authority, runtime launch or device write
         run: |
           test -z "${JH_PENDING_APPROVAL_OPERATOR_ENABLE:-}"
