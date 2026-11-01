@@ -25,7 +25,8 @@ jobs:
             jh-server/owner-setup/server-integration/server.mjs \
             jh-server/owner-setup/deployment \
             jh-server/owner-setup/trusted-server \
-            ':(exclude)jh-server/owner-setup/deployment/published-host-router.mjs'
+            ':(exclude)jh-server/owner-setup/deployment/published-host-router.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs'
       - name: Install original signed owner dependencies without scripts
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
