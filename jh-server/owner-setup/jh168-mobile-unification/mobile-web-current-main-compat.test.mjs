@@ -1,10 +1,6 @@
-/**
- * Verify PR72's exact 9+4 routing diff against LATEST reviewed main (2026-11-01),
- * preserving every original byte except the reviewed composition and exact
- * three-place host admission hook for the explicit mobile mode.
- *
- * This test never builds an Android APK, starts a server, performs a phone
- * action, grants approval, updates SQLite or alters production source.
+/** JH168 verified-current-MAIN mobile/source review (NO RELEASE).
+ * Preserve BOTH historical PR72 / 2c310f8 source evidence and the reviewed
+ * NEW main e346a1c9; Stage44 may edit only its generated operator selection.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,81 +8,82 @@ import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {reverseJH168Mobile13ActionPolicyHost56} from './mobile13-action-policy-patch.mjs';
 
-const UPSTREAM='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
-const root='jh-server/owner-setup/';
+const ORIGINAL='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
+const REVIEWED_MAIN='e346a1c9d425428df5cba4069f26842450542b43';
+const MOBILE='c6142bd21ea299a4464124356e9da34b58001900';
+const ROOT='jh-server/owner-setup/';
+const show=(sha,path)=>execFileSync('git',['show',sha+':'+path],{
+ encoding:'utf8',maxBuffer:16*1024*1024,timeout:15000});
+const cmd=args=>execFileSync('git',args,{encoding:'utf8'}).trim();
+const current=path=>readFileSync(path,'utf8');
 const deps=[
  'jh-server/server.mjs',
- root+'deployment/durable-live-release.mjs',
- root+'deployment/durable-clean-restart-news-review-entry.mjs',
- root+'deployment/jh167-right-pane-orchestrator-repair.mjs',
- root+'deployment/jh167-open-completion.mjs',
- root+'deployment/jh167-connection-v2-runtime.mjs',
- root+'deployment/durable-manual-circuit-fence.mjs',
- root+'deployment/jh155-split-integration-patch.mjs',
- root+'server-integration/pending-approval-operator-entry.mjs'
+ ROOT+'deployment/durable-live-release.mjs',
+ ROOT+'deployment/durable-clean-restart-news-review-entry.mjs',
+ ROOT+'deployment/jh167-right-pane-orchestrator-repair.mjs',
+ ROOT+'deployment/jh167-open-completion.mjs',
+ ROOT+'deployment/jh167-connection-v2-runtime.mjs',
+ ROOT+'deployment/durable-manual-circuit-fence.mjs',
+ ROOT+'deployment/jh155-split-integration-patch.mjs',
+ ROOT+'server-integration/pending-approval-operator-entry.mjs',
+ ROOT+'deployment/durable-mcp-workflow-patch.mjs',
+ ROOT+'deployment/durable-native-job-policy.mjs',
+ ROOT+'deployment/jh155-all-modules-patch.mjs',
+ ROOT+'payment/payment-runtime-patch.mjs'
 ];
-const show=path=>execFileSync('git',['show',UPSTREAM+':'+path],{
- encoding:'utf8',maxBuffer:12*1024*1024,timeout:15000
+test('re-reviewed current MAIN and historical pre-mobile source are pinned EXACT, no unapproved advancement',()=>{
+ for(const sha of [ORIGINAL,REVIEWED_MAIN,MOBILE])
+  assert.equal(cmd(['cat-file','-t',sha]),'commit');
+ assert.equal(cmd(['rev-parse','refs/remotes/origin/jh-fix3-secure-server']),REVIEWED_MAIN,
+  'MAIN_ADVANCED_REFRESH_SOURCE_AUDIT');
+ assert.equal(cmd(['merge-base',ORIGINAL,REVIEWED_MAIN]),ORIGINAL);
+ assert.equal(cmd(['merge-base',ORIGINAL,MOBILE]),ORIGINAL);
+ assert.equal(cmd(['merge-base',REVIEWED_MAIN,'HEAD']),REVIEWED_MAIN);
 });
-const current=path=>readFileSync(path,'utf8');
-const original='jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs';
-const importMobile="import {patchJH168MobileWeb13VerifiedMode56} from '../jh168-mobile-unification/mobile-web-tool-patch.mjs';\n";
-const oldReturn=' return patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate)))));';
-const newReturn=' return patchJH168MobileWeb13VerifiedMode56(patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate))))));';
-
-test('reviewed current main commit is available with full history (NO source update)',()=>{
- const type=execFileSync('git',['cat-file','-t',UPSTREAM],{encoding:'utf8'}).trim();
- assert.equal(type,'commit');
- const checkout=execFileSync('git',['rev-parse','refs/remotes/origin/jh-fix3-secure-server'],{encoding:'utf8'}).trim();
- assert.equal(checkout,UPSTREAM,'Main advanced: STOP and refresh this source audit before deploying');
+test('original Secure56, Android, workflow cancel and owner duplicate protection are BYTE IDENTICAL to reviewed deployed MAIN',()=>{
+ for(const path of deps)assert.equal(current(path),show(REVIEWED_MAIN,path),
+  'ORIGINAL_SIGNED_RUNTIME_CHANGED_'+path);
 });
-test('9 original Secure56, Bridge/approval and startup dependencies are BYTE IDENTICAL',()=>{
- for(const path of deps){
-  const upstream=show(path),legacy=current(path);
-  assert.equal(legacy,upstream,'DO_NOT_OVERWRITE_UPDATED_MAIN_DEPENDENCY: '+path);
- }
+test('current MAIN host contains EXACT originally reviewed PR72 mobile patches with verifiable reversal',()=>{
+ const host=ROOT+'deployment/durable-native-host.mjs';
+ assert.equal(current(host),show(REVIEWED_MAIN,host));
+ assert.equal(current(host),show(MOBILE,host));
+ assert.equal(reverseJH168Mobile13ActionPolicyHost56(current(host)),show(ORIGINAL,host));
 });
-test('host differs ONLY by the three reversible explicit mobile admission edits',()=>{
- const filename=root+'deployment/durable-native-host.mjs';
- const restored=reverseJH168Mobile13ActionPolicyHost56(current(filename));
- assert.equal(restored,show(filename),'EVERY OTHER HOST BYTE MUST MATCH LATEST MAIN');
+test('mobile 9+4 composition is reviewed PR72 and ALREADY in MAIN, not duplicated during Stage44',()=>{
+ const p=ROOT+'deployment/jh167-article-operational-review-composition.mjs';
+ const s=current(p);
+ assert.equal(s,show(MOBILE,p));
+ assert.equal(s,show(REVIEWED_MAIN,p));
+ assert.equal(s.split("import {patchJH168MobileWeb13VerifiedMode56}").length,2);
+ assert.equal((s.match(/patchJH168MobileWeb13VerifiedMode56\(/g)||[]).length,1);
+ const raw=show(ORIGINAL,p);
+ assert.equal((raw.match(/patchJH168MobileWeb13VerifiedMode56\(/g)||[]).length,0);
 });
-test('mobile alias routing changes ONLY the original composition import + final wrapper',()=>{
- const latest=show(original),candidate=current(original);
- assert.equal(candidate.split(importMobile).length,2,'one added mobile import');
- assert.equal(candidate.split(newReturn).length,2,'one mobile wrapper');
- const reconstructed=candidate.replace(importMobile,'').replace(newReturn,oldReturn);
- assert.equal(reconstructed,latest,'EVERY OTHER COMPOSITION BYTE MUST MATCH LATEST MAIN');
- assert.equal((candidate.match(/patchJH168MobileWeb13VerifiedMode56\(/g)||[]).length,1);
- assert.equal((latest.match(/patchJH168MobileWeb13VerifiedMode56\(/g)||[]).length,0);
+test('raw Secure56 signing engine unchanged; nine RIGHT mobile aliases remain opt-in, no remote Playwright fallback in actual mobile patch',()=>{
+ const raw=current('jh-server/server.mjs');
+ assert.equal(raw,show(ORIGINAL,'jh-server/server.mjs'));
+ const mobile=current(ROOT+'jh168-mobile-unification/mobile-web-tool-patch.mjs');
+ assert.equal(mobile,show(MOBILE,ROOT+'jh168-mobile-unification/mobile-web-tool-patch.mjs'));
+ assert.ok(mobile.includes('EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1'));
+ assert.ok(mobile.includes('jhMobileWebFollow56'));
+ assert.ok(mobile.includes('MOBILE_REQUEST_ID_REQUIRED'));
+ assert.ok(mobile.includes('Never silently switch to the unrelated cloud Chromium profile'));
 });
-test('protected original main route metadata is not masquerading as migrated phone E2E',()=>{
- const raw=show('jh-server/server.mjs');
- const names=['navigate','snapshot','click','type','select','press_key','wait','back','screenshot'];
- for(const n of names){
-  const at=raw.indexOf('  registerOAuthTool("life_web_'+n+'",{');
-  assert.ok(at>=0);
-  const end=raw.indexOf('  registerOAuthTool(',at+24);
-  const body=raw.slice(at,end>at?end:at+3000);
-  assert.ok(body.includes('browserTool('),
-   'Original main unexpectedly changed; need fresh runtime audit: '+n);
- }
- // New signed RIGHT handling is reviewed separately, not active in main.
- assert.equal(current(root+'jh168-mobile-unification/mobile-web-tool-patch.mjs')
-  .includes('Never silently switch to the unrelated cloud Chromium profile'),true);
+test('reviewed original 9+4 fixture E2E ledger remains explicitly incomplete until full real-phone test',()=>{
+ const path=ROOT+'jh168-mobile-unification/JH168-MOBILE-13-DEFECT-LEDGER.md';
+ assert.equal(current(path),show(REVIEWED_MAIN,path));
+ for(const label of ['0/13','NOT_RUN','G12','G13','G14'])
+  assert.ok(current(path).includes(label),label);
 });
-test('release boundaries remain NOT_RUN until full 13 phone validation',()=>{
- const audit=current(root+'jh168-mobile-unification/JH168-MOBILE-13-DEFECT-LEDGER.md');
- for(const rule of ['0/13','NOT_RUN','G12','G13','G14'])assert.ok(audit.includes(rule));
-});
-
-test('legacy Connection V2 click safety test changes ONLY the exact mobile migration contract',()=>{
- const filename='jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs';
- const upstream=show(filename);
- const candidate=current(filename);
+test('original Connection V2 mode-toggle test is byte-exact reviewed PR72 version only',()=>{
+ const p=ROOT+'deployment/jh167-connection-v2-assembled-preflight.test.mjs';
+ assert.equal(current(p),show(MOBILE,p));
+ assert.equal(current(p),show(REVIEWED_MAIN,p));
+ const original=show(ORIGINAL,p);
+ const newer=current(p);
  const oldSnippet=" assert.ok(click.includes('RIGHT_PHONE_ITEM_REQUIRES_ANDROID_COMPUTER_USE'));\n assert.ok(click.includes('browserTool(\"browser_click\",args)'));\n";
  const newSnippet=" // Legacy execution remains intact when the temporary candidate mode is OFF.\n // Explicit mobile test mode alone removes the cloud Playwright CLICK route.\n const migrationEnabled=process.env.JH_MOBILE_WEB_13_MODE==='EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1';\n if(migrationEnabled){\n   assert.ok(click.includes('jhMobileWebFollow56(args,\"CLICK\"'));\n   assert.ok(!click.includes('browserTool(\"browser_click\",args)'));\n   assert.ok(generated.includes('MOBILE_REQUEST_ID_REQUIRED'));\n   assert.ok(generated.includes('requestId,command,targetItemRef:bound.itemRef,action'));\n   assert.ok(generated.includes('jhSplitScreenOnce155(device,commandId,type,payload,dispatch)'));\n }else{\n   assert.ok(click.includes('RIGHT_PHONE_ITEM_REQUIRES_ANDROID_COMPUTER_USE'));\n   assert.ok(click.includes('browserTool(\"browser_click\",args)'));\n   assert.ok(!generated.includes('MOBILE_REQUEST_ID_REQUIRED'));\n }\n";
- assert.equal(candidate.split(newSnippet).length,2,'one reviewed new phone click contract');
- assert.equal(candidate.replace(newSnippet,oldSnippet),upstream,
-   'LEGACY_CONNECTION_CLICK_CONTRACT_UNEXPECTED_CHANGE');
+ assert.equal(newer.split(newSnippet).length,2);
+ assert.equal(newer.replace(newSnippet,oldSnippet),original);
 });

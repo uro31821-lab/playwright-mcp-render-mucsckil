@@ -1,0 +1,62 @@
+name: JH168 Stage44 signed mobile single-task focus review (NO RELEASE)
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage44-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'
+      - '.github/workflows/jh168-stage44-signed-task-focus-review.yml'
+permissions:
+  contents: read
+jobs:
+  original-secure56-unchanged:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+      JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+      JH_STAGE26_SIGNED_COMPLETION_ACK: EXPLICIT_IDENTICAL_SIGNED_RESULT_V1
+      JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS: EXPLICIT_ORIGINAL_OWNER_REASON_V1
+      JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS: EXPLICIT_SIGNED_COMMAND_CAUSE_V1
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22'}
+      - name: Preserve original command, phone HMAC, approval, owner database and protected source
+        run: |
+          git diff --exit-code origin/jh-fix3-secure-server HEAD -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/payment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/operational-learning \
+            jh-server/owner-setup/owner-enrollment
+          echo STAGE44_PROTECTED_RUNTIME_SOURCES_BYTE_IDENTICAL=YES
+      - name: Lockfile-based dependencies and no phone transport
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Exact opt-in lease and signed command safety regressions
+        run: node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage44-device-focus.test.mjs
+      - name: Existing original owner and JH mobile 9+4 source and result receipt tests
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage41-command-lifecycle.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage39-pending-independent.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/verification/durable-computer-policy.test.mjs
+      - name: Source-only artifact proof
+        run: |
+          echo STAGE44_NEW_FOCUS_DEFAULT_OFF=YES
+          echo STAGE44_MIGRATION=0
+          echo STAGE44_EXISTING_UNKNOWN_ACTIONS_PRESERVED=YES
+          echo STAGE44_ORIGINAL_CANCEL_AND_APPROVAL_GATES_UNCHANGED=YES
+          echo STAGE44_PHONE_EFFECT=0
+          echo STAGE44_RENDER_DEPLOY=0
+          echo STAGE44_APK_REINSTALL=0
