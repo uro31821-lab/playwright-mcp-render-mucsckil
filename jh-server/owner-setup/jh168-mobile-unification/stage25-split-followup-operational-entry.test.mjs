@@ -66,7 +66,8 @@ test('runtime reuses existing durable signed-host contract and not a new browser
  assert.ok(text.includes("effect==='REVERSIBLE_WRITE'"));
  assert.ok(text.includes("secureToolName==='life_android_execute_computer_action'"));
  assert.ok(text.includes("args.context_id||args.request_id||args.command"));
- assert.ok(text.includes('newJobCreated:false'));
+ const registry=readFileSync(path.join(import.meta.dirname,'split-followup-receipts.mjs'),'utf8');
+ assert.ok(registry.includes('newJobCreated:false'));
 });
 
 test('entry is not a default deployment and does not create listeners or phones in CI',()=>{
