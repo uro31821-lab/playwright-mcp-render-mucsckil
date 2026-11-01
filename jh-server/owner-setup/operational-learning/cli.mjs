@@ -1,8 +1,9 @@
 import { pathToFileURL } from 'node:url';
 import { access } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
+import { types } from 'node:util';
 import { FileLearningStore } from './store.mjs';
-import { ingest, recall, recallContext, propose, addLesson, setProposalStatus } from './engine.mjs';
+import { ingest, recall, recallContext, recallContexts, propose, addLesson, setProposalStatus } from './engine.mjs';
 import { bindRegression, checkLesson } from './regression.mjs';
 import { evaluateConstraints } from './constraints.mjs';
 import { prepareReview, createReviewedCandidate } from './curation.mjs';
@@ -14,6 +15,16 @@ function evaluatorFor(suite) {
   if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
   if (suite.evaluator === 'jh.trajectory.v1') return evaluateTrajectory;
   throw new TypeError('Unknown trusted evaluator');
+}
+
+function contextRequest(input) {
+  const fail = () => { throw new TypeError('context requires exactly one of query or queries, and optional options'); };
+  if (!input || typeof input !== 'object' || types.isProxy(input) || Array.isArray(input) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(input))) fail();
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  if (Reflect.ownKeys(input).some(key => typeof key !== 'string' || !['query', 'queries', 'options'].includes(key)) ||
+      Object.values(descriptors).some(item => !Object.hasOwn(item, 'value') || !item.enumerable) ||
+      Object.hasOwn(input, 'query') === Object.hasOwn(input, 'queries')) fail();
 }
 
 function options(args) {
@@ -43,8 +54,12 @@ export async function execute(args, input) {
     }
     case 'recall': return { lessons: recall(await store.read(), input) };
     case 'context': {
-      if (!input || Object.keys(input).some(key => !['query', 'options'].includes(key))) throw new TypeError('context requires query and optional options');
-      return recallContext(await store.read(), input.query, input.options);
+      contextRequest(input);
+      // All scopes share one snapshot and one authority/conflict/budget decision.
+      const state = await store.read();
+      return Object.hasOwn(input, 'queries')
+        ? recallContexts(state, input.queries, input.options)
+        : recallContext(state, input.query, input.options);
     }
     case 'review': return prepareReview(await store.read(), input);
     case 'decision-view': return proposalDecisionView(await store.read(), input);
