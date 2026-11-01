@@ -580,7 +580,9 @@ def package(root, output, *, overwrite: bool = False, windows_release: bool = Fa
                 info.create_system = 3
                 info.external_attr = (stat.S_IFREG | 0o644) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
-                with archive.open(info, "w", force_zip64=True) as stream:
+                # The snapshot supplies the size; small Windows bundles need no ZIP64 header.
+                info.file_size = expected["size"]
+                with archive.open(info, "w") as stream:
                     observed = _read_file(root.joinpath(*name.split("/")), stream)
                 if observed != expected:
                     raise IntegrityError(f"Source changed during packaging: {name}")

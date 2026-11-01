@@ -1,0 +1,40 @@
+name: JH168 Mobile13 Windows archive readers
+
+on:
+  push:
+    branches: ['fix/jh168-mobile13-zip32-*']
+    paths:
+      - 'jh-dev-tools/windows-delivery/scripts/jh_integrity.py'
+      - 'jh-dev-tools/windows-delivery/tests/Test-Mobile13Archive.ps1'
+      - '.github/workflows/jh168-mobile13-windows-archive.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jh168-mobile13-windows-archive-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actual-windows-archive-readers:
+    runs-on: windows-2022
+    timeout-minutes: 5
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Preserve source bytes before checkout
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve source line endings' }
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Check available Python for the exact packager
+        run: |
+          python -c "import sys; print(sys.version); assert sys.version_info >= (3, 10)"
+          if ($LASTEXITCODE -ne 0) { throw 'Python 3.10 or later is required' }
+      - name: Exercise .NET, Expand-Archive and Windows Shell ZIP readers
+        run: |
+          & "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -STA -File './jh-dev-tools/windows-delivery/tests/Test-Mobile13Archive.ps1' -PackagerPath './jh-dev-tools/windows-delivery/scripts/jh_integrity.py'
+          if ($LASTEXITCODE -ne 0) { throw 'Actual Windows archive compatibility checks failed' }
