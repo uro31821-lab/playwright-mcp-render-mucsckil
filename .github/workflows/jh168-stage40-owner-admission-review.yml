@@ -16,6 +16,8 @@ jobs:
       CI: 'true'
       NODE_ENV: test
       JH_OWNER_DEFER_LISTEN: '1'
+      JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+      JH_STAGE26_SIGNED_COMPLETION_ACK: EXPLICIT_IDENTICAL_SIGNED_RESULT_V1
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with: {persist-credentials: false, fetch-depth: 0}
