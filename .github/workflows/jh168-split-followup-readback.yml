@@ -1,0 +1,49 @@
+name: JH168 split FOLLOWUP readback (source-only review)
+on:
+  push:
+    branches: ['feat/jh168-split-followup-readback-20261101']
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+permissions:
+  contents: read
+jobs:
+  exact-followup-readback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Check no production, Android or durable-policy code changed
+        run: |
+          git diff --exit-code origin/jh-fix3-secure-server -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/android-direct
+      - name: Verify syntax and isolated original-click receipt tests
+        run: |
+          for f in jh-server/owner-setup/jh168-mobile-unification/split-followup-*.mjs; do node --check "$f"; done
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-receipts.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-receipt-patch.test.mjs
+      - name: Install existing pinned owner dependencies without scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Pinned generated Secure56 source composition test
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/split-followup-generated-runtime.test.mjs
+      - name: Review only, never deploy or invoke the phone
+        run: |
+          echo JH168_SPLIT_FOLLOWUP_RECEIPT_SOURCE_REVIEW_ONLY
+
