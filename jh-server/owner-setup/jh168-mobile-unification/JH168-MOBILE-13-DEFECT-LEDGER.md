@@ -76,3 +76,11 @@
 - **G17 실기기 준비:** 2026-11-01 읽기 전용 Primary `life_android_devices`: `devices=[]`, `selectedDeviceId=null`. 이 시점의 연결 상태만 뜻하며 과거 Stage27 성공 취소나 APK 설치 실패가 아님. Android Bridge 앱을 다시 연결한 실제 증거 전에는 UI 명령 발송 금지.
 - **G18 검증환경:** 현재 Render 서비스 3개 중 모바일 후보 전용 staging 없음, 운영 서비스의 Render PR Preview **OFF**. 별도 staging을 만들더라도 G16 때문에 현재 APK와 연결되지 않을 수 있음. 이번에는 서비스 생성·유료 플랜·OAuth 변경·APK 재설치를 하지 않음.
 - 최신 메인 `2c310f8b4a76d40604416e7dd4cb4976fdd1fc85`을 PR #72 내부에 **양쪽 부모 보존 병합(검증 브랜치에만)**. 기존 13개 모바일 함수 구현과 Secure56 보안 소스 변경 없이 새 CI 후보에 적용. Render/main 실서비스는 수정하지 않음. 
+
+## 사용자 최신 최종 구조 — G19 단일 모바일 엔진 및 구 Playwright 완전 제거
+
+**G19 (필수 최종 완료 게이트):** 9+4 모바일 alias를 우회적으로 연결하는 것은 중간 단계이다. Chrome 웹 조작과 Android 앱 조작 모두 **하나의 Secure56/Bridge/모바일 접근성 엔진**으로 일원화해야 한다. 별도 서버 Playwright, 별도 브라우저/세션/로그인 프로필/라우팅/재시도/자동 폴백과 남은 의존 코드를 전수 조사해 기능 동등성 검증 후 완전히 제거한다. Chrome 브라우저 앱은 보존한다.
+
+최종 통합에서 필요한 증거: 같은 GPT 명령→RIGHT Chrome/Android 앱 간 중간 개입, 정확한 window/display/context/itemRef 갱신, 현재 화면 포커스·내부/중첩 스크롤·선택/입력·키/조건 대기, 원본 phone-local 승인·결과/복귀, 무재실행, 기존 APK 서명·안면인식·좌우 화면 유지. 서버측 Playwright 자동 fallback 0과 구 명령 로직 0, 전체 기능 회귀를 확인해야 함.
+
+**임시 flag/rollback은 실기기 시험용이며 최종 영구 2엔진 구조가 아님.** 13개 migrated phone E2E 0/13 유지. 실제 기능 소스 수정·운영 배포·휴대폰 실행은 이번 기록 작업에서 수행하지 않음.
