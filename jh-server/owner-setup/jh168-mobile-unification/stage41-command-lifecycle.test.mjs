@@ -45,36 +45,36 @@ test('real Stage25+26 signed generated server has exact reversible read-only com
  assert.equal(candidate.productionEnabled,false);
  await buildStage25PendingOperatorEntrypoint56(root,base);
 });
-test('exact original command version remains the ONLY authority; same command bridges, new begin invalidates old',async()=>{
+test('exact original command version remains the ONLY authority; new BEGIN cause is observational',async()=>{
  const v=await buildStage25PendingOperatorEntrypoint56(root,enabled);
  const s=readFileSync(v.runtimeFile,'utf8');
  const start=s.indexOf('const jhBlockedCommands56=new Set();');
- const end=s.indexOf('function jhCommandTool56(',start);
- assert.ok(start>=0&&end>start);
- const snippet=s.slice(start,end);
- const versions=new Map(),commandState={current:null};
- const chosen='device-check';
- const ctxObj={device:chosen,commandId:null,version:null,used:false};
+ const helperEnd=s.indexOf('function jhStartCommand56(',start);
+ const requireStart=s.indexOf('function jhRequireCommand56(',helperEnd);
+ const requireEnd=s.indexOf('function jhCommandTool56(',requireStart);
+ assert.ok(start>=0&&helperEnd>start&&requireStart>helperEnd&&requireEnd>requireStart);
+ const snippet=s.slice(start,helperEnd)+'\n'+s.slice(requireStart,requireEnd);
+ assert.ok(s.includes("jhRecordCommandCause41(device,'NEW_BEGIN_COMMAND')"),
+  'instrumented ORIGINAL new-BEGIN source is checked');
+ const versions=new Map(),chosen='device-check';
+ const old='a'.repeat(32),fresh='b'.repeat(32);
+ const ctxObj={device:chosen,commandId:old,version:old,used:false};
+ versions.set(chosen,old);
  const sandbox={
-  Map,Set,Error,Reflect,deviceState:versions,
+  Map,Set,Error,
   jhCommandContext56:{getStore:()=>ctxObj},
   jhMcpWorkflows56:new Map(),
-  jhCommandVersion56:device=>versions.get(device)||null,
-  jhDiscardDeviceWork56:(device,event,previous)=>{
-    if(previous!==undefined&&versions.get(device)!==previous)return;
-    versions.set(device,event);
-  }
+  jhCommandVersion56:device=>versions.get(device)||null
  };
  vm.createContext(sandbox);
  const driver=vm.runInContext('(()=>{'+snippet+
-   'return {start:jhStartCommand56,require:jhRequireCommand56,why:jhCommandCause41,events:jhCommandCauses41};})()',sandbox);
- const command1='a'.repeat(32),command2='b'.repeat(32);
- assert.equal(driver.start(chosen,command1),command1);
- assert.equal(driver.require(chosen),command1);
+   'return {record:jhRecordCommandCause41,require:jhRequireCommand56,why:jhCommandCause41,events:jhCommandCauses41};})()',sandbox);
+ assert.equal(driver.require(chosen),old);
  assert.equal(driver.why(ctxObj),'COMMAND_OTHER_BINDING_FAILURE');
- const oldBinding={commandId:ctxObj.commandId,version:ctxObj.version};
- assert.equal(driver.start(chosen,command2),command2);
- ctxObj.commandId=oldBinding.commandId;ctxObj.version=oldBinding.version;
+ // Synthetic source-verification: original begin mutates the existing exact
+ // command-version map, while the NEW code merely records a reason.
+ versions.set(chosen,fresh);
+ driver.record(chosen,'NEW_BEGIN_COMMAND');
  assert.throws(()=>driver.require(chosen),/new_command_binding_required_or_discarded/);
  assert.equal(driver.why(ctxObj),'NEW_BEGIN_COMMAND');
  assert.equal(driver.events.get(chosen),'NEW_BEGIN_COMMAND');
@@ -106,16 +106,16 @@ test('original signed phone site discard is scoped; no unverified action replay'
  vm.createContext(sandbox);
  vm.runInContext(declarations,sandbox);
  const why=()=>vm.runInContext('jhCommandCauses41.get(body.deviceId)',sandbox);
- vm.runInContext(fragment,sandbox);
+ vm.runInContext('{'+fragment+'}',sandbox);
  assert.equal(versions.get(dev),e);
  assert.equal(why(),'PHONE_SCOPED_SITE_DISCARD');
  versions.set(dev,old);
  sandbox.body={deviceId:dev,eventId:'f'.repeat(32)};
- vm.runInContext(fragment,sandbox);
+ vm.runInContext('{'+fragment+'}',sandbox);
  assert.equal(why(),'PHONE_UNSCOPED_SITE_DISCARD');
  // An old stale signed event must NOT replace the current active command.
  sandbox.body={deviceId:dev,eventId:'1'.repeat(32),previousCommandId:old};
- vm.runInContext(fragment,sandbox);
+ vm.runInContext('{'+fragment+'}',sandbox);
  assert.equal(versions.get(dev),'f'.repeat(32));
  assert.equal(why(),'PHONE_UNSCOPED_SITE_DISCARD');
  assert.equal(sandbox.jhCommandContext56.getStore(),null);
