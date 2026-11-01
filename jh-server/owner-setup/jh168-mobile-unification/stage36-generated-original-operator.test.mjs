@@ -35,7 +35,7 @@ test('actual generated Secure56 original operator has exact reversible Stage36 h
  assert.equal(stage36.split('registerOAuthTool("life_android_original_completion_handle_status"').length,2);
  assert.equal(stage36.split('durableNativeHooks56?.acceptedCompletion(').length,2);
  assert.equal(stage36.split('jhSplitFollowupReceipts56.read(').length,2);
- assert.equal(stage36.split('jhSplitScreenOnce155(device,commandId,type,payload,dispatch)').length,2);
+ assert.equal(stage36.split('jhSplitScreenOnce155(device,commandId,type,payload,dispatch)').length,3); // original source contains two call sites
 
  const signed=stage36.indexOf('if(!a||sid!==j.secureSessionId');
  const ack=stage36.indexOf('const stage26Ack56=');
