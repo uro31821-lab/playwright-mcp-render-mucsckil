@@ -154,7 +154,7 @@ export function patchJH168MobileNativeAppEntry56(source){
  const added=[
   '    // Only an explicitly named Android app is eligible; websites and',
   '    // ambiguous brands continue to the original signed RIGHT URL opener.',
-  '    if(!url && /^[가-힣A-Za-z0-9 ._-]{1,80}(?:앱|\\\\s+native\\\\s+app)$/i.test(raw)){',
+  '    if(!url && /^[가-힣A-Za-z0-9 ._-]{1,80}(?:앱|\\s+native\\s+app)$/i.test(raw)){',
   '      const device=chooseDevice(),session=device&&active56(device);',
   '      const meta=device?devices.get(device):null;',
   '      if(!session||meta?.secureBridgeVersion!==56||meta?.secureActive!==true||',

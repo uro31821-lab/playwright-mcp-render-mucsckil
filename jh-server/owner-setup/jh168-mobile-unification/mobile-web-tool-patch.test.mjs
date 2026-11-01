@@ -15,6 +15,23 @@ const guards=[
   "  registerOAuthTool('life_android_split_screen_assistant',{});"
 ].join('\n')+'\n';
 const prepared=original.replace(marker,guards+marker);
+
+const nativeStart='  registerOAuthTool("life_android_open",{';
+const nativeEnd='  const cuSchema56={';
+const nativeA=prepared.indexOf(nativeStart),nativeB=prepared.indexOf(nativeEnd,nativeA);
+assert.ok(nativeA>=0&&nativeB>nativeA,'synthetic source must have original app route');
+const originalRightPaneNative=[
+ '  registerOAuthTool("life_android_open",{inputSchema:{}},async({target,url})=>{',
+ '    const raw=String(url||target||"").trim();',
+ '    const returnTarget=jhNativeReturnTarget56(raw);',
+ '    if(returnTarget)return textResult({route:"android_return"});',
+ '    return jhRightWebOpen56({service:raw});',
+ '  });',
+ ''
+].join('\n');
+const preparedRightPane=prepared.slice(0,nativeA)+originalRightPaneNative+
+ prepared.slice(nativeB);
+
 test('nine historical web routes use Android RIGHT and keep all other source bytes',()=>{
  const next=patchJH168MobileWebCommands56(prepared);
  const a=prepared.indexOf(marker),b=prepared.indexOf('  registerOAuthTool("life_android_devices",{',a);
@@ -71,8 +88,8 @@ test('additional generated tool after capture remains unchanged',()=>{
 test('temporary verified mode: default and empty restore ORIGINAL source byte-for-byte',()=>{
  assert.equal(selectJH168MobileWeb13Mode56({}),'ORIGINAL');
  assert.equal(selectJH168MobileWeb13Mode56({JH_MOBILE_WEB_13_MODE:''}),'ORIGINAL');
- assert.equal(patchJH168MobileWeb13VerifiedMode56(prepared,{}),prepared);
- assert.equal(patchJH168MobileWeb13VerifiedMode56(prepared,{JH_MOBILE_WEB_13_MODE:''}),prepared);
+ assert.equal(patchJH168MobileWeb13VerifiedMode56(preparedRightPane,{}),prepared);
+ assert.equal(patchJH168MobileWeb13VerifiedMode56(preparedRightPane,{JH_MOBILE_WEB_13_MODE:''}),prepared);
 });
 test('temporary mode FAILS CLOSED: invalid flag, wrong host, wrong stage25 scope, CI cannot claim production',()=>{
  const key='JH_MOBILE_WEB_13_MODE';
@@ -83,14 +100,14 @@ test('temporary mode FAILS CLOSED: invalid flag, wrong host, wrong stage25 scope
   {[key]:JH168_MOBILE_13_VERIFY_MODE56,RENDER_SERVICE_ID:'srv-db0fjl2d0e5s73be114g',JH_DURABLE_RELEASE:'SERVE_READY_V1'},
   {[key]:JH168_MOBILE_13_VERIFY_MODE56,CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',RENDER_SERVICE_ID:'srv-db0fjl2d0e5s73be114g'}
  ]){
-  assert.throws(()=>patchJH168MobileWeb13VerifiedMode56(prepared,env),
+  assert.throws(()=>patchJH168MobileWeb13VerifiedMode56(preparedRightPane,env),
     /JH168_MOBILE_13_MODE_(INVALID|RELEASE_SCOPE_BLOCKED)/);
  }
 });
 test('temporary exact scoped mobile mode enables 9 PHONE aliases without cloud fallback',()=>{
  const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
    JH_MOBILE_WEB_13_MODE:JH168_MOBILE_13_VERIFY_MODE56};
- const result=patchJH168MobileWeb13VerifiedMode56(prepared,env);
+ const result=patchJH168MobileWeb13VerifiedMode56(preparedRightPane,env);
  const a=result.indexOf('  registerOAuthTool("life_web_navigate",{');
  const b=result.indexOf('  registerOAuthTool("life_android_devices",{',a);
  assert.ok(a>=0&&b>a);
@@ -107,7 +124,7 @@ test('temporary explicit original-owner gate uses no new secure grant or catalog
   JH_PENDING_APPROVAL_OPERATOR_ENABLE:'EXPLICIT_OPERATOR_APPROVAL_RECEIPT_V1',
   JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE:'EXPLICIT_FOLLOWUP_CLICK_RECEIPT_V1'};
  assert.equal(selectJH168MobileWeb13Mode56(env),'PHONE_RIGHT');
- const result=patchJH168MobileWeb13VerifiedMode56(prepared,env);
+ const result=patchJH168MobileWeb13VerifiedMode56(preparedRightPane,env);
  assert.match(result,/MOBILE_REQUEST_ID_REQUIRED/);
  assert.match(result,/automaticReplay:false/);
 });
@@ -115,7 +132,7 @@ test('temporary explicit original-owner gate uses no new secure grant or catalog
 test('status-only mobile patch is exact, reversible, preserves outside original Secure56 bytes',()=>{
  const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
    JH_MOBILE_WEB_13_MODE:JH168_MOBILE_13_VERIFY_MODE56};
- const updated=patchJH168MobileWeb13VerifiedMode56(prepared,env);
+ const updated=patchJH168MobileWeb13VerifiedMode56(preparedRightPane,env);
  const start='  registerOAuthTool("life_status",{';
  const end='  registerOAuthTool("life_route",{';
  const a=prepared.indexOf(start),b=prepared.indexOf(end,a);
@@ -144,7 +161,7 @@ test('status-only mobile patch is exact, reversible, preserves outside original 
 test('phone-only life_status reads signed poll evidence with NO legacy cloud browser RPC',async()=>{
  const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
    JH_MOBILE_WEB_13_MODE:JH168_MOBILE_13_VERIFY_MODE56};
- const src=patchJH168MobileWeb13VerifiedMode56(prepared,env);
+ const src=patchJH168MobileWeb13VerifiedMode56(preparedRightPane,env);
  const a=src.indexOf('  registerOAuthTool("life_status",{');
  const b=src.indexOf('  registerOAuthTool("life_route",{',a);
  const part=src.slice(a,b);
@@ -198,4 +215,9 @@ test('native app patch only changes the exact signed Android open alias and pres
  assert.equal(out.slice(0,out.indexOf('  registerOAuthTool("life_android_open",{')),
     source.slice(0,source.indexOf('  registerOAuthTool("life_android_open",{')));
  assert.throws(()=>patchJH168MobileNativeAppEntry56(out),/NATIVE_ENTRY_GUARD_DRIFT/);
+});
+
+test('native app route insertion rejects unpatched original JH Android alias',()=>{
+ assert.throws(()=>patchJH168MobileNativeAppEntry56(prepared),
+   /NATIVE_ENTRY_GUARD_DRIFT/);
 });
