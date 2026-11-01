@@ -28,8 +28,17 @@ const READ_NEW=[
 '      runDigest:String(args.run_digest||""),commandId',
 '    },id=>jobs.get(id));',
 '    if(!scoped.ok)return textResult(scoped);',
-'    return textResult({ok:true,lookupOnly:true,readOnly:true,',
+'    const response=textResult({ok:true,lookupOnly:true,readOnly:true,',
 '      automaticReplay:false,newJobCreated:false,...safeJobView56(scoped.job)});',
+'    try{',
+"      if(typeof jhLearningObserveComputerInspectReceipt56==='function')",
+'        Promise.resolve(jhLearningObserveComputerInspectReceipt56(scoped.job,scoped,',
+'          Object.freeze({deviceId,deviceDigest:meta.deviceDigest,',
+'            sessionId:active.sessionId,commandId,',
+'            taskDigest:String(args.task_digest||""),',
+'            runDigest:String(args.run_digest||"")}))).catch(()=>{});',
+'    }catch{} // Observation cannot change the original readback response.',
+'    return response;',
 '  }',
 READ_OLD
 ].join('\n');

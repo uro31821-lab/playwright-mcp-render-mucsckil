@@ -10,15 +10,44 @@ const selectorAdded="/** Readable fail-closed opt-in; a blank value restores the
 const branchAdded=" if(selectPendingApprovalStartup56(process.env)==='pending-approval'){\n  assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);\n  const {main:operatorMain}=await import('../server-integration/pending-approval-operator-entry.mjs');\n  return operatorMain(process.env);\n }\n";
 const currentPath=path.join(path.dirname(fileURLToPath(import.meta.url)),'published-host-router.mjs');
 
+const pinnedPreStage25='ff7c1c17a419526bef1c1f0bd8bfd3755db64696';
+const stage25Begin='/** Exact opt-in to the existing pending-approval + learning operator with';
+const stage25End='export async function main(){';
+const stage25Extra=" if(selectJH168FollowupOperator56(process.env)!=='original')fail('JH_STAGE25_PENDING_OPERATOR_REQUIRED');\n";
+const stage25Branch=String.raw`  if(selectJH168FollowupOperator56(process.env)==='followup'){
+   const {main:operatorMain}=await import('../jh168-mobile-unification/stage25-live-operator-followup-entry.mjs');
+   return operatorMain(process.env);
+  }
+  const {main:operatorMain}=await import('../server-integration/pending-approval-operator-entry.mjs');
+  return operatorMain(process.env);`;
+const stage25Original=String.raw`  const {main:operatorMain}=await import('../server-integration/pending-approval-operator-entry.mjs');
+  return operatorMain(process.env);`;
+const gitBlob=src=>{
+ const b=Buffer.from(src);
+ return createHash('sha1').update('blob '+b.length+String.fromCharCode(0)).update(b).digest('hex');
+};
+function reverseExactStage25(source){
+ assert.equal(source.split(stage25Begin).length,2);
+ assert.equal(source.split(stage25End).length,2);
+ assert.equal(source.split(stage25Branch).length,2);
+ assert.equal(source.split(stage25Extra).length,2);
+ const from=source.indexOf(stage25Begin);
+ const to=source.indexOf(stage25End,from);
+ assert.ok(from>=0&&to>from);
+ const stage25Removed=source.slice(0,from)+source.slice(to);
+ const original=stage25Removed.replace(stage25Branch,stage25Original).replace(stage25Extra,'');
+ assert.equal(gitBlob(original),pinnedPreStage25,'all prior router logic unchanged');
+ return original;
+}
+
+
 test('operator router: opt-out preserves original published startup in exact original bytes',()=>{
  const now=readFileSync(currentPath,'utf8');
- assert.equal(now.split(selectorAdded).length,2);
- assert.equal(now.split(branchAdded).length,2);
- const original=now.replace(selectorAdded,'').replace(branchAdded,'');
- const b=Buffer.from(original);
- // Standard Git blob SHA-1 with NUL-separated header.
- const got=createHash('sha1').update('blob '+b.length+String.fromCharCode(0)).update(b).digest('hex');
- assert.equal(got,pinnedOriginal);
+ const previous=reverseExactStage25(now);
+ assert.equal(previous.split(selectorAdded).length,2);
+ assert.equal(previous.split(branchAdded).length,2);
+ const original=previous.replace(selectorAdded,'').replace(branchAdded,'');
+ assert.equal(gitBlob(original),pinnedOriginal);
 });
 
 test('operator router: default/blank opt-out and exact explicit opt-in',()=>{

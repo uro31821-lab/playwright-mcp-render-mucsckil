@@ -55,6 +55,7 @@ jobs:
           node --check jh-server/owner-setup/deployment/published-host-router.mjs
           node --check jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs
           node --test --test-reporter=spec jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs
       - name: No production service activation or phone modification
         run: |
           test -z "${JH_PENDING_APPROVAL_OPERATOR_ENABLE:-}"

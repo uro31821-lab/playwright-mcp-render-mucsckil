@@ -1,0 +1,42 @@
+JH WINDOWS APK RUNNER SAFETY REFERENCE | FIX16-HARDENED-1
+
+This checklist describes required checks; file presence alone is not proof.
+The reference is not a current mobile release. See 00-README-FIRST.txt.
+
+[1] EXTRACTION: require all companion files under the extracted entrypoint root.
+    Missing files stop before PowerShell and produce a BLOCKED report if writable.
+[2] PATH: CMD uses its own directory and quoted paths with delayed expansion off.
+    Spaces, Korean characters, percent signs and exclamation marks are tested.
+[3] ENCODING: non-ASCII PowerShell uses UTF-8 BOM; the helper is pure ASCII.
+    The entrypoint uses ASCII CRLF. Parse all bundled scripts before work.
+[4] VARIABLES: never repurpose automatic variables such as Matches, Input, HOME,
+    Host, PID or Args. Reading regex Matches after -match remains allowed.
+[5] ALIASES: reject bundled function names that collide with PowerShell aliases.
+    Use prefixed helpers; the historical H/Get-History collision must not recur.
+[6] COLLECTIONS: use numeric counters and explicit lists; check array counts.
+[7] FOLDERS: require actual files, needed external inputs and writable outputs.
+    Create needed parents before nested copies; preserve unrelated existing files.
+[8] LENGTH: verify the actual extracted path and tool-specific working paths.
+[9] INTEGRITY: match the trusted packaged-file profile, then runtime payload,
+    helper, signer, source, build-input, APK and certificate pins before use.
+[10] TOOLS: reuse the installed historical Java/SDK/Gradle only for matching inputs.
+     No automatic toolchain reinstallation or replacement signing certificate.
+[11] BUILD: reuse cached APK only when expected source/build and APK hashes match.
+[12] SIGN: use the original local key and verify certificate, package and version.
+[13] TARGET: identify the authorized target and preserve the existing installed app.
+[14] ONCE: hold the same-folder execution lock and record the durable outside-kit
+     install-attempt guard before at most one adb install -r. Never auto-replay.
+[15] OWNERSHIP: reject preexisting signed/aligned outputs and preserve their bytes.
+     Cleanup applies only to files created by the current run after lock acquisition.
+[16] RESULT: use a fresh run ID, record install attempt count 0 or 1, and check the
+     actual receipt path and run identity. Never accept a stale successful result.
+[17] SAVE: try the primary result independently of optional stage/diagnostic logs.
+     If blocked/unwritable, use a unique fallback directory and print its path.
+     If every write fails, report RESULT_WRITE_FAILED; do not claim a saved result.
+[18] DISPATCH: pre-PowerShell blocks are BLOCKED. Missing/unverified results after
+     dispatch are UNKNOWN; do not infer that device work never happened.
+[19] VERIFY: actual package/version/signature and available APK hash are distinct.
+     Do not label a missing installed APK hash MATCH or dispatch success installed.
+[20] TEST: distinguish Python static/package checks, Windows synthetic regressions,
+     historical real RESULT evidence, and a future matching release's device run.
+     CI never invokes real Gradle, signing tools, private keys or device commands.

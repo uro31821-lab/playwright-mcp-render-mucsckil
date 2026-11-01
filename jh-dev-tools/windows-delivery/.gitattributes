@@ -1,0 +1,2 @@
+# Profiles bind exact delivered bytes, including CMD CRLF and PowerShell BOM.
+* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

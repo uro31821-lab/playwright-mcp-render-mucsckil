@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { validateRuleUses, ruleUseScopes, ruleDefinition, ruleUseHash } from './rule-use-contract.mjs';
 
 const SCHEMA = 'jh.operational-learning.v1';
 const DOMAINS = new Set([
@@ -13,6 +14,9 @@ const SOURCES = new Set(['host_verified', 'user_explicit', 'user_reported']);
 const VERIFIED = new Set(['success_verified', 'failure_verified']);
 const STATUSES = new Set(['open', 'accepted', 'implemented', 'verified', 'dismissed', 'resolved']);
 const LIMITS = { events: 10000, attempts: 3000, lessons: 1000, proposals: 1000 };
+const MEMORY_KINDS = new Set(['fact', 'episode', 'procedure']);
+const PROVENANCE = ['legacy', 'model_inferred', 'host_verified', 'user_explicit'];
+const LESSON_METADATA = ['memoryKind', 'provenance', 'validFrom', 'validUntil', 'supersedes', 'conflictKey', 'reflection'];
 const own = (o, k) => Object.hasOwn(o, k);
 const clone = (o) => structuredClone(o);
 const fail = (message) => { throw new TypeError(message); };
@@ -53,9 +57,14 @@ function integer(value, label, max = 1e9) {
   if (!Number.isSafeInteger(value) || value < 0 || value > max) fail(`Invalid ${label}`);
 }
 function iso(value, label = 'timestamp') {
-  if (typeof value !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ||
-      !Number.isFinite(Date.parse(value))) fail(`Invalid ${label}`);
+  const match = typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|[+-](\d{2}):(\d{2}))$/.exec(value);
+  if (!match || !Number.isFinite(Date.parse(value))) fail(`Invalid ${label}`);
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText] = match;
+  const year = Number(yearText); const month = Number(monthText); const day = Number(dayText);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > days[month - 1] || Number(hourText) > 23 ||
+      Number(minuteText) > 59 || Number(secondText) > 59 || Number(match[9] ?? 0) > 23 || Number(match[10] ?? 0) > 59) fail(`Invalid ${label}`);
 }
 function refs(value, required = false) {
   if (!Array.isArray(value) || value.length > 64 || (required && value.length === 0)) fail('Invalid evidenceRefs');
@@ -107,11 +116,14 @@ export function createState() {
   return { schema: SCHEMA, revision: 0, events: {}, attempts: {}, lessons: {}, proposals: {} };
 }
 
-function validateEvent(event) {
+export function validateEvent(event) {
+  // Usage receipts are data-only attestations. Shape validation deliberately does
+  // not depend on today's lesson state, so historical events remain readable.
+  validateRuleUses(event);
   fields(event, [
     'eventId', 'taskId', 'attemptId', 'sequence', 'timestamp', 'domain',
     'operation', 'engine', 'context', 'outcome', 'source', 'evidenceRefs',
-  ], ['errorCode', 'metrics', 'labels'], 'event');
+  ], ['errorCode', 'metrics', 'labels', 'ruleUses'], 'event');
   for (const key of ['eventId', 'taskId', 'attemptId']) token(event[key], key);
   integer(event.sequence, 'sequence'); iso(event.timestamp); scope(event);
   if (!OUTCOMES.has(event.outcome)) fail('Invalid outcome');
@@ -131,6 +143,50 @@ function validateEvent(event) {
   }
 }
 
+function validateNewRuleUses(state, event) {
+  if (!own(event, 'ruleUses')) return;
+  const usedReferences = new Set();
+  for (const [id, previous] of Object.entries(state.events)) {
+    if (!own(previous, 'ruleUses')) continue;
+    validateEvent(previous);
+    if (previous.eventId !== id) fail('Invalid stored rule-use event binding');
+    for (const usage of previous.ruleUses) {
+      if (usedReferences.has(usage.useRef)) fail('Stored rule-use reference is duplicated');
+      usedReferences.add(usage.useRef);
+    }
+  }
+  for (const usage of event.ruleUses) {
+    const selected = usage.selection;
+    if (usedReferences.has(usage.useRef)) fail('Rule-use reference already belongs to another event');
+    if (selected.revision > state.revision || !own(state.lessons, selected.lessonId)) fail('Rule selection does not identify current memory');
+    const lesson = state.lessons[selected.lessonId];
+    // Validate data before reading optional receipt properties or invoking core
+    // helpers. The hash is not an authentication token or proof of actual use.
+    ruleUseHash(lesson);
+    const definition = ruleDefinition(lesson);
+    const evaluation = lesson.evaluation;
+    if (lesson.state !== 'active' || lesson.advisoryOnly !== true ||
+        definition.id !== selected.lessonId || definition.ruleVersion !== selected.ruleVersion ||
+        definition.inputFingerprint !== selected.inputFingerprint ||
+        ruleUseHash(definition) !== selected.definitionFingerprint || !evaluation ||
+        ruleUseHash(evaluation) !== selected.evaluationFingerprint ||
+        evaluation.passed < 1 || evaluation.failed !== 0 || evaluation.skipped !== 0) {
+      fail('Rule selection no longer matches an active checked definition');
+    }
+    if (evaluateLesson(state, lesson.id, evaluation) !== state || !evaluation.timestamp ||
+        Date.parse(selected.selectedAt) < Date.parse(evaluation.timestamp)) fail('Rule selection needs the existing dated evaluation');
+    const scopes = ruleUseScopes(selected);
+    const budget = { limit: selected.limit, maxChars: selected.maxChars };
+    const recalled = recallContexts(state, scopes, { now: selected.selectedAt, ...budget });
+    const included = result => result.lessons.some(item => item.id === selected.lessonId &&
+      item.ruleVersion === selected.ruleVersion && item.inputFingerprint === selected.inputFingerprint);
+    if (recalled.fingerprint !== selected.recallFingerprint || !included(recalled)) fail('Rule selection no longer matches its recalled context');
+    const applied = usage.appliedAt === selected.selectedAt ? recalled
+      : recallContexts(state, scopes, { now: usage.appliedAt, ...budget });
+    if (!included(applied)) fail('Rule was not eligible in the attested application context');
+  }
+}
+
 export function ingest(state, event) {
   stateCheck(state); validateEvent(event);
   // Optional undefined fields from JavaScript callers have the same meaning as absent JSON fields.
@@ -139,6 +195,9 @@ export function ingest(state, event) {
     if (!same(state.events[event.eventId], event)) fail('Conflicting event ID');
     return { state, duplicate: true, changed: false };
   }
+  // Exact retransmission above preserves a historical receipt even after a rule
+  // expires, changes or is quarantined. A NEW usage must pass current bindings.
+  validateNewRuleUses(state, event);
   capacity(state, 'events');
   const attemptKey = hash([event.taskId, event.attemptId]);
   const previous = state.attempts[attemptKey];
@@ -163,14 +222,68 @@ export function ingest(state, event) {
 
 function lessonDefinition(lesson) {
   return { id: lesson.id, ...scopeOf(lesson), guidance: lesson.guidance,
-    evidenceRefs: clone(lesson.evidenceRefs), ruleVersion: lesson.ruleVersion, inputFingerprint: lesson.inputFingerprint };
+    evidenceRefs: clone(lesson.evidenceRefs), ruleVersion: lesson.ruleVersion, inputFingerprint: lesson.inputFingerprint,
+    ...lessonMetadata(lesson) };
+}
+
+/** Evaluation receipts are supplied by trusted hosts, not authentication tokens.
+ * Bind new receipts to the full definition as well as its caller-supplied input hash.
+ * Old unbound receipts remain readable only for definitions without new metadata.
+ */
+function evaluationBindsDefinition(lesson, evaluation) {
+  const hasId = own(evaluation, 'lessonId');
+  const hasDefinition = own(evaluation, 'definitionFingerprint');
+  if (!hasId && !hasDefinition) return !LESSON_METADATA.some(key => own(lesson, key));
+  return hasId && hasDefinition && evaluation.lessonId === lesson.id &&
+    typeof evaluation.definitionFingerprint === 'string' && /^[a-f0-9]{64}$/.test(evaluation.definitionFingerprint) &&
+    evaluation.definitionFingerprint === hash(lessonDefinition(lesson));
+}
+
+/** Optional metadata is never defaulted into legacy definitions or fingerprints. */
+function lessonMetadata(lesson) {
+  const metadata = {};
+  for (const key of LESSON_METADATA) if (own(lesson, key)) metadata[key] = clone(lesson[key]);
+  if (own(metadata, 'memoryKind') && !MEMORY_KINDS.has(metadata.memoryKind)) fail('Invalid memoryKind');
+  if (own(metadata, 'provenance') && !PROVENANCE.includes(metadata.provenance)) fail('Invalid provenance');
+  for (const key of ['validFrom', 'validUntil']) if (own(metadata, key)) iso(metadata[key], key);
+  if (metadata.validFrom && metadata.validUntil && Date.parse(metadata.validFrom) >= Date.parse(metadata.validUntil)) fail('Invalid lesson validity interval');
+  if (own(metadata, 'conflictKey')) token(metadata.conflictKey, 'conflictKey');
+  if (own(metadata, 'supersedes')) {
+    if (!Array.isArray(metadata.supersedes) || metadata.supersedes.length > 16 ||
+        new Set(metadata.supersedes).size !== metadata.supersedes.length) fail('Invalid supersedes');
+    for (const id of metadata.supersedes) {
+      token(id, 'superseded lesson ID');
+      if (id === lesson.id) fail('A lesson cannot supersede itself');
+    }
+  }
+  if (own(metadata, 'reflection')) {
+    const reflection = metadata.reflection;
+    fields(reflection, ['assessment', 'cause', 'resolution', 'expectedEffect', 'eventIds'], [], 'reflection');
+    if (reflection.assessment !== 'reviewed_inference') fail('Reflection is a reviewed inference, not a verified outcome');
+    for (const key of ['cause', 'resolution', 'expectedEffect']) text(reflection[key], 'reflection.' + key, 1024);
+    if (!Array.isArray(reflection.eventIds) || !reflection.eventIds.length || reflection.eventIds.length > 16 ||
+        new Set(reflection.eventIds).size !== reflection.eventIds.length) fail('Invalid reflection eventIds');
+    for (const id of reflection.eventIds) token(id, 'reflection event ID');
+  }
+  return metadata;
+}
+const authority = lesson => PROVENANCE.indexOf(lesson.provenance ?? 'legacy');
+function validateSupersedes(state, lesson) {
+  for (const id of lesson.supersedes ?? []) {
+    const previous = state.lessons[id];
+    if (!previous) fail('Superseded lesson must already exist');
+    lessonMetadata(previous);
+    if (!same(scopeOf(previous), scopeOf(lesson))) fail('Supersession cannot cross lesson scope');
+    if (authority(lesson) < authority(previous)) fail('A lower-authority lesson cannot supersede a higher-authority rule');
+  }
 }
 function validatedLesson(lesson) {
-  fields(lesson, ['id', 'domain', 'operation', 'engine', 'context', 'guidance', 'evidenceRefs', 'ruleVersion'], ['state', 'inputFingerprint'], 'lesson');
+  fields(lesson, ['id', 'domain', 'operation', 'engine', 'context', 'guidance', 'evidenceRefs', 'ruleVersion'], ['state', 'inputFingerprint', ...LESSON_METADATA], 'lesson');
   token(lesson.id, 'lesson ID'); token(lesson.ruleVersion, 'ruleVersion'); scope(lesson);
   text(lesson.guidance, 'guidance'); refs(lesson.evidenceRefs, true);
   if (own(lesson, 'state') && lesson.state !== 'candidate') fail('New lessons must begin as candidates');
-  const fingerprint = lesson.inputFingerprint ?? hash({ ...scopeOf(lesson), guidance: lesson.guidance, ruleVersion: lesson.ruleVersion });
+  const metadata = lessonMetadata(lesson);
+  const fingerprint = lesson.inputFingerprint ?? hash({ ...scopeOf(lesson), guidance: lesson.guidance, ruleVersion: lesson.ruleVersion, ...metadata });
   if (typeof fingerprint !== 'string' || !/^[0-9a-f]{64}$/.test(fingerprint)) fail('Invalid inputFingerprint');
   return { ...clone(lesson), inputFingerprint: fingerprint, state: 'candidate', advisoryOnly: true };
 }
@@ -178,6 +291,7 @@ function validatedLesson(lesson) {
 export function addLesson(state, lesson) {
   stateCheck(state);
   const candidate = validatedLesson(lesson);
+  validateSupersedes(state, candidate);
   if (own(state.lessons, candidate.id)) {
     if (!same(lessonDefinition(state.lessons[candidate.id]), lessonDefinition(candidate))) fail('Existing lesson differs; preserve it and use a new lesson ID/version');
     return state;
@@ -189,12 +303,17 @@ export function addLesson(state, lesson) {
 export function evaluateLesson(state, lessonId, evaluation) {
   stateCheck(state); token(lessonId, 'lesson ID');
   if (!own(state.lessons, lessonId)) fail('Unknown lesson');
-  fields(evaluation, ['ruleVersion', 'inputFingerprint', 'passed', 'failed', 'skipped', 'evidenceRefs'], ['timestamp', 'caseResults'], 'evaluation');
+  fields(evaluation, ['ruleVersion', 'inputFingerprint', 'passed', 'failed', 'skipped', 'evidenceRefs'],
+    ['timestamp', 'caseResults', 'lessonId', 'definitionFingerprint'], 'evaluation');
   const lesson = state.lessons[lessonId];
+  lessonMetadata(lesson);
+  validateSupersedes(state, lesson);
   if (evaluation.ruleVersion !== lesson.ruleVersion || evaluation.inputFingerprint !== lesson.inputFingerprint) fail('Evaluation does not match the lesson version and inputs');
+  if (!evaluationBindsDefinition(lesson, evaluation)) fail('Evaluation does not match the complete lesson definition binding');
   for (const key of ['passed', 'failed', 'skipped']) integer(evaluation[key], key, 1e6);
   refs(evaluation.evidenceRefs, true);
   if (own(evaluation, 'timestamp')) iso(evaluation.timestamp);
+  if (lesson.supersedes?.length && !evaluation.timestamp) fail('Supersession evaluation requires a timestamp');
   if (evaluation.passed + evaluation.failed === 0) fail('No executed evaluation cases');
   if (evaluation.failed === 0 && evaluation.skipped > 0) fail('Incomplete evaluation cannot activate a lesson');
   if (own(evaluation, 'caseResults')) {
@@ -223,18 +342,161 @@ export function evaluateLesson(state, lessonId, evaluation) {
   const next = clone(state);
   next.lessons[lessonId] = { ...clone(lesson), state: evaluation.failed > 0 ? 'quarantined' : 'active',
     advisoryOnly: true, evaluation: clone(evaluation), evaluationHistory: [...history, receiptHash] };
+  if (lesson.supersedes?.length) {
+    // Keep effective replacement history after expiry/quarantine. A later failed check
+    // cancels a future interval but cannot revive a rule already superseded by it.
+    const intervals = clone(lesson.supersessionHistory ?? []);
+    for (const interval of intervals) if (!interval.endedAt) interval.endedAt = evaluation.timestamp;
+    const effectiveAt = new Date(Math.max(Date.parse(evaluation.timestamp), Date.parse(lesson.validFrom ?? evaluation.timestamp))).toISOString();
+    if (evaluation.failed === 0 && (!lesson.validUntil || Date.parse(effectiveAt) < Date.parse(lesson.validUntil))) {
+      intervals.push({ receiptHash, activatedAt: evaluation.timestamp, effectiveAt });
+    }
+    next.lessons[lessonId].supersessionHistory = intervals;
+  }
   return commit(next);
 }
 
-export function recall(state, currentContext) {
+function activeProof(lesson) {
+  return lesson.state === 'active' && lesson.advisoryOnly === true &&
+    lesson.evaluation?.passed > 0 && lesson.evaluation?.failed === 0 && lesson.evaluation?.skipped === 0 &&
+    lesson.evaluation?.ruleVersion === lesson.ruleVersion && lesson.evaluation?.inputFingerprint === lesson.inputFingerprint &&
+    evaluationBindsDefinition(lesson, lesson.evaluation);
+}
+
+/** Historical effective replacements remain retired even when the replacing rule expires. */
+function retiredLessons(state, scoped, at) {
+  const depthCache = new Map(); const visiting = new Set();
+  function depth(lesson) {
+    if (depthCache.has(lesson.id)) return depthCache.get(lesson.id);
+    if (visiting.has(lesson.id)) fail('Cyclic lesson supersession');
+    visiting.add(lesson.id);
+    const value = 1 + Math.max(0, ...(lesson.supersedes ?? []).map(id => depth(state.lessons[id])));
+    visiting.delete(lesson.id); depthCache.set(lesson.id, value); return value;
+  }
+  const intervals = [];
+  for (const lesson of scoped) {
+    validateSupersedes(state, lesson);
+    depth(lesson);
+    if (!own(lesson, 'supersessionHistory')) continue;
+    if (!Array.isArray(lesson.supersessionHistory) || lesson.supersessionHistory.length > 1000 || !lesson.supersedes?.length) fail('Invalid supersession history');
+    for (const interval of lesson.supersessionHistory) {
+      fields(interval, ['receiptHash', 'activatedAt', 'effectiveAt'], ['endedAt'], 'supersession interval');
+      if (typeof interval.receiptHash !== 'string' || !/^[a-f0-9]{64}$/.test(interval.receiptHash) ||
+          !lesson.evaluationHistory?.includes(interval.receiptHash)) fail('Supersession needs a recorded evaluation');
+      for (const key of ['activatedAt', 'effectiveAt', 'endedAt']) if (own(interval, key)) iso(interval[key], key);
+      const activated = Date.parse(interval.activatedAt); const effective = Date.parse(interval.effectiveAt);
+      const ended = interval.endedAt ? Date.parse(interval.endedAt) : Infinity;
+      if (effective !== Math.max(activated, Date.parse(lesson.validFrom ?? interval.activatedAt)) || ended < activated ||
+          (lesson.validUntil && effective >= Date.parse(lesson.validUntil))) fail('Invalid supersession interval');
+      if (effective <= at && effective < ended) intervals.push({ lesson, effective });
+    }
+  }
+  // If a future replacement is itself retired before its start, it never retires
+  // its predecessor. Descendants win simultaneous starts; registration forbids cycles.
+  intervals.sort((a, b) => a.effective - b.effective || depth(b.lesson) - depth(a.lesson) || a.lesson.id.localeCompare(b.lesson.id));
+  const retired = new Set();
+  for (const { lesson } of intervals) {
+    if (retired.has(lesson.id)) continue;
+    for (const id of lesson.supersedes) retired.add(id);
+  }
+  return retired;
+}
+
+function eligibleForContext(state, currentContext, at) {
+  const scoped = Object.values(state.lessons).filter(lesson => same(scopeOf(lesson), currentContext));
+  for (const lesson of scoped) lessonMetadata(lesson);
+  const retired = retiredLessons(state, scoped, at);
+  return scoped.filter(lesson => activeProof(lesson) && !retired.has(lesson.id) &&
+    (!lesson.validFrom || Date.parse(lesson.validFrom) <= at) && (!lesson.validUntil || at < Date.parse(lesson.validUntil)));
+}
+
+function selectLessons(eligible, { limit, maxChars }, deduplicateGuidance = false) {
+  const chosen = eligible.filter(lesson => !lesson.conflictKey);
+  const conflicts = [];
+  for (const group of groupBy(eligible.filter(lesson => lesson.conflictKey), lesson => lesson.conflictKey)) {
+    const highest = Math.max(...group.map(authority));
+    const preferred = group.filter(lesson => authority(lesson) === highest).sort((a, b) => a.id.localeCompare(b.id));
+    if (new Set(preferred.map(lesson => lesson.guidance)).size > 1) {
+      conflicts.push({ conflictKey: group[0].conflictKey, lessonIds: group.map(lesson => lesson.id).sort(), reason: 'equal_authority_conflict' });
+    } else chosen.push(preferred[0]);
+  }
+  chosen.sort((a, b) => authority(b) - authority(a) || a.id.localeCompare(b.id));
+  conflicts.sort((a, b) => a.conflictKey.localeCompare(b.conflictKey));
+  const lessons = []; const includedGuidance = new Set(); let chars = 0;
+  for (const lesson of chosen) {
+    const length = [...lesson.guidance].length;
+    if (lessons.length >= limit || chars + length > maxChars ||
+        (deduplicateGuidance && includedGuidance.has(lesson.guidance))) continue;
+    lessons.push(clone(lesson)); chars += length; includedGuidance.add(lesson.guidance);
+  }
+  const omitted = eligible.length - lessons.length;
+  return { lessons, conflicts, omitted };
+}
+
+function selectContext(state, currentContext, { now, limit, maxChars }) {
   stateCheck(state);
   fields(currentContext, ['domain', 'operation', 'engine', 'context'], [], 'recall context'); scope(currentContext);
-  return Object.values(state.lessons)
-    .filter(lesson => lesson.state === 'active' && lesson.advisoryOnly === true &&
-      lesson.evaluation?.passed > 0 && lesson.evaluation?.failed === 0 && lesson.evaluation?.skipped === 0 &&
-      lesson.evaluation?.ruleVersion === lesson.ruleVersion && lesson.evaluation?.inputFingerprint === lesson.inputFingerprint &&
-      same(scopeOf(lesson), currentContext))
-    .sort((a, b) => a.id.localeCompare(b.id)).map(clone);
+  iso(now, 'now'); const at = Date.parse(now);
+  const { lessons, conflicts, omitted } = selectLessons(eligibleForContext(state, currentContext, at), { limit, maxChars });
+  return { lessons, conflicts, omitted, fingerprint: hash({ scope: currentContext,
+    lessons: lessons.map(lessonDefinition), conflicts, omitted, limit, maxChars }), revision: state.revision };
+}
+
+function recallOptions(options) {
+  fields(options, [], ['now', 'limit', 'maxChars'], 'recall options');
+  const now = own(options, 'now') ? options.now : new Date().toISOString();
+  const limit = own(options, 'limit') ? options.limit : 5;
+  const maxChars = own(options, 'maxChars') ? options.maxChars : 4000;
+  integer(limit, 'limit', 20); integer(maxChars, 'maxChars', 16384);
+  if (limit < 1 || maxChars < 1) fail('Recall limits must be positive');
+  return { now, limit, maxChars };
+}
+
+/** Bounded advisory context; complete guidance is omitted rather than truncated. */
+export function recallContext(state, currentContext, options = {}) {
+  return selectContext(state, currentContext, recallOptions(options));
+}
+
+/** Combine up to three exact scopes within one owner-bound state and engine context.
+ * Conflicts, identical guidance and budgets are resolved across the complete set.
+ * A one-scope call retains the existing single-context contract and fingerprint.
+ */
+export function recallContexts(state, contexts, options = {}) {
+  const settings = recallOptions(options);
+  stateCheck(state);
+  if (!Array.isArray(contexts) || contexts.length < 1 || contexts.length > 3 ||
+      Object.getOwnPropertySymbols(contexts).length ||
+      Object.getOwnPropertyNames(contexts).some(key => key !== 'length' && !/^[0-2]$/.test(key))) {
+    fail('Recall contexts must contain one to three exact scopes');
+  }
+  const scopes = []; const seen = new Set();
+  for (let index = 0; index < contexts.length; index++) {
+    const descriptor = Object.getOwnPropertyDescriptor(contexts, String(index));
+    if (!descriptor || !own(descriptor, 'value')) fail('Recall contexts cannot contain holes or accessors');
+    const currentContext = descriptor.value;
+    fields(currentContext, ['domain', 'operation', 'engine', 'context'], [], 'recall context'); scope(currentContext);
+    const key = canonical(currentContext);
+    if (seen.has(key)) fail('Duplicate recall context');
+    seen.add(key);
+    if (scopes.length && (scopes[0].engine !== currentContext.engine || !same(scopes[0].context, currentContext.context))) {
+      fail('Recall contexts must share the same engine and context');
+    }
+    scopes.push(scopeOf(currentContext));
+  }
+  if (scopes.length === 1) return selectContext(state, scopes[0], settings);
+  iso(settings.now, 'now'); const at = Date.parse(settings.now);
+  scopes.sort((a, b) => canonical(a).localeCompare(canonical(b)));
+  const eligible = scopes.flatMap(currentContext => eligibleForContext(state, currentContext, at));
+  const { lessons, conflicts, omitted } = selectLessons(eligible, settings, true);
+  return { lessons, conflicts, omitted, fingerprint: hash({ scopes,
+    lessons: lessons.map(lessonDefinition), conflicts, omitted,
+    limit: settings.limit, maxChars: settings.maxChars }), revision: state.revision };
+}
+
+/** Preserve the legacy array/all-results contract while sharing lifecycle filters. */
+export function recall(state, currentContext) {
+  return selectContext(state, currentContext, { now: new Date().toISOString(),
+    limit: LIMITS.lessons, maxChars: LIMITS.lessons * 2048 }).lessons;
 }
 
 function groupBy(items, keyOf) {
@@ -284,7 +546,9 @@ export function propose(state, options = {}) {
         verification_gap: 'Improve receipt/readback checks for the existing attempt.',
         learning_evaluation: 'Compare candidate approaches on separate held-out cases.' }[kind],
       requiredValidation: ['Evidence review', 'Matching environment and rule version', 'Effect-free regression', 'Outcome readback before live success claims'],
-      ...(existing?.verification ? { verification: clone(existing.verification) } : {}), ...extra };
+      ...(existing?.verification ? { verification: clone(existing.verification) } : {}),
+      ...(existing?.decisionHistory ? { decisionHistory: clone(existing.decisionHistory) } : {}),
+      ...(existing?.candidateLinks ? { candidateLinks: clone(existing.candidateLinks) } : {}), ...extra };
     if (existing && same(existing, proposal)) return;
     if (!existing) capacity(next, 'proposals');
     next.proposals[id] = proposal; changed = true;

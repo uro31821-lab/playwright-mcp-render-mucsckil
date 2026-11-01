@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 
-const UPSTREAM='86cfa35e4f6be6ba1b6a7f9797533a88f6406a87';
+const UPSTREAM='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
 const root='jh-server/owner-setup/';
 const deps=[
  'jh-server/server.mjs',

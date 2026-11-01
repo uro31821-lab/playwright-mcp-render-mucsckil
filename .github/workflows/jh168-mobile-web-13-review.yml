@@ -79,6 +79,12 @@ jobs:
         run: node jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-audit.mjs
       - name: Invoke ALL FOUR generated original signed RIGHT entrypoints without a device
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs
+      - name: Validate selected original Stage25 Secure56 host actually receives 9 mobile aliases
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-stage25-operator.test.mjs
       - name: Existing Secure56 and right-pane regression tests
         run: |
           node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs

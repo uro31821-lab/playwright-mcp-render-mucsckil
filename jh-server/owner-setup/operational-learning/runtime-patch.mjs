@@ -1,14 +1,30 @@
-/** Outermost, reversible observation patch for the complete operator runtime.
- * It adds no MCP tool, executor, approval, dispatch, or authentication decision.
+/** Outermost, reversible learning patch for the complete operator runtime.
+ * Memory tools add no executor, approval, dispatch, or authentication decision.
  * The original source and its security/receipt patches must be verified first.
  */
-const PREFIX = 'import {describeOpenCompletion as jhLearningDescribeOpen56} from "../deployment/jh167-open-completion.mjs";\n';
+const PREFIX = 'import {describeOpenCompletion as jhLearningDescribeOpen56} from "../deployment/jh167-open-completion.mjs";\n' +
+  'import {registerLearningTools as jhRegisterLearningTools56} from "../operational-learning/mcp-tools.mjs";\n';
 const CONTEXT = 'const jhCommandContext56=new JhAsyncLocalStorage56();';
 const REGISTER = 'const scoped=jhCommandTool56(name,config,handler);';
-const REGISTERED = 'const scoped=jhCommandTool56(name,config,jhLearningHandler56(name,handler));';
+const REGISTERED = 'const scoped=jhCommandTool56(name,config,jhLearningHandler56(name,handler));if(name===\'life_learning_context\'||name===\'life_learning_review\')scoped.config.description=config.description;';
+const TOOL_ANCHOR = '  registerOAuthTool("life_status",{';
 const CREATED = '  return cacheSet(recentJobs,key,j);';
 const COMPLETED = '    j.status="complete";j.result=body.result;j.completedAt=new Date().toISOString();';
 const RETENTION = '    if((j.status==="complete"||j.status==="error"||j.status==="expired") && j.completedAt && now-Date.parse(j.completedAt)>COMPLETED_JOB_RETENTION_MS)jobs.delete(id);';
+const OPEN_RECEIPT = '    const legacy=jobResult(observed.job);';
+const OBSERVE_OPEN_RECEIPT = String.raw`    if(observed.summary?.executionStatus==='EFFECT_CONFIRMED'&&observed.summary.actionSucceeded===true&&
+       observed.summary.confirmationScope==='REQUESTED_ADDRESS_IN_RIGHT_CHROME_AT_RECEIPT_TIME')
+      jhLearningObserveJob56('receiptObserved',observed.job);
+`;
+const SPLIT_RECEIPT = String.raw`    return jhSplitReadReceipts56.read({
+      receiptRef,deviceId:device,sessionId:auth.sessionId,commandId
+    },id=>jobs.get(id),screen=>jhInspectSplitEvidence155(screen).ok===true);`;
+const OBSERVE_SPLIT_RECEIPT = String.raw`    let learningJob=null;
+    const receipt=jhSplitReadReceipts56.read({
+      receiptRef,deviceId:device,sessionId:auth.sessionId,commandId
+    },id=>{learningJob=jobs.get(id);return learningJob;},screen=>jhInspectSplitEvidence155(screen).ok===true);
+    jhLearningObserveSplitReceipt56(learningJob,receipt,{deviceId:device,sessionId:auth.sessionId,commandId});
+    return receipt;`;
 
 const SHARED = String.raw`
 // Only a host-installed observer can receive these bounded metadata records.
@@ -46,11 +62,101 @@ function jhLearningJobMeta56(job,completed){
 }
 function jhLearningObserveJob56(method,job){
   const controller=jhLearningController56;
-  if(!controller)return;
+  if(!controller||typeof controller[method]!=='function')return;
   try{
-    const meta=jhLearningJobMeta56(job,method==='jobCompleted');
+    const meta=jhLearningJobMeta56(job,method==='jobCompleted'||method==='receiptObserved');
     if(meta)Promise.resolve(controller[method](meta)).catch(()=>{});
   }catch{} // Observation cannot change the accepted job or its HTTP response.
+}
+function jhLearningObserveSplitReceipt56(job,receipt,binding){
+  const controller=jhLearningController56;
+  if(!controller||typeof controller.receiptObserved!=='function')return;
+  try{
+    if(!job||!binding||!['split_screen_session_start','split_screen_session_status','split_comfort_status'].includes(job.type)||
+       job.mcpToolName!=='life_android_capture_work_window'||job.secureRequestedEffect!=='READ_ONLY'||
+       (job.type==='split_comfort_status'&&(!Object.hasOwn(job,'mcpToolName')||!Object.hasOwn(job,'secureRequestedEffect')))||
+       job.status!=='complete'||job.result?.ok!==true||jobs.get(job.id)!==job||
+       !binding.deviceId||!binding.sessionId||!jhLearningCommandId56(binding.commandId)||
+       job.targetDeviceId!==binding.deviceId||job.secureSessionId!==binding.sessionId||job.commandId!==binding.commandId||
+       !/^[a-f0-9]{64}$/.test(job.taskDigest||'')||
+       receipt?.ok!==true||receipt.receiptRecovered!==true||receipt.readOnly!==true||
+       receipt.automaticReplay!==false||receipt.newJobCreated!==false||
+       receipt.jobDigest!==sha56(job.id)||receipt.taskDigest!==job.taskDigest||
+       jhInspectSplitEvidence155(job.result).ok!==true)return;
+    const meta=jhLearningJobMeta56(job,true);
+    if(!meta?.evidenceDigest||meta.commandId!==binding.commandId)return;
+    // The existing verifier confirms recent split layout only. It does not
+    // establish the requested screen content, target app or whole task outcome.
+    const observation=Object.freeze({id:meta.id,type:meta.type,commandId:meta.commandId,
+      status:meta.status,evidenceDigest:meta.evidenceDigest,
+      ...(job.type==='split_comfort_status'?{mcpToolName:'life_android_capture_work_window',secureRequestedEffect:'READ_ONLY'}:{}),
+      verifiedObservationScope:'SPLIT_READ_LAYOUT_ONLY'});
+    Promise.resolve(controller.receiptObserved(observation)).catch(()=>{});
+  }catch{} // Keep the original receipt and every existing authority unchanged.
+}
+function jhLearningObserveFollowupReceipt56(job,receipt,binding){
+  const controller=jhLearningController56;
+  if(!controller||typeof controller.receiptObserved!=='function')return;
+  try{
+    if(!job||!binding||job.type!=='split_screen_session_followup'||
+       job.mcpToolName!=='life_android_execute_computer_action'||job.secureRequestedEffect!=='REVERSIBLE_WRITE'||
+       job.action!=='CLICK'||job.status!=='complete'||jobs.get(job.id)!==job||
+       !job.result||typeof job.result!=='object'||Array.isArray(job.result)||
+       job.result.ok!==true||job.result.resultVerified!==true||
+       (job.result.action!==undefined&&job.result.action!=='CLICK')||
+       typeof binding.deviceId!=='string'||!binding.deviceId||
+       typeof binding.sessionId!=='string'||!binding.sessionId||
+       !/^[a-f0-9]{64}$/.test(binding.deviceDigest||'')||!jhLearningCommandId56(binding.commandId)||
+       !/^[a-f0-9]{64}$/.test(binding.taskDigest||'')||!/^[a-f0-9]{32}$/.test(binding.requestId||'')||
+       !/^ssc_[a-f0-9]{32}$/.test(binding.contextId||'')||!/^item_[a-f0-9]{16}$/.test(binding.targetItemRef||'')||
+       job.targetDeviceId!==binding.deviceId||job.targetDeviceDigest!==binding.deviceDigest||
+       job.secureSessionId!==binding.sessionId||job.commandId!==binding.commandId||
+       job.taskDigest!==binding.taskDigest||job.requestId!==binding.requestId||
+       job.contextId!==binding.contextId||job.targetItemRef!==binding.targetItemRef||
+       receipt?.ok!==true||receipt.code!=='SPLIT_FOLLOWUP_CLICK_VERIFIED'||
+       receipt.executionStatus!=='CONFIRMED'||receipt.confirmationScope!=='SIGNED_CLICK_AND_RIGHT_PANE_AT_RECEIPT'||
+       receipt.resultVerified!==true||receipt.receiptRecovered!==true||receipt.readOnly!==true||
+       receipt.automaticReplay!==false||receipt.newJobCreated!==false||
+       receipt.jobDigest!==sha56(job.id)||receipt.taskDigest!==binding.taskDigest)return;
+    const meta=jhLearningJobMeta56(job,true);
+    if(!meta?.evidenceDigest||meta.commandId!==binding.commandId)return;
+    // The existing receipt registry already checked the original signed CLICK
+    // and right-pane proof. This success applies only to that action at receipt
+    // time; it does not establish the user's whole workflow or a later screen.
+    const observation=Object.freeze({id:meta.id,type:meta.type,commandId:meta.commandId,
+      status:meta.status,evidenceDigest:meta.evidenceDigest,
+      verifiedOutcome:'success_verified',verifiedOutcomeScope:'SPLIT_FOLLOWUP_CLICK_ONLY'});
+    Promise.resolve(controller.receiptObserved(observation)).catch(()=>{});
+  }catch{} // Observation cannot change the original receipt or retry the click.
+}
+function jhLearningObserveComputerInspectReceipt56(job,receipt,binding){
+  const controller=jhLearningController56;
+  if(!controller||typeof controller.receiptObserved!=='function')return;
+  try{
+    if(!job||!binding||job.type!=='computer_use_inspect'||
+       job.mcpToolName!=='life_android_computer_inspect'||job.secureRequestedEffect!=='READ_ONLY'||
+       job.status!=='complete'||jobs.get(job.id)!==job||
+       !job.result||typeof job.result!=='object'||Array.isArray(job.result)||
+       typeof binding.deviceId!=='string'||!binding.deviceId||
+       typeof binding.sessionId!=='string'||!binding.sessionId||
+       !/^[a-f0-9]{64}$/.test(binding.deviceDigest||'')||!jhLearningCommandId56(binding.commandId)||
+       !/^[a-f0-9]{64}$/.test(binding.taskDigest||'')||typeof binding.runDigest!=='string'||
+       (binding.runDigest!==''&&!/^[a-f0-9]{64}$/.test(binding.runDigest))||
+       job.targetDeviceId!==binding.deviceId||job.targetDeviceDigest!==binding.deviceDigest||
+       job.secureSessionId!==binding.sessionId||job.commandId!==binding.commandId||
+       job.taskDigest!==binding.taskDigest||String(job.runDigest||'')!==binding.runDigest||
+       receipt?.ok!==true||receipt.job!==job||receipt.lookupOnly!==true||receipt.readOnly!==true||
+       receipt.newJobCreated!==false||receipt.automaticReplay!==false)return;
+    const meta=jhLearningJobMeta56(job,true);
+    if(!meta?.evidenceDigest||meta.commandId!==binding.commandId)return;
+    // The registry found the original completed INSPECT result. This proves
+    // result receipt only, even when result.ok is false; it does not establish
+    // screen-content accuracy, action approval or successful user work.
+    const observation=Object.freeze({id:meta.id,type:meta.type,commandId:meta.commandId,
+      status:meta.status,mcpToolName:'life_android_computer_inspect',secureRequestedEffect:'READ_ONLY',
+      evidenceDigest:meta.evidenceDigest,verifiedObservationScope:'COMPUTER_INSPECT_RECEIPT_ONLY'});
+    Promise.resolve(controller.receiptObserved(observation)).catch(()=>{});
+  }catch{} // Preserve the existing result and never dispatch or replay a job.
 }
 async function jhLearningStatus56(result,controller){
   if(!result||!Array.isArray(result.content)||result.content[0]?.type!=='text')return result;
@@ -104,7 +210,8 @@ export function installOperationalLearning56(controller){
   const methods=['invoke','jobCreated','jobCompleted','status','close'];
   if(!controller||methods.some(key=>typeof controller[key]!=='function'))
     throw Error('LEARNING_CONTROLLER_REQUIRED');
-  const installed=Object.freeze(Object.fromEntries(methods.map(key=>[key,controller[key].bind(controller)])));
+  const exposed=[...methods,...['context','review','receiptObserved'].filter(key=>typeof controller[key]==='function')];
+  const installed=Object.freeze(Object.fromEntries(exposed.map(key=>[key,controller[key].bind(controller)])));
   jhLearningController56=installed;jhLearningInstalled56=true;
   let closed=false;
   return Object.freeze({installed:true,automaticReplayAllowed:false,close(){
@@ -117,9 +224,12 @@ export function installOperationalLearning56(controller){
 const PAIRS = [
   [CONTEXT, CONTEXT + SHARED],
   [REGISTER, REGISTERED],
+  [TOOL_ANCHOR, '  jhRegisterLearningTools56({registerOAuthTool,z,textResult,getController:()=>jhLearningController56});\n' + TOOL_ANCHOR],
   [CREATED, '  jhLearningObserveJob56("jobCreated",j);\n' + CREATED],
   [COMPLETED, COMPLETED + '\n    jhLearningObserveJob56("jobCompleted",j);'],
   [RETENTION, '    if(j.status==="error"||j.status==="expired")jhLearningObserveJob56("jobCompleted",j);\n' + RETENTION],
+  [OPEN_RECEIPT, OBSERVE_OPEN_RECEIPT + OPEN_RECEIPT],
+  [SPLIT_RECEIPT, OBSERVE_SPLIT_RECEIPT],
 ];
 const REQUIRED = [
   'const pendingApprovalReceipts56=createPendingApprovalReceiptRegistry56();',

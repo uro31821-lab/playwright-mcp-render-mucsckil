@@ -1,14 +1,32 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import { FileLearningStore } from './store.mjs';
-import { ingest, recall, propose } from './engine.mjs';
+import { ingest, recallContexts, propose, addLesson, evaluateLesson } from './engine.mjs';
+import { prepareReview } from './curation.mjs';
+import { registerReviewedCandidate, proposalProgressView } from './progress.mjs';
+import { createInstructionCandidate } from './instructions.mjs';
+import { decideProposal, proposalDecisionView, decisionSummary } from './decisions.mjs';
+import { bindRegression, runRegression } from './regression.mjs';
+import { evaluateConstraints } from './constraints.mjs';
+import { evaluateTrajectory } from './trajectory.mjs';
 
 const RECEIPT_TOOLS = new Set([
   'life_job_status', 'job_status', 'life_android_pending_approval_receipt_status',
   'life_android_action_approval_status', 'life_android_screen_consent_status',
+  'life_learning_context', 'life_learning_review',
 ]);
 const RECEIPT_MODES = new Set(['STATUS', 'RECEIPT_STATUS', 'READBACK_PENDING']);
 const VERIFIED = new Set(['success_verified', 'failure_verified']);
+const SPLIT_READ_SCOPE = 'SPLIT_READ_LAYOUT_ONLY';
+const SPLIT_READ_REFERENCE = 'source:jh-split-read-layout-only';
+const SPLIT_COMFORT_STATUS_TYPE = 'split_comfort_status';
+const SPLIT_READ_TYPES = new Set(['split_screen_session_start', 'split_screen_session_status', SPLIT_COMFORT_STATUS_TYPE]);
+const SPLIT_FOLLOWUP_TYPE = 'split_screen_session_followup';
+const SPLIT_FOLLOWUP_SCOPE = 'SPLIT_FOLLOWUP_CLICK_ONLY';
+const SPLIT_FOLLOWUP_REFERENCE = 'source:jh-split-followup-click-only';
+const COMPUTER_INSPECT_TYPE = 'computer_use_inspect';
+const COMPUTER_INSPECT_SCOPE = 'COMPUTER_INSPECT_RECEIPT_ONLY';
+const COMPUTER_INSPECT_REFERENCE = 'source:jh-computer-inspect-receipt-only';
 const SAFE_CODES = new Set([
   'JOB_ERROR', 'JOB_EXPIRED', 'TIMEOUT', 'ACCESS_DENIED', 'APPROVAL_REQUIRED',
   'AUTH_REQUIRED', 'INVALID_REQUEST', 'CANCELLED', 'COMPLETION_UNKNOWN',
@@ -98,7 +116,7 @@ function settleWithin(promise, milliseconds) {
 /**
  * One configured personal-server owner, shared across that owner's connections.
  * This is not OAuth multi-user isolation or a Library synchronization adapter.
- * Only trusted host code supplies call identity and verifiedOutcome.
+ * Only trusted host code supplies call identity and verified result/observation metadata.
  */
 export async function createServerLearning({ file, ownerScope, runtimeId, context,
   clock = () => new Date().toISOString() }) {
@@ -147,6 +165,15 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     return { taskId: taskId(commandId), domain: domainFor(operation), operation,
       engine: ENGINE, context: clone(environment) };
   }
+  // A real cross-task policy scope, never a fabricated tool execution or event.
+  function commonRuleScope() {
+    return { domain: 'orchestration', operation: 'jh.common.rules', engine: ENGINE, context: clone(environment) };
+  }
+  function adviceFor(current, scope, options = {}) {
+    const common = commonRuleScope();
+    const scopes = scope.domain === common.domain && scope.operation === common.operation ? [scope] : [scope, common];
+    return recallContexts(current, scopes, { now: clock(), ...options });
+  }
   function queueWork(callback) {
     if (!store || !environment || closed) return;
     queued++;
@@ -159,15 +186,44 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     return current ?? null;
   }
 
-  async function record(attemptId, fallbackScope, observation) {
+  async function record(attemptId, fallbackScope, observation, { existingReceiptTaskId } = {}) {
     const result = await store.transact(current => {
-      const previous = Object.values(current.attempts).find(item => item.attemptId === attemptId);
+      const attempts = Object.values(current.attempts);
+      const matches = existingReceiptTaskId === undefined ? null : attempts.filter(item => item.attemptId === attemptId);
+      const previous = matches ? matches[0] : attempts.find(item => item.attemptId === attemptId);
+      if (existingReceiptTaskId !== undefined) {
+        // A receipt read may reconcile only the uniquely recorded original job.
+        // Never create a new attempt or guess a legacy binding across runtimes.
+        if (matches.length !== 1 || previous.taskId !== existingReceiptTaskId ||
+            previous.source !== 'host_verified' || previous.engine !== ENGINE ||
+            !['platform', 'version', 'environment'].every(key => previous.context?.[key] === environment[key])) {
+          return { state: current, skipped: true };
+        }
+        if (VERIFIED.has(previous.outcome)) {
+          const duplicate = previous.outcome === observation.outcome &&
+            JSON.stringify(previous.evidenceRefs) === JSON.stringify(observation.evidenceRefs);
+          return { state: current, ...(duplicate ? { duplicate: true } : { skipped: true }) };
+        }
+        if (!['pending', 'completion_unknown', 'observed'].includes(previous.outcome)) {
+          return { state: current, skipped: true };
+        }
+      }
       const original = previous ? { taskId: previous.taskId, domain: previous.domain,
         operation: previous.operation, engine: previous.engine, context: clone(previous.context) } : fallbackScope;
       if (!original) throw new TypeError('LEARNING_CORRELATION_REQUIRED');
       const sameObservation = previous && previous.outcome === observation.outcome &&
         (previous.errorCode ?? null) === (observation.errorCode ?? null) &&
         JSON.stringify(previous.evidenceRefs) === JSON.stringify(observation.evidenceRefs);
+      // A read receipt observation is narrower than task success, but a later
+      // generic completion/poll must not erase its bound receipt. A new
+      // verified outcome may still advance this attempt through the usual path.
+      const hasReadReceiptObservation = previous?.outcome === 'observed' &&
+        previous.source === 'host_verified' && Array.isArray(previous.evidenceRefs) &&
+        previous.evidenceRefs.length === 2 && /^sha256:[a-f0-9]{64}$/.test(previous.evidenceRefs[0]) &&
+        [SPLIT_READ_REFERENCE, COMPUTER_INSPECT_REFERENCE].includes(previous.evidenceRefs[1]);
+      if (hasReadReceiptObservation && ['observed', 'pending', 'completion_unknown'].includes(observation.outcome)) {
+        return { state: current, ...(sameObservation ? { duplicate: true } : { skipped: true }) };
+      }
       const wouldDowngrade = previous && VERIFIED.has(previous.outcome) && !VERIFIED.has(observation.outcome);
       const latePending = previous && previous.outcome !== 'pending' && observation.outcome === 'pending';
       if (sameObservation || wouldDowngrade || latePending) return { state: current, duplicate: true };
@@ -179,15 +235,27 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       return { ...propose(observed.state, { now: event.timestamp }), duplicate: observed.duplicate };
     });
     state = result.state;
+    if (result.skipped) return;
     if (result.duplicate) activity.duplicates++; else activity.recorded++;
   }
 
   function snapshotJob(job) {
     if (!job || !identity(job.id)) throw new TypeError('LEARNING_JOB_ID_REQUIRED');
+    const type = name(job.type);
     return {
-      attemptId: jobAttempt(job.id), operation: 'job.' + name(job.type),
+      attemptId: jobAttempt(job.id), type, operation: 'job.' + type,
       commandId: identity(job.commandId), status: typeof job.status === 'string' ? job.status : 'unknown',
       code: SAFE_CODES.has(job.code) ? job.code : (job.code === undefined ? null : 'HOST_CODE_REDACTED'),
+      observationScopeSupplied: 'verifiedObservationScope' in job,
+      observationScopeOwned: Object.hasOwn(job, 'verifiedObservationScope'),
+      verifiedObservationScope: job.verifiedObservationScope,
+      inspectReadOnly: Object.hasOwn(job, 'mcpToolName') && job.mcpToolName === 'life_android_computer_inspect' &&
+        Object.hasOwn(job, 'secureRequestedEffect') && job.secureRequestedEffect === 'READ_ONLY',
+      comfortStatusReadOnly: Object.hasOwn(job, 'mcpToolName') && job.mcpToolName === 'life_android_capture_work_window' &&
+        Object.hasOwn(job, 'secureRequestedEffect') && job.secureRequestedEffect === 'READ_ONLY',
+      outcomeScopeSupplied: 'verifiedOutcomeScope' in job,
+      verifiedOutcomeScope: Object.hasOwn(job, 'verifiedOutcomeScope') ? job.verifiedOutcomeScope : null,
+      verifiedOutcomeSupplied: 'verifiedOutcome' in job,
       verifiedOutcome: VERIFIED.has(job.verifiedOutcome) ? job.verifiedOutcome : null,
       evidenceDigest: digest(job.evidenceDigest),
     };
@@ -207,6 +275,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     if (closed) return;
     try {
       const input = snapshotJob(job);
+      if (input.observationScopeSupplied || input.outcomeScopeSupplied ||
+          ([SPLIT_FOLLOWUP_TYPE, COMPUTER_INSPECT_TYPE, SPLIT_COMFORT_STATUS_TYPE].includes(input.type) && input.verifiedOutcomeSupplied)) return;
       const caller = calls.getStore();
       if (caller) { caller.hasJobs = true; caller.jobAttempts.add(input.attemptId); }
       const scope = bindings.get(input.attemptId) ?? caller?.scope ?? scopeFor(input.operation, input.commandId);
@@ -219,16 +289,73 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     if (closed) return;
     try {
       const input = snapshotJob(job);
+      if (input.observationScopeSupplied || input.outcomeScopeSupplied ||
+          ([SPLIT_FOLLOWUP_TYPE, COMPUTER_INSPECT_TYPE, SPLIT_COMFORT_STATUS_TYPE].includes(input.type) && input.verifiedOutcomeSupplied)) return;
       const scope = bindings.get(input.attemptId) ?? scopeFor(input.operation, input.commandId);
       queueWork(() => record(input.attemptId, scope, jobObservation(input, 'completed')));
     } catch (error) { failed(error); }
   }
 
-  function suggestions(current, lessons = [], offerKey) {
+  /** Trusted host readback of an existing completed job; not a public write tool.
+   * Layout-only read receipts are observations, never task success or failure.
+   * The host validates the original comfort STATUS result's direct split proof;
+   * a separate fallback snapshot cannot supply this observation.
+   * An INSPECT receipt confirms only receipt of that original read-only result,
+   * including a device-reported failure; its body is not an outcome assertion.
+   * Follow-up success confirms only the approved click and receipt-time right
+   * window; the reference must not be reported as the whole user's goal.
+   */
+  function receiptObserved(job) {
+    if (closed) return;
+    try {
+      const input = snapshotJob(job);
+      if (input.status !== 'complete' || !input.evidenceDigest || !input.commandId) return;
+      let observation;
+      if (input.outcomeScopeSupplied) {
+        if (input.verifiedOutcomeScope !== SPLIT_FOLLOWUP_SCOPE || input.type !== SPLIT_FOLLOWUP_TYPE ||
+            input.verifiedOutcome !== 'success_verified' || input.observationScopeSupplied) return;
+        observation = { outcome: 'success_verified',
+          evidenceRefs: ['sha256:' + input.evidenceDigest, SPLIT_FOLLOWUP_REFERENCE] };
+      } else if (input.type === SPLIT_FOLLOWUP_TYPE) {
+        return; // No unscoped follow-up outcome can supply this narrow proof.
+      } else if (input.observationScopeSupplied) {
+        if (input.verifiedOutcomeSupplied) return;
+        let reference;
+        if (input.verifiedObservationScope === SPLIT_READ_SCOPE && SPLIT_READ_TYPES.has(input.type) &&
+            (input.type !== SPLIT_COMFORT_STATUS_TYPE || (input.observationScopeOwned && input.comfortStatusReadOnly))) {
+          reference = SPLIT_READ_REFERENCE;
+        } else if (input.verifiedObservationScope === COMPUTER_INSPECT_SCOPE &&
+            input.observationScopeOwned && input.type === COMPUTER_INSPECT_TYPE && input.inspectReadOnly) {
+          reference = COMPUTER_INSPECT_REFERENCE;
+        } else return;
+        observation = { outcome: 'observed', evidenceRefs: ['sha256:' + input.evidenceDigest, reference] };
+      } else {
+        if ([COMPUTER_INSPECT_TYPE, SPLIT_COMFORT_STATUS_TYPE].includes(input.type) || !input.verifiedOutcome) return;
+        observation = jobObservation(input, 'completed');
+      }
+      queueWork(() => record(input.attemptId, null, observation,
+        { existingReceiptTaskId: taskId(input.commandId) }));
+    } catch (error) { failed(error); }
+  }
+
+  function proposalMatchesScope(item, query) {
+    const scope = item?.scope;
+    if (!scope || typeof scope !== 'object' || Array.isArray(scope) ||
+      !['domain', 'operation', 'engine', 'context'].every(key => Object.hasOwn(scope, key)) ||
+      !scope.context || typeof scope.context !== 'object' || Array.isArray(scope.context) ||
+      !['platform', 'version', 'environment'].every(key => Object.hasOwn(scope.context, key) &&
+        scope.context[key] === query.context[key])) return false;
+    // Additional-learning evaluation can span operations only within its own
+    // domain and environment. Other proposal kinds never get a wildcard scope.
+    return scope.domain === query.domain && scope.engine === query.engine &&
+      (scope.operation === query.operation ||
+        (item.kind === 'learning_evaluation' && scope.operation === '*'));
+  }
+  function suggestions(current, lessons = [], offerKey, query) {
     if (!current) return { lessons: [], proposals: [] };
     return {
       lessons: lessons.filter(item => !offered.has(offerKey + ':lesson:' + item.id + ':' + item.inputFingerprint)).slice(0, 3),
-      proposals: Object.values(current.proposals).filter(item => item.status === 'open' &&
+      proposals: Object.values(current.proposals).filter(item => proposalMatchesScope(item, query) && item.status === 'open' &&
         !offered.has(offerKey + ':proposal:' + item.id)).sort((a, b) => a.id.localeCompare(b.id)).slice(0, 3),
     };
   }
@@ -236,10 +363,14 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     if ((!advice.lessons.length && !advice.proposals.length) || !value || typeof value !== 'object' ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(value)) || !Array.isArray(value.content)) return value;
     const notice = {
-      type: 'jh_operational_learning', delivery: 'offered', advisoryOnly: true, externalEffects: false,
+      type: 'jh_operational_learning', delivery: 'offered', timing: 'after_execution', advisoryOnly: true, externalEffects: false,
+      revision: state?.revision ?? null, preflightTool: 'life_learning_context',
       lessons: advice.lessons.map(item => ({ id: item.id, operation: item.operation, ruleVersion: item.ruleVersion,
         guidance: shortText(item.guidance), evidenceRefs: item.evidenceRefs.slice(0, 4) })),
       proposals: advice.proposals.map(item => ({ id: item.id, kind: item.kind, status: item.status,
+        scope: { domain: item.scope.domain, operation: item.scope.operation, engine: item.scope.engine,
+          context: { platform: item.scope.context.platform, version: item.scope.context.version,
+            environment: item.scope.context.environment } },
         independentTaskCount: item.independentTaskCount, reason: shortText(item.reason),
         proposedChange: shortText(item.proposedChange), savings: null })),
       observationScope: 'JH tool events only; ordinary chat is not observed', librarySync: 'not_connected',
@@ -271,7 +402,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       const current = await refresh();
       if (current && !invocation.receipt) {
         const { taskId: unused, ...query } = scope;
-        lessons = recall(current, query);
+        lessons = adviceFor(current, query, { limit: 20, maxChars: 16384 }).lessons;
       }
     });
     let value;
@@ -310,8 +441,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     const enriched = await safely(() => {
       // Another controller may quarantine or replace a lesson while this handler runs.
       const { taskId: unused, ...query } = invocation.scope;
-      lessons = current ? recall(current, query) : [];
-      return appendAdvice(value, suggestions(current, lessons, invocation.offerKey), invocation.offerKey);
+      lessons = current ? adviceFor(current, query, { limit: 20, maxChars: 16384 }).lessons : [];
+      return appendAdvice(value, suggestions(current, lessons, invocation.offerKey, query), invocation.offerKey);
     });
     return enriched === undefined ? value : enriched;
   }
@@ -327,16 +458,162 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     finally { inFlight.delete(flight); finish(); }
   }
 
+  function unavailableResult() {
+    return { ok: false, code: 'LEARNING_UNAVAILABLE', replayAllowed: false };
+  }
+  function requestFields(input, required, optional = []) {
+    if (!input || typeof input !== 'object' || Array.isArray(input) ||
+        ![Object.prototype, null].includes(Object.getPrototypeOf(input)) ||
+        Object.keys(input).some(key => ![...required, ...optional].includes(key)) ||
+        required.some(key => !Object.hasOwn(input, key))) throw new TypeError('LEARNING_REQUEST_INVALID');
+  }
+  function evaluatorFor(suite) {
+    if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
+    if (suite.evaluator === 'jh.trajectory.v1') return evaluateTrajectory;
+    throw new TypeError('LEARNING_EVALUATOR_UNSUPPORTED');
+  }
+
+  function targetScope(target, mode = '') {
+    if (typeof target !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(target) ||
+        typeof mode !== 'string' || (mode && !/^[A-Z][A-Z0-9_]{0,23}$/.test(mode))) {
+      throw new TypeError('LEARNING_TARGET_INVALID');
+    }
+    const { taskId: unused, ...scope } = scopeFor(target + (mode ? '.' + mode.toLowerCase() : ''), null);
+    return scope;
+  }
+
+  /** Explicit read before the target action; retrieval never executes that target. */
+  async function preflightContext(input) {
+    requestFields(input, ['target_tool'], ['target_mode', 'limit', 'max_chars']);
+    if (typeof input.target_tool !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(input.target_tool)) {
+      throw new TypeError('LEARNING_TARGET_INVALID');
+    }
+    const mode = input.target_mode ?? '';
+    if (typeof mode !== 'string' || (mode && !/^[A-Z][A-Z0-9_]{0,23}$/.test(mode))) {
+      throw new TypeError('LEARNING_MODE_INVALID');
+    }
+    await queue;
+    const current = await refresh();
+    if (!current || closed || closing) return unavailableResult();
+    const scope = targetScope(input.target_tool, mode);
+    const recalled = adviceFor(current, scope, {
+      ...(input.limit === undefined ? {} : { limit: input.limit }),
+      ...(input.max_chars === undefined ? {} : { maxChars: input.max_chars }) });
+    return { ok: true, type: 'jh_learning_context', delivery: 'before_execution',
+      advisoryOnly: true, externalEffects: false, targetExecuted: false, scope,
+      revision: recalled.revision, fingerprint: recalled.fingerprint, omitted: recalled.omitted,
+      conflicts: recalled.conflicts,
+      lessons: recalled.lessons.map(item => ({ id: item.id, ruleVersion: item.ruleVersion,
+        memoryKind: item.memoryKind ?? 'procedure', provenance: item.provenance ?? 'legacy',
+        appliesTo: item.domain === 'orchestration' && item.operation === 'jh.common.rules' ? 'all_jh_tasks' : 'target_operation',
+        guidance: item.guidance, evidenceRefs: item.evidenceRefs.slice(0, 4),
+        validFrom: item.validFrom ?? null, validUntil: item.validUntil ?? null })),
+      observationScope: 'JH tool events only', librarySync: 'not_connected' };
+  }
+
+  /** Structured review only. An agent inference cannot claim user authority. */
+  async function review(mode, input) {
+    if (!['PREPARE', 'CANDIDATE', 'CHECK', 'DECIDE'].includes(mode)) throw new TypeError('LEARNING_REVIEW_MODE_INVALID');
+    await queue;
+    const current = await refresh();
+    if (!current || closed || closing) return unavailableResult();
+    if (mode === 'PREPARE') {
+      if (Object.hasOwn(input, 'view')) {
+        requestFields(input, ['proposalId', 'view']);
+        if (input.view === 'progress') {
+          return { ok: true, mode, view: proposalProgressView(current, { proposalId: input.proposalId },
+            { now: clock(), commonScope: commonRuleScope() }), externalEffects: false };
+        }
+        if (input.view !== 'decision') throw new TypeError('LEARNING_REQUEST_INVALID');
+        return { ok: true, mode, view: proposalDecisionView(current, { proposalId: input.proposalId }),
+          externalEffects: false };
+      }
+      return { ok: true, mode, packet: prepareReview(current, input), externalEffects: false };
+    }
+    if (mode === 'DECIDE') {
+      // Check the expected revision inside the same file lock that saves the
+      // decision. An exact already-recorded retry is read-only even when its
+      // original expected revision is now old; all new decisions require CAS.
+      const saved = await store.transact(value => decideProposal(value, input, { now: clock() }));
+      state = saved.state;
+      const item = saved.proposal;
+      return { ok: true, mode, revision: saved.state.revision,
+        proposal: { id: item.id, kind: item.kind, status: item.status, scope: clone(item.scope) },
+        receipt: saved.receipt, duplicate: saved.duplicate,
+        sourceAuthentication: 'authenticated_owner_attestation',
+        advisoryOnly: true, externalEffects: false, activatedByThisCall: false, liveExecutionVerified: false };
+    }
+    if (mode === 'CANDIDATE') {
+      if (Object.hasOwn(input, 'instruction')) {
+        requestFields(input, ['instruction', 'suite', 'expectedRevision']);
+        if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0 ||
+            input.expectedRevision !== current.revision) {
+          return { ok: false, code: 'LEARNING_REVISION_CONFLICT', revision: current.revision, replayAllowed: false };
+        }
+        evaluatorFor(input.suite);
+        const appliesTo = input.instruction?.appliesTo;
+        const scope = appliesTo?.kind === 'all_jh_tasks' ? commonRuleScope()
+          : appliesTo?.kind === 'tool' ? targetScope(appliesTo.target_tool, appliesTo.target_mode ?? '') : null;
+        if (!scope) throw new TypeError('LEARNING_INSTRUCTION_SCOPE_INVALID');
+        const candidate = createInstructionCandidate(current, input.instruction, input.suite, { scope });
+        const saved = await store.transact(value => addLesson(value, candidate.lesson),
+          { expectedRevision: input.expectedRevision });
+        state = saved;
+        return { ok: true, mode, revision: saved.revision,
+          lesson: saved.lessons[candidate.lesson.id], suite: candidate.suite,
+          instructionSummary: candidate.instructionSummary, externalEffects: false, activatedByThisCall: false };
+      }
+      requestFields(input, ['review', 'suite']);
+      evaluatorFor(input.suite);
+      const saved = await store.transact(value => registerReviewedCandidate(value, input.review, input.suite,
+        { now: clock() }),
+        { expectedRevision: input.review.baseRevision });
+      state = saved.state;
+      return { ok: true, mode, revision: saved.state.revision,
+        lesson: saved.state.lessons[saved.lesson.id], suite: saved.suite,
+        reviewSummary: saved.reviewSummary, link: saved.link, duplicate: saved.duplicate,
+        externalEffects: false, activatedByThisCall: false };
+    }
+    requestFields(input, ['lesson', 'suite', 'expectedRevision']);
+    if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0 ||
+        input.expectedRevision !== current.revision) {
+      return { ok: false, code: 'LEARNING_REVISION_CONFLICT', revision: current.revision, replayAllowed: false };
+    }
+    const bound = bindRegression(input.lesson, input.suite);
+    const existing = current.lessons[bound.id];
+    if (!existing || existing.inputFingerprint !== bound.inputFingerprint) {
+      throw new TypeError('LEARNING_REGISTERED_CANDIDATE_REQUIRED');
+    }
+    const checked = await runRegression(bound, input.suite, evaluatorFor(input.suite), { now: clock() });
+    const saved = await store.transact(value => evaluateLesson(value, bound.id, checked.evaluation),
+      { expectedRevision: input.expectedRevision });
+    state = saved;
+    return { ok: true, mode, revision: saved.revision, lessonId: bound.id,
+      lessonState: saved.lessons[bound.id].state, report: checked.report,
+      validationScope: input.suite.evaluator === 'jh.trajectory.v1' ? 'recorded_trajectory_contract' : 'json_contract',
+      liveExecutionVerified: false, externalEffects: false };
+  }
+
   async function status() {
     await queue;
     const current = await refresh();
     const known = current ?? state;
     const attempts = Object.values(known?.attempts ?? {});
     const proposals = Object.values(known?.proposals ?? {});
-    const proposalSummary = proposals.map(item => ({ id: item.id, kind: item.kind, status: item.status,
-      independentTaskCount: item.independentTaskCount, advisoryOnly: true }));
+    const proposalSummary = proposals.map(item => {
+      const latestDecision = decisionSummary(item);
+      return { id: item.id, kind: item.kind, status: item.status,
+        independentTaskCount: item.independentTaskCount, advisoryOnly: true,
+        ...(latestDecision ? { latestDecision } : {}) };
+    });
     return {
       enabled: Boolean(store && environment && !closed), degraded: failures > 0,
+      apiVersion: 3, capabilities: { preflightContext: true, reviewedCandidates: true,
+        temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true,
+        scopedProposals: true, proposalDecisions: true, proposalProgress: true,
+        existingReceiptReconciliation: true, reviewReadiness: true, splitReadObservationReconciliation: true,
+        splitFollowupClickReceiptReconciliation: true, computerInspectReceiptReconciliation: true,
+        splitComfortStatusReceiptReconciliation: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,
@@ -381,5 +658,5 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     })();
     return closing;
   }
-  return Object.freeze({ invoke, jobCreated, jobCompleted, status, close });
+  return Object.freeze({ invoke, jobCreated, jobCompleted, receiptObserved, context: preflightContext, review, status, close });
 }

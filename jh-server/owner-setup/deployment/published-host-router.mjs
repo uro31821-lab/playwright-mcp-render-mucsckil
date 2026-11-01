@@ -45,14 +45,34 @@ export function selectPendingApprovalStartup56(env=process.env){
  if(env.CI==='true'||env.JH_OWNER_DEFER_LISTEN!==undefined)fail('JH_PENDING_APPROVAL_TEST_BYPASS_FORBIDDEN');
  return 'pending-approval';
 }
+/** Exact opt-in to the existing pending-approval + learning operator with
+ * an ADDITIONAL read-only FOLLOW_UP receipt. No default route change. */
+export function selectJH168FollowupOperator56(env=process.env){
+ const flag=env.JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE;
+ if(flag===undefined||flag==='')return 'original';
+ if(flag!=='EXPLICIT_FOLLOWUP_CLICK_RECEIPT_V1')
+  fail('JH_STAGE25_FOLLOWUP_OPERATOR_FLAG_INVALID');
+ if(env.JH_PENDING_APPROVAL_OPERATOR_ENABLE!=='EXPLICIT_OPERATOR_APPROVAL_RECEIPT_V1'||
+    env.JH_DURABLE_RELEASE!=='SERVE_READY_V1'||
+    env.RENDER_SERVICE_ID!=='srv-db0fjl2d0e5s73be114g')
+  fail('JH_STAGE25_EXISTING_OPERATOR_REQUIRED');
+ if(env.CI==='true'||env.JH_OWNER_DEFER_LISTEN!==undefined)
+  fail('JH_STAGE25_PRODUCTION_TEST_BYPASS_FORBIDDEN');
+ return 'followup';
+}
 export async function main(){
  const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),hostRoot=path.dirname(sourceRoot);
  if(path.basename(sourceRoot)!=='owner-setup')fail('PUBLISHED_HOST_LAYOUT_REQUIRED');
  if(selectPendingApprovalStartup56(process.env)==='pending-approval'){
   assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
+  if(selectJH168FollowupOperator56(process.env)==='followup'){
+   const {main:operatorMain}=await import('../jh168-mobile-unification/stage25-live-operator-followup-entry.mjs');
+   return operatorMain(process.env);
+  }
   const {main:operatorMain}=await import('../server-integration/pending-approval-operator-entry.mjs');
   return operatorMain(process.env);
  }
+ if(selectJH168FollowupOperator56(process.env)!=='original')fail('JH_STAGE25_PENDING_OPERATOR_REQUIRED');
  if(process.env.JH_DURABLE_RELEASE!==undefined){
   assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
   const {main:durableMain}=await import('./durable-clean-restart-news-review-entry.mjs');
