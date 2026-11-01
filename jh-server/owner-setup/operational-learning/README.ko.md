@@ -155,6 +155,61 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 이 기능은 원문 지시 한 건의 명시적 등록이며 전체 기억 자동 이전·동기화가 아니다. `apiVersion:3`의 `explicitInstructions`와 `commonRules` capability로 지원 여부를 확인한다.
 
+### 일반 대화의 명시 지시 준비와 저장
+
+호스트 CLI는 **`instruction → candidate → check → context`**를 연결합니다. `instruction`은 `{instruction,suite,scope,globalRecall?}`만 받고, `--revision`은 거절합니다. `instruction` 내부 원문·해시·출처·수명 필드는 위 표와 같지만 `appliesTo`는 호스트 전용 두 종류만 허용합니다.
+
+| 호스트 적용 범위 | 실제 처리 |
+| --- | --- |
+| `{kind:"exact_scope"}` | 전달한 현재 업무 `scope`의 domain·operation·engine·전체 context에 정확히 연결 |
+| `{kind:"all_jh_tasks"}` | 함께 전달한 실제 `globalRecall`에 연결. domain=`orchestration`, operation=`learning.scope`, engine·전체 context는 현재 `scope`와 동일해야 함 |
+
+`scope`와 `globalRecall`은 `{domain,operation,engine,context:{platform,version,environment}}` 형식입니다. 현재 연결 파일의 globalRecall을 읽어 전달하며 빈 값이나 예시 값으로 실제 환경을 추정하지 않습니다. `globalRecall`은 exact_scope에도 선택적으로 전달할 수 있지만 제공했다면 항상 같은 검증을 적용합니다. 호스트는 `kind:"tool"`을 거절하고 서버는 호스트 전용 `exact_scope`를 거절합니다. `all_jh_tasks`도 같은 엔진·환경에서 합산 조회하는 공통 규칙이며 다른 런타임 전체로 자동 확장되는 값이 아닙니다.
+
+다음 코드는 형식 설명용 사례이며 실제 운영 기억에 시험 경험으로 등록하지 않습니다. 사용자 원문을 실제 읽어 확인한 뒤 그 원문에서 해시를 계산합니다. 문자열을 요약·교정하거나 CRLF·앞뒤 공백을 정규화하지 않습니다.
+
+```js
+import { createHash } from 'node:crypto';
+const text = '요약에 근거 항목을 포함한다.';
+const request = {
+  instruction: {
+    lessonId: 'example-summary-evidence-v1', ruleVersion: '1', text,
+    sourceRef: 'user:example-original-message',
+    sourceSha256: createHash('sha256').update(text, 'utf8').digest('hex'),
+    appliesTo: { kind: 'exact_scope' },
+    confirmation: 'explicit_user_instruction'
+  },
+  scope: {
+    domain: 'output', operation: 'summary.format', engine: 'jh-agent',
+    context: { platform: 'chatgpt', version: 'operational-learning-v1', environment: 'personal' }
+  },
+  suite: {
+    id: 'example-summary-evidence', version: '1', evaluator: 'jh.constraints.v1',
+    cases: [
+      { id: 'required-heading',
+        input: { value: { text: '결과\n근거' }, constraints: [
+          { path: ['text'], op: 'includes', expected: '근거' }
+        ] }, expected: { passed: true, failed: [] } },
+      { id: 'missing-heading-detected',
+        input: { value: { text: '결과' }, constraints: [
+          { path: ['text'], op: 'includes', expected: '근거' }
+        ] }, expected: { passed: false, failed: [0] } }
+    ]
+  }
+};
+```
+
+JSON은 stdin으로 전달하고 원문을 셸 명령에 보간하지 않습니다. 한 번 읽은 상태에서 반환한 값은 `{baseRevision,lesson,suite,instructionSummary,readOnly:true,externalEffects:false,activatedByThisCall:false}`입니다. 이 준비는 파일·부모 폴더·잠금 파일을 만들거나 기억 revision을 바꾸지 않습니다. 다른 호출의 상태를 함께 섞어 baseRevision을 구성하지 않습니다.
+
+검토한 준비 응답의 `{lesson,suite}`를 `candidate --revision <baseRevision>`에 보냅니다. 등록 응답은 `{revision,lesson}`뿐이므로 **준비 때 반환된 동일 suite를 보존**하고 등록 응답 lesson과 함께 `check`로 전달합니다. `check`에는 `--revision`을 넣지 않습니다. 검사 후 공통·현재 업무 범위의 `context`로 실제 포함 여부를 확인하고, 변경된 기억은 기존 owner와 파일 ID의 저장 절차로 보존합니다. 준비·후보 등록만으로 활성화되거나 사건·시도·proposal이 추가되지 않습니다.
+
+오래된 candidate revision은 같은 내용이어도 충돌합니다. 응답 유실이나 CAS 충돌이면 최신 기억에서 `instruction`을 다시 준비해 현재 baseRevision과 기존 교훈 ID를 복구합니다. 동일 정의·suite의 candidate 또는 active를 찾아 재사용하므로 요청 ID만 바꾸어 중복 규칙을 만들지 않습니다. 같은 정의·suite로 검증된 active이면 평가·수명·조회 포함 여부를 확인하고 필요한 경우만 재검사합니다. candidate로 강등하거나 평가 이력을 늘리기 위해 CHECK를 반복하지 않습니다. 격리된 정의는 새 ID 또는 약한 suite로 우회해 되살릴 수 없습니다.
+
+출처 summary는 고정된 `sourceAuthentication:"host_attestation"`, `sourceRetrievalVerified:false`입니다. `--owner`는 파일 owner 일치 검사이며 사용자 발화의 독립 인증이 아닙니다. 원문과 그 해시를 함께 바꾼 입력이 진짜 사용자 발화인지는 이 함수가 독립 판정할 수 없습니다. 호스트가 실제 읽은 명시 지시만 제출하고 추론은 기존 검토 경로의 `model_inferred`로 유지합니다. 원기록을 읽지 않았다면 sourceRecordRef를 추정해 넣지 않습니다.
+
+`createHostInstructionCandidate(state,instruction,suite,{scope,globalRecall?})`는 같은 검증·중복·회귀 결합을 재사용하며 `{lesson,suite,instructionSummary}`만 반환합니다. CLI의 baseRevision·readOnly 외피는 한 번 읽은 상태에서 추가합니다. 기존 MCP mode·서버 인증 경로·서버와 별도 기억의 동기화는 변경하지 않습니다. 기록된 입력/출력 제약 검사는 실제 다음 대화의 준수나 기기 실행 성공을 대신하지 않습니다.
+
+
 ### 경험에서 구체적인 후보를 작성
 
 `life_learning_review`는 `mode`와 JSON 문자열 `payload`를 받는다. `PREPARE`는 `{proposalId,maxAttempts?}`로 실제 제안과 현재 근거를 읽는다. `CANDIDATE`는 `{review,suite}`를 받아 현재 packet의 revision/fingerprint, 사건·범위·출처를 대조하고 구체적인 후보만 저장한다. `CHECK`는 `{lesson,suite,expectedRevision}`로 저장된 후보와 동일한 정의를 실제 평가한 뒤 활성/격리 상태를 기록한다. 두 도구의 호출 자체는 새로운 실패나 반복 업무 횟수로 세지 않는다.
@@ -277,6 +332,7 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `recall` | `{domain, operation, engine, context}` |
 | `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 두 형식 모두 선택 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}` 지원 |
 | `review` | `{proposalId,maxAttempts?}`: 실제 근거 검토 packet 읽기 |
+| `instruction` | `{instruction,suite,scope,globalRecall?}`: 명시 사용자 규칙을 읽기 전용 준비, baseRevision 반환, `--revision` 금지 |
 | `curate` | `{review,suite}`: 구체적인 검토 결과를 검증된 형식의 후보 정의로 변환. 저장·활성화는 별도 |
 | `propose` | `{}` 또는 `{now, thresholds}` |
 | `candidate` | `{lesson, suite}`: 시험에 연결된 후보 등록, 활성화하지 않음 |

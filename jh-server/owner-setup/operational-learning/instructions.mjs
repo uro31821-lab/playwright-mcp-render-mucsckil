@@ -97,6 +97,45 @@ export function createInstructionCandidate(state, instruction, suite, options) {
     ['sourceRecordRef', ...META]);
   fields(options, ['scope'], [], 'trusted host options');
   validScope(options.scope); validAppliesTo(instruction.appliesTo);
+  return buildInstructionCandidate(state, instruction, suite, options.scope, 'authenticated_owner_attestation');
+}
+
+/**
+ * Prepare an explicit instruction for the ordinary host, without persisting it.
+ * The caller supplies its actual scope and, for common rules, the current binding's
+ * globalRecall. These values and the exact user text are host attestations, not
+ * independent authentication or retrieval of an original user message.
+ * Common applicability stays within this same engine and complete environment.
+ */
+export function createHostInstructionCandidate(state, instruction, suite, options) {
+  fields(instruction, ['lessonId', 'ruleVersion', 'text', 'sourceRef', 'sourceSha256', 'appliesTo', 'confirmation'],
+    ['sourceRecordRef', ...META]);
+  fields(options, ['scope'], ['globalRecall'], 'trusted host options');
+  validScope(options.scope);
+  fields(instruction.appliesTo, ['kind'], [], 'host instruction appliesTo');
+  if (!['exact_scope', 'all_jh_tasks'].includes(instruction.appliesTo.kind)) fail('Invalid host instruction appliesTo kind');
+  if (own(options, 'globalRecall')) {
+    validScope(options.globalRecall);
+    if (options.globalRecall.domain !== 'orchestration' || options.globalRecall.operation !== 'learning.scope') {
+      fail('Host globalRecall must use the common learning scope');
+    }
+    if (options.globalRecall.engine !== options.scope.engine ||
+        ['platform', 'version', 'environment'].some(key => options.globalRecall.context[key] !== options.scope.context[key])) {
+      fail('Host globalRecall must match the actual engine and context');
+    }
+  } else if (instruction.appliesTo.kind === 'all_jh_tasks') {
+    fail('Common host instructions require the current globalRecall binding');
+  }
+  // Host options arrive as data too; a credential-shaped scope value is not a safe
+  // reference merely because it passes the scope token grammar.
+  if (canonical(options, 0, true).length > 65536) fail('Host instruction options exceed their bounds');
+  const scope = instruction.appliesTo.kind === 'all_jh_tasks' ? options.globalRecall : options.scope;
+  return buildInstructionCandidate(state, instruction, suite, scope, 'host_attestation');
+}
+
+// Both public entry points validate their own boundary before reaching this shared
+// exact-text, provenance, regression binding, deduplication and lifecycle logic.
+function buildInstructionCandidate(state, instruction, suite, scope, sourceAuthentication) {
   token(instruction.lessonId, 'instruction lesson ID'); token(instruction.ruleVersion, 'instruction rule version');
   if (instruction.confirmation !== 'explicit_user_instruction') fail('Explicit user instruction confirmation required');
   validText(instruction.text);
@@ -111,7 +150,7 @@ export function createInstructionCandidate(state, instruction, suite, options) {
   const evidenceRefs = [instruction.sourceRef, `sha256:${sourceSha256}`,
     ...(own(instruction, 'sourceRecordRef') ? [instruction.sourceRecordRef] : [])];
   const metadata = Object.fromEntries(META.filter(key => own(instruction, key)).map(key => [key, structuredClone(instruction[key])]));
-  const definition = { id: instruction.lessonId, ...structuredClone(options.scope), guidance: instruction.text,
+  const definition = { id: instruction.lessonId, ...structuredClone(scope), guidance: instruction.text,
     evidenceRefs, ruleVersion: instruction.ruleVersion, memoryKind: 'procedure', provenance: 'user_explicit', ...metadata };
   let lesson = { ...bindRegression(definition, suite), state: 'candidate' };
   object(state, 'learning state'); object(state.lessons, 'learning lessons');
@@ -135,7 +174,9 @@ export function createInstructionCandidate(state, instruction, suite, options) {
   return { lesson, suite: structuredClone(suite), instructionSummary: {
     sourceKind: 'explicit_user_instruction', sourceRef: instruction.sourceRef, sourceSha256,
     ...(own(instruction, 'sourceRecordRef') ? { sourceRecordRef: instruction.sourceRecordRef } : {}),
-    sourceAuthentication: 'authenticated_owner_attestation', appliesTo: structuredClone(instruction.appliesTo),
+    sourceAuthentication,
+    ...(sourceAuthentication === 'host_attestation' ? { sourceRetrievalVerified: false } : {}),
+    appliesTo: structuredClone(instruction.appliesTo),
     automaticInference: false, candidateOnly: true, externalEffects: false, activationPerformed: false,
     definitionFingerprint: digest({ definition: definitionOf(definition, true), suite }),
     ...(duplicateLessonId ? { duplicateLessonId, existingLessonState } : {}),
