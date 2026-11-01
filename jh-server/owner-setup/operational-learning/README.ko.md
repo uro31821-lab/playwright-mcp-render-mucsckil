@@ -208,13 +208,15 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `status` | 없음: 현재 상태 요약 |
 | `ingest` | 이벤트 객체 또는 1~100개 이벤트 배열 |
 | `recall` | `{domain, operation, engine, context}` |
-| `context` | `{query:{domain,operation,engine,context},options?:{now,limit,maxChars}}`: 기간·충돌·예산을 적용한 읽기 |
+| `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 |
 | `review` | `{proposalId,maxAttempts?}`: 실제 근거 검토 packet 읽기 |
 | `curate` | `{review,suite}`: 구체적인 검토 결과를 검증된 형식의 후보 정의로 변환. 저장·활성화는 별도 |
 | `propose` | `{}` 또는 `{now, thresholds}` |
 | `candidate` | `{lesson, suite}`: 시험에 연결된 후보 등록, 활성화하지 않음 |
 | `check` | `{lesson, suite}`: 등록과 실제 제약검사·평가 반영 |
 | `proposal-status` | `{id, status, verification?}` |
+
+`context`에는 `query`와 `queries` 중 정확히 하나만 전달합니다. 다중 입력은 같은 엔진과 전체 `context`의 고유 exact scope 1~3개를 받습니다. 호스트가 확인한 공통 범위와 현재 업무 범위를 함께 넣으면 저장소를 한 번 읽고 기존 `recallContexts()`로 출처 우선순위·동급 충돌·같은 지침 중복·전체 개수와 문자 예산을 판정합니다. 중복 범위는 호출자가 제거하고 실제 엔진·환경이 다른 범위를 억지로 통일하지 않습니다. 반환은 `{lessons,conflicts,omitted,fingerprint,revision}`이며 기존 단일 범위의 결과·지문을 유지합니다. 조회는 기억 파일을 바꾸지 않으며 MCP mode나 서버의 관찰 범위를 추가하지 않습니다.
 
 `candidate`와 후속 `check`에는 같은 교훈·시험 정의를 사용합니다. 처음부터 `check`로 등록·검사를 함께 수행할 수도 있습니다. 전체 CLI 입력 검증은 [cli.mjs](cli.mjs)를 따릅니다.
 
