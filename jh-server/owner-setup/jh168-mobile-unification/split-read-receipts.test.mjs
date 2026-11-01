@@ -11,9 +11,11 @@ const registry=()=>createSplitReadReceiptRegistry56({clock:()=>at,token,maxEntri
 const job=()=>({id:'job_17',type:'split_screen_session_start',status:'queued',
   targetDeviceId:scope.deviceId,secureSessionId:scope.sessionId,
   commandId,taskDigest,expiresAtMs:90000});
+const comfortJob=()=>({...job(),type:'split_comfort_status',
+  mcpToolName:'life_android_capture_work_window',secureRequestedEffect:'READ_ONLY'});
 const issue=(reg,j)=>reg.issue({job:j,...scope});
-test('late signed READ ONLY START is recovered without another job or click',()=>{
-  const reg=registry(),j=job(),got=issue(reg,j);
+for(const createJob of [job,comfortJob]) test('late signed '+createJob().type+' is recovered without another job or click',()=>{
+  const reg=registry(),j=createJob(),got=issue(reg,j);
   assert.ok(got.receiptRef.startsWith('srr_'));
   assert.equal(got.automaticReplay,false);
   let calls=0;
@@ -48,8 +50,31 @@ test('expired records and missing or replaced original job fail closed',()=>{
 test('consequential CLICK, SAVE_ANALYSIS or preflight never receive read-only receipt',()=>{
   const reg=registry();
   for(const type of ['split_screen_session_followup','split_screen_session_save_analysis',
-    'computer_use_action_execute','split_screen_session_input_preflight']){
+    'computer_use_action_execute','split_screen_session_input_preflight',
+    'split_comfort_scroll_once','split_comfort_zoom','split_comfort_zoom_reset',
+    'split_comfort_manual_handoff','split_comfort_keyboard_advice','split_comfort_restore_info']){
     assert.equal(issue(reg,{...job(),type}),null,type);
+  }
+});
+test('comfort STATUS requires its own exact read authority at issue and every read',()=>{
+  for(const key of ['mcpToolName','secureRequestedEffect']){
+    const expected=comfortJob()[key];
+    for(const value of [undefined,'untrusted-authority']){
+      const reg=registry(),j=comfortJob();j[key]=value;
+      assert.equal(issue(reg,j),null,key);
+    }
+    const inherited=comfortJob();delete inherited[key];
+    Object.setPrototypeOf(inherited,{[key]:expected});
+    assert.equal(issue(registry(),inherited),null,'inherited '+key);
+    for(const change of [j=>{delete j[key];},j=>{j[key]='untrusted-authority';},
+      j=>{delete j[key];Object.setPrototypeOf(j,{[key]:expected});}]){
+      const reg=registry(),j=comfortJob(),got=issue(reg,j);
+      j.status='complete';j.result={ok:true};change(j);
+      let proofs=0;
+      const read=reg.read({receiptRef:got.receiptRef,...scope},()=>j,()=>{proofs++;return true;});
+      assert.equal(read.code,'SPLIT_READ_ORIGINAL_JOB_CHANGED',key);
+      assert.equal(proofs,0);assert.equal(read.newJobCreated,false);
+    }
   }
 });
 test('authenticated job completion without original split-screen proof is refused',()=>{

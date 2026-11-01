@@ -72,8 +72,9 @@ function jhLearningObserveSplitReceipt56(job,receipt,binding){
   const controller=jhLearningController56;
   if(!controller||typeof controller.receiptObserved!=='function')return;
   try{
-    if(!job||!binding||!['split_screen_session_start','split_screen_session_status'].includes(job.type)||
+    if(!job||!binding||!['split_screen_session_start','split_screen_session_status','split_comfort_status'].includes(job.type)||
        job.mcpToolName!=='life_android_capture_work_window'||job.secureRequestedEffect!=='READ_ONLY'||
+       (job.type==='split_comfort_status'&&(!Object.hasOwn(job,'mcpToolName')||!Object.hasOwn(job,'secureRequestedEffect')))||
        job.status!=='complete'||job.result?.ok!==true||jobs.get(job.id)!==job||
        !binding.deviceId||!binding.sessionId||!jhLearningCommandId56(binding.commandId)||
        job.targetDeviceId!==binding.deviceId||job.secureSessionId!==binding.sessionId||job.commandId!==binding.commandId||
@@ -88,6 +89,7 @@ function jhLearningObserveSplitReceipt56(job,receipt,binding){
     // establish the requested screen content, target app or whole task outcome.
     const observation=Object.freeze({id:meta.id,type:meta.type,commandId:meta.commandId,
       status:meta.status,evidenceDigest:meta.evidenceDigest,
+      ...(job.type==='split_comfort_status'?{mcpToolName:'life_android_capture_work_window',secureRequestedEffect:'READ_ONLY'}:{}),
       verifiedObservationScope:'SPLIT_READ_LAYOUT_ONLY'});
     Promise.resolve(controller.receiptObserved(observation)).catch(()=>{});
   }catch{} // Keep the original receipt and every existing authority unchanged.

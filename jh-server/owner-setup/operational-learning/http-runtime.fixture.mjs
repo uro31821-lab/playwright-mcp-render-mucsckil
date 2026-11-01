@@ -30,8 +30,8 @@ globalThis.fetch = (url, options) => {
   return originalFetch(url, options);
 };
 const built = await buildPendingApprovalOperatorEntrypoint56(root, process.env);
-if (phase === 'inspect') {
-  await inspectReceiptHttpFixture();
+if (phase === 'inspect' || phase === 'comfort') {
+  await signedReadReceiptHttpFixture(phase);
 } else {
 const { startUnifiedOwnerServer } = await import(pathToFileURL(built.unifiedFile).href);
 const config = validateOwnerConfiguration(data.input);
@@ -116,6 +116,7 @@ try {
   assert.equal(first.operationalLearning.capabilities.splitReadObservationReconciliation, true);
   assert.equal(first.operationalLearning.capabilities.splitFollowupClickReceiptReconciliation, true);
   assert.equal(first.operationalLearning.capabilities.computerInspectReceiptReconciliation, true);
+  assert.equal(first.operationalLearning.capabilities.splitComfortStatusReceiptReconciliation, true);
   const beforeUnauthorized = readFileSync(file);
   const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
   assert.equal(preflight.ok, true);
@@ -456,6 +457,7 @@ try {
     splitReadObservationReconciliationCapability: first.operationalLearning.capabilities.splitReadObservationReconciliation,
     splitFollowupClickReceiptReconciliationCapability: first.operationalLearning.capabilities.splitFollowupClickReceiptReconciliation,
     computerInspectReceiptReconciliationCapability: first.operationalLearning.capabilities.computerInspectReceiptReconciliation,
+    splitComfortStatusReceiptReconciliationCapability: first.operationalLearning.capabilities.splitComfortStatusReceiptReconciliation,
   }));
 } finally { key.fill(0); await running?.close(); }
 }
@@ -464,7 +466,7 @@ try {
  * enrollment authority below is a synthetic fixture port; no real phone,
  * external identity provider, production memory or operator authority is used.
  */
-async function inspectReceiptHttpFixture() {
+async function signedReadReceiptHttpFixture(kind) {
   const config = validateOwnerConfiguration(data.input);
   mkdirSync(config.stateDir, { mode: 0o700 });
   process.env.PUBLIC_BASE_URL = config.serverOrigin;
@@ -473,9 +475,9 @@ async function inspectReceiptHttpFixture() {
   const hash = value => createHash('sha256').update(value).digest('hex');
   const mac = (key, value) => createHmac('sha256', key).update(value).digest('hex');
   const token = () => randomBytes(24).toString('base64url');
-  const enrollmentContext = {}, deviceId = 'synthetic-inspect-http-device';
+  const enrollmentContext = {}, deviceId = 'synthetic-' + kind + '-http-device';
   const registry = new TrustedDeviceRegistry({
-    databasePath: path.join(config.stateDir, 'synthetic-inspect-registry.sqlite'),
+    databasePath: path.join(config.stateDir, 'synthetic-' + kind + '-registry.sqlite'),
     serverDigest: hash(config.serverOrigin + '/mcp|jh-secure-bridge56'), catalogDigest: config.catalogDigest,
     authorizeEnrollment: (context, expected) => context === enrollmentContext ? {
       ownerDigest: config.accountDigest, enrollmentId: expected.consentRequestId,
@@ -483,14 +485,14 @@ async function inspectReceiptHttpFixture() {
     } : null,
     authorizeRevocation: () => null,
   });
-  let circuit, learning;
+  let circuit, learning, secret;
   try {
     runtime.installTrustedSessionRegistry56(registry);
     circuit = runtime.installDurableNativeCircuit56({
-      file: path.join(config.stateDir, 'synthetic-inspect-circuit.sqlite'),
-      key: Buffer.alloc(32, 73), namespace: hash('synthetic-inspect-http-circuit'), mode: 'EXPLICIT_ONE_TIME',
+      file: path.join(config.stateDir, 'synthetic-' + kind + '-circuit.sqlite'),
+      key: Buffer.alloc(32, 73), namespace: hash('synthetic-' + kind + '-http-circuit'), mode: 'EXPLICIT_ONE_TIME',
     });
-    learning = await installOwnerLearning(runtime, { config, runtimeId: 'synthetic-inspect-http-runtime' });
+    learning = await installOwnerLearning(runtime, { config, runtimeId: 'synthetic-' + kind + '-http-runtime' });
     await new Promise((resolve, reject) => {
       runtime.httpServer.once('error', reject);
       runtime.httpServer.listen(0, '127.0.0.1', resolve);
@@ -529,11 +531,12 @@ async function inspectReceiptHttpFixture() {
       signature: sign('sha256', canonicalChallenge(challenged.value), deviceKey.privateKey).toString('base64url'),
     } });
     assert.equal(reconnected.status, 200);
-    const offer = reconnected.value, secret = Buffer.from(offer.secureSessionSecret, 'base64url');
+    const offer = reconnected.value;
+    secret = Buffer.from(offer.secureSessionSecret, 'base64url');
     const activation = { deviceId, trustId: offer.trustId, challengeId: offer.challengeId,
       redemptionId: offer.redemptionId, sessionId: offer.secureSessionId, deviceDigest: offer.deviceDigest,
       sessionDigest: offer.sessionDigest, nonce: token(), expiresAt: Math.min(Date.now() + 10000, offer.activationExpiresAt),
-      processEpoch: 'synthetic-inspect-process', restartDisposition: 'DISCARD_PREVIOUS' };
+      processEpoch: 'synthetic-' + kind + '-process', restartDisposition: 'DISCARD_PREVIOUS' };
     activation.mac = mac(secret, activationMaterial(activation));
     const activated = await request('/device/trusted/activate', activation);
     assert.equal(activated.status, 200);
@@ -552,6 +555,11 @@ async function inspectReceiptHttpFixture() {
     };
     const begun = await call('life_android_workflow_link', { mode: 'BEGIN_COMMAND', request_id: randomBytes(16).toString('hex') });
     assert.equal(begun.ok, true); commandId = begun.commandId;
+    if (kind === 'comfort') {
+      await comfortStatusReceiptHttpFixture({ config, learning, request, call,
+        deviceId, commandId, signedHeaders, hash, offer });
+      return;
+    }
     const taskDigest = hash('synthetic-inspect-task'), runDigest = hash('synthetic-inspect-run');
     const waiting = call('life_android_computer_inspect', { device_id: deviceId,
       task_digest: taskDigest, run_digest: runDigest, action: 'CLICK', effect: 'READ_ONLY' }, true, 25000);
@@ -629,7 +637,6 @@ async function inspectReceiptHttpFixture() {
     assert.equal(status.capabilities.computerInspectReceiptReconciliation, true);
     assert.equal(status.attemptOutcomes.success_verified ?? 0, 0);
     assert.equal(status.degraded, false); assert.equal(externalRequests, 0);
-    secret.fill(0);
     console.log('LEARNING_INSPECT_HTTP_RESULT ' + JSON.stringify({ generatedRuntime: true,
       syntheticEnrollmentPort: true, realDevices: 0, externalRequests,
       originalReceiptIssued: true, originalReadbackReconciled: true, observedOnly: true,
@@ -637,8 +644,113 @@ async function inspectReceiptHttpFixture() {
       pendingUnchanged: true, repeatNoop: true, additionalJobs: 0,
       originalResultPreserved: true, sensitiveEvidenceRedacted: true }));
   } finally {
+    secret?.fill(0);
     runtime.httpServer.closeAllConnections();
     if (runtime.httpServer.listening) await new Promise(resolve => runtime.httpServer.close(resolve));
     await learning?.close(); circuit?.close(); registry.close();
   }
+}
+
+async function comfortStatusReceiptHttpFixture({ config, learning, request, call,
+  deviceId, commandId, signedHeaders, hash, offer }) {
+  const startedAt = performance.now();
+  const waiting = call('life_android_split_comfort', { mode: 'STATUS' }, true, 38000);
+  waiting.catch(() => {});
+  let job;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const polled = await request('/device/poll?deviceId=' + deviceId, undefined, signedHeaders('poll'));
+    if (polled.status === 200) { job = polled.value; break; }
+    assert.equal(polled.status, 204, JSON.stringify(polled));
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  assert.equal(job?.type, 'split_comfort_status');
+  assert.equal(job.mcpToolName, 'life_android_capture_work_window');
+  assert.equal(job.secureRequestedEffect, 'READ_ONLY');
+  assert.equal(job.commandId, commandId);
+  assert.match(job.taskDigest, /^[a-f0-9]{64}$/);
+  // Preserve the actual existing 28-second wait. Its original job remains
+  // uncompleted until STATUS has returned the receipt through the real MCP route.
+  const pending = await waiting;
+  const originalWaitElapsedMs = Math.floor(performance.now() - startedAt);
+  assert.ok(originalWaitElapsedMs >= 28000, 'STATUS must use its original wait budget');
+  assert.equal(pending.ok, false);
+  assert.equal(pending.code, 'split_screen_device_result_unconfirmed');
+  assert.equal(pending.jobStatus, 'in_progress');
+  assert.equal(pending.readOnly, true); assert.equal(pending.automaticReplay, false);
+  assert.match(pending.receiptRef, /^srr_[A-Za-z0-9_-]{32}$/);
+  assert.ok(pending.expiresAt > Date.now());
+  assert.deepEqual(pending.followUp, { tool: 'life_android_split_screen_assistant', readOnly: true,
+    arguments: { mode: 'READBACK_PENDING', receipt_ref: pending.receiptRef, command_id: commandId } });
+  const receiptTool = pending.followUp.tool, receiptArgs = pending.followUp.arguments;
+  const file = path.join(config.stateDir, 'operational-learning-v1.json');
+  const bytes = () => readFileSync(file, 'utf8');
+  const state = () => JSON.parse(bytes()).state;
+  const comfortAttempt = () => {
+    const matches = Object.values(state().attempts).filter(item => item.operation === 'life_android_split_comfort.status');
+    assert.equal(matches.length, 1); return matches[0];
+  };
+  const original = comfortAttempt();
+  assert.equal(original.outcome, 'completion_unknown');
+  const pendingBytes = bytes();
+  const unauthorized = await call(receiptTool, receiptArgs, false);
+  assert.equal(unauthorized.result.isError, true);
+  assert.ok(unauthorized.result._meta['mcp/www_authenticate'].length > 0);
+  const readPending = await call(receiptTool, receiptArgs);
+  assert.equal(readPending.ok, false); assert.equal(readPending.code, 'SPLIT_READ_STILL_PENDING');
+  assert.equal(readPending.jobStatus, 'in_progress'); assert.equal(readPending.receiptRef, pending.receiptRef);
+  assert.equal(readPending.readOnly, true); assert.equal(readPending.automaticReplay, false);
+  assert.equal(readPending.newJobCreated, false);
+  for (const [change, code] of [
+    [{ receipt_ref: 'srr_' + 'A'.repeat(32) }, 'SPLIT_READ_RECEIPT_UNAVAILABLE'],
+    [{ context_id: 'ssc_' + 'a'.repeat(32) }, 'split_read_receipt_arguments_invalid'],
+    [{ command_id: randomBytes(16).toString('hex') }, 'new_command_binding_required_or_discarded'],
+  ]) {
+    const denied = await call(receiptTool, { ...receiptArgs, ...change });
+    assert.equal(denied.ok, false); assert.equal(denied.code, code);
+  }
+  assert.equal(bytes(), pendingBytes);
+  const body = { result: { ok: true, code: 'SYNTHETIC_COMFORT_STATUS_COMPLETE',
+    summarySource: 'PRIVATE_SYNTHETIC_COMFORT_SCREEN', resultVerified: true, verifiedOutcome: 'success_verified',
+    splitScreenRequired: true, splitScreen: { kind: 'split_screen_evidence', version: '1', verified: 'true',
+      layout: 'LEFT_RIGHT', chatPackage: 'com.openai.chatgpt', chatKind: 'NATIVE', chatWindowId: '1',
+      chatBounds: '0,0,500,900', workPackage: 'com.example.work', workWindowId: '2',
+      workBounds: '510,0,1000,900', observedAtMs: String(Date.now()) } } };
+  const badHeaders = { ...signedHeaders('complete', job.id, body), 'x-jh-mac': '0'.repeat(64) };
+  assert.equal((await request('/job/' + job.id + '/complete', body, badHeaders)).status, 401);
+  assert.equal(bytes(), pendingBytes);
+  assert.equal((await request('/job/' + job.id + '/complete', body, signedHeaders('complete', job.id, body))).status, 200);
+  await learning.status();
+  const completed = state(), priorReceipt = comfortAttempt();
+  assert.equal(priorReceipt.outcome, 'observed');
+  assert.equal(priorReceipt.evidenceRefs.includes('source:jh-split-read-layout-only'), false);
+  const readback = await call(receiptTool, receiptArgs);
+  assert.deepEqual(readback, { ...body.result, jobDigest: hash(job.id), taskDigest: job.taskDigest,
+    receiptRecovered: true, readOnly: true, automaticReplay: false, newJobCreated: false });
+  const after = state(), reconciled = comfortAttempt();
+  for (const field of ['taskId', 'attemptId', 'operation', 'domain', 'engine', 'context'])
+    assert.deepEqual(reconciled[field], original[field], field);
+  assert.equal(Object.keys(after.attempts).length, Object.keys(completed.attempts).length);
+  assert.equal(Object.keys(after.events).length, Object.keys(completed.events).length + 1);
+  assert.equal(reconciled.outcome, 'observed');
+  assert.deepEqual(reconciled.evidenceRefs.slice(1), ['source:jh-split-read-layout-only']);
+  assert.match(reconciled.evidenceRefs[0], /^sha256:[a-f0-9]{64}$/);
+  const recordedBytes = bytes();
+  assert.deepEqual(await call(receiptTool, receiptArgs), readback);
+  assert.equal(bytes(), recordedBytes);
+  const empty = await request('/device/poll?deviceId=' + deviceId, undefined, signedHeaders('poll'));
+  assert.equal(empty.status, 204, 'STATUS receipt readback must not queue a fallback snapshot or any other job');
+  assert.doesNotMatch(recordedBytes, /PRIVATE_SYNTHETIC_COMFORT_SCREEN|srr_|s56_|screenGrant|approvalGrant|splitScreen|observedAtMs/);
+  for (const secretValue of [pending.receiptRef, offer.secureSessionSecret, commandId, deviceId])
+    assert.equal(recordedBytes.includes(secretValue), false);
+  const status = await learning.status();
+  assert.equal(status.capabilities.splitComfortStatusReceiptReconciliation, true);
+  assert.equal(status.attemptOutcomes.success_verified ?? 0, 0);
+  assert.equal(status.degraded, false); assert.equal(externalRequests, 0);
+  console.log('LEARNING_COMFORT_HTTP_RESULT ' + JSON.stringify({ generatedRuntime: true,
+    syntheticEnrollmentPort: true, realDevices: 0, externalRequests, originalWaitElapsedMs,
+    originalReceiptIssued: true, originalReadbackReconciled: true, observedOnly: true,
+    unauthorizedRejected: true, badCompletionMacRejected: true, changedBindingRejected: true,
+    pendingUnchanged: true, repeatNoop: true, additionalJobs: 0, fallbackSnapshotCreated: false,
+    originalResultPreserved: true, sensitiveEvidenceRedacted: true,
+    splitComfortStatusReceiptReconciliationCapability: status.capabilities.splitComfortStatusReceiptReconciliation }));
 }

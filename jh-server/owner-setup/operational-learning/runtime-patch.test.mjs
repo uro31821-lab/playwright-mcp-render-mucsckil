@@ -548,9 +548,10 @@ test('patched status helper reconciles one original attempt through the real con
   assert.equal((await runtime.status()).degraded, false);
 });
 
-test('actual split START and STATUS receipt paths report bounded layout scope without task success', async () => {
-  for (const type of ['split_screen_session_start', 'split_screen_session_status']) {
-    const api = host(), baseline = host({ learning: false }), completed = [], observations = [];
+test('actual split START, STATUS and comfort STATUS receipts report bounded layout without task success', async () => {
+  for (const type of ['split_screen_session_start', 'split_screen_session_status', 'split_comfort_status']) {
+    const followup = type === 'split_comfort_status';
+    const api = host({ followup }), baseline = host({ learning: false, followup }), completed = [], observations = [];
     api.install(controller({ jobCompleted: meta => completed.push(meta), receiptObserved: meta => observations.push(meta) }));
     const fixture = splitReceiptFixture(type);
     const { job, receipt } = installSplitFixture(api, fixture);
@@ -573,7 +574,12 @@ test('actual split START and STATUS receipt paths report bounded layout scope wi
     const meta = observations[0];
     assert.equal(Object.isFrozen(meta), true);
     assert.deepEqual(Object.keys(meta).sort(),
-      ['id', 'type', 'commandId', 'status', 'evidenceDigest', 'verifiedObservationScope'].sort());
+      ['id', 'type', 'commandId', 'status', 'evidenceDigest', 'verifiedObservationScope',
+        ...(type === 'split_comfort_status' ? ['mcpToolName', 'secureRequestedEffect'] : [])].sort());
+    if (type === 'split_comfort_status') {
+      assert.equal(meta.mcpToolName, 'life_android_capture_work_window');
+      assert.equal(meta.secureRequestedEffect, 'READ_ONLY');
+    }
     assert.equal(meta.verifiedObservationScope, 'SPLIT_READ_LAYOUT_ONLY');
     assert.equal(meta.type, type); assert.equal(meta.commandId, command); assert.equal(meta.status, 'complete');
     assert.equal(meta.evidenceDigest, completed[0].evidenceDigest);
@@ -603,6 +609,10 @@ test('split observer preserves denials and cannot use changed bindings, stale pr
         verifiedObservationScope: 'SPLIT_READ_LAYOUT_ONLY', receiptRecovered: true, readOnly: true,
         automaticReplay: false, newJobCreated: false });
     }, code: 'SPLIT_READ_SCREEN_PROOF_INVALID' },
+    { name: 'fallback scope flags without original proof', change: (_api, job) => {
+      delete job.result.splitScreen; delete job.result.splitScreenRequired;
+      Object.assign(job.result, { scopeVerified: true, resultVerified: false });
+    }, code: 'SPLIT_READ_SCREEN_PROOF_INVALID' },
     { name: 'expired receipt', change: (api, _job, receipt) => api.setReceiptNow(receipt.expiresAt), code: 'SPLIT_READ_RECEIPT_UNAVAILABLE' },
     { name: 'current command changed', change: (_api, _job, _receipt, args) => { args.command_id = 'd'.repeat(32); }, code: 'SPLIT_READ_RECEIPT_SCOPE_CHANGED' },
     { name: 'current session changed', change: api => api.setSession('different-session'), code: 'SPLIT_READ_RECEIPT_SCOPE_CHANGED' },
@@ -617,10 +627,10 @@ test('split observer preserves denials and cannot use changed bindings, stale pr
     { name: 'wrong secure tool', change: (_api, job) => { job.mcpToolName = 'life_android_execute_computer_action'; }, layoutReturned: true },
     { name: 'wrong effect', change: (_api, job) => { job.secureRequestedEffect = 'REVERSIBLE_WRITE'; }, layoutReturned: true },
   ];
-  for (const item of cases) {
+  for (const type of ['split_screen_session_start', 'split_comfort_status']) for (const item of cases) {
     const api = host(), baseline = host({ learning: false }); let observations = 0;
     api.install(controller({ receiptObserved: () => observations++ }));
-    const fixture = splitReceiptFixture(), setup = [];
+    const fixture = splitReceiptFixture(type), setup = [];
     for (const current of [api, baseline]) {
       const { job, receipt } = installSplitFixture(current, fixture);
       assert.equal(current.complete(job, { result: copy(fixture.result) }), 200);
@@ -639,8 +649,10 @@ test('split observer preserves denials and cannot use changed bindings, stale pr
     const result = await api.splitReceiptTool().handler(setup[0].args);
     assert.deepEqual(copy(result), copy(await baseline.splitReceiptTool().handler(setup[1].args)), item.name);
     const body = JSON.parse(result.content[0].text);
-    assert.equal(body.ok, item.layoutReturned === true, item.name);
-    if (item.code) assert.equal(body.code, item.code, item.name);
+    const authorityChanged = item.layoutReturned && type === 'split_comfort_status';
+    assert.equal(body.ok, item.layoutReturned === true && !authorityChanged, type + ': ' + item.name);
+    if (item.code || authorityChanged)
+      assert.equal(body.code, authorityChanged ? 'SPLIT_READ_ORIGINAL_JOB_CHANGED' : item.code, type + ': ' + item.name);
     assert.equal(observations, 0, item.name);
     assert.equal(lookups.includes('job_9'), false, item.name);
     assert.equal(api.jobs.size, setup[0].size, item.name); assert.equal(api.waits(), 0, item.name);
@@ -649,12 +661,12 @@ test('split observer preserves denials and cannot use changed bindings, stale pr
 });
 
 test('optional split observer absence or failure leaves the original receipt and job unchanged', async () => {
-  for (const mode of ['absent', 'sync', 'async']) {
+  for (const type of ['split_screen_session_start', 'split_comfort_status']) for (const mode of ['absent', 'sync', 'async']) {
     const api = host(), baseline = host({ learning: false }); let observations = 0;
     const receiptObserved = mode === 'sync' ? () => { observations++; throw Error('synthetic observer failure'); }
       : async () => { observations++; throw Error('synthetic observer failure'); };
     api.install(controller(mode === 'absent' ? {} : { receiptObserved }));
-    const fixture = splitReceiptFixture(), { job, receipt } = installSplitFixture(api, fixture);
+    const fixture = splitReceiptFixture(type), { job, receipt } = installSplitFixture(api, fixture);
     const original = installSplitFixture(baseline, fixture);
     api.complete(job, { result: fixture.result }); Object.assign(original.job, copy(job));
     const before = copy(job), args = { command_id: command, mode: 'READBACK_PENDING', receipt_ref: receipt.receiptRef };
@@ -672,28 +684,31 @@ test('real split helper/controller/store records layout observation once without
     try { for (const runtime of runtimes) await runtime.close(); }
     finally { await rm(dir, { recursive: true, force: true }); }
   });
-  for (const missedCompletion of [false, true]) {
-    const file = path.join(dir, missedCompletion ? 'missed.json' : 'completed.json');
+  for (const type of ['split_screen_session_start', 'split_comfort_status']) for (const missedCompletion of [false, true]) {
+    const file = path.join(dir, type + (missedCompletion ? '-missed.json' : '-completed.json'));
     const ownerScope = 'fixture-owner-split-layout';
     const runtime = await createServerLearning({ file, ownerScope, runtimeId: 'fixture-split-runtime',
       context: { platform: 'server', version: 'fixture-v1', environment: 'synthetic-test' } });
     runtimes.push(runtime);
-    const store = new FileLearningStore({ file, ownerScope }), api = host();
+    const store = new FileLearningStore({ file, ownerScope }), api = host({ followup: type === 'split_comfort_status' });
     api.install(missedCompletion ? { ...runtime, jobCompleted() {} } : runtime);
     api.devices.set('fixture-device', { secureBridgeVersion: 56 });
-    const fixture = splitReceiptFixture(), failure = new Error('synthetic initial split wait failed'); let job;
-    const { id: unusedId, type, status: unusedStatus, commandId: unusedCommand, ...payload } = fixture.job;
-    const pending = api.register('life_android_split_screen_assistant', () => {
+    const fixture = splitReceiptFixture(type), failure = new Error('synthetic initial split wait failed'); let job;
+    const { id: unusedId, type: unusedType, status: unusedStatus, commandId: unusedCommand, ...payload } = fixture.job;
+    const originalTool = type === 'split_comfort_status' ? 'life_android_split_comfort' : 'life_android_split_screen_assistant';
+    const mode = type === 'split_comfort_status' ? 'STATUS' : 'START';
+    const pending = api.register(originalTool, () => {
       job = api.mk(type, payload);
       if (missedCompletion) throw failure;
       return job;
-    }).handler({ command_id: command, mode: 'START' });
+    }).handler({ command_id: command, mode });
     if (missedCompletion) await assert.rejects(pending, error => error === failure); else await pending;
     const receipt = api.issueSplit(job); assert.ok(receipt);
     assert.equal(api.complete(job, { result: fixture.result }), 200);
     await runtime.status();
     const before = await store.read(), prior = Object.values(before.attempts)[0];
     assert.equal(Object.keys(before.attempts).length, 1);
+    assert.equal(prior.operation, originalTool + '.' + mode.toLowerCase());
     assert.equal(prior.outcome, missedCompletion ? 'completion_unknown' : 'observed');
     assert.equal(prior.evidenceRefs.includes('source:jh-split-read-layout-only'), false);
     const status = api.splitReceiptTool(), args = { command_id: command, mode: 'READBACK_PENDING', receipt_ref: receipt.receiptRef };
