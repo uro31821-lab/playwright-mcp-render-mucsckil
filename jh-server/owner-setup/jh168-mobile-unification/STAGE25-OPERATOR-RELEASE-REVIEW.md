@@ -1,47 +1,38 @@
-# JH168 Stage25 — Signed split FOLLOW_UP result readback operator activation
+# JH168 Stage25 — integrate original CLICK receipt with EXISTING live operator
 
-**Status:** source and CI candidate; NOT merged, NOT deployed, and no phone action. The latest Stage24 APK already passed a single Chrome menu click with \`action_verified\`; installing another APK does not enable this server-only change.
+**Status:** source/CI review only. NOT merged, NOT deployed. No Android APK or phone action. Stage24 APK has already passed the Chrome ⋮ click + resultVerified real-device test.
 
-## Exact startup selection
+## Why the actual operator matters
 
-The original Secure56 + manual circuit + owner host startup is preserved. A new **explicit operator entry** exists at:
+The production Render service \`jh-secure-bridge-fix4\` is tied to \`jh-fix3-secure-server\`, \`npm start\`, and \`published-host-router.mjs\`. Its selected Secure56 operator is the existing **pending-approval** operator, not the stand-alone clean-restart candidate. It contains:
+- original queued phone approval receipt
+- original START/STATUS split-screen read receipt
+- original Computer Use inspect result receipt
+- owner and operational experience-learning patches
+- signed Secure56 HMAC, authorization, command fence, original durable journal, and clean restart protection
 
-\`jh-server/owner-setup/jh168-mobile-unification/stage25-split-followup-operational-entry.mjs\`
+The initial standalone Stage25 operator was intentionally removed because it would not preserve all of these live modules.
 
-Only an explicitly selected service startup may invoke its \`main()\`. The default production entry is unchanged.
+## Correct additive candidate
 
-Stage25 source generation:
+\`jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs\`
 
-1. Rebuild the *pinned* \`buildDurableRoutedOperationalEntrypoint\` candidate, preserving original owner verification, saved identity, OAuth, device-bound Secure56, HMAC, and manual journal.
-2. Compose the existing \`split-read-receipt-patch\` (START/STATUS) then the new FOLLOW_UP CLICK receipt patch onto the original generated Secure56 runtime.
-3. Change the generated **owner runtime selector**, unified host import, and operational wrapper import/call so that the original startup actually loads the receipt-enabled runtime BEFORE opening the listener.
-4. Reverse both source patches and compare byte-for-byte with the pinned original, verifying no stealth expansion of original execution/approval scope.
+- Builds and authenticates the **actual existing** \`buildPendingApprovalOperatorEntrypoint56\` and its attestation first.
+- Applies only \`applyJH168SplitFollowupReceiptPatch\` to that complete operator runtime, preserving all original modules byte-for-byte when the patch is reversed.
+- Produces a separate signed-operator runtime, owner selector, unified wrapper, operational wrapper, and tamper-evident SHA-256 attestation. It verifies the original parent attestation and all generated hashes on every selected start.
+- Only a **separately selected** operator startup with existing exact flags plus \`JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE=EXPLICIT_FOLLOWUP_CLICK_RECEIPT_V1\` may call \`main()\`. Existing default \`npm start\` remains untouched. The new startup is **NOT** presently selected by the live Render start command.
+- The new receipt is a read-only \`sfr_\` token for an **already dispatched** original Secure56 CLICK. Same device, device digest, signed session, command, request, context, target item and original signed job must match; new click, authorization, phone consent and automatic replay are forbidden.
+- Exact \`resultVerified=true\` and original RIGHT Chrome proof are necessary to claim success; a confirmed \`target_obscured/actionDispatched=false\` remains a pre-dispatch block. Timeout or absent result remains UNKNOWN.
+- Bounded receipt registry is process-local. A restart does not recover expired/missing result bytes, nor does it authorize repeating the original click.
 
-A successful actual activation MUST report \`JH_SPLIT_FOLLOWUP_READBACK_ACTIVE\` with the exact selected runtime hash, AND service readiness and the existing durable circuit active. Mere CI or GitHub merge does not prove deployment.
+## Required production cutover steps (NOT yet executed)
 
-## Behavior and limits
+1. Record exact current service, Render workspace, last live commit/deploy and the \`npm start\`/router selection, including pending-approval and operational-learning capabilities.
+2. Merge **only after** CI passes latest source and the proper activation path is approved. AutoDeploy is currently OFF on the JH service, but merging must still be reviewed for restart policy.
+3. The connected Render tool currently supports environment-variable updates and manual deploy, but **does not support updating a service start command**. Activation therefore needs an additional reviewed, exact router entry (with explicit flag and preserved original default), or an authorized Dashboard start-command change. Do not bypass this gap.
+4. No reset, no unsolicited re-auth, no key changes, no replacement of existing volume, no click auto-retry. Existing unconfirmed jobs must be fenced before a restart.
+5. Verify the exact selected release sha and \`JH_SPLIT_FOLLOWUP_READBACK_ACTIVE\` in live logs, then read-only MCP status and exactly one safe phone scenario if needed. A pending original receipt may only be read through \`READBACK_PENDING\`; do not replay to force a timeout.
+6. If the activated runtime fails any pin/attestation, revert start selection and previously verified release. Preserve storage and original pending execution state.
 
-- Existing signed CLICK dispatch is untouched. A timeout may return a scoped \`sfr_...\` receipt, which the existing MCP \`READBACK_PENDING\` mode reads using only \`receipt_ref\` and the existing valid \`command_id\`.
-- The reader obtains the original job only; **no new job, click, permission, OAuth scope, approval grant, screenshot or retry**.
-- Exact phone/device digest, signed session, command ID, original request ID, target item and task digest must match.
-- The phone's original \`resultVerified\` plus right-Chrome evidence is required to confirm success. \`target_obscured\` with \`actionDispatched=false\` is **pre-dispatch blocked**, not a missing completion.
-- A missing, expired or terminal-unknown result remains UNKNOWN. **Do not replay**.
-- The receipt registry is bounded process-local memory; old receipts are NOT recovered after a server restart. Durable journal continues to deny uncertain duplicate clicks. Restart-persistent result bytes require a separately reviewed storage integration; not claimed by this release.
-
-## Production preflight — required before any change
-
-1. Select the intended Render workspace **explicitly** and identify the exact JH Secure Bridge service. Preserve the existing start command, deployed commit/image, autoDeploy configuration, environment/volume, trust and OAuth paths; do not infer them from historical source.
-2. Confirm no unresolved durable dispatches and review an appropriate quiescent cutover. A restart may discard an old in-flight operation and cannot be used as proof it never happened.
-3. Confirm all GitHub Stage25/receipt Secure56 tests passing against the latest branch and the current base. Check the generated runtime SHA and host selector match; no APK is required.
-4. Make one explicitly approved startup change/deploy only. If actual startup reports a binding/pin/storage error, **stop**, do not reset keys, volumes, sessions, or auto-restore operations.
-5. Post-deployment check live MCP catalog, device signed session, exact Stage24 installed app version, same RIGHT pane, and a single safe UI action only when needed. Verify \`READBACK_PENDING\` with an **existing original receipt**, never by replaying a click.
-6. Rollback: restore the previously recorded start command/commit and original verified deploy, preserving storage. First inspect unresolved effects and receipts; do not replay on rollback. Report source merge, deployment, and real phone confirmation separately.
-
-## Checks
-
-- Local receipt registry tests: queued/late, missing original, scoped denial, pre-dispatch blocked, proof required, expiry, no raw screen.
-- Generated server source and original host selector tests: exact imports, reversible patches, old HMAC/manual journal preserved.
-- GitHub Actions: \`JH168 split FOLLOWUP readback (source-only review)\` and existing Secure56 tests.
-
-**This file is a review/activation plan, not evidence of a deployed or working new server.**
+GitHub CI covers exact pending-approval/learning operator preservation, reversible code, authentication-scoped receipt readback, the original owner-selected runtime, and non-deployment. It does not prove live operation without steps above.
 
