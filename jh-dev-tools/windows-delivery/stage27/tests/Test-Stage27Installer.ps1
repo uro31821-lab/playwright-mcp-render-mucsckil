@@ -57,10 +57,35 @@ function New-JhFixture([string]$Mode='success'){
     $script:ExpectedCert=('a'*64)
     $script:Package='com.koreanlifehub.bridge'
     $script:TargetVersion=168
+    $script:SourceManifestSha='synthetic-manifest-sha'
     $script:CurrentRunId=[guid]::NewGuid().ToString('N')
     $script:AttemptCount=0;$script:Dispatched=$false;$script:TemporaryPaths=@();$script:Lines=@()
     $script:FixtureMode=$Mode;$script:InstalledAfter=$false;$script:InstallCalls=0;$script:NativeCalls=0
     $script:FixtureSerial='SYNTHETIC-DEVICE-ONLY'
+}
+
+# Synthetic frozen identity proof. Every native tool remains stubbed and
+# no APK / signing tool / real Android device is ever accessed by this suite.
+function Get-JhFrozenApkIdentity {
+    $candidate=if($script:FixtureMode -ceq 'wrongIdentityDigest'){('b'*64)}else{$script:ExpectedSha}
+    $pkg=if($script:FixtureMode -ceq 'wrongIdentityPackage'){'com.invalid.identity'}else{$script:Package}
+    $ver=if($script:FixtureMode -ceq 'wrongIdentityVersion'){167}else{$script:TargetVersion}
+    return [PSCustomObject]@{
+        schema='JH168_STAGE27_SIGNING_VERIFICATION_V1'
+        signed_sha256=$script:ExpectedSha
+        certificate_sha256=$script:ExpectedCert
+        original_certificate_match=$true
+        v2_verified=$true
+        v3_verified=$true
+        source_manifest_sha256=$script:SourceManifestSha
+        identity_proof=[PSCustomObject]@{
+            source='SDK35_AAPT_AND_INDEPENDENT_BINARY_AXML'
+            signed_apk_sha256=$candidate;package=$pkg;version_code=$ver;sdk35_aapt_exit=0
+            sdk35_aapt_badging_package_line="package: name='com.koreanlifehub.bridge' versionCode='168' versionName='synthetic'"
+            binary_axml_root_package_match=$true;binary_axml_root_version_code_match=$true
+            verified_on_unchanged_signed_apk=$true;scope='FILE_IDENTITY_ONLY_NOT_DEVICE_INSTALL'
+        }
+    }
 }
 
 # Every potential external executable is replaced by an in-process deterministic stub.
@@ -68,9 +93,7 @@ function Find-Exe([string[]]$paths,[string]$name){return ('stub-'+$name)}
 function Get-SdkRoots{return @('C:\JH-SYNTHETIC-SDK')}
 function Run-Exe([string]$exe,[string[]]$arguments,[int]$timeoutSeconds=90){
     $script:NativeCalls++
-    if($exe -ceq 'stub-aapt.exe'){
-        return @{ExitCode=0;Output="package: name='com.koreanlifehub.bridge' versionCode='168' versionName='synthetic'";Error=''}
-    }
+    if($exe -ceq 'stub-aapt.exe'){throw 'REGRESSION_OLD_AAPT_TEXT_GATE_CALLED'}
     if($exe -ceq 'stub-java.exe'){
         $cert=if($script:FixtureMode -ceq 'wrongCert'){('b'*64)}else{$script:ExpectedCert}
         return @{ExitCode=0;Output=("Number of signers: 1`nSigner #1 certificate SHA-256 digest: "+$cert+"`nVerified using v2 scheme (APK Signature Scheme v2): true`nVerified using v3 scheme (APK Signature Scheme v3): true`n");Error=''}
@@ -139,6 +162,16 @@ try{
             }
         }
     }
+    Run-JhCase 'Frozen signed identity proof content is pinned, not the local aapt output' {
+        $proofPath=Join-Path $KitRoot 'data\STAGE27-SIGNATURE-VERIFICATION.json'
+        $proofHash=(Get-FileHash -LiteralPath $proofPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        Assert-JhTest ($proofHash -ceq 'e3f1eb72bc37ecd193ba2c40af4f5c7c83a26c252739ce3e8d650b85ad481084') 'Original SDK 35 identity proof must be exact'
+        $identity=([IO.File]::ReadAllText($proofPath)|ConvertFrom-Json).identity_proof
+        Assert-JhTest ($identity.package -ceq 'com.koreanlifehub.bridge' -and [int]$identity.version_code -eq 168) 'Frozen identity is exact'
+        $source=[IO.File]::ReadAllText($mainPath)
+        Assert-JhTest ($source -match 'APK_FROZEN_IDENTITY_PROOF_MISMATCH_NO_INSTALL' -and
+            $source -notmatch 'Run-Exe\s+\$aapt') 'Old text-only aapt gate must not return'
+    }
     Run-JhCase 'Prior candidate installs exactly once and verifies current bytes' {
         New-JhFixture
         $result=Invoke-JhFixtureInstall
@@ -166,7 +199,7 @@ try{
         Assert-JhTest ((Get-JhInstallAttemptPath $script:ExpectedSha $script:FixtureSerial) -ceq $oldMarker) 'Marker identity must not depend on kit directory'
     }
     Run-JhCase 'Wrong hash, certificate, baseline and device ambiguity block before dispatch' {
-        foreach($mode in @('wrongHash','wrongCert','wrongPrior','twoDevices','unauthorized','recoverySecond')){
+        foreach($mode in @('wrongHash','wrongCert','wrongPrior','twoDevices','unauthorized','recoverySecond','wrongIdentityDigest','wrongIdentityPackage','wrongIdentityVersion')){
             New-JhFixture $mode
             if($mode -ceq 'wrongHash'){[IO.File]::WriteAllBytes($script:Apk,$script:OtherBytes)}
             $result=Invoke-JhFixtureInstall

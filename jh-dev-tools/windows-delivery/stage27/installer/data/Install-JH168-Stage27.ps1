@@ -15,7 +15,8 @@ $script:SourceManifestSha='aa9a7fe1ddf30672fed68f62c58df9cf378047ae5c7f85911d3a2
 $script:Package='com.koreanlifehub.bridge'
 $script:TargetVersion=168
 $script:SafetyHash='a7c6c5f45c92e65453cb7dd682bbf46d634e846404e309633fa5b713a00127f0'
-$script:DeliveryManifestHash='e7aafd90332e1a95493c06ccf323ce40a8636ef79eaaf4c5c3ded0741d59cc41'
+$script:DeliveryManifestHash='1849439835a1c9d2934dbbe69123f5c587ac239ce359b512bce7d362d3a23068'
+$script:SignatureIdentityProofSha='e3f1eb72bc37ecd193ba2c40af4f5c7c83a26c252739ce3e8d650b85ad481084'
 $script:AttemptCount=0
 $script:Dispatched=$false
 $script:TemporaryPaths=@()
@@ -74,7 +75,9 @@ function Test-JhStage27Preflight([string]$Kit) {
     if($manifest.schema -cne 'JH168_STAGE27_INSTALL_ONLY_V1' -or
        $manifest.candidate_sha256 -cne $script:ExpectedSha -or $manifest.certificate_sha256 -cne $script:ExpectedCert -or
        $manifest.prior_sha256 -cne $script:ExpectedPriorSha -or [int]$manifest.version_code -ne 168 -or
-       $manifest.source_manifest_sha256 -cne $script:SourceManifestSha){throw 'DELIVERY_MANIFEST_CONTRACT_MISMATCH'}
+       $manifest.source_manifest_sha256 -cne $script:SourceManifestSha -or
+       $manifest.identity_proof_sha256 -cne $script:SignatureIdentityProofSha -or
+       $manifest.identity_proof_source -cne 'SDK35_AAPT_AND_INDEPENDENT_BINARY_AXML'){throw 'DELIVERY_MANIFEST_CONTRACT_MISMATCH'}
     $expectedPaths=@('실행.cmd','사용안내.txt','POWER_SHELL_ERROR_CHECKLIST.txt',
         'data/JH-RUN-SAFETY.ps1','data/Confirm-Stage27-Result.ps1',
         'data/STAGE27-SIGNATURE-VERIFICATION.json','data/JH168-Stage27-SIGNED.apk')
@@ -120,6 +123,35 @@ function Test-JhStage27Preflight([string]$Kit) {
     foreach($check in @('REQUIRED_FILES','SCRIPT_PATHS','UTF8_BOM_AND_CMD_CRLF','POWERSHELL_PARSE','FUNCTION_ALIAS','AUTOMATIC_VARIABLES','PATH_LENGTH','DELIVERY_HASHES','CHECKLIST_CONNECTED')){Note ('PREFLIGHT_'+$check) 'PASS'}
 }
 
+function Get-JhFrozenApkIdentity {
+    # Stage27 signed APK identity was independently verified using SDK 35 aapt and
+    # direct Android binary XML parsing. This receipt is tied to the exact APK hash.
+    # A second machine-dependent aapt invocation is NOT a prerequisite for install.
+    $path=Join-Path $script:Data 'STAGE27-SIGNATURE-VERIFICATION.json'
+    if(-not [IO.File]::Exists($path)){throw 'APK_IDENTITY_PROOF_MISSING_NO_INSTALL'}
+    if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -cne $script:SignatureIdentityProofSha){
+        throw 'APK_IDENTITY_PROOF_HASH_MISMATCH_NO_INSTALL'
+    }
+    return ([IO.File]::ReadAllText($path) | ConvertFrom-Json)
+}
+function Test-JhFrozenApkIdentity {
+    $record=Get-JhFrozenApkIdentity
+    if($null -eq $record -or $null -eq $record.identity_proof){return $false}
+    $proof=$record.identity_proof
+    return ($record.schema -ceq 'JH168_STAGE27_SIGNING_VERIFICATION_V1' -and
+        $record.signed_sha256 -ceq $script:ExpectedSha -and $record.certificate_sha256 -ceq $script:ExpectedCert -and
+        $record.original_certificate_match -eq $true -and $record.v2_verified -eq $true -and $record.v3_verified -eq $true -and
+        $record.source_manifest_sha256 -ceq $script:SourceManifestSha -and
+        $proof.source -ceq 'SDK35_AAPT_AND_INDEPENDENT_BINARY_AXML' -and
+        $proof.signed_apk_sha256 -ceq $script:ExpectedSha -and
+        $proof.package -ceq $script:Package -and [int]$proof.version_code -eq $script:TargetVersion -and
+        [int]$proof.sdk35_aapt_exit -eq 0 -and
+        $proof.sdk35_aapt_badging_package_line -cmatch "^package:\s+name='com\.koreanlifehub\.bridge'\s+versionCode='168'" -and
+        $proof.binary_axml_root_package_match -eq $true -and
+        $proof.binary_axml_root_version_code_match -eq $true -and
+        $proof.verified_on_unchanged_signed_apk -eq $true -and
+        $proof.scope -ceq 'FILE_IDENTITY_ONLY_NOT_DEVICE_INSTALL')
+}
 function Run-Exe([string]$exe,[string[]]$arguments,[int]$timeoutSeconds=90) {
  if(-not [System.IO.File]::Exists($exe)) { throw 'EXECUTABLE_MISSING' }
  $psi = [System.Diagnostics.ProcessStartInfo]::new()
@@ -231,23 +263,23 @@ function Invoke-JhStage27Install {
     }
     Note 'SIGNED_APK_HASH' 'MATCH'
     $sdkRoots=Get-SdkRoots
-    $adbChoices=@();$aaptChoices=@();$jarChoices=@()
+    $adbChoices=@();$jarChoices=@()
     foreach($sdk in $sdkRoots){
         $adbChoices+=(Join-Path $sdk 'platform-tools\adb.exe')
         foreach($ver in @('35.0.0','34.0.0')){
-            $aaptChoices+=(Join-Path $sdk ('build-tools\'+$ver+'\aapt.exe'))
             $jarChoices+=(Join-Path $sdk ('build-tools\'+$ver+'\lib\apksigner.jar'))
         }
     }
     $adb=Find-Exe $adbChoices 'adb.exe';if(-not $adb){return New-JhOutcome 'BLOCKED' 'ADB_NOT_FOUND_USE_EXISTING_ANDROID_SDK_PLATFORM_TOOLS'}
-    $aapt=Find-Exe $aaptChoices 'aapt.exe';if(-not $aapt){return New-JhOutcome 'BLOCKED' 'ANDROID_AAPT_NOT_FOUND'}
     $jar=Find-Exe $jarChoices 'apksigner.jar';if(-not $jar){return New-JhOutcome 'BLOCKED' 'ANDROID_APKSIGNER_JAR_NOT_FOUND'}
     $javaChoices=@();if($env:JAVA_HOME){$javaChoices+=(Join-Path $env:JAVA_HOME 'bin\java.exe')}
     $java=Find-Exe $javaChoices 'java.exe';if(-not $java){return New-JhOutcome 'BLOCKED' 'JAVA_NOT_FOUND'}
-    $pkgInfo=Run-Exe $aapt @('dump','badging',$script:Apk) 80
-    if($pkgInfo.ExitCode -ne 0 -or -not [regex]::IsMatch($pkgInfo.Output,"(?m)^package:\s+name='com\.koreanlifehub\.bridge'\s+versionCode='168'")){
-        return New-JhOutcome 'BLOCKED' 'APK_PACKAGE_OR_VERSION_MISMATCH'
+    # APK SHA-256 is checked above; independent offline SDK/AXML identity proof
+    # is hash-pinned in this installer. Do not trust a second local aapt text dump.
+    if(-not (Test-JhFrozenApkIdentity)){
+        return New-JhOutcome 'BLOCKED' 'APK_FROZEN_IDENTITY_PROOF_MISMATCH_NO_INSTALL'
     }
+    Note 'APK_PACKAGE_VERSION' 'MATCH_SDK35_AAPT_AND_BINARY_AXML_PROOF'
     $signed=Verify-Signer $java $jar $script:Apk
     if(-not $signed.Ok -or $signed.Cert -cne $script:ExpectedCert){return New-JhOutcome 'BLOCKED' 'SIGNED_APK_CERTIFICATE_MISMATCH'}
     Note 'SIGNED_APK_PACKAGE_VERSION' 'MATCH';Note 'SIGNED_APK_CERTIFICATE' 'MATCH'
