@@ -493,6 +493,22 @@ sidecar에는 proposalId·baseRevision·reviewPacketFingerprint·selectedResultC
 
 없는 제안이나 현재 지지 결과가 없는 제안을 이 조회가 만들어 주지 않습니다. 실제 제안 0건은 그대로 두고 원래 작업을 계속합니다. 후보·검사·제안 상태·labels·모델 학습을 변경하지 않으며, readOnly/advisoryOnly는 true이고 externalEffects/replayAllowed는 false입니다. 사용 확인의 출처는 host_attestation이며 독립 적용·사전 실행 시점·인과 개선 효과는 검증하지 않았다고 유지합니다.
 
+## 등록된 후보의 근거 추적
+
+호스트 CLI `candidate-evidence`와 순수 API `prepareCandidateEvidence(state,input)`는 **등록에 사용한 사건 ID를 기준으로 현재 보관된 결과·규칙 사용 이력**을 함께 읽습니다. 입력은 `{proposalId,lessonId,ruleVersion,inputFingerprint,options?:{maxUsesPerSource?,maxChars?}}`입니다. 실제 `progress`의 최상위 proposalId와 `candidates[].link`의 후보 세 식별값을 가져오며, 별도 link ID를 만들거나 같은 문구의 다른 후보를 추정해 연결하지 않습니다. 외부 packet·eventIds·query·now와 `--revision`은 받지 않습니다.
+
+반환 schema는 `jh.learning-candidate-evidence.v1`입니다. `registration`에는 최초 연결 시각·revision·원래 검토 지문·sourceEventIds·시험 식별 정보가, `candidate`에는 등록 identity와 현재 정의의 bindingStatus가 있습니다. `items`는 sourceEventId·sourceStatus·sourceRecord·currentProjection·precedingUses를 나누며, currentProjection의 isRegisteredSource로 원 근거와 같은 사건인지 구분합니다. `totals`는 등록 근거의 전체 개수·현재 보관/누락 개수·관련 사용 수이고, omittedSources는 문자 예산으로 빠진 행 수입니다. 문자 예산은 완전한 행의 JSON 문자 수에 적용하며 metadata·전체 집계는 별도로 반환합니다.
+
+조회는 기존 `candidateLinks.sourceEventIds`에 고정됩니다. 제안이 종료되거나 같은 시도의 최신 결과가 바뀌어도 원래 선택된 사건 ID를 최신 결과로 교체하지 않습니다. `sourceRecord`는 해당 ID로 현재 보관된 사건이며, 현재 projection은 별도 정보입니다. 원 사건이 없고 나머지 저장소가 유효하면 missing으로 표시합니다. 손상된 전역 이력을 빈 결과로 바꾸지는 않습니다.
+
+- 관련 사용은 동일 task·attempt·실제 scope에서 원 근거 결과보다 sequence와 적용 시각이 앞선 기록만 선행 근거로 표시합니다. 같은 task의 다른 시도나 link에 없는 결과를 끌어오지 않습니다.
+- `derivation:derived_from_registered_sources`는 **현재 저장 이력에서 도출한 연결**입니다. 사건에 수집 revision과 등록 시점의 개별 내용 지문이 없으므로, 나중에 보관한 과거 이력을 등록 당시 존재했던 기록으로 인증할 수 없습니다. `availableAtRegistrationVerified`, `reviewerAcknowledgementVerified`, `sourceContentAtRegistrationVerified`는 false입니다.
+- 후보의 `bindingBasis:registered_identity_fields`는 ID·버전·입력 지문·scope의 일치입니다. 등록 당시 후보 본문 전체나 실제 사용·개선 효과를 증명하지 않습니다. 현재 후보의 검사·기간·조회 포함 여부는 기존 `progress` 또는 `lesson-view`에서 확인합니다.
+- 사용했던 규칙 본문은 기록된 전체 정의 지문과 현재 저장 정의가 정확히 일치할 때만 보여 줍니다. 변경·누락·유효하지 않은 정의는 구분하며, 현재 평가나 CHECK를 다시 실행하지 않습니다.
+- 기본 표본은 근거 결과별 사용 1개, 최대 4개이고 문자 예산은 기본 12000자, 최대 32768자입니다. 전체 집계와 생략 수를 함께 확인합니다. 표시에서 빠진 관련 원본·현재 결과·정의 조회도 조회 지문에 결합합니다.
+
+반환 지문은 현재 조회 내용의 식별값이며 원래 packetFingerprint나 후보의 inputFingerprint를 대신하지 않습니다. 등록 link의 regression 정보는 시험 종류·ID·버전의 연결이며, 원 suite 본문이나 과거 실패와 개별 case의 대응을 복원한 것이 아닙니다. 기존 후보 등록·회귀검사·결정 계약과 저장 형식을 유지하며, 읽기만으로 후보·사건·제안·승인·실제 모델 학습을 만들지 않습니다. 후보가 실제로 없으면 시험 데이터를 운영 기억에 넣어 조회 대상을 만들지 않습니다.
+
 ## CLI 사용
 
 독립 CLI·엔진은 Node.js 22의 표준 라이브러리만 사용합니다. 아래 명령은 개발자·플러그인 연결용이며, 자동 서버 hook을 사용하는 일반 작업마다 입력할 필요는 없습니다. 전체 HTTP 통합시험에는 뒤에서 설명하는 기존 서버 의존성이 필요합니다.
@@ -513,6 +529,7 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 두 형식 모두 선택 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}`와 독립적인 `usageReview:{limit?,maxChars?,seenNoticeFingerprints?}` 지원 |
 | `review` | `{proposalId,maxAttempts?}`: 실제 근거 검토 packet 읽기 |
 | `review-context` | `{proposalId,maxAttempts?,usageOptions?:{maxUsesPerResult,maxChars}}`: 원래 검토 packet과 선행 규칙 사용 근거를 같은 스냅샷에서 조회, `--revision` 금지 |
+| `candidate-evidence` | `{proposalId,lessonId,ruleVersion,inputFingerprint,options?:{maxUsesPerSource,maxChars}}`: 등록된 근거 사건과 현재 보관된 사용 이력의 읽기 전용 추적, `--revision` 금지 |
 | `instruction` | `{instruction,suite,scope,globalRecall?}`: 명시 사용자 규칙을 읽기 전용 준비, baseRevision 반환, `--revision` 금지 |
 | `lesson-view` | `{lessonId,query 또는 queries,options?}`: 저장 규칙·기존 평가·현재 조회 포함 상태의 읽기 전용 진단, `--revision` 금지 |
 | `usage-prepare` | `{taskId,attemptId,lessonId,scope,globalRecall?,options?:{limit,maxChars}}`: 실제 사용 전 규칙 선택을 읽기 전용 준비, `--revision` 금지 |
