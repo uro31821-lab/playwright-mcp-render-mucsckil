@@ -57,3 +57,26 @@ Use the existing Render service Dashboard > Shell on the running **original** jh
 ## Fix rules
 
 If global cap is genuinely reached, retain unknown records and audit journal/backup safely; do not raise caps or delete rows. If duplicate, recover only the exact original receipt and keep no-replay. If malformed original CLICK, repair the true mobile alias/owner producer binding on an isolated candidate with full protected CI. If device/session/window stale, acquire fresh read-only context for a **new, independently authorized** action; do not replay unresolved effects. If owner storage fails, validate filesystem/permissions/mount/SQLite WAL and backup privately before any migration. Never convert unsupported actions into unrestricted dispatch.
+
+## 2026-11-01 10:49:31 UTC — DIRECT ORIGINAL LIVE OWNER SQLITE COUNTS (owner provided)
+
+**Source:** authorized original Render Shell, original service `srv-db0fjl2d0e5s73be114g` under `/var/data/jh-owner-state/manual-circuit.sqlite`. The owner ran a `DatabaseSync({readOnly:true})` / `PRAGMA query_only=ON` SELECT and supplied the actual output. These are **current observed snapshot values at that UTC timestamp**, superseding older 29/466 observations; they are not sourced from GitHub Actions or the separate learning database.
+
+| Metric | Measured |
+|---|---:|
+| OUTCOME_UNKNOWN | **32** |
+| DEVICE_RESULT_RECEIVED | **474** |
+| Total | **506** |
+| Original unknown limit | 512 (32/512 = 6.25%) |
+| Original total-row limit | 10000 (506/10000 = 5.06%) |
+| Disk free | **998154240 bytes** (951.914 MiB) |
+| Original SQLite file | 155648 bytes (152 KiB) |
+| SQLite WAL | 201912 bytes (197.18 KiB) |
+| Last UNKNOWN created | 2026-11-01T09:35:11.288Z |
+| Last RECEIVED created / completed | 2026-11-01T09:58:11.677Z / 09:58:12.408Z |
+
+**Proven:** original global row count and global unresolved count were BELOW BOTH fixed limits at query time. Another independent result was received after the latest unknown row. Owner storage had free bytes. This **eliminates the global 512 or 10000 threshold as the observed cause of an admission failure at that snapshot**, but does not rule out an exact unresolved identity collision, unsupported operation, original command binding, short-lived device/session status, or SQLite transaction error at a different time.
+
+**Specific admission not yet attributable:** the historical `OWNER_ADMISSION_BLOCKED` response has no preserved original command/job/request correlation or raw underlying refusal code. HMAC-only circuit rows do not contain recoverable command text, target UI, job ID, approval grant, or an inverse mapping to a rejected request. Searching Render application logs did not find this exact tag or the lower-level durable denial code in the observed window. Therefore the specific refusal is **UNKNOWN**, and the 32 unknown rows must not be treated as 32 failed or incomplete business/UI actions.
+
+**Disposition:** no data deletion/cleanup, automatic retry, replay, policy bypass, or live rollout is needed to solve the (nonexistent) global capacity issue. Future original admission denials should expose only a bounded cause code through their already-authenticated original-job readback, preserving no-replay and preventing sensitive tokens/payloads in logs. Such an observer is a separately reviewed, unshipped source proposal and does not reconstruct missing evidence from an old attempt.
