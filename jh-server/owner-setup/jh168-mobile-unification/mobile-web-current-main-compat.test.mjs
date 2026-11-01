@@ -1,6 +1,6 @@
 /** JH168 verified-current-MAIN mobile/source review (NO RELEASE).
  * Preserve BOTH historical PR72 / 2c310f8 source evidence and the reviewed
- * NEW main e346a1c9; Stage44 may edit only its generated operator selection.
+ * last deployed main f32cf6c7; preserve both Stage43 and PR72 history.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +9,8 @@ import {execFileSync} from 'node:child_process';
 import {reverseJH168Mobile13ActionPolicyHost56} from './mobile13-action-policy-patch.mjs';
 
 const ORIGINAL='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
-const REVIEWED_MAIN='e346a1c9d425428df5cba4069f26842450542b43';
+const STAGE43_MERGE='e346a1c9d425428df5cba4069f26842450542b43';
+const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
 const MOBILE='c6142bd21ea299a4464124356e9da34b58001900';
 const ROOT='jh-server/owner-setup/';
 const show=(sha,path)=>execFileSync('git',['show',sha+':'+path],{
@@ -32,11 +33,12 @@ const deps=[
  ROOT+'payment/payment-runtime-patch.mjs'
 ];
 test('re-reviewed current MAIN and historical pre-mobile source are pinned EXACT, no unapproved advancement',()=>{
- for(const sha of [ORIGINAL,REVIEWED_MAIN,MOBILE])
+ for(const sha of [ORIGINAL,STAGE43_MERGE,REVIEWED_MAIN,MOBILE])
   assert.equal(cmd(['cat-file','-t',sha]),'commit');
  assert.equal(cmd(['rev-parse','refs/remotes/origin/jh-fix3-secure-server']),REVIEWED_MAIN,
   'MAIN_ADVANCED_REFRESH_SOURCE_AUDIT');
  assert.equal(cmd(['merge-base',ORIGINAL,REVIEWED_MAIN]),ORIGINAL);
+ assert.equal(cmd(['merge-base',STAGE43_MERGE,REVIEWED_MAIN]),STAGE43_MERGE);
  assert.equal(cmd(['merge-base',ORIGINAL,MOBILE]),ORIGINAL);
  assert.equal(cmd(['merge-base',REVIEWED_MAIN,'HEAD']),REVIEWED_MAIN);
 });
