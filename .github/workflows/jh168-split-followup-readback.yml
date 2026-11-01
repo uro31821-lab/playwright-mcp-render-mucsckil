@@ -25,7 +25,8 @@ jobs:
             jh-server/owner-setup/server-integration \
             jh-server/owner-setup/deployment \
             jh-server/owner-setup/android-direct \
-            ':(exclude)jh-server/owner-setup/deployment/published-host-router.mjs'
+            ':(exclude)jh-server/owner-setup/deployment/published-host-router.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs'
       - name: Verify syntax and isolated original-click receipt tests
         run: |
           for f in jh-server/owner-setup/jh168-mobile-unification/split-followup-*.mjs jh-server/owner-setup/jh168-mobile-unification/stage25-*.mjs; do node --check "$f"; done
