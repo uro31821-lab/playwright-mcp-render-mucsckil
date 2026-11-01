@@ -30,7 +30,7 @@ JH가 실제로 처리한 도구 호출·오류·완료 결과를 구조화해 �
 
 기존 응답에 붙는 `jh_operational_learning`은 `timing: "after_execution"`으로 표시한다. 이 응답만으로 그 첫 동작 전에 교훈을 읽었다고 표현하지 않는다. 개인 스킬의 별도 대화 기억은 기존 저장소와 CLI 경로를 유지한다.
 
-기존 owner 설정과 영속 저장소를 사용하므로 별도 학습 활성화 환경변수나 매 작업마다 입력하는 학습 명령은 없습니다. 호출 시 조건에 맞는 활성 교훈을 조회하고, 처리 결과를 기록한 뒤 개선 제안을 계산합니다. 반환할 조언은 도구 응답에 `type: "jh_operational_learning"` 항목으로 덧붙입니다. 동일 작업 내 중복 안내를 억제하고 새 작업에서는 다시 조회합니다.
+기존 JH 도구의 자동 기록은 기존 owner 설정과 영속 저장소를 사용하며 별도 학습 활성화 환경변수나 매 작업마다 입력하는 학습 명령이 없습니다. 아래의 **명시적 호스트 기억 연결**은 별도 기본 OFF 기능이며 정확한 활성화 값이 필요합니다. 기존 도구 호출 시에는 조건에 맞는 활성 교훈을 조회하고, 처리 결과를 기록한 뒤 개선 제안을 계산합니다. 반환할 조언은 도구 응답에 `type: "jh_operational_learning"` 항목으로 덧붙입니다. 동일 작업 내 중복 안내를 억제하고 새 작업에서는 다시 조회합니다.
 
 개선 제안의 자동 전달은 현재 `domain / operation / engine / context.platform / context.version / context.environment`가 모두 일치할 때만 허용합니다. `operation`에는 도구의 mode도 포함되므로 같은 도구의 START와 FOLLOW_UP 제안을 합치지 않습니다. `learning_evaluation`의 `operation: "*"`만 같은 영역·엔진·환경 안에서 여러 작업에 걸쳐 전달할 수 있습니다. 범위가 빠지거나 불완전한 기록은 자동 전달에서 제외합니다.
 
@@ -48,6 +48,94 @@ JH가 실제로 처리한 도구 호출·오류·완료 결과를 구조화해 �
 | `apiVersion`, `capabilities` | 현재 학습 API와 사전조회·검토 후보·기간 규칙·trace 검사 지원 여부 |
 
 hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장소가 손상되거나 사용할 수 없으면 `degraded` 상태를 알리고 기존 JH 작업을 계속합니다. 정상 종료에서는 진행 중인 호출과 대기 중인 기록을 제한 시간 안에서 정리하고, 끝나지 않은 호출을 완료 미확정으로 기록합니다.
+
+### 명시적 호스트 기억 연결 — 2026-11-01
+
+[host-memory-bridge.mjs](host-memory-bridge.mjs)는 인증된 owner의 에이전트가 **실제로 관찰한 별도 사건 한 건**을 기존 서버 기억에 제출하고, 이후 같은 업무나 원래 작업 참조로 다시 읽는 연결 계층입니다. 기존 [host-observations.mjs](host-observations.mjs)의 사건·현재 결과 구분, 동일 관찰 재전송, 원자적 revision 검사를 재사용합니다. 일반 대화 수집기나 기존 Library 파일의 가져오기 기능은 아닙니다.
+
+기본값은 **OFF**입니다. 기존 owner 시작 경로에서 환경변수가 다음 값과 정확히 일치할 때만 활성화합니다. 미설정·다른 값이면 세 도구는 `LEARNING_HOST_MEMORY_DISABLED`를 반환합니다.
+
+```text
+JH_HOST_MEMORY_BRIDGE=EXPLICIT_OWNER_HOST_MEMORY_V1
+```
+
+실제 활성 상태는 `life_status.operationalLearning.capabilities`의 `hostObservationTransport`, `hostMemoryContext`, `hostTaskReadback`과 `hostMemory.enabled`로 확인합니다. 소스 등록·활성화 설정·현재 MCP 카탈로그 노출·실제 호출 성공은 각각 확인해야 합니다. 이 절은 API 계약이며 **운영 배포나 CI 통과를 입증하는 기록이 아닙니다.** 이 기능에 새 BEGIN, 휴대폰 job 또는 APK 변경은 필요하지 않습니다.
+
+| 새 도구 | 입력 | 역할 |
+| --- | --- | --- |
+| `life_learning_host_context` | `domain`, `operation`, 선택 `limit`, `max_chars` | 같은 host 업무의 활성 규칙·충돌·제안·기록된 경험을 구분해 조회 |
+| `life_learning_host_task` | `task_ref`, 선택 `attempt_ref`, `limit` | 호스트가 알고 있는 원래 작업·시도의 현재 결과와 관찰 영수증 조회 |
+| `life_learning_host_observe` | 단일 JSON 객체를 직렬화한 `payload` 문자열 | 실제 관찰 한 건을 revision 조건 아래 기록하거나 동일 입력의 기존 영수증 반환 |
+
+owner와 저장 경로는 기존 검증된 서버 설정이 결정합니다. 호출자는 `owner`, 파일 경로, engine/context, 서버 task/job/command ID를 선택할 수 없습니다. `domain`은 위 아홉 영역 중 하나이며 `operation`, `task_ref/taskRef`, `attempt_ref/attemptRef`는 1–96자의 영문·숫자·점·밑줄·하이픈으로 된 불투명 참조를 사용합니다. 첫 문자는 영문·숫자입니다. 호스트 참조는 서버에서 `host-task-…`, `host-attempt-…` 이름 공간으로 해시하며 기존 서버 도구 사건의 attempt를 수정하는 선택자로 사용하지 않습니다.
+
+host 범위는 `engine: jh-agent`, `platform: chatgpt`, `version: operational-learning-v1`, `environment: personal`로 고정합니다. 서버의 `jh-server / jh-mcp / server-learning-v1 / owner-service` 범위로 바꾸지 않습니다. 서로 다른 엔진의 같은 문구를 같은 규칙으로 자동 합치지 않습니다.
+
+#### 1. 작업 전에 관련 기억 읽기
+
+```json
+{
+  "domain": "output",
+  "operation": "summary.format",
+  "limit": 5,
+  "max_chars": 6000
+}
+```
+
+위 객체를 `life_learning_host_context`에 전달합니다. 기본 `limit`은 5, 허용 범위는 1–10이며 **각 배열별 한도**입니다. `max_chars`는 기본 6000, 허용 범위 256–16000입니다. 이 예산은 `lessons/conflicts/proposals/episodes` 배열을 직렬화한 길이에 적용하며 응답 전체 envelope 길이가 아닙니다. 완전한 항목 단위로 반환하고 잘라낸 본문을 완전한 증거로 표시하지 않습니다. 반환의 `omitted`, `counts`, `budget`을 확인합니다.
+
+같은 업무와 `orchestration / learning.scope` 공통 규칙을 같은 스냅샷에서 조회합니다. `lessons`는 기존 검사·유효기간·충돌 조건을 통과해 현재 조회 가능한 규칙이고, `episodes`는 같은 host 업무에서 기록된 시도의 현재 결과와 최신 관찰입니다. **경험 한 건이 저장됐다고 활성 규칙이 되지는 않습니다.** `episodesRequireReview:true`를 유지하며 경험 내용·근거를 검토하고 기존 후보·회귀검사 절차를 거쳐야 합니다. 규칙 0개도 정상 조회 결과일 수 있습니다. 충돌 규칙은 핵심 엔진에서 보류하며 충돌 표시가 예산에서 생략됐다고 규칙을 허용하지 않습니다.
+
+#### 2. 실제 관찰 한 건 기록하기
+
+다음은 입력 형식 예시입니다. **예시를 운영 경험으로 저장하지 않습니다.** 실제 작업·시도·사용자 원문 참조·관찰 시각과 직전 조회의 revision을 확인해 값을 채웁니다.
+
+```javascript
+const observation = {
+  taskRef: "example-output-summary",
+  attemptRef: "example-first-summary",
+  observationRef: "user:example-format-correction",
+  domain: "output",
+  operation: "summary.format",
+  observation: {
+    timestamp: "2026-11-01T00:00:00.000Z",
+    outcome: "correction",
+    source: "user_explicit",
+    errorCode: "OUTPUT_FORMAT_CORRECTION",
+    evidenceRefs: ["user:example-format-correction"]
+  },
+  expectedRevision: 123 // 실제 직전 조회의 revision으로 교체
+};
+// life_learning_host_observe의 입력 객체:
+const args = { payload: JSON.stringify(observation) };
+```
+
+`payload`의 MCP 입력 한도는 16384자입니다. `observation` 필수 필드는 `timestamp/outcome/source/evidenceRefs`, 선택 필드는 `errorCode/metrics/labels`입니다. `ruleUses`, 임의 본문, URL, 원문 대화·화면, 인증정보를 전달하지 않습니다. 알려진 credential 형식 거부는 완전한 개인정보 탐지나 원문 진위 검증을 대신하지 않습니다. 서버가 이미 자동 관찰하는 같은 도구 사건도 다시 제출하지 않습니다.
+
+`observationRef`는 실제 관찰 하나를 가리키는 안정적인 참조이며 `evidenceRefs`에도 포함해야 합니다. 검증된 성공·실패에는 그 식별 참조와 구별되는 실제 결과 근거가 추가로 필요합니다. 시간은 실제 관찰 시각을 보존하고 미래 시각이나 같은 시도의 기존 관찰보다 오래된 새 관찰을 보내지 않습니다. 서버는 새 사건의 순서를 잠금 안에서 정합니다.
+
+새 사건은 현재 revision과 일치해야 저장됩니다. 응답에서 `recorded`, `duplicate`, `revision`, `current.projection`, `current.latestObservation`을 구별합니다. 늦은 관찰이 기존 검증 결과보다 더 최근이라는 이유로 현재 유효 결과를 낮추지 않습니다. 입력의 결과 분류를 수용했다는 사실은 서버가 그 결과를 독립 검증했다는 뜻이 아닙니다.
+
+#### 3. 저장 응답을 놓쳤을 때 원래 영수증 읽기
+
+```json
+{
+  "task_ref": "example-output-summary",
+  "attempt_ref": "example-first-summary",
+  "limit": 5
+}
+```
+
+원래 참조로 `life_learning_host_task`를 호출합니다. 기본 `limit`은 5, 허용 범위는 1–10입니다. 반환 attempt 배열의 예산은 16000자이며 `omittedAttempts`와 `budget`을 확인합니다. 없는 task/attempt는 없는 상태로 반환하고 조회가 새 작업을 만들지 않습니다. 현재 결과와 최신 관찰에 이전 관찰 참조가 보이지 않는다고 과거 저장이 없었다고 단정하지 않습니다.
+
+- 저장 여부가 불명확하면 원래 `taskRef/attemptRef/observationRef/timestamp/expectedRevision`을 포함한 **동일 payload 전체**를 보존합니다. 기존 영수증을 먼저 읽고, 재전송이 필요하면 동일 payload만 사용합니다. 완전히 같은 관찰은 원래 revision이 오래됐어도 `duplicate:true`와 기존 영수증을 반환하며 다시 쓰지 않습니다.
+- 같은 관찰 참조의 다른 내용은 `LEARNING_OBSERVATION_CONFLICT`로 거절합니다. 이를 피하려고 참조나 timestamp를 새로 만들지 않습니다.
+- 새 관찰의 명확한 `LEARNING_REVISION_CONFLICT`이면 최신 기억을 읽어 동시 변경을 확인하고 실제 미기록 관찰에만 새 revision을 적용합니다. 불명확한 저장을 무작정 최신 revision의 새 사건으로 바꾸지 않습니다.
+- 저장 장애 응답에 `existingObservationReadbackRequired:true`, `preserveOriginalObservationPayload:true`가 있으면 같은 읽기·재확인 절차를 따릅니다. 기억 저장 실패나 UNKNOWN은 **원래 휴대폰 작업·외부 동작을 다시 실행할 근거가 아닙니다.**
+
+세 도구의 결과는 `sourceAuthentication: authenticated_owner_attestation`, `sourceRetrievalVerified:false`, `independentOutcomeVerification:false`, `liveExecutionVerified:false`, `advisoryOnly:true`, `authorizesExecution:false`, `replayAllowed:false`를 유지합니다. 인증된 owner 호출자가 근거를 읽고 제출하는 구조이며 서버가 대화 원문을 독립 수집·검증하지 않습니다. 새 규칙 활성화나 실행 승인을 만들지 않습니다.
+
+`automaticObservationScope`는 계속 `JH tool events only`, `ordinaryChatsObserved:false`, `librarySync:not_connected`입니다. ON일 때의 전체 `observationScope`에는 명시적으로 제출된 host 관찰도 포함되지만, 일반 대화·다른 방 이력·Library의 자동 수집·동기화가 생기는 것은 아닙니다. 과거 Library 기억은 보존하며 이 도구로 전체 파일을 import하지 않습니다. 공개 카탈로그에 새 도구가 없으면 연결의 카탈로그 갱신 상태를 확인하고 기존 모드에 쓰기를 숨기거나 새 BEGIN으로 우회하지 않습니다.
 
 ## 기억하는 사실과 중복 처리
 

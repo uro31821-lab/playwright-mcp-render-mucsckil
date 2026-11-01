@@ -110,7 +110,8 @@ test('MCP memory tools retain schemas and expose no target-execution or owner se
   registerLearningTools({ z, textResult: value => value,
     getController: () => ({ context: input => { calls.push(input); return { ok: true }; }, review: (mode, input) => ({ mode, input }) }),
     registerOAuthTool: (name, config, handler) => registered.set(name, { config, handler }) });
-  assert.deepEqual([...registered.keys()], ['life_learning_context', 'life_learning_review']);
+  assert.deepEqual([...registered.keys()], ['life_learning_context', 'life_learning_review',
+    'life_learning_host_context', 'life_learning_host_task', 'life_learning_host_observe']);
   const read = registered.get('life_learning_context');
   assert.equal(read.config.annotations.readOnlyHint, true);
   assert.equal(read.config.description.includes('begin a phone command'), true);
@@ -121,6 +122,16 @@ test('MCP memory tools retain schemas and expose no target-execution or owner se
   assert.equal((await edit.handler({ mode: 'CHECK', payload: '{bad json' })).code, 'LEARNING_REQUEST_INVALID');
   assert.equal((await edit.handler({ mode: 'CHECK', payload: '[]' })).code, 'LEARNING_REQUEST_INVALID');
   assert.equal(edit.config.inputSchema.payload.safeParse('x'.repeat(65537)).success, false);
+  const hostRead = registered.get('life_learning_host_context');
+  const hostWrite = registered.get('life_learning_host_observe');
+  assert.equal(hostRead.config.annotations.readOnlyHint, true);
+  assert.equal(hostWrite.config.annotations.readOnlyHint, false);
+  assert.equal(hostWrite.config.annotations.idempotentHint, true);
+  assert.equal(hostWrite.config.inputSchema.payload.safeParse('x'.repeat(16385)).success, false);
+  for (const name of ['life_learning_host_context', 'life_learning_host_task', 'life_learning_host_observe']) {
+    for (const field of ['owner', 'ownerScope', 'file', 'engine', 'context'])
+      assert.equal(registered.get(name).config.inputSchema[field], undefined);
+  }
   assert.equal(calls.length, 1);
 });
 

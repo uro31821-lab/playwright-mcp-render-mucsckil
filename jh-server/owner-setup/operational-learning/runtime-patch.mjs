@@ -6,7 +6,7 @@ const PREFIX = 'import {describeOpenCompletion as jhLearningDescribeOpen56} from
   'import {registerLearningTools as jhRegisterLearningTools56} from "../operational-learning/mcp-tools.mjs";\n';
 const CONTEXT = 'const jhCommandContext56=new JhAsyncLocalStorage56();';
 const REGISTER = 'const scoped=jhCommandTool56(name,config,handler);';
-const REGISTERED = 'const scoped=jhCommandTool56(name,config,jhLearningHandler56(name,handler));if(name===\'life_learning_context\'||name===\'life_learning_review\')scoped.config.description=config.description;';
+const REGISTERED = 'const scoped=jhCommandTool56(name,config,jhLearningHandler56(name,handler));if([\'life_learning_context\',\'life_learning_review\',\'life_learning_host_context\',\'life_learning_host_task\',\'life_learning_host_observe\'].includes(name))scoped.config.description=config.description;';
 const TOOL_ANCHOR = '  registerOAuthTool("life_status",{';
 const CREATED = '  return cacheSet(recentJobs,key,j);';
 const COMPLETED = '    j.status="complete";j.result=body.result;j.completedAt=new Date().toISOString();';
@@ -210,7 +210,7 @@ export function installOperationalLearning56(controller){
   const methods=['invoke','jobCreated','jobCompleted','status','close'];
   if(!controller||methods.some(key=>typeof controller[key]!=='function'))
     throw Error('LEARNING_CONTROLLER_REQUIRED');
-  const exposed=[...methods,...['context','review','receiptObserved'].filter(key=>typeof controller[key]==='function')];
+  const exposed=[...methods,...['context','review','receiptObserved','hostContext','hostTask','hostObserve'].filter(key=>typeof controller[key]==='function')];
   const installed=Object.freeze(Object.fromEntries(exposed.map(key=>[key,controller[key].bind(controller)])));
   jhLearningController56=installed;jhLearningInstalled56=true;
   let closed=false;
