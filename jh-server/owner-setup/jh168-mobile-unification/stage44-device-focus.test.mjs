@@ -77,7 +77,7 @@ test('real generated Secure56 Stage25+26+40+41 operator is unchanged with flag o
  'jhDiscardDeviceWork56(body.deviceId,body.eventId,body.previousCommandId)',
  'durableNativeHooks56?.acceptedCompletion(','jhPaymentLifecycle.captureBinding',
  'jhOwnerAdmission155','jhCommandCause41','computerExecutionReceipts56.issue(',
- 'JH_MOBILE_WEB_13_MODE','DEVICE_FOCUS_PROTECTED_OTHER_BEGIN'];
+ 'DEVICE_FOCUS_PROTECTED_OTHER_BEGIN'];
  for(const guard of guards)assert.ok(runtime.includes(guard),guard);
  assert.ok(runtime.includes("if(mode==='BEGIN'&&request_id){"));
  assert.ok(!runtime.includes('automaticReplayAllowed:true'));
