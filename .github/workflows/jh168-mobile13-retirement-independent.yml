@@ -1,0 +1,26 @@
+name: JH168 mobile13 Playwright retirement independent workstream
+on:
+  push:
+    branches:
+      - feat/jh168-mobile13-browser-retirement-20261101
+permissions:
+  contents: read
+jobs:
+  browser-retirement-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Verify residual browser dependency inventory and fail-closed cleanup gate
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-browser-retirement.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-browser-retirement.test.mjs
+      - name: No actual Playwright deletion or phone job
+        run: |
+          test -z "$(printenv RENDER_SERVICE_ID || true)"
+          echo "RETIREMENT_SOURCE_GATE_TEST_PASS_BROWSER_NOT_DELETED_PHONE_E2E_NOT_RUN"
