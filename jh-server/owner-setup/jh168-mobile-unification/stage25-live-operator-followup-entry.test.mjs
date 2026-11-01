@@ -39,7 +39,13 @@ test('real current pending-approval operator remains intact after exact Stage25 
  const owner=readFileSync(base.ownerFile,'utf8');
  const unified=readFileSync(base.unifiedFile,'utf8');
  const operational=readFileSync(base.file,'utf8');
- assert.ok(owner.includes('applyOwnerLearningPatch')||owner.includes('jhOwnerLearning'));
+ const originalOwner=readFileSync(path.join(root,'deployment/owner-service-pending-approval-operator.mjs'),'utf8');
+ const restoredOwner=owner
+  .replace('import {selectStage25PendingOperatorRuntime56} from "../jh168-mobile-unification/stage25-live-operator-followup-entry.mjs";',
+           'import {selectPendingApprovalOperatorRuntime56} from "../server-integration/pending-approval-operator-entry.mjs";')
+  .replace("if(runtimeMode==='unified')serverPath=selectStage25PendingOperatorRuntime56(root,process.env).file;",
+           "if(runtimeMode==='unified')serverPath=selectPendingApprovalOperatorRuntime56(root,process.env).file;");
+ assert.equal(restoredOwner,originalOwner,'existing pending approval and owner learning must be byte-identical');
  assert.ok(owner.includes("serverPath=selectStage25PendingOperatorRuntime56(root,process.env).file;"));
  assert.ok(unified.includes("from './owner-service-stage25-followup-operator.mjs';"));
  assert.ok(operational.includes("from './unified-service-stage25-followup-operator.mjs';"));
