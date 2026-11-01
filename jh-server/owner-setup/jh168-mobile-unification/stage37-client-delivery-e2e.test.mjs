@@ -273,7 +273,7 @@ test('Stage37 client-handoff test never creates a durable ChatGPT token store or
  assert.ok(!raw.includes('writeFileSync('));
  assert.ok(!raw.includes('localStorage'));
  assert.ok(!raw.includes('BEGIN_COMMAND'));
- const originalServer=readFileSync(path.join(root,'../../server.mjs'),'utf8');
+ const originalServer=readFileSync(path.join(root,'../server.mjs'),'utf8');
  assert.ok(originalServer.includes('function textResult(v){'));
  assert.ok(originalServer.includes('content:[{type:"text",text:typeof v==="string"?v:JSON.stringify(v)}]'));
 });
