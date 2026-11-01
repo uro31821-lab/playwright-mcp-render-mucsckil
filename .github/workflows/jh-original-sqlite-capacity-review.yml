@@ -4,6 +4,7 @@ on:
     paths:
       - '.github/workflows/jh-original-sqlite-capacity-review.yml'
       - 'jh-server/verification/jh-original-sqlite-capacity.test.mjs'
+      - 'jh-server/verification/jh-original-owner-admission-click.test.mjs'
       - 'jh-server/verification/jh-original-sqlite-readonly-status.mjs'
       - 'jh-server/owner-setup/jh168-mobile-unification/JH168-ORIGINAL-SQLITE-UNKNOWN-LIMIT-REVIEW.md'
   workflow_dispatch:
@@ -25,6 +26,7 @@ jobs:
         run: |
           node --check verification/jh-original-sqlite-readonly-status.mjs
           node --check verification/jh-original-sqlite-capacity.test.mjs
-          node --test verification/jh-original-sqlite-capacity.test.mjs
+          node --check verification/jh-original-owner-admission-click.test.mjs
+          node --test verification/jh-original-sqlite-capacity.test.mjs verification/jh-original-owner-admission-click.test.mjs
       - name: No effectful action performed
         run: echo ORIGINAL_OWNER_DB_UNTOUCHED__NO_DEVICE_ACTION__NO_REPLAY
