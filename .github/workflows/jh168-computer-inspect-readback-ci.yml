@@ -38,6 +38,7 @@ jobs:
           node --check jh-server/owner-setup/jh168-mobile-unification/computer-inspect-receipt-patch.mjs
           CI=true NODE_ENV=test JH_OWNER_DEFER_LISTEN=1 node --test --test-reporter=spec --test-concurrency=1 \
             jh-server/owner-setup/jh168-mobile-unification/computer-inspect-receipts.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/computer-inspect-receipt-patch.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/split-read-receipts.test.mjs \
             jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs \
             jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \

@@ -127,6 +127,35 @@ function jhLearningObserveFollowupReceipt56(job,receipt,binding){
     Promise.resolve(controller.receiptObserved(observation)).catch(()=>{});
   }catch{} // Observation cannot change the original receipt or retry the click.
 }
+function jhLearningObserveComputerInspectReceipt56(job,receipt,binding){
+  const controller=jhLearningController56;
+  if(!controller||typeof controller.receiptObserved!=='function')return;
+  try{
+    if(!job||!binding||job.type!=='computer_use_inspect'||
+       job.mcpToolName!=='life_android_computer_inspect'||job.secureRequestedEffect!=='READ_ONLY'||
+       job.status!=='complete'||jobs.get(job.id)!==job||
+       !job.result||typeof job.result!=='object'||Array.isArray(job.result)||
+       typeof binding.deviceId!=='string'||!binding.deviceId||
+       typeof binding.sessionId!=='string'||!binding.sessionId||
+       !/^[a-f0-9]{64}$/.test(binding.deviceDigest||'')||!jhLearningCommandId56(binding.commandId)||
+       !/^[a-f0-9]{64}$/.test(binding.taskDigest||'')||typeof binding.runDigest!=='string'||
+       (binding.runDigest!==''&&!/^[a-f0-9]{64}$/.test(binding.runDigest))||
+       job.targetDeviceId!==binding.deviceId||job.targetDeviceDigest!==binding.deviceDigest||
+       job.secureSessionId!==binding.sessionId||job.commandId!==binding.commandId||
+       job.taskDigest!==binding.taskDigest||String(job.runDigest||'')!==binding.runDigest||
+       receipt?.ok!==true||receipt.job!==job||receipt.lookupOnly!==true||receipt.readOnly!==true||
+       receipt.newJobCreated!==false||receipt.automaticReplay!==false)return;
+    const meta=jhLearningJobMeta56(job,true);
+    if(!meta?.evidenceDigest||meta.commandId!==binding.commandId)return;
+    // The registry found the original completed INSPECT result. This proves
+    // result receipt only, even when result.ok is false; it does not establish
+    // screen-content accuracy, action approval or successful user work.
+    const observation=Object.freeze({id:meta.id,type:meta.type,commandId:meta.commandId,
+      status:meta.status,mcpToolName:'life_android_computer_inspect',secureRequestedEffect:'READ_ONLY',
+      evidenceDigest:meta.evidenceDigest,verifiedObservationScope:'COMPUTER_INSPECT_RECEIPT_ONLY'});
+    Promise.resolve(controller.receiptObserved(observation)).catch(()=>{});
+  }catch{} // Preserve the existing result and never dispatch or replay a job.
+}
 async function jhLearningStatus56(result,controller){
   if(!result||!Array.isArray(result.content)||result.content[0]?.type!=='text')return result;
   let payload;

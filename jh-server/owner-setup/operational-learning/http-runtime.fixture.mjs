@@ -2,9 +2,9 @@
  * All non-loopback network requests are rejected; no real device is registered.
  */
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, generateKeyPairSync, randomBytes, sign } from 'node:crypto';
 import path from 'node:path';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { validateOwnerConfiguration, loadOwnerKey } from '../deployment/owner-config.mjs';
 import { takeStorageSecrets, materializeStorageKeys } from '../deployment/storage-secret-bridge.mjs';
@@ -13,6 +13,9 @@ import { prepareOrVerifyDurableRelease, INITIAL_MODE, READY_MODE } from '../depl
 import { buildPendingApprovalOperatorEntrypoint56 } from '../server-integration/pending-approval-operator-entry.mjs';
 import { FileLearningStore } from './store.mjs';
 import { ingest, propose } from './engine.mjs';
+import { installOwnerLearning } from './owner-host.mjs';
+import { TrustedDeviceRegistry, canonicalChallenge } from '../trusted-server/trusted-device-registry.mjs';
+import { activationMaterial, receiptMaterial } from '../trusted-server/trusted-bridge-session-authority.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const data = JSON.parse(readFileSync(process.argv[2], 'utf8'));
@@ -27,6 +30,9 @@ globalThis.fetch = (url, options) => {
   return originalFetch(url, options);
 };
 const built = await buildPendingApprovalOperatorEntrypoint56(root, process.env);
+if (phase === 'inspect') {
+  await inspectReceiptHttpFixture();
+} else {
 const { startUnifiedOwnerServer } = await import(pathToFileURL(built.unifiedFile).href);
 const config = validateOwnerConfiguration(data.input);
 const secrets = takeStorageSecrets({
@@ -109,6 +115,7 @@ try {
   assert.equal(first.operationalLearning.capabilities.reviewReadiness, true);
   assert.equal(first.operationalLearning.capabilities.splitReadObservationReconciliation, true);
   assert.equal(first.operationalLearning.capabilities.splitFollowupClickReceiptReconciliation, true);
+  assert.equal(first.operationalLearning.capabilities.computerInspectReceiptReconciliation, true);
   const beforeUnauthorized = readFileSync(file);
   const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
   assert.equal(preflight.ok, true);
@@ -448,5 +455,190 @@ try {
     existingReceiptReconciliationCapability: first.operationalLearning.capabilities.existingReceiptReconciliation,
     splitReadObservationReconciliationCapability: first.operationalLearning.capabilities.splitReadObservationReconciliation,
     splitFollowupClickReceiptReconciliationCapability: first.operationalLearning.capabilities.splitFollowupClickReceiptReconciliation,
+    computerInspectReceiptReconciliationCapability: first.operationalLearning.capabilities.computerInspectReceiptReconciliation,
   }));
 } finally { key.fill(0); await running?.close(); }
+}
+
+/** Actual generated MCP/HTTP routes, registry and HMAC verification. Only the
+ * enrollment authority below is a synthetic fixture port; no real phone,
+ * external identity provider, production memory or operator authority is used.
+ */
+async function inspectReceiptHttpFixture() {
+  const config = validateOwnerConfiguration(data.input);
+  mkdirSync(config.stateDir, { mode: 0o700 });
+  process.env.PUBLIC_BASE_URL = config.serverOrigin;
+  process.env.JH_CONNECTION_V2_RECOVERY = '0';
+  const runtime = await import(pathToFileURL(built.runtimeFile).href);
+  const hash = value => createHash('sha256').update(value).digest('hex');
+  const mac = (key, value) => createHmac('sha256', key).update(value).digest('hex');
+  const token = () => randomBytes(24).toString('base64url');
+  const enrollmentContext = {}, deviceId = 'synthetic-inspect-http-device';
+  const registry = new TrustedDeviceRegistry({
+    databasePath: path.join(config.stateDir, 'synthetic-inspect-registry.sqlite'),
+    serverDigest: hash(config.serverOrigin + '/mcp|jh-secure-bridge56'), catalogDigest: config.catalogDigest,
+    authorizeEnrollment: (context, expected) => context === enrollmentContext ? {
+      ownerDigest: config.accountDigest, enrollmentId: expected.consentRequestId,
+      exactConsentDigest: hash(JSON.stringify(expected)), expiresAt: Date.now() + 30000,
+    } : null,
+    authorizeRevocation: () => null,
+  });
+  let circuit, learning;
+  try {
+    runtime.installTrustedSessionRegistry56(registry);
+    circuit = runtime.installDurableNativeCircuit56({
+      file: path.join(config.stateDir, 'synthetic-inspect-circuit.sqlite'),
+      key: Buffer.alloc(32, 73), namespace: hash('synthetic-inspect-http-circuit'), mode: 'EXPLICIT_ONE_TIME',
+    });
+    learning = await installOwnerLearning(runtime, { config, runtimeId: 'synthetic-inspect-http-runtime' });
+    await new Promise((resolve, reject) => {
+      runtime.httpServer.once('error', reject);
+      runtime.httpServer.listen(0, '127.0.0.1', resolve);
+    });
+    const origin = 'http://127.0.0.1:' + runtime.httpServer.address().port;
+    const request = async (url, body, headers = {}, timeout = 10000) => {
+      const response = await fetch(origin + url, { method: body === undefined ? 'GET' : 'POST',
+        headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers },
+        body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(timeout) });
+      const text = await response.text();
+      let value; try { value = JSON.parse(text); } catch { value = text; }
+      return { status: response.status, value };
+    };
+    let commandId, callId = 0;
+    const call = async (name, args = {}, authorized = true, timeout = 10000) => {
+      const result = await request('/mcp', { jsonrpc: '2.0', id: ++callId, method: 'tools/call',
+        params: { name, arguments: { ...(commandId ? { command_id: commandId } : {}), ...args } } }, {
+        accept: 'application/json, text/event-stream',
+        ...(authorized ? { authorization: 'Bearer ' + process.env.LIFE_HUB_TOKEN } : {}),
+      }, timeout);
+      assert.equal(result.status, 200);
+      if (!authorized) return result.value;
+      assert.ok(result.value.result?.content, JSON.stringify(result.value));
+      assert.notEqual(result.value.result.isError, true, JSON.stringify(result.value));
+      return JSON.parse(result.value.result.content[0].text);
+    };
+    const deviceKey = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+    const trust = registry.enroll({
+      publicKeySpki: deviceKey.publicKey.export({ format: 'der', type: 'spki' }).toString('base64url'),
+      deviceDigest: hash('jh56|' + deviceId), requestedTrustMs: 300000, consentRequestId: token(),
+    }, enrollmentContext);
+    const challenged = await request('/device/trusted/challenge', { trustId: trust.trustId, clientNonce: token(), deviceId });
+    assert.equal(challenged.status, 200);
+    const reconnected = await request('/device/trusted/reconnect', { deviceId, proof: {
+      challenge: challenged.value,
+      signature: sign('sha256', canonicalChallenge(challenged.value), deviceKey.privateKey).toString('base64url'),
+    } });
+    assert.equal(reconnected.status, 200);
+    const offer = reconnected.value, secret = Buffer.from(offer.secureSessionSecret, 'base64url');
+    const activation = { deviceId, trustId: offer.trustId, challengeId: offer.challengeId,
+      redemptionId: offer.redemptionId, sessionId: offer.secureSessionId, deviceDigest: offer.deviceDigest,
+      sessionDigest: offer.sessionDigest, nonce: token(), expiresAt: Math.min(Date.now() + 10000, offer.activationExpiresAt),
+      processEpoch: 'synthetic-inspect-process', restartDisposition: 'DISCARD_PREVIOUS' };
+    activation.mac = mac(secret, activationMaterial(activation));
+    const activated = await request('/device/trusted/activate', activation);
+    assert.equal(activated.status, 200);
+    assert.equal(activated.value.mac, mac(secret, receiptMaterial(activated.value)));
+    const signedHeaders = (action, jobId, body) => {
+      const nonce = token(), expires = Date.now() + 20000;
+      const sid = offer.secureSessionId, device = offer.deviceDigest;
+      const headers = { 'x-jh-session': sid, 'x-jh-device': device,
+        'x-jh-nonce': nonce, 'x-jh-expires': String(expires) };
+      let material = `poll|${sid}|${device}|${nonce}|${expires}`;
+      if (action === 'complete') {
+        headers['x-jh-result-digest'] = hash(JSON.stringify(body));
+        material = `complete|${sid}|${jobId}|${device}|${nonce}|${expires}|${headers['x-jh-result-digest']}`;
+      }
+      headers['x-jh-mac'] = mac(secret, material); return headers;
+    };
+    const begun = await call('life_android_workflow_link', { mode: 'BEGIN_COMMAND', request_id: randomBytes(16).toString('hex') });
+    assert.equal(begun.ok, true); commandId = begun.commandId;
+    const taskDigest = hash('synthetic-inspect-task'), runDigest = hash('synthetic-inspect-run');
+    const waiting = call('life_android_computer_inspect', { device_id: deviceId,
+      task_digest: taskDigest, run_digest: runDigest, action: 'CLICK', effect: 'READ_ONLY' }, true, 25000);
+    waiting.catch(() => {});
+    let job;
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const polled = await request('/device/poll?deviceId=' + deviceId, undefined, signedHeaders('poll'));
+      if (polled.status === 200) { job = polled.value; break; }
+      assert.equal(polled.status, 204, JSON.stringify(polled));
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.equal(job?.type, 'computer_use_inspect');
+    assert.equal(job.mcpToolName, 'life_android_computer_inspect');
+    assert.equal(job.secureRequestedEffect, 'READ_ONLY');
+    // Let the actual existing 15-second wait return its original pending receipt.
+    // No fixture changes the generated wait, clock, verifier, job map or registry.
+    const pending = await waiting;
+    assert.equal(pending.status, 'in_progress');
+    assert.match(pending.receiptToken, /^cir_[A-Za-z0-9_-]{43}$/);
+    const receiptArgs = { device_id: deviceId, task_digest: taskDigest,
+      run_digest: runDigest, receipt_token: pending.receiptToken };
+    const file = path.join(config.stateDir, 'operational-learning-v1.json');
+    const bytes = () => readFileSync(file, 'utf8');
+    const state = () => JSON.parse(bytes()).state;
+    const inspectAttempt = () => {
+      const matches = Object.values(state().attempts).filter(item => item.operation === 'life_android_computer_inspect');
+      assert.equal(matches.length, 1); return matches[0];
+    };
+    const original = inspectAttempt();
+    assert.equal(original.outcome, 'pending');
+    const pendingBytes = bytes();
+    const unauthorized = await call('life_android_pending_approval_receipt_status', receiptArgs, false);
+    assert.equal(unauthorized.result.isError, true);
+    assert.ok(unauthorized.result._meta['mcp/www_authenticate'].length > 0);
+    const readPending = await call('life_android_pending_approval_receipt_status', receiptArgs);
+    assert.equal(readPending.status, 'in_progress'); assert.equal(readPending.lookupOnly, true);
+    for (const change of [{ task_digest: hash('wrong-task') }, { run_digest: hash('wrong-run') },
+      { command_id: randomBytes(16).toString('hex') }]) {
+      const denied = await call('life_android_pending_approval_receipt_status', { ...receiptArgs, ...change });
+      assert.equal(denied.ok, false);
+    }
+    assert.equal(bytes(), pendingBytes);
+    const body = { result: { ok: false, code: 'SYNTHETIC_INSPECT_NO_TARGET',
+      details: 'PRIVATE_SYNTHETIC_INSPECTION_CONTENT', resultVerified: true, verifiedOutcome: 'success_verified' } };
+    const badHeaders = { ...signedHeaders('complete', job.id, body), 'x-jh-mac': '0'.repeat(64) };
+    assert.equal((await request('/job/' + job.id + '/complete', body, badHeaders)).status, 401);
+    assert.equal(bytes(), pendingBytes);
+    assert.equal((await request('/job/' + job.id + '/complete', body, signedHeaders('complete', job.id, body))).status, 200);
+    await learning.status();
+    const completed = state(), priorReceipt = inspectAttempt();
+    assert.equal(priorReceipt.outcome, 'observed');
+    assert.equal(priorReceipt.evidenceRefs.includes('source:jh-computer-inspect-receipt-only'), false);
+    const readback = await call('life_android_pending_approval_receipt_status', receiptArgs);
+    assert.equal(readback.ok, true); assert.equal(readback.lookupOnly, true); assert.equal(readback.readOnly, true);
+    assert.equal(readback.status, 'complete'); assert.equal(readback.idDigest, hash(job.id));
+    assert.equal(readback.newJobCreated, false); assert.equal(readback.automaticReplay, false);
+    assert.deepEqual(readback.result, body.result);
+    const after = state(), reconciled = inspectAttempt();
+    for (const field of ['taskId', 'attemptId', 'operation', 'domain', 'engine', 'context'])
+      assert.deepEqual(reconciled[field], original[field], field);
+    assert.equal(Object.keys(after.attempts).length, Object.keys(completed.attempts).length);
+    assert.equal(Object.keys(after.events).length, Object.keys(completed.events).length + 1);
+    assert.equal(reconciled.outcome, 'observed');
+    assert.deepEqual(reconciled.evidenceRefs.slice(1), ['source:jh-computer-inspect-receipt-only']);
+    assert.match(reconciled.evidenceRefs[0], /^sha256:[a-f0-9]{64}$/);
+    const recordedBytes = bytes();
+    assert.deepEqual(await call('life_android_pending_approval_receipt_status', receiptArgs), readback);
+    assert.equal(bytes(), recordedBytes);
+    const empty = await request('/device/poll?deviceId=' + deviceId, undefined, signedHeaders('poll'));
+    assert.equal(empty.status, 204, 'readbacks must not queue another inspection or action');
+    assert.doesNotMatch(recordedBytes, /PRIVATE_SYNTHETIC_INSPECTION_CONTENT|cir_|s56_|screenGrant|approvalGrant/);
+    for (const secretValue of [pending.receiptToken, offer.secureSessionSecret, commandId, deviceId])
+      assert.equal(recordedBytes.includes(secretValue), false);
+    const status = await learning.status();
+    assert.equal(status.capabilities.computerInspectReceiptReconciliation, true);
+    assert.equal(status.attemptOutcomes.success_verified ?? 0, 0);
+    assert.equal(status.degraded, false); assert.equal(externalRequests, 0);
+    secret.fill(0);
+    console.log('LEARNING_INSPECT_HTTP_RESULT ' + JSON.stringify({ generatedRuntime: true,
+      syntheticEnrollmentPort: true, realDevices: 0, externalRequests,
+      originalReceiptIssued: true, originalReadbackReconciled: true, observedOnly: true,
+      unauthorizedRejected: true, badCompletionMacRejected: true, changedBindingRejected: true,
+      pendingUnchanged: true, repeatNoop: true, additionalJobs: 0,
+      originalResultPreserved: true, sensitiveEvidenceRedacted: true }));
+  } finally {
+    runtime.httpServer.closeAllConnections();
+    if (runtime.httpServer.listening) await new Promise(resolve => runtime.httpServer.close(resolve));
+    await learning?.close(); circuit?.close(); registry.close();
+  }
+}

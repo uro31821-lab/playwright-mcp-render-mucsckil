@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, cpSync, symlinkSync, writeFileSync, rmSync } fr
 import { spawnSync } from 'node:child_process';
 import { EXPECTED_ORIGIN, EXPECTED_CATALOG } from '../deployment/owner-config.mjs';
 
-test('real owner bootstrap records authenticated MCP calls across clients and process restart', { timeout: 90000 }, t => {
+function fixture(t) {
   const dir = mkdtempSync(path.join(tmpdir(), 'jh-learning-http-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const originalRoot = path.resolve(import.meta.dirname, '..');
@@ -28,14 +28,23 @@ test('real owner bootstrap records authenticated MCP calls across clients and pr
   writeFileSync(data, JSON.stringify({ input, keys: path.join(dir, 'keys'), observations: {
     mountInfo: '1 0 8:1 / ' + mount + ' rw - ext4 /dev/synthetic rw', filesystemType: 0xef53,
   } }), { mode: 0o600 });
+  return { dir, root, data };
+}
+
+function runPhase({ dir, root, data }, phase) {
+  return spawnSync(process.execPath, [path.join(root, 'operational-learning/http-runtime.fixture.mjs'), data, phase], {
+    cwd: root, encoding: 'utf8', timeout: 35000,
+    env: { PATH: process.env.PATH, CI: 'true', NODE_ENV: 'test', JH_OWNER_DEFER_LISTEN: '1',
+      LIFE_HUB_TOKEN: 'SYNTHETIC_LEARNING_HTTP_TOKEN_20261031',
+      JH_OAUTH_STATE_FILE: path.join(dir, 'oauth.json') },
+  });
+}
+
+test('real owner bootstrap records authenticated MCP calls across clients and process restart', { timeout: 90000 }, t => {
+  const setup = fixture(t);
   const results = [];
   for (const phase of ['first', 'restart']) {
-    const child = spawnSync(process.execPath, [path.join(root, 'operational-learning/http-runtime.fixture.mjs'), data, phase], {
-      cwd: root, encoding: 'utf8', timeout: 35000,
-      env: { PATH: process.env.PATH, CI: 'true', NODE_ENV: 'test', JH_OWNER_DEFER_LISTEN: '1',
-        LIFE_HUB_TOKEN: 'SYNTHETIC_LEARNING_HTTP_TOKEN_20261031',
-        JH_OAUTH_STATE_FILE: path.join(dir, 'oauth.json') },
-    });
+    const child = runPhase(setup, phase);
     assert.equal(child.status, 0, (child.error?.message ?? '') + '\n' + child.stderr + '\n' + child.stdout);
     const line = child.stdout.split('\n').find(item => item.startsWith('LEARNING_HTTP_RESULT '));
     assert.ok(line, child.stdout);
@@ -53,6 +62,7 @@ test('real owner bootstrap records authenticated MCP calls across clients and pr
     assert.equal(result.existingReceiptReconciliationCapability, true);
     assert.equal(result.splitReadObservationReconciliationCapability, true);
     assert.equal(result.splitFollowupClickReceiptReconciliationCapability, true);
+    assert.equal(result.computerInspectReceiptReconciliationCapability, true);
     assert.equal(result.proposalDecisionCatalog, true);
     assert.equal(result.proposalDecisions, 2);
     assert.equal(result.decisionRetryNoop, true);
@@ -63,4 +73,19 @@ test('real owner bootstrap records authenticated MCP calls across clients and pr
   assert.equal(results[1].proposalProgressPersisted, true);
   assert.equal(results[1].proposalProgressLinkHash, results[0].proposalProgressLinkHash);
   assert.ok(results[1].revision > results[0].revision);
+});
+
+test('generated runtime reconciles a real cir_ HTTP readback from a synthetic signed INSPECT only', { timeout: 60000 }, t => {
+  const child = runPhase(fixture(t), 'inspect');
+  assert.equal(child.status, 0, (child.error?.message ?? '') + '\n' + child.stderr + '\n' + child.stdout);
+  const line = child.stdout.split('\n').find(item => item.startsWith('LEARNING_INSPECT_HTTP_RESULT '));
+  assert.ok(line, child.stdout);
+  const result = JSON.parse(line.slice('LEARNING_INSPECT_HTTP_RESULT '.length));
+  for (const field of ['generatedRuntime', 'syntheticEnrollmentPort', 'originalReceiptIssued',
+    'originalReadbackReconciled', 'observedOnly', 'unauthorizedRejected', 'badCompletionMacRejected',
+    'changedBindingRejected', 'pendingUnchanged', 'repeatNoop', 'originalResultPreserved', 'sensitiveEvidenceRedacted'])
+    assert.equal(result[field], true, field);
+  assert.equal(result.realDevices, 0);
+  assert.equal(result.externalRequests, 0);
+  assert.equal(result.additionalJobs, 0);
 });
