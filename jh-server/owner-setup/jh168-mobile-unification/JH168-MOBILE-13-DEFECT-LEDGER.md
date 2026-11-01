@@ -2,7 +2,40 @@
 
 **사용자 확정 원칙:** **9개 웹 명령 + 4개 진입 경로의 검증을 모두 마친 뒤 문제를 분류해 한 번에 수정**한다. 각 오류가 발견될 때마다 Android/서버 기능을 고치거나 APK를 다시 설치하지 않는다. 보안상 즉시 위험할 때만 해당 실행을 중지한다.
 
-**이번 소스 재대조 기준:** 고정 후보 `4c71890021fc299838e6a8ce45ccf5f64712f354`와 기존 설치 기록에 연결된 Stage27 원본 producer다. WEB04/06/07/08/09는 `SOURCE_CONFIRMED_CODE_GAP`에 따라 **실행 상태 `BLOCKED`, 실기기 증거 `NOT_RUN`**으로 구분한다. 기존 G02/G03/G04/G06에 근거를 보강하며 새 결함 ID를 만들지 않는다. 이 기록은 배포 완료·현재 기기 연결·실기기 실패를 관찰했다는 뜻이 아니며, 저장된 실기기 PASS는 **0/13**이다.
+**현재 감사 결과:** 고정 후보 `4c71890021fc299838e6a8ce45ccf5f64712f354`에서 실제 13행의 결과 또는 차단 근거 수집을 마쳤다. **제한 범위 PASS 1 / 분류 FAIL 1 / BLOCKED 11**, 전체 요구 증거를 충족한 모바일 E2E는 **0/13**이다. WEB01의 주소 전용 완료와 WEB02 START의 실제 화면 읽기, ENTRY02의 미확정 원 작업을 구분한다. 아래 최신 절의 감사 이후 단일 수정 묶음을 개발 중이며, 구 후보의 실제 결과와 새 코드 검증을 합산하지 않는다.
+
+## 2026-11-01 실제 13행 감사 완료와 단일 수정 묶음
+
+Primary Refresh 후에도 호스트 도구 입력 형식이 이전 형태였다. 다만 동일 Primary에서 PHONE_RIGHT 실행 모드와 유효한 signed poll이 확인되어, 현재 입력 형식으로 표현 가능한 행을 원 명령 하나로 검증했다. 전체 13행은 성공 범위 또는 구체적인 차단 근거까지 수집했으며, 아래 소스 수정은 그 감사 이후 시작했다.
+
+- **WEB01:** 중립 index 페이지의 RIGHT 주소 확인 전용 완료 계약과 LEFT 유지가 확인됐다. `EFFECT_CONFIRMED / RIGHT_ADDRESS_CONFIRMED`이며 `pageContentVerified:false`다. 실제 표시 URL 문자열 전체를 받은 것은 아니다.
+- **WEB02 START:** 같은 RIGHT Chrome의 중립 페이지 제목·본문을 실제로 읽었다. STATUS 입력 형식과 display 증거는 부족하여 행 전체는 BLOCKED다.
+- **ENTRY02:** 별도 destination 열기의 원 응답은 `OPEN_COMPLETION_PENDING`. 같은 원 작업의 조회가 `new_command_binding_required_or_discarded`로 거절돼 효과는 UNKNOWN으로 보존했다. 새 BEGIN·대체 조회·재열기 없이 중지했다. 이 차단의 실제 발생 원인은 아직 확인되지 않았다.
+- **ENTRY03/04:** 위 명령 결속 차단으로 NOT_RUN/BLOCKED. 기존 Stage27 Chrome 메뉴 클릭은 반복하지 않았다.
+- **집계:** 제한 범위 PASS 1, 분류 FAIL 1, BLOCKED 11. 전체 요구 증거를 충족한 모바일 E2E는 **0/13**이다. 폰 검증 시도는 3행, 확인된 제한 범위 결과는 2건이다. 구체 행별 판정은 [검증표](JH168-MOBILE-13-ONE-SESSION-VERIFY-MATRIX.md)에 보존한다.
+
+### 감사 후 확인된 원인을 한 묶음으로 수정
+
+수정 기준은 개발 브랜치 `ac3754835c21443daf96a29ba3930eee97b9c366`, 운영 후보는 계속 `4c71890021fc299838e6a8ce45ccf5f64712f354`다. 최신 개발본의 WAIT·retirement 작업을 보존하고 다음 차이만 누적했다. 이 절은 새 후보의 운영 배포·APK 설치·13행 재검증을 주장하지 않는다.
+
+| 항목 | 서버 수정 | 연결된 private Android 수정 / 남은 경계 |
+|---|---|---|
+| G02 BACK | 명시 모바일 모드에서 정확히 결속된 FOLLOWUP BACK만 원 durable 장부에 허용 | Chrome BACK 버튼의 성공 문자열만 기존 완료 판정과 일치시킴. Enter/Tab/Escape는 여전히 미지원 |
+| G04 TYPE | 정확한 READ_ONLY 입력 preflight 및 일회용 phone input grant를 가진 SET_TEXT 허용 | 기존 grant 발급·소비·승인·screen/layout/item 결속 유지. preflight의 암묵 화면 복귀 제거 |
+| G03 WAIT | 실제 producer 모양, fresh STATUS marker, 같은 context/window/display와 요청 이후 캡처 시각·정확한 문구를 요구 | STATUS가 현재 검증된 화면을 같은 context에 반영. TTL·단계·승인을 초기화하지 않음. 읽기 실패에서 암묵 화면 복귀 제거. 구 APK의 캐시된 문구는 통과하지 못함 |
+| G06 SCREENSHOT | 원 capture 위임에 `action:SCREENSHOT`을 명시하고 task/run/consent/grant/lease 그대로 전달 | 원 휴대폰 동의와 일회용 캡처 권한은 변경 없음 |
+| G08 분류 | 명시적인 앱 열기/실행 문장만 Android로 분류 | URL·웹·모호한 브랜드·결제/예약 우선순위 보존 |
+| window/display 결속 | WAIT가 추정 display를 허용하지 않음 | 실제 OS display ID를 네 Window producer와 화면/분할 증거에 nullable로 전달. Gemini 복귀 교차 producer 불일치 회귀도 차단 |
+
+원 `durable-native-job-policy.mjs`는 바이트 동일하다. 공통 host의 변경은 import·정확한 mode 옵션·capture 정책 선택 세 곳이며, 역변환한 모든 바이트가 승인된 최신 main과 같아야 CI가 통과한다. 미확정 SET_TEXT/BACK은 새 request·입력·grant·session으로 자동 재실행할 수 없다.
+
+### 이 후보에서 실행한 개발 검증
+
+- 수정된 정책·alias·4진입점·WAIT·실제 생성 Stage25→원 작업 생성→durable SQLite 통합 검사: **60/60 PASS**, fail/skip 0. 통합 검사 한 개 안의 최종 21개 시나리오를 60에 다시 더하지 않는다.
+- 최신 main과 원 보안 소스·host 세 변경 역변환 대조: **7/7 PASS**.
+- 실제 SQLite·원 command/signed payload·중복 방지·완료 장부를 사용했다. 기기 transport와 HTTP 완료 수신은 합성이므로 기존 인증 시험 및 최종 실기기 증거와 구분한다.
+- 새 정확한 후보의 원본 보안 CI·Android 컴파일/시험/Release 빌드는 별도 결과로 회수한다. 기존4c의 통과 수를 재사용해 새 소스 성공으로 표시하지 않는다.
+- **G01 stale host schema, 미확정 원 명령, 실제 설치·13행 재검증, G19 legacy 제거 게이트는 열린 상태**다. 원인이 불명확한 명령 차단을 추측한 코드 변경으로 우회하지 않는다.
 
 ## 구분해야 할 시험 결과
 - SOURCE-ROUTE: [GitHub CI 41281264302](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41281264302)에서 9/9 모바일 웹 alias, 4/4 진입 경로의 생성 소스 라우팅 PASS. 이는 source-only 결과임.
@@ -10,7 +43,7 @@
 - GENERATED-ENTRY-CONTRACT: [GitHub CI 41282199180](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41282199180) **5/5 PASS**; 실제 생성된 4개 entry handler를 무효과 signed Android job doubles로 호출하여 동일 RIGHT opener, 원본 앱/화면 복귀 분리, 원격 Playwright 불호출 확인. **실기기 미실시.** 테스트 환경에서 원본 헬퍼 재선언·완료 헬퍼 누락으로 2차례 수정 후 최종 실행 성공 (제품 기능 수정 0건).
 - INSTALLED-ANDROID-STATIC: 앞서 서명·설치 확인된 JH168 Stage27 APK SHA256 `129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359`를 로컬에서 정적으로 판독. 컴파일 문자열/타입 `JH168NestedScrollPolicy`, `JH168InputFocusPolicy`, `JH168RightVerticalScrollRuntime`, `JH168RightHorizontalScrollRuntime`, `JH168OriginalSecure56NativeDispatch12`, `NATIVE_IME_ENTER_ONE_SHOT_GRANT_REQUIRED`, `ACTION_SCROLL_LEFT`, `ACTION_SCROLL_RIGHT`, `JH168_STAGE27_CHROME_POPUP_READBACK_V1` 확인. **포함된 타입/문구 ≠ 실제 사용자 작업 정상 실행**, 해당 APK가 PR #72 서버 alias와 통합돼 배포된 것도 아님.
 - DEPLOYED-MCP-ROUTE 이력: 당시 연결된 JH 도구 설명에 `life_web_navigate/snapshot/click/type/select/press_key/wait/back/screenshot`은 server Playwright/별도 브라우저로 기재됐다. `life_open_service`, `life_naver_mail`, `life_android_open`은 phone RIGHT Chrome 경로 안내, `life_route`은 분류였다. 이 관찰을 후속 배포의 현재 상태로 연장하지 않는다. 고정 후보의 실제 적용 SHA·선택값·카탈로그는 [활성화 확인 절차](JH168-MOBILE-VERIFICATION-ACTIVATION.md)에 따라 별도로 대조한다.
-- REAL-DEVICE-MIGRATED-E2E: **0/13 PASS; 13/13 실행 증거 NOT_RUN**. 이 가운데 WEB04/06/07/08/09의 실행 가능 상태는 소스 근거로 **BLOCKED**다. Stage27 독립 Chrome 메뉴 CLICK 성공은 보존하지만, WEB-03 migration alias E2E로 중복 계산하지 않는다.
+- REAL-DEVICE-MIGRATED-E2E: 전체 증거 **0/13 PASS**. WEB01 제한 범위 완료, WEB02 START 실제 읽기, ENTRY02 원 작업 미확정의 3행을 시도했다. WEB04/06/07/08/09는 원 후보의 소스 차단이며, 나머지 차단은 입력 형식·명령 결속을 구분한다. Stage27 독립 Chrome 메뉴 CLICK 성공은 보존하며 반복하거나 WEB03 E2E로 중복 계산하지 않는다.
 
 ## 13개 고정 결과
 
@@ -18,21 +51,21 @@
 
 | ID | 대상 | 소스 라우트 / 현재 계약 판정 | 함수 모의시험의 확인 범위 | 모바일 교체 실행 상태 / 실기기 증거 |
 |---|---|---|---|---|
-| WEB01 | `life_web_navigate` | PASS | signed opener 동작/URL 거부 PASS | NOT_RUN |
-| WEB02 | `life_web_snapshot` | PASS | START/STATUS·context 거부 PASS | NOT_RUN |
-| WEB03 | `life_web_click` | PASS | fresh item/ref·단일 CLICK PASS | NOT_RUN |
+| WEB01 | `life_web_navigate` | PASS | signed opener 동작/URL 거부 PASS | 제한 PASS: RIGHT 주소 전용 완료·LEFT 유지, 본문 성공 아님 |
+| WEB02 | `life_web_snapshot` | PASS | START/STATUS·context 거부 PASS | START 실제 중립 화면 읽기 확인; 전체 BLOCKED(STATUS schema/display) |
+| WEB03 | `life_web_click` | PASS | fresh item/ref·단일 CLICK PASS | BLOCKED: host schema에 context/request 없음; NOT_RUN |
 | WEB04 | `life_web_type` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G04)** | input preflight/SET_TEXT stub·submit 거부 PASS; 실제 durable 허용 미검증 | **BLOCKED / NOT_RUN** |
-| WEB05 | `life_web_select` | PASS | OPEN→PICK·내부값 거부 PASS | NOT_RUN |
+| WEB05 | `life_web_select` | PASS | OPEN→PICK·내부값 거부 PASS | BLOCKED: host schema와 원 모바일 phase 계약 불일치; NOT_RUN |
 | WEB06 | `life_web_press_key` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G02)** | BACK 입력 분기·다른 키 거부 PASS; BACK의 실제 durable 실행 허용은 아님 | **BLOCKED / NOT_RUN** |
 | WEB07 | `life_web_wait` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G03)** | STATUS 호출·`conditionVerified:false` 반환 PASS; 조건 대기 미구현 | **BLOCKED / NOT_RUN** |
 | WEB08 | `life_web_back` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G02)** | BACK 요청 생성·history 성공 가정 금지 PASS; 실제 durable는 DENY | **BLOCKED / NOT_RUN** |
 | WEB09 | `life_web_screenshot` | 경로 PASS; **SOURCE_CONFIRMED_CODE_GAP (G06)** | local consent 인자·capture stub 위임 PASS; 원 producer의 action 파싱 미검증 | **BLOCKED / NOT_RUN** |
 | ENTRY01 | `life_route` | 웹 분류 PASS; **native 의도 분류 누락 (G08)** | 기존 모의시험은 웹 분류만 확인 | **LIVE_CLASSIFICATION_PARTIAL**; 웹 문장 기대 일치, native 문장 오분류. 폰 효과 0, E2E NOT_RUN |
-| ENTRY02 | `life_open_service` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
-| ENTRY03 | `life_naver_mail` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
-| ENTRY04 | `life_android_open` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
+| ENTRY02 | `life_open_service` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | BLOCKED / UNKNOWN: 원 열기 pending, 같은 작업 조회가 command binding 거절 |
+| ENTRY03 | `life_naver_mail` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | BLOCKED / NOT_RUN: 원 명령 결속 차단 후 중지 |
+| ENTRY04 | `life_android_open` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | BLOCKED / NOT_RUN: 원 명령 결속 차단 후 중지 |
 
-## 발견·미해결 항목 — 이번에는 수정하지 않고 취합
+## 원 후보에서 수집한 결함 — 아래 최신 절의 단일 수정 묶음과 구분
 | 분류 | 항목 | 근거·관찰 | 일괄 수정 후보 / 필요한 확인 |
 |---|---|---|---|
 | G01 배포/경로 | 과거 카탈로그의 9개 웹 alias는 Playwright 설명·입력 형태 | 당시 JH MCP 카탈로그 vs PR #72 소스 차이; 후속 적용 결과는 별도 확인 | 승인된 고정 후보의 실제 배포 SHA·선택값·모바일 입력 스키마를 확인한 뒤 실행 |

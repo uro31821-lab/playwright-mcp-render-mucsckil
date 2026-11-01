@@ -76,6 +76,40 @@ test('life_route directs ordinary website workflow to signed RIGHT screen, not P
  assert.ok(!r.rule.includes('Playwright as the primary web'));
  assert.equal(h.remote.length,0);
 });
+test('life_route recognizes explicit native app open language without creating a phone job',async()=>{
+ const h=harness();
+ for(const request of ['휴대폰 설정 앱 열기','설정 앱을 열어 주세요',
+  '카카오톡 앱 실행해 줘','한국투자증권 앱','네이버 웹툰 앱 열어줘',
+  'open Settings native app','launch Settings android app']){
+  const r=h.parse(await h.call('life_route',{request}));
+  assert.equal(r.owner,'android',request);
+  assert.equal(r.request,request);
+  assert.match(r.rule,/native app/);
+ }
+ assert.equal(h.jobs.length,0,'classification never dispatches an Android action');
+ assert.equal(h.remote.length,0);
+});
+test('life_route keeps URLs, web intent and ambiguous brands on the original web rule',async()=>{
+ const h=harness();
+ for(const request of ['https://example.org/settings-app','example.org 앱 열기',
+  '유튜브 열어줘','카카오톡','한국투자증권 열기','네이버 웹 앱 열기',
+  '브라우저에서 설정 앱 열기','앱 열기','설정 앱 열지 마',
+  '설정 앱 열고 유튜브 앱 열기','설정 앱\n열기']){
+  const r=h.parse(await h.call('life_route',{request}));
+  assert.equal(r.owner,'web',request);
+  assert.match(r.rule,/signed phone RIGHT Chrome/);
+ }
+ assert.equal(h.jobs.length,0);assert.equal(h.remote.length,0);
+});
+test('native classifier preserves existing payment, reservation and original-return routing',async()=>{
+ const h=harness();
+ for(const [request,owner] of [['결제 준비','jh_payment'],
+  ['식당 예약','restaurant_reservation'],['예약 진행','reservation_0_8'],
+  ['맛집 검색','sikindaero_search'],['last_work_screen','android']]){
+  assert.equal(h.parse(await h.call('life_route',{request})).owner,owner,request);
+ }
+ assert.equal(h.jobs.length,0);assert.equal(h.remote.length,0);
+});
 test('life_open_service calls the original signed Android RIGHT URL opener once',async()=>{
  const h=harness();
  const r=h.parse(await h.call('life_open_service',{service:'유튜브'}));

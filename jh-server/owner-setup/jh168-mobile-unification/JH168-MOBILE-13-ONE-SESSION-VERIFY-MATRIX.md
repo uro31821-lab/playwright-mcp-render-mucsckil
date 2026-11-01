@@ -2,13 +2,13 @@
 
 **방식 고정:** **전 13개 대상 사전검사·실행 결과 수집 → G01–G19 결함 일괄 수정 → 전체 재검증**. 구 PR #72의 기존 기능 코드나 서명 APK를 기능별로 재수정·재설치하지 않는다.
 
-**기존 검사 기록과 분리 기준:** 생성 서버 라우트 13/13 + 모의 handler 15/15 테스트 PASS. 기존 서명 APK Native 6개 메서드 28/28 정적 검사 PASS. **교체된 경로의 실기기 0/13**. 기존 27단계 Chrome ⋮ 완료는 이미 검증된 동작으로 재클릭 금지.
+**현재 집계:** 13행의 실제 결과 또는 구체적인 차단 근거 수집 완료. **범위 제한 PASS 1(WEB01), 분류 FAIL 1(ENTRY01), BLOCKED 11**이며 WEB02 START의 실제 읽기 성공은 별도로 보존한다. 모든 공통 증거·분기까지 충족한 완전 PASS는 **0/13**이다. 실제 폰 호출은 WEB01·WEB02 START·ENTRY02의 3행, BEGIN_COMMAND는 1회다. 아래의 이전 0/13·NOT_RUN 기록은 해당 시점의 이력이다. 생성 라우트 13/13·모의 handler 15/15·기존 APK Native 정적 28/28과 혼합하지 않는다. 기존 27단계 Chrome ⋮ 완료는 재클릭하지 않았다.
 
 **고정 후보 소스 재대조:** `4c71890021fc299838e6a8ce45ccf5f64712f354` 기준 WEB04/06/07/08/09는 **`SOURCE_CONFIRMED_CODE_GAP / BLOCKED`**, 실기기 증거는 **`NOT_RUN`**이다. 소스에서 확인한 거절을 폰에 다시 보내 재현하지 않는다. 기존 [단일 결함 장부의 G02/G03/G04/G06](JH168-MOBILE-13-DEFECT-LEDGER.md)에 연결하며, 과거 모의시험 PASS·현재 실행 가능성·실기기 PASS를 분리한다. 이 문서 갱신으로 실제 배포 완료나 현재 기기 연결을 판정하지 않는다.
 
 ## 시험 준비 — 반드시 실제 효과 이전
 
-1. 검사에 쓰는 정확한 후보 SHA·선택값·생성 runtime과 실제 Primary 카탈로그의 모바일 입력 스키마를 **함께 확인**. PR #107의 2026-11-01T07:15:43Z 관찰 기준 main `2c310f8b4a76d40604416e7dd4cb4976fdd1fc85`의 9개 alias는 별도 Playwright였으며 이 이력은 보존한다. 후속 고정 후보의 실제 적용 여부는 [활성화 확인 절차](JH168-MOBILE-VERIFICATION-ACTIVATION.md)에 따라 새 증거로 확인한다. **기존 Playwright 등록 또는 갱신되지 않은 입력 스키마로 모바일 효과 시험을 시작하지 않는다.**
+1. 검사에 쓰는 정확한 후보 SHA·선택값·생성 runtime과 실제 Primary 카탈로그의 **각 행 입력 계약**을 함께 확인한다. PR #107의 2026-11-01T07:15:43Z main `2c310f8b4a76d40604416e7dd4cb4976fdd1fc85`의 Playwright 이력은 보존한다. 후속 적용은 [활성화 확인 절차](JH168-MOBILE-VERIFICATION-ACTIVATION.md)의 실제 증거로 확인한다. 현재 Primary의 PHONE_RIGHT 상태 응답과 고정4c runtime을 대조한 뒤, 입력 계약이 동일한 행만 실행할 수 있다. **필수 모바일 인자가 없는 행은 BLOCKED**다. 낡은 설명과 실제 입력 누락을 구분하며 없는 필드를 숨겨 보내거나 다른 도구의 성공으로 해당 alias를 대체하지 않는다.
 2. 기존 27단계 원본 서명 APK `129bcc55...` 설치 체크포인트 재사용. 이미 성공한 Chrome 메뉴 동작 반복 금지. Android 소스를 실제 수정하지 않은 경우 빌드·서명·재설치 금지.
 3. 테스트는 **개인 계정·병원 데이터 없는 중립 테스트 화면**으로 진행. [중립 화면 자산과 로컬 검사](fixtures/mobile13/README.md), [13개 시나리오](fixtures/mobile13/cases.json)를 준비했다. 실제 기기에서 사용할 HTTPS 게시 주소와 접근은 별도 확인하며, 파일만 있다는 이유로 준비 완료로 처리하지 않는다. 대상 화면이 없으면 `BLOCKED_TEST_FIXTURE_MISSING`, 자산은 있으나 기기에서 접근할 게시 주소가 없으면 `BLOCKED_TEST_FIXTURE_NOT_HOSTED`로 기록한다.
 4. 기존 Primary·사용자 유효 인증·기기·분할창 확인. 실제 입력·클릭·화면 캡처는 기존 Secure56 HMAC/nonce와 휴대폰 로컬 승인·동의 절차에 따름. 인증/승인 실패는 다른 도구로 우회하지 않음.
@@ -63,3 +63,30 @@
 중립 화면의 DOM ID·카운터·이벤트 목록은 관찰 대상이다. 실제 서명된 `itemRef`, 원 job 결과, 로컬 승인, 정확한 창 증거를 생성하거나 대신하지 않는다. 데스크톱에서 페이지 동작이 통과해도 모바일 전환 실기기 수는 **0/13, NOT_RUN**이다. ENTRY03의 실제 네이버 열기 및 ENTRY04의 native 복귀는 별도 대상에서 확인한다.
 
 후보 `1f55bf118870ebc7d9f4bfa3f57dd7a1a84bd88a`부터 CLICK/TYPE/SELECT/BACK 및 BACK key의 alias 입력 계약에는 원 Secure56 규약의 동작별 32자리 소문자 hex `request_id`가 필요하다. **ID 입력 계약이 존재한다는 사실은 TYPE/BACK의 durable 실행 허용을 뜻하지 않으며 위 BLOCKED 판정을 유지한다.** 페이지가 이 값을 자동 생성하지 않는다. 결과 미확정 시 새 ID로 재실행하지 않고 같은 원 작업을 조회한다.
+
+
+## 2026-11-01 Refresh 후 실제 검증 — 13행 수집 완료
+
+고정4c Live는 유지됐고 Primary에서 `browser:not_applicable_mobile_right`, `signedPollVerified:true`와 활성 기기 1대를 확인했다. 현재 호출 schema는 Refresh 후에도 이전 형태다. 동일 계약인 WEB01/ENTRY02/ENTRY03/ENTRY04는 입력 가능하며 WEB02는 업무 인자를 생략한 START만 가능하다. WEB03/05와 WEB02 STATUS는 필요한 인자가 없으므로 실행하지 않았다.
+
+| 행 | 실제 판정 | 원 결과 또는 차단 근거 |
+|---|---|---|
+| WEB01 | 제한 PASS | `RIGHT_ADDRESS_CONFIRMED / EFFECT_CONFIRMED`, 원 OPEN 수신 및 LEFT ChatGPT·RIGHT Chrome split proof 확인. 실제 표시 URL 원문·displayId는 반환되지 않았고 원 OPEN의 `pageContentVerified:false`를 유지 |
+| WEB02 | START 부분 PASS / 나머지 BLOCKED | 같은 snapshot alias가 Chrome의 중립 fixture 제목·본문·현재 context/window/itemRef를 반환. 같은 context STATUS는 호출 schema에 context_id가 없어 NOT_RUN. displayId는 producer 공개 계약에 없음 |
+| WEB03 | BLOCKED / NOT_RUN | 호출 schema에 context_id/request_id 없음 |
+| WEB04 | SOURCE_CONFIRMED_CODE_GAP / BLOCKED / NOT_RUN | G04 preflight·SET_TEXT durable 계약 누락 |
+| WEB05 | BLOCKED / NOT_RUN | phase/context_id/request_id 없음, 이전 values 필수와 새 handler의 values 거절 충돌 |
+| WEB06 | SOURCE_CONFIRMED_CODE_GAP / BLOCKED / NOT_RUN | G02 BACK durable 거절, 다른 키 미지원 |
+| WEB07 | SOURCE_CONFIRMED_CODE_GAP / BLOCKED / NOT_RUN | G03 고정4c에는 조건 판정 없음. 후속 미배포 WAIT 변경과 구분 |
+| WEB08 | SOURCE_CONFIRMED_CODE_GAP / BLOCKED / NOT_RUN | G02 BACK durable 거절 |
+| WEB09 | SOURCE_CONFIRMED_CODE_GAP / BLOCKED / NOT_RUN | G06 SCREENSHOT action 전달 누락 |
+| ENTRY01 | FAIL — 분류만 | 이전 실제 분류에서 명시적 native 문장도 owner:web. 폰 앱 실행 실패가 아님 |
+| ENTRY02 | BLOCKED / 결과 UNKNOWN | destination OPEN이 `OPEN_COMPLETION_PENDING`. 반환된 원 job·원 command로 1회 조회했으나 `new_command_binding_required_or_discarded` 거절. 실제 열기 성공/실패/미실행을 확정하지 않음 |
+| ENTRY03 | BLOCKED / NOT_RUN | 원 command 조회 거절 후 의존하는 새 효과 중지 |
+| ENTRY04 | BLOCKED / NOT_RUN | 같은 결속 차단. HTTPS·last_work_screen 분기 모두 새 실행하지 않음 |
+
+WEB01은 2026-11-01T09:28:12.231Z 완료됐다. WEB02 START는 같은 RIGHT Chrome 창에서 중립 fixture를 직접 읽었다. 두 관찰의 내용은 서로 일관되지만 START 결과를 OPEN의 pageContentVerified로 이식하지 않는다. `resultVerified:false`와 `DEVICE_REPORTED_OK_UNVERIFIED`는 공통 기본 표시이며 OPEN 전용 주소 효과 검증을 무효화하지 않는다. 요청 URL echo와 Android 주소 정책을 통과한 원 completion의 의미는 여전히 구분한다.
+
+원 command에는 시간 TTL 검사가 없으며 10분 TTL은 별도 workflow용이다. 같은 서버 프로세스에서 확인되는 command 변경 경로는 새 BEGIN과 서명된 /device/discard-work다. 현재 원인 트리거는 미확정이다. 같은 host의 index→destination 경로 변화만으로 DIRECT_SITE_SWITCH가 된다고 단정하지 않는다. 후속 진단에서 signed poll=true·기존 process·completion401 total=0을 확인했으나 이는 원 command 유효성이나 원 OPEN 결과를 대신하지 않는다. 필터된 요청 로그가 없다는 사실도 discard가 없었다는 증거가 아니다.
+
+원 job·command는 개인 재개 기록에 보존한다. command 생략, 새 BEGIN, 다른 raw 조회로 기존 거절을 우회하지 않았으며 재열기·APK 설치·재배포도 하지 않았다. 13행의 실제 결과 또는 BLOCKED 근거 수집 조건은 충족됐으므로 확인된 계약 결함의 **단일 수정 묶음 준비**로 진행할 수 있다. 불명인 command 차단과 카탈로그 계층을 추측해 수정하지 않으며 최종 전체 실기기 검증·G19 동등성 게이트는 열린 상태다.

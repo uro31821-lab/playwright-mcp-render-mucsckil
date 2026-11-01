@@ -5,10 +5,12 @@
 import {createHash} from 'node:crypto';
 import {DurableManualCircuitFence} from './durable-manual-circuit-fence.mjs';
 import {durableNativeJobPolicy} from './durable-native-job-policy.mjs';
+import {MOBILE13_ACTION_POLICY_MODE56,mobile13DurableJobPolicy} from '../jh168-mobile-unification/mobile13-action-policy.mjs';
 const deny=(code,httpStatus=409)=>Object.freeze({allowed:false,code,httpStatus});
 const allow=()=>Object.freeze({allowed:true});
 const digest=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
-export function createDurableNativeHooks({file,key,namespace,mode='read'}={}){
+export function createDurableNativeHooks({file,key,namespace,mode='read',mobile13ActionMode}={}){
+ if(mobile13ActionMode!==undefined&&mobile13ActionMode!==MOBILE13_ACTION_POLICY_MODE56)throw Error('DURABLE_MOBILE13_ACTION_MODE_INVALID');
  const policies=new WeakMap(),records=new WeakMap(),proofs=new WeakMap();
  const journal=new DurableManualCircuitFence({file,key,namespace,mode,
   verifyAuthenticatedCompletion:({recordId,resultDigest,hostEvidence})=>{
@@ -25,7 +27,7 @@ export function createDurableNativeHooks({file,key,namespace,mode='read'}={}){
     return Number.isSafeInteger(v)&&v>=0?v:null;
   },
   discardTransient(job){policies.delete(job);records.delete(job);},
-  capture(job,payload){policies.set(job,durableNativeJobPolicy(job,payload));},
+  capture(job,payload){policies.set(job,mobile13ActionMode===MOBILE13_ACTION_POLICY_MODE56?mobile13DurableJobPolicy(job,payload):durableNativeJobPolicy(job,payload));},
   beforeDispatch(job){
    const policy=policies.get(job);
    if(!policy)return deny('DURABLE_JOB_BINDING_REQUIRED');

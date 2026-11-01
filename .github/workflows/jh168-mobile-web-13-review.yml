@@ -27,11 +27,16 @@ jobs:
           node --check jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-fixture-http.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy-patch.mjs
       - name: Nine alias routing and fail-closed tests
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs
-      - name: Run both independently developed policies in ONE integrated CI
+      - name: Run mobile admission, fresh WAIT and browser retirement policies
         run: |
-          node --test --test-reporter=spec             jh-server/owner-setup/jh168-mobile-unification/mobile13-wait-condition.test.mjs             jh-server/owner-setup/jh168-mobile-unification/mobile13-browser-retirement.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-wait-condition.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-browser-retirement.test.mjs
       - name: Verify fixed neutral fixture assets, read-only HTTP and reversible source patch
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-fixture-http.test.mjs
       - name: Run ALL NINE generated signed Android RIGHT alias behavior contracts with inert native doubles
@@ -86,7 +91,9 @@ jobs:
           console.log('JH168_FOUR_ENTRYPOINTS_PHONE_RIGHT=PASS');
           console.log('JH168_GENERATED_RUNTIME_9_ALIASES_NO_REMOTE_PLAYWRIGHT=PASS');
           NODE
-      - name: Full 13-route inventory BEFORE any functional code fixes (source-only)
+      - name: Actual Stage25 aliases through original job creation and durable SQLite admission
+        run: node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs
+      - name: Full 13-route source inventory after the single integrated fix bundle
         run: node jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-audit.mjs
       - name: Invoke ALL FOUR generated original signed RIGHT entrypoints without a device
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs

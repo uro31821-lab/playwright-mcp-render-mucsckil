@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {patchJH168MobileWebCommands56,patchJH168MobileWeb13VerifiedMode56,patchJH168MobileStatusOnly56,patchJH168MobileNativeAppEntry56,selectJH168MobileWeb13Mode56,JH168_MOBILE_13_VERIFY_MODE56} from './mobile-web-tool-patch.mjs';
+import {patchJH168MobileWebCommands56,patchJH168MobileWeb13VerifiedMode56,patchJH168MobileStatusOnly56,patchJH168MobileNativeAppEntry56,patchJH168MobileNativeClassifier56,selectJH168MobileWeb13Mode56,JH168_MOBILE_13_VERIFY_MODE56} from './mobile-web-tool-patch.mjs';
 
 const original=readFileSync(new URL('../../server.mjs',import.meta.url),'utf8');
 const marker='  registerOAuthTool("life_web_navigate",{';
@@ -29,8 +29,27 @@ const originalRightPaneNative=[
  '  });',
  ''
 ].join('\n');
-const preparedRightPane=prepared.slice(0,nativeA)+originalRightPaneNative+
+const rightPaneBeforeClassifier=prepared.slice(0,nativeA)+originalRightPaneNative+
  prepared.slice(nativeB);
+assert.equal((rightPaneBeforeClassifier.match(/const nativeHints=/g)||[]).length,1);
+// Inert installation shape required by the final PHONE_RIGHT host patch.
+// Actual generated host admission is exercised by the integration tests.
+const durableHostFixture=[
+ 'export function installDurableNativeCircuit56(options){',
+ ' if(durableNativeHooks56||httpServer.listening||jobs.size||devices.size)throw Error("DURABLE_INSTALL_BEFORE_LISTEN_ONLY");',
+ ' durableNativeHooks56=createDurableNativeHooks(options);',
+ '}',
+ 'function inertOriginalDurableHooks(j,p,next,body,targetDeviceId){',
+ ' if(durableNativeHooks56)durableNativeHooks56.capture(j,p);',
+ ' durableNativeHooks56?.beforeDispatch(next);',
+ ' durableNativeHooks56?.acceptedCompletion(j,body.result);',
+ ' return {commandId:jhRequireCommand56(targetDeviceId,p.workflowId)};',
+ '}'
+].join('\n');
+const preparedRightPane=rightPaneBeforeClassifier.replace(/const nativeHints=\[[^\]\n]*\];/,
+ 'const nativeHints=[]; // Site-opening text cannot trigger automatic native app takeover')
+ .replace('nativeHints.some(k=>s.includes(k))?',
+  '(nativeHints.some(k=>s.includes(k))||jhNativeReturnTarget56(s))?')+'\n'+durableHostFixture;
 
 test('nine historical web routes use Android RIGHT and keep all other source bytes',()=>{
  const next=patchJH168MobileWebCommands56(prepared);
@@ -62,7 +81,7 @@ test('nine historical web routes use Android RIGHT and keep all other source byt
  assert.match(section,/requestId,command,targetItemRef:bound.itemRef,action/);
  assert.match(section,/MOBILE_KEY_NOT_VERIFIED/);
  assert.match(section,/MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT/);
- assert.match(section,/return jhMobileWebCapture56\(args\)/);
+ assert.match(section,/return jhMobileWebCapture56\(\{\.\.\.args,action:"SCREENSHOT"\}\)/);
  assert.match(section,/jhSplitScreenJob56\("split_screen_session_input_preflight"/);
  assert.match(section,/automaticReplay:false/);
 });
@@ -116,6 +135,7 @@ test('temporary exact scoped mobile mode enables 9 PHONE aliases without cloud f
  assert.doesNotMatch(selected,/browserTool\(/);
  assert.match(result,/MOBILE_REQUEST_ID_REQUIRED/);
  assert.match(selected,/request_id:z\.string\(\)/);
+ assert.match(result,/createDurableNativeHooks\(\{\.\.\.options,mobile13ActionMode:"EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1"\}\)/);
 });
 test('temporary explicit original-owner gate uses no new secure grant or catalog authority',()=>{
  const env={JH_MOBILE_WEB_13_MODE:JH168_MOBILE_13_VERIFY_MODE56,
@@ -220,4 +240,24 @@ test('native app patch only changes the exact signed Android open alias and pres
 test('native app route insertion rejects unpatched original JH Android alias',()=>{
  assert.throws(()=>patchJH168MobileNativeAppEntry56(prepared),
    /NATIVE_ENTRY_GUARD_DRIFT/);
+});
+
+test('native classifier patch changes only the original advisory route and refuses anchor drift',()=>{
+ const start='  registerOAuthTool("life_route",{';
+ const end='  registerOAuthTool("life_open_service",{';
+ const a=preparedRightPane.indexOf(start),b=preparedRightPane.indexOf(end,a);
+ const next=patchJH168MobileNativeClassifier56(preparedRightPane);
+ const y=next.indexOf(end,a);
+ assert.equal(next.slice(0,a),preparedRightPane.slice(0,a));
+ assert.equal(next.slice(y),preparedRightPane.slice(b));
+ const block=next.slice(a,y);
+ assert.match(block,/const nativeHints=\[\];/);
+ assert.match(block,/explicitNativeOpen\|\|nativeHints\.some/);
+ assert.doesNotMatch(block,/\bmk\(|browserTool\(|chooseDevice\(|BEGIN_COMMAND/);
+ assert.throws(()=>patchJH168MobileNativeClassifier56(next),/CLASSIFIER_GUARD_DRIFT/);
+ assert.throws(()=>patchJH168MobileNativeClassifier56(preparedRightPane.replace(
+  'nativeHints.some(k=>s.includes(k))||jhNativeReturnTarget56(s)',
+  'nativeHints.some(k=>s.includes(k))')),/CLASSIFIER_GUARD_DRIFT/);
+ assert.throws(()=>patchJH168MobileNativeClassifier56(preparedRightPane.replace(start,'')),
+  /CLASSIFIER_SCOPE_CHANGED/);
 });

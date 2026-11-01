@@ -5,6 +5,7 @@ on:
     paths:
       - 'jh-server/owner-setup/jh168-mobile-unification/**'
       - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
+      - 'jh-server/owner-setup/deployment/durable-native-host.mjs'
       - '.github/workflows/jh168-mobile-13-six-safety-suites.yml'
 permissions:
   contents: read
@@ -20,7 +21,7 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22.16.0'
-      - name: Verify only one pre-reviewed mobile import/wrapper changed; all original security sources stay intact
+      - name: Verify original security sources except separately exact-reversed composition and host hooks
         run: |
           git diff --exit-code origin/jh-fix3-secure-server -- \
             jh-server/server.mjs \
@@ -29,9 +30,10 @@ jobs:
             jh-server/owner-setup/trusted-server \
             jh-server/owner-setup/deployment \
             ':(exclude)jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/durable-native-host.mjs' \
             ':(exclude)jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs'
 
-      - name: Verify only original mobile composition and one reviewed legacy click-test contract changed
+      - name: Exact-reverse three host edits and verify reviewed composition and legacy click-test contracts
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
       - name: Original signed server dependencies
         run: |
@@ -162,7 +164,7 @@ jobs:
           echo 'CONNECTION='$CONNECTION
           echo '| CONNECTION | '"$CONNECTION"' |' >> "$GITHUB_STEP_SUMMARY"
           test "$CONNECTION" = success || bad=1
-          echo MOBILE_FUNCTIONAL_SOURCE_MODIFICATIONS=0
+          echo SOURCE_FIXES_REQUIRE_PHONE_RETEST=YES
           echo LIVE_DEVICE_ACTIONS=0
           echo RENDER_DEPLOY=0
           echo ORIGINAL_CHROME_CLICK_REPLAY=0

@@ -1,6 +1,7 @@
 /**
  * Verify PR72's exact 9+4 routing diff against LATEST reviewed main (2026-11-01),
- * and record ALL mismatches before any functional code modification.
+ * preserving every original byte except the reviewed composition and exact
+ * three-place host admission hook for the explicit mobile mode.
  *
  * This test never builds an Android APK, starts a server, performs a phone
  * action, grants approval, updates SQLite or alters production source.
@@ -9,6 +10,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
+import {reverseJH168Mobile13ActionPolicyHost56} from './mobile13-action-policy-patch.mjs';
 
 const UPSTREAM='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
 const root='jh-server/owner-setup/';
@@ -19,7 +21,6 @@ const deps=[
  root+'deployment/jh167-right-pane-orchestrator-repair.mjs',
  root+'deployment/jh167-open-completion.mjs',
  root+'deployment/jh167-connection-v2-runtime.mjs',
- root+'deployment/durable-native-host.mjs',
  root+'deployment/durable-manual-circuit-fence.mjs',
  root+'deployment/jh155-split-integration-patch.mjs',
  root+'server-integration/pending-approval-operator-entry.mjs'
@@ -39,11 +40,16 @@ test('reviewed current main commit is available with full history (NO source upd
  const checkout=execFileSync('git',['rev-parse','refs/remotes/origin/jh-fix3-secure-server'],{encoding:'utf8'}).trim();
  assert.equal(checkout,UPSTREAM,'Main advanced: STOP and refresh this source audit before deploying');
 });
-test('10 original Secure56, Bridge/approval and startup dependencies are BYTE IDENTICAL',()=>{
+test('9 original Secure56, Bridge/approval and startup dependencies are BYTE IDENTICAL',()=>{
  for(const path of deps){
   const upstream=show(path),legacy=current(path);
   assert.equal(legacy,upstream,'DO_NOT_OVERWRITE_UPDATED_MAIN_DEPENDENCY: '+path);
  }
+});
+test('host differs ONLY by the three reversible explicit mobile admission edits',()=>{
+ const filename=root+'deployment/durable-native-host.mjs';
+ const restored=reverseJH168Mobile13ActionPolicyHost56(current(filename));
+ assert.equal(restored,show(filename),'EVERY OTHER HOST BYTE MUST MATCH LATEST MAIN');
 });
 test('mobile alias routing changes ONLY the original composition import + final wrapper',()=>{
  const latest=show(original),candidate=current(original);

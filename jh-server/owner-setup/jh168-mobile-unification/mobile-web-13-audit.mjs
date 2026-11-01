@@ -23,9 +23,9 @@ const nine=[
   ['life_web_type',['MOBILE_SUBMIT_SEPARATE_ACTION_REQUIRED','MOBILE_CSS_SELECTOR_UNSUPPORTED','jhMobileWebFollow56(args,"SET_TEXT"']],
   ['life_web_select',['MOBILE_SELECT_VISIBLE_ITEM_REQUIRED','jhMobileWebFollow56(args,"CLICK"']],
   ['life_web_press_key',['MOBILE_KEY_NOT_VERIFIED','"BACK"']],
-  ['life_web_wait',['MOBILE_WAIT_CONDITION_UNVERIFIED','conditionVerified:false']],
+  ['life_web_wait',['MOBILE_WAIT_CONDITION_UNVERIFIED','conditionVerified:false','requestStartedAtMs','jhMobile13EvaluateCondition56']],
   ['life_web_back',['jhMobileWebFollow56(args,"BACK"']],
-  ['life_web_screenshot',['MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT','jhMobileWebCapture56(args)']]
+  ['life_web_screenshot',['MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT','jhMobileWebCapture56({...args,action:"SCREENSHOT"})']]
 ];
 const entries=[
   ['life_route',['const nativeHints=[];'],'  registerOAuthTool("life_open_service",{'],
@@ -96,13 +96,13 @@ console.log('JH_MOBILE_CROSS_CUTTING '+JSON.stringify(disclaimer));
 console.log('JH_MOBILE_GAP_INVENTORY '+JSON.stringify({
  gaps:[
   'PRESS_KEY_ONLY_BACK_ENTER_TAB_ESCAPE_NOT_VERIFIED',
-  'CONDITION_WAIT_RETURNS_UNVERIFIED',
+  'CONDITION_WAIT_REQUIRES_NEW_FRESH_ANDROID_STATUS_PRODUCER',
   'TYPE_SUBMIT_SEPARATE_NO_ONE_CALL_SUBMIT',
   'SELECT_OPEN_AND_PICK_REQUIRE_FRESH_PHONE_ITEM_READ',
   'SCREENSHOT_REQUIRES_PHONE_LOCAL_CONSENT',
   'NESTED_SCROLL_AND_ANDROID_FOCUS_REAL_PHONE_E2E_UNVERIFIED',
   'ANDROID_APP_APK_INSTALL_AND_13_ROUTE_E2E_NOT_RUN',
-  'OLDER_CI_SOURCE_GUARD_EXPECTATION_CONFLICTS_OUTSTANDING'
+  'HOST_MCP_CATALOG_REFRESH_AND_FINAL_PHONE_RETIREMENT_GATES_OPEN'
  ],sourceFatal:additional,sourceFailures:rows.filter(x=>x.sourceRoute!=='PASS').map(x=>x.name)
 }));
 assert.equal(rows.length,13,'all 9+4 must be inventoried');

@@ -38,7 +38,8 @@ function setup({inputAllowed=true,localOnly=false,statusResponse=null}={}){
   jhRightWebOpen56:async x=>{opens.push(x);return textResult({ok:true,opened:x.service})},
   jhSplitScreenJob56:async(type,payload,effect,tool)=>{
    calls.push({type,payload,effect,tool});
-   if(type==='split_screen_session_status'&&statusResponse!==null)return statusResponse;
+   if(type==='split_screen_session_status'&&statusResponse!==null)
+    return typeof statusResponse==='function'?statusResponse():statusResponse;
    return type==='split_screen_session_input_preflight'?
     {inputAllowed,inputGrantToken:inputAllowed?'synthetic-only':undefined,code:'PREFLIGHT'}:
     {ok:true,type,action:payload?.action,automaticReplay:false};
@@ -111,12 +112,23 @@ test('back sends one RIGHT BACK, does not claim browser history navigation',asyn
  assert.equal(r.action,'BACK');assert.equal(r.browserHistoryNavigationVerified,false);
  assert.equal(f.calls.length,1);
 });
-test('screenshot requires local consent fields and delegates only to original capture handler',async()=>{
+test('screenshot fixes SCREENSHOT action and preserves all original scope and consent arguments',async()=>{
  const f=setup();
  assert.equal(parse(await f.run('screenshot',{})).code,'MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT');
  assert.equal(f.captures.length,0);
- const r=parse(await f.run('screenshot',{screen_grant_token:'synthetic',screen_consent_digest:'synthetic',lease_token:'synthetic'}));
+ const args=Object.freeze({device_id:'synthetic-phone',task_digest:'a'.repeat(64),
+  run_digest:'b'.repeat(64),screen_grant_token:'synthetic-screen-grant',
+  screen_consent_digest:'c'.repeat(64),lease_token:'synthetic-capture-lease',action:'CLICK'});
+ const r=parse(await f.run('screenshot',args));
  assert.equal(r.syntheticCaptured,true);assert.equal(f.captures.length,1);
+ assert.notEqual(f.captures[0],args,'the caller input must not be mutated');
+ assert.equal(args.action,'CLICK');
+ assert.deepEqual(JSON.parse(JSON.stringify(f.captures[0])),{...args,action:'SCREENSHOT'});
+ for(const missing of ['screen_grant_token','screen_consent_digest','lease_token']){
+  assert.equal(parse(await f.run('screenshot',{...args,[missing]:''})).code,
+   'MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT');
+ }
+ assert.equal(f.captures.length,1,'missing approval input never reaches capture');
 });
 test('all nine are generated Android RIGHT-only; no cloud Playwright fallback remains',()=>{
  const f=setup();assert.equal(f.opens.length,0);
@@ -150,16 +162,22 @@ test('original one-shot Secure56 id is carried unchanged by the actual signed FO
 });
 
 test('WAIT can confirm only ONE signed same-right-window exact text readback (synthetic, not phone E2E)',async()=>{
- const now=Date.now();
- const proof={kind:'split_screen_evidence',version:'1',verified:'true',
-  layout:'LEFT_RIGHT',chatPackage:'com.openai.chatgpt',chatKind:'NATIVE',
-  chatWindowId:'12',chatBounds:'0,0,500,1200',
-  workPackage:'com.android.chrome',workWindowId:'23',workBounds:'500,0,1000,1200',
-  observedAtMs:String(now-1000)};
- const readback={ok:true,contextId:ctx,scopeVerified:true,splitScreenRequired:true,
-  splitScreen:proof,resultScreen:[{...proof},
-   {package:'com.android.chrome',windowId:'23',text:'READY'}]};
- const f=setup({statusResponse:readback});
+ // The signed producer shape uses fresh items/layout, not an invented raw-row
+ // array or a generic success flag. Time is sampled only when STATUS returns.
+ const f=setup({statusResponse:()=>{
+  const now=Date.now();
+  return {ok:true,contextId:ctx,code:'ready',state:'ACTIVE',statusReadbackVersion:1,
+   manualStepPending:false,automaticReplay:false,resultVerified:false,
+   packageName:'com.android.chrome',windowId:23,displayId:0,capturedAt:now,
+   layout:{arrangement:'LEFT_RIGHT',chatPackage:'com.openai.chatgpt',chatWindowId:12,
+    chatDisplayId:0,workPackage:'com.android.chrome',workWindowId:23,workDisplayId:0},
+   items:[{itemRef:item,label:'READY'}],splitScreenRequired:true,
+   splitScreen:{kind:'split_screen_evidence',version:'1',verified:'true',
+    layout:'LEFT_RIGHT',chatPackage:'com.openai.chatgpt',chatKind:'NATIVE',
+    chatWindowId:'12',chatBounds:'0,0,500,1200',chatDisplayId:'0',
+    workPackage:'com.android.chrome',workWindowId:'23',workBounds:'500,0,1000,1200',
+    workDisplayId:'0',displayId:'0',displayVerified:'true',observedAtMs:String(now)}};
+ }});
  const pass=parse(await f.run('wait',{context_id:ctx,time:2,expected_text:'READY'}));
  assert.equal(pass.code,'MOBILE_WAIT_CONDITION_CONFIRMED');
  assert.equal(pass.conditionVerified,true);
