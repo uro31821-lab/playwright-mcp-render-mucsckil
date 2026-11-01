@@ -22,3 +22,8 @@
 **LIVE_MOBILE_ROUTE_NOT_DEPLOYED + BRIDGE_DEVICE_CURRENTLY_NOT_CONNECTED + STAGING_PREVIEW_DISABLED + APK_PRODUCTION_URL_PINNED**.
 
 이 문서는 원인 확인과 실행 환경 준비 검토이며 배포·기기 명령을 실행하지 않는다.
+
+### 실제 Stage25 합성 검사 추가 확인
+- 생성된 Stage25 OAuth/Secure56 운영자 소스 안의 13개 경로를 조사. 9개 alias는 Android RIGHT 경로, 4개 entrypoint도 존재.
+- `life_web_wait`은 `split_screen_session_status` 조회만 실행하며 `MOBILE_WAIT_CONDITION_UNVERIFIED`라고 반환하므로 모바일 라우트이지만 조건 대기 지원이 아님. 두 상태를 분리해 검사.
+- 첫 CI에서 PATH 검사를 `wait`의 read-only 상태 조회 예외 없이 판정하여 8/9 FAIL, 이를 **검증만 보정**하고 원본 기능 코드는 변경하지 않음.

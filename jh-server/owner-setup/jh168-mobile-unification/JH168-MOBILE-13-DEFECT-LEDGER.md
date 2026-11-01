@@ -68,3 +68,11 @@
 - CI [41283451015](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41283451015) `9397ed1d9f4761ea1152616418353d63bfff659b`: 최신 main 10개 핵심 파일 **바이트 동일**; 기존 조합 파일 모바일 패치 import·마지막 wrap 2개 위치만 소스 차이. 원본 9개 `life_web_*` Playwright 현재 운영 소스와 generated Android 후보의 차이는 명확하며, 실기기 13개 미완료는 보존.
 - 원래 서명 APK `129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359`를 로컬에서 함수별 직접 호출·거부 코드 확인: 원본 ComputerUse/window/occlusion/scroll/enter, 새 NativeDispatch의 signed authority·no-replay, IME focus, API34 window screenshot, nested vertical/horizontal **28/28 정적 anchor PASS**. `JH168OriginalSecure56NativeDispatch12`의 **외부 직접 호출 0**은 여전하므로 실제 연결 PASS 아님.
 - 전체 근거: `JH168-MOBILE-LATEST-MAIN-NATIVE-PREFLIGHT.md`. **G01/G02/G06/G07/G12/G13의 원인 분석 강화**, 신규 기능 수정 0회, E2E 0/13 유지.
+
+## 통합 준비 발견 사실 — 2026-11-01 Stage25 실제 구동 경로
+
+- **G15 운영 활성화 구분:** 기존 `npm start → published-host-router → Stage25 original FOLLOWUP operator`에 PR #72의 모바일 패치를 함께 구성하는 생성 서버를 확인. 실제 생성 코드의 9개 alias 중 8개는 모바일 실행 헬퍼, **`life_web_wait`은 Android `split_screen_session_status` 상태 조회**이며 `conditionVerified=false`가 의도된 현재 제한. 원격 Playwright 호출은 없음. **Stage25 생성 성공 ≠ 실제 운영 배포/폰 동작 성공.**
+- **G16 Android 운영 URL 고정:** 서명 APK `129bcc55...` 내 `SingleAttemptSecurePoll$Companion.request$app_release`에서 `https://jh-secure-bridge-fix4.onrender.com/device/poll` 직접 문자열 사용 확인. 기존 앱이 별도 Render staging으로 자동 연결된다고 가정 금지; 설정 전환/테스트용 APK 등이 실제 제공되는지 별도 확인해야 함.
+- **G17 실기기 준비:** 2026-11-01 읽기 전용 Primary `life_android_devices`: `devices=[]`, `selectedDeviceId=null`. 이 시점의 연결 상태만 뜻하며 과거 Stage27 성공 취소나 APK 설치 실패가 아님. Android Bridge 앱을 다시 연결한 실제 증거 전에는 UI 명령 발송 금지.
+- **G18 검증환경:** 현재 Render 서비스 3개 중 모바일 후보 전용 staging 없음, 운영 서비스의 Render PR Preview **OFF**. 별도 staging을 만들더라도 G16 때문에 현재 APK와 연결되지 않을 수 있음. 이번에는 서비스 생성·유료 플랜·OAuth 변경·APK 재설치를 하지 않음.
+- 최신 메인 `2c310f8b4a76d40604416e7dd4cb4976fdd1fc85`을 PR #72 내부에 **양쪽 부모 보존 병합(검증 브랜치에만)**. 기존 13개 모바일 함수 구현과 Secure56 보안 소스 변경 없이 새 CI 후보에 적용. Render/main 실서비스는 수정하지 않음. 

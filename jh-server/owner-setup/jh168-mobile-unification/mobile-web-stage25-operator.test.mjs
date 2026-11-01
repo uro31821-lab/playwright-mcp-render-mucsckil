@@ -46,9 +46,16 @@ test('generated exact Stage25 operator contains 9 phone RIGHT aliases, not cloud
   const a=aliases.indexOf('  registerOAuthTool("life_web_'+n+'",{');
   const b=a>=0?aliases.indexOf('  registerOAuthTool(',a+24):-1;
   const block=a>=0?aliases.slice(a,b>=0?b:undefined):'';
-  const right=/jhMobileWebFollow56|jhMobileWebRead56|jhRightWebOpen56|jhMobileWebCapture56/.test(block);
+  // WAIT deliberately uses one signed Android status-read, not a browser
+  // condition waiter. It must be on the phone path, but is NOT functionally
+  // complete until true condition verification is implemented and tested.
+  const right=n==='wait'?
+    block.includes('jhSplitScreenJob56("split_screen_session_status"')&&
+    block.includes('MOBILE_WAIT_CONDITION_UNVERIFIED'):
+    /jhMobileWebFollow56|jhMobileWebRead56|jhRightWebOpen56|jhMobileWebCapture56/.test(block);
   return {name:'life_web_'+n,registered:a>=0,
-    signedRight:!!right,cloudBrowserFallback:block.includes('browserTool(')};
+    signedRight:!!right,conditionWaitSupported:n==='wait'?false:null,
+    cloudBrowserFallback:block.includes('browserTool(')};
  });
  for(const row of rows)console.log('JH_MOBILE_STAGE25_OPERATOR_ALIAS '+JSON.stringify(row));
  assert.equal(rows.length,9);
