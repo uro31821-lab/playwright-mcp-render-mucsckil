@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
-import {buildStage25PendingOperatorEntrypoint56,selectStage41CommandLifecycle56}
+import {buildStage25PendingOperatorEntrypoint56,selectStage41CommandLifecycle56,
+ selectStage25PendingOperatorRuntime56,selectStage40OwnerAdmissionDiagnostics56,
+ selectStage26CompletionAck56}
  from './stage25-live-operator-followup-entry.mjs';
 import {applyStage41CommandLifecyclePatch,reverseStage41CommandLifecyclePatch}
  from './stage41-command-lifecycle-patch.mjs';
@@ -130,4 +132,30 @@ test('untrusted source mutations and repeat injection fail closed',async()=>{
  assert.throws(()=>applyStage41CommandLifecyclePatch(src.replace(
   'const jhBlockedCommands56=new Set();','const jhBlockedCommands56=null;')));
  assert.equal(reverseStage41CommandLifecyclePatch(patched),src);
+});
+
+// Pre-release: actual production-selectable diagnostics must resolve to the
+// EXACT candidate generated under CI, with NO owner process listener started.
+test('prod EXACT original-owner Stage25+26+40+41 selector points to pinned source WITHOUT serving',async()=>{
+ const ci=await buildStage25PendingOperatorEntrypoint56(root,enabled);
+ const prod={
+  JH_STAGE26_SIGNED_COMPLETION_ACK:'EXPLICIT_IDENTICAL_SIGNED_RESULT_V1',
+  JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1',
+  JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS:'EXPLICIT_ORIGINAL_OWNER_REASON_V1',
+  JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS:'EXPLICIT_SIGNED_COMMAND_CAUSE_V1',
+  JH_PENDING_APPROVAL_OPERATOR_ENABLE:'EXPLICIT_OPERATOR_APPROVAL_RECEIPT_V1',
+  JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE:'EXPLICIT_FOLLOWUP_CLICK_RECEIPT_V1',
+  JH_DURABLE_RELEASE:'SERVE_READY_V1',
+  RENDER_SERVICE_ID:'srv-db0fjl2d0e5s73be114g'
+ };
+ assert.equal(selectStage26CompletionAck56(prod),true);
+ assert.equal(selectStage40OwnerAdmissionDiagnostics56(prod),true);
+ assert.equal(selectStage41CommandLifecycle56(prod),true);
+ const selected=selectStage25PendingOperatorRuntime56(root,prod);
+ assert.equal(selected.sha256,ci.stamp.runtimeSha256);
+ assert.equal(selected.noNewExecutor,true);
+ assert.equal(selected.originalOperatorVerified,true);
+ assert.equal(selected.automaticReplayAllowed,false);
+ assert.equal(ci.listenerStarted,false);
+ assert.equal(ci.productionEnabled,false);
 });
