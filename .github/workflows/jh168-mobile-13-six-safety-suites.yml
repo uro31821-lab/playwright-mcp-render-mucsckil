@@ -108,6 +108,8 @@ jobs:
             jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
             jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs
+      - name: Prepare original generated auth fixture exactly as legacy Connection V2 CI
+        run: (cd jh-server && node verification/build-auth-candidate.mjs)
       - name: Original Connection V2 and browser-click migration contract
         id: connection
         continue-on-error: true
