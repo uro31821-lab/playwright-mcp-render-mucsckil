@@ -7,6 +7,8 @@ import {createHash} from 'node:crypto';
 import {decideExactSignedCompletionAck56} from './stage26-completion-delivery-policy.mjs';
 import {applyStage26CompletionAckPatch56,reverseStage26CompletionAckPatch56}
  from './stage26-completion-delivery-patch.mjs';
+import {applyComputerExecutionReceiptPatch,reverseComputerExecutionReceiptPatch}
+ from './computer-execution-receipt-patch.mjs';
 import {buildStage25PendingOperatorEntrypoint56,selectStage25PendingOperatorRuntime56,
  selectStage26CompletionAck56}
  from './stage25-live-operator-followup-entry.mjs';
@@ -89,7 +91,9 @@ test('exact original Stage25 operator remains untouched if Stage26 flag absent, 
  assert.equal(added.stamp.originalComputerInspect,true);
  assert.equal(added.stamp.originalOperationalLearning,true);
  const signed=readFileSync(added.runtimeFile,'utf8');
- assert.equal(reverseStage26CompletionAckPatch56(signed),pristine);
+ // Remove the NEW outer read-only original-job receipt before the original Stage26 ACK;
+ // restore the same outer scope afterward. Neither change can replay a job.
+ assert.equal(applyComputerExecutionReceiptPatch(reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(signed))),pristine);
  assert.equal(selectStage25PendingOperatorRuntime56(root,stage26Env).sha256,added.stamp.runtimeSha256);
  assert.ok(signed.includes('jhSplitFollowupReceipts56.issue('));
  assert.ok(signed.includes('pendingApprovalReceipts56'));

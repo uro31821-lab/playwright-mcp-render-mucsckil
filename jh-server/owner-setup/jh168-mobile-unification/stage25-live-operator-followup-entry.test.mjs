@@ -9,6 +9,7 @@ import {
  selectStage25PendingOperatorRuntime56
 } from './stage25-live-operator-followup-entry.mjs';
 import {reverseJH168SplitFollowupReceiptPatch} from './split-followup-receipt-patch.mjs';
+import {reverseComputerExecutionReceiptPatch} from './computer-execution-receipt-patch.mjs';
 import {selectPendingApprovalOperatorRuntime56} from '../server-integration/pending-approval-operator-entry.mjs';
 const root=path.resolve(import.meta.dirname,'..');
 const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1'};
@@ -26,13 +27,13 @@ test('real current pending-approval operator remains intact after exact Stage25 
  const candidate=selectStage25PendingOperatorRuntime56(root,env);
  const original=readFileSync(parent.file,'utf8');
  const runtime=readFileSync(candidate.file,'utf8');
- assert.equal(reverseJH168SplitFollowupReceiptPatch(runtime),original);
+ assert.equal(reverseJH168SplitFollowupReceiptPatch(reverseComputerExecutionReceiptPatch(runtime)),original);
  assert.equal(sha(original),base.stamp.parentSha256);
  assert.equal(sha(runtime),base.stamp.runtimeSha256);
  for(const x of ['pendingApprovalReceipts56','jhSplitReadReceipts56',
    'computerInspectReceipt56','durableNativeHooks56?.acceptedCompletion(',
    'jhRequireCommand56(','jhSplitFollowupReceipts56.read(',
-   'jhSplitFollowupReceipts56.issue('])
+   'jhSplitFollowupReceipts56.issue(','computerExecutionReceipts56.issue(','computerExecutionReceipts56.read('])
    assert.ok(runtime.includes(x),'original or additional requirement '+x);
  assert.equal(runtime.split('jhSplitFollowupReceipts56.issue(').length-1,1);
  assert.equal(runtime.split('jhSplitFollowupReceipts56.read(').length-1,1);

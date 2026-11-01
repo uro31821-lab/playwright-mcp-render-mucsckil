@@ -21,6 +21,8 @@ import {
 import {
   applyStage26CompletionAckPatch56,reverseStage26CompletionAckPatch56
 } from './stage26-completion-delivery-patch.mjs';
+import {applyComputerExecutionReceiptPatch,reverseComputerExecutionReceiptPatch}
+ from './computer-execution-receipt-patch.mjs';
 
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const SERVICE='srv-db0fjl2d0e5s73be114g';
@@ -87,6 +89,7 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     stamp.productionEnabled!==false||stamp.automaticReplayAllowed!==false||
     !/^[a-f0-9]{64}$/.test(stamp.parentSha256||'')||
     !/^[a-f0-9]{64}$/.test(stamp.runtimeSha256||'')||
+    stamp.computerExecutionReceiptStage38!==true||
     ![stamp.ownerSha256,stamp.unifiedSha256,stamp.operationalSha256]
       .every(s=>/^[a-f0-9]{64}$/.test(s||'')))
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_INVALID');
@@ -100,7 +103,8 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     sha(readFileSync(p.unified,'utf8'))!==stamp.unifiedSha256||
     sha(readFileSync(p.entry,'utf8'))!==stamp.operationalSha256||
     reverseJH168SplitFollowupReceiptPatch(stage26Ack?
-      reverseStage26CompletionAckPatch56(runtime):runtime)!==original)
+      reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(runtime)):
+      reverseComputerExecutionReceiptPatch(runtime))!==original)
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_SCOPE_CHANGED');
  return Object.freeze({file:p.runtime,sha256:stamp.runtimeSha256,
   noNewExecutor:true,automaticReplayAllowed:false,originalOperatorVerified:true});
@@ -125,11 +129,15 @@ export async function buildStage25PendingOperatorEntrypoint56(
   fail('JH_STAGE25_EXISTING_OPERATOR_GUARDS_REQUIRED');
  const stage26Ack=selectStage26CompletionAck56(env);
  const withFollowup=applyJH168SplitFollowupReceiptPatch(original);
- const runtime=stage26Ack?applyStage26CompletionAckPatch56(withFollowup):withFollowup;
+ const stage26Runtime=stage26Ack?applyStage26CompletionAckPatch56(withFollowup):withFollowup;
+ const runtime=applyComputerExecutionReceiptPatch(stage26Runtime);
  if(reverseJH168SplitFollowupReceiptPatch(stage26Ack?
-       reverseStage26CompletionAckPatch56(runtime):runtime)!==original||
+       reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(runtime)):
+       reverseComputerExecutionReceiptPatch(runtime))!==original||
     runtime.split('jhSplitFollowupReceipts56.issue(').length!==2||
-    runtime.split('jhSplitFollowupReceipts56.read(').length!==2)
+    runtime.split('jhSplitFollowupReceipts56.read(').length!==2||
+    runtime.split('computerExecutionReceipts56.issue(').length!==2||
+    runtime.split('computerExecutionReceipts56.read(').length!==2)
   fail('JH_STAGE25_FOLLOWUP_PATCH_NOT_EXACT');
  emit(p.runtime,runtime);
 
@@ -162,6 +170,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
    originalPendingApprovalOperator:true,
    originalSplitRead:true,originalComputerInspect:true,
    originalOperationalLearning:true,
+   computerExecutionReceiptStage38:true,
    ...(stage26Ack?{signedCompletionAckStage26:true}:{}),
    productionEnabled:false,automaticReplayAllowed:false
  });
