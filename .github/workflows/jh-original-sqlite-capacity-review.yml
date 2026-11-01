@@ -1,0 +1,30 @@
+name: JH original SQLite unknown capacity no-replay review
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/jh-original-sqlite-capacity-review.yml'
+      - 'jh-server/verification/jh-original-sqlite-capacity.test.mjs'
+      - 'jh-server/verification/jh-original-sqlite-readonly-status.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/JH168-ORIGINAL-SQLITE-UNKNOWN-LIMIT-REVIEW.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-sqlite-capacity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Syntax and isolated original journal capacity regression
+        working-directory: jh-server
+        run: |
+          node --check verification/jh-original-sqlite-readonly-status.mjs
+          node --check verification/jh-original-sqlite-capacity.test.mjs
+          node --test verification/jh-original-sqlite-capacity.test.mjs
+      - name: No effectful action performed
+        run: echo ORIGINAL_OWNER_DB_UNTOUCHED__NO_DEVICE_ACTION__NO_REPLAY
