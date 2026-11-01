@@ -1,0 +1,93 @@
+name: JH168 Stage36 original protected result inline handle (no device)
+on:
+  pull_request:
+    branches: ['feat/jh168-stage35-sealed-original-ref-handoff-20261101']
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage36-*'
+      - '.github/workflows/jh168-stage36-inline-handoff.yml'
+permissions:
+  contents: read
+jobs:
+  same-original-verified-result-handoff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Original Render operator, Android, Secure56, Stage35 and owner SQLite unchanged
+        run: |
+          git diff --exit-code origin/feat/jh168-stage35-sealed-original-ref-handoff-20261101 -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/operational-learning \
+            jh-server/owner-setup/owner-enrollment \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-receipt-writer.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage34-original-receipt-reader.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage35-sealed-reference.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage35-sealed-handoff-patch.mjs
+      - name: Source syntax and per-original-response fail-closed tests
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage36-inline-original-handoff.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage36-original-completion-patch.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage36-inline-original-handoff.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage36-original-signed-flow.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage36-generated-original-operator.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage36-inline-original-handoff.test.mjs
+      - name: Synthetic original signed owner SQLite plus Stage35 host and protected screen proof
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage36-original-signed-flow.test.mjs
+      - name: Reuse original owner Secure56 pinned npm dependencies
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Original Stage25/26/30/34/35 generated operator with protected inline result
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage36-generated-original-operator.test.mjs
+      - name: Existing Stage35 encrypted receipt regression
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage35-sealed-reference.test.mjs
+      - name: Preserve original Stage35 OAuth, Stage26 signed ACK, approval and owner storage
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage35-generated-operator.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/verification/durable-owner-storage.test.mjs
+      - name: Explicit source-only release boundary
+        run: |
+          echo STAGE36_SOURCE_ONLY=YES
+          echo ORIGINAL_PROTECTED_UI_VERIFICATION_REQUIRED=YES
+          echo ORIGINAL_ANDROID_ACTIONS=0
+          echo ORIGINAL_COMMAND_REPLAY=0
+          echo NEW_BEGIN_COMMAND=0
+          echo ADDITIONAL_PHONE_CALL=0
+          echo RENDER_DEPLOY=0
+          echo LIVE_OWNER_SCHEMA_MIGRATION=0
+          echo APK_BUILD_OR_INSTALL=0
+          echo CHATGPT_DURABLE_CLIENT_STORAGE=NOT_IMPLEMENTED
