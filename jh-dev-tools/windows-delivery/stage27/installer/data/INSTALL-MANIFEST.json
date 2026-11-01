@@ -1,0 +1,49 @@
+{
+  "schema": "JH168_STAGE27_INSTALL_ONLY_V1",
+  "candidate_sha256": "129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359",
+  "candidate_bytes": 48884022,
+  "certificate_sha256": "7cc577efe48e865fdbe799b92aa9edf89724631361ae97979f2b8e4a940a288b",
+  "prior_sha256": "1cba048cc64e0d381e9c1e2f2787197faa1e15b8ddaf0febadd91c0d17996852",
+  "package": "com.koreanlifehub.bridge",
+  "version_code": 168,
+  "source_manifest_sha256": "aa9a7fe1ddf30672fed68f62c58df9cf378047ae5c7f85911d3a2102d6623105",
+  "files": [
+    {
+      "path": "실행.cmd",
+      "size": 4487,
+      "sha256": "539d155dabb77db833056373de200a413e6c5769154bced6772f498c59c28748"
+    },
+    {
+      "path": "사용안내.txt",
+      "size": 1591,
+      "sha256": "e898e0873fa1982bf52705c9f7fd5b640f93cc320c2e0169793aeffb3668b6d0"
+    },
+    {
+      "path": "POWER_SHELL_ERROR_CHECKLIST.txt",
+      "size": 4495,
+      "sha256": "d0b321062d3ea4ac40b917777f082f06fae4182ad7df7a50da56f1a23e4a6e69"
+    },
+    {
+      "path": "data/JH-RUN-SAFETY.ps1",
+      "size": 9805,
+      "sha256": "a7c6c5f45c92e65453cb7dd682bbf46d634e846404e309633fa5b713a00127f0"
+    },
+    {
+      "path": "data/Confirm-Stage27-Result.ps1",
+      "size": 1385,
+      "sha256": "a0a8398829482e3532cbf5f012bf264f52952793e3b338a1ad24f75643f96d6a"
+    },
+    {
+      "path": "data/STAGE27-SIGNATURE-VERIFICATION.json",
+      "size": 2175,
+      "sha256": "e3f1eb72bc37ecd193ba2c40af4f5c7c83a26c252739ce3e8d650b85ad481084"
+    },
+    {
+      "path": "data/JH168-Stage27-SIGNED.apk",
+      "size": 48884022,
+      "sha256": "129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359"
+    }
+  ],
+  "identity_proof_sha256": "e3f1eb72bc37ecd193ba2c40af4f5c7c83a26c252739ce3e8d650b85ad481084",
+  "identity_proof_source": "SDK35_AAPT_AND_INDEPENDENT_BINARY_AXML"
+}
