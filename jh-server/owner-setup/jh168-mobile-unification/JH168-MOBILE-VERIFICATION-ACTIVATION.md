@@ -31,6 +31,10 @@
 3. **정확한 후보 배포 수단 확인:** 현재 연결된 Render `trigger_deploy` 인자는 `serviceId`, `clearCache`, `workspaceId`뿐이며 **`commitId`·`branch`를 받지 않는다**. 운영 branch가 그대로인 상태에서 이 호출로 PR72의 지정 commit을 배포할 수 있다고 가정하지 않는다. 정확한 후보를 고정할 수 있는 실제 배포 기능과 그 변경에 대한 승인이 먼저 있어야 한다. **도구 제약을 우회하려고 PR72를 병합하지 않는다.** 수단이 없으면 준비 완료 상태에서 배포를 보류한다.
 4. **환경값 변경은 최소 병합:** 허용된 변경 시 `update_environment_variables`의 `replace:false`로 해당 flag만 병합한다. 기존 환경값 전체를 다시 쓰거나 모든 secret 변수를 조회할 필요가 없다. 이 문서는 실제 환경값 변경을 수행하지 않는다.
 
+Render 공식 [배포 문서](https://render.com/docs/deploys)는 Dashboard의 **Manual Deploy → Deploy a specific commit**에서 연결된 저장소의 정확한 SHA를 지정할 수 있음을 설명한다. 이 검증의 코드 후보는 `4c71890021fc299838e6a8ce45ccf5f64712f354`다. 현재 연결 도구로 지원되지 않는 해당 UI 단계는 필요한 사용 승인을 확인하고 수행하며, branch 최신값으로 대체하지 않는다. [환경값 문서](https://render.com/docs/configure-environment-variables)의 Save only는 값을 저장만 하므로 뒤에 정확한 후보 배포가 필요하다.
+
+**재시작과 새 환경값 적용을 구분한다.** Render의 Restart service는 현재 배포된 commit과 **같은 환경값**을 다시 사용한다. 따라서 새 flag를 저장한 뒤 단순 Restart service만 호출해 활성화·원복을 완료했다고 판단하지 않는다. 새 환경값을 적용하는 배포를 사용한다.
+
 운영 selector는 기존 service ID와 `SERVE_READY_V1`, `EXPLICIT_OPERATOR_APPROVAL_RECEIPT_V1`, `EXPLICIT_FOLLOWUP_CLICK_RECEIPT_V1` 경계를 함께 요구한다. CI 생성 조건을 운영 권한으로 사용하지 않는다. 원본 코드: [모바일 선택기](mobile-web-tool-patch.mjs), [기존 startup router](../deployment/published-host-router.mjs), [Stage25 진입점](stage25-live-operator-followup-entry.mjs).
 
 ## 승인된 활성화 후 확인 순서
@@ -42,7 +46,7 @@
 
 ## 원복과 미확정 결과
 
-모바일 검증을 중단하면 새 효과 요청을 멈춘다. 해당 flag를 미설정 또는 빈 값으로 돌리고 **서비스 재시작·런타임 재생성 후 원래 카탈로그와 새 자산 경로 미등록을 확인**한다. 단순 환경값 저장만으로 원복 완료라고 보고하지 않는다.
+모바일 검증을 중단하면 새 효과 요청을 멈춘다. 해당 flag를 미설정 또는 빈 값으로 돌리고 **새 환경값을 적용하는 재배포·런타임 재생성 후 원래 카탈로그와 새 자산 경로 미등록을 확인**한다. 같은 검증 후보 SHA의 기본 모드로 원복하거나 검토한 운영 기준 `2c310f8b4a76d40604416e7dd4cb4976fdd1fc85`를 정확히 지정한다. 단순 환경값 저장 또는 Restart service만으로 원복 완료라고 보고하지 않는다.
 
 원본 저장소를 삭제·초기화하지 않는다. 미확정 원 작업의 상태와 영수증을 보존하며, 원복·재시작을 성공·실패의 증거로 삼거나 새 request_id로 다시 실행하지 않는다. 이미 성공한 Stage27 Chrome 메뉴 동작도 반복하지 않는다. 이 임시 선택기·원복은 검증 단계용이며 G19의 최종 단일 모바일 엔진·구 Playwright 제거 목표를 대체하지 않는다.
 
