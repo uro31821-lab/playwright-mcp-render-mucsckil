@@ -145,6 +145,7 @@ function Set-Jhm13Function([string]$Text, [string]$Name, [string]$Replacement) {
     return $Text.Remove($part.StartOffset, $part.EndOffset - $part.StartOffset).Insert($part.StartOffset, $Replacement)
 }
 function New-Jhm13Zip([string]$Path, [string]$Marker) {
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [IO.Compression.ZipFile]::Open($Path, [IO.Compression.ZipArchiveMode]::Create)
     try {
@@ -239,6 +240,7 @@ function Invoke-JhTool([string]$Exe,[string[]]$Arguments) {
             if($outIndex -lt 0 -or $outIndex+1 -ge $Arguments.Count){throw 'SYNTHETIC_SIGN_OUTPUT_MISSING'}
             $destination=$Arguments[$outIndex+1]
             [IO.File]::Copy($Arguments[-1],$destination,$false)
+            Add-Type -AssemblyName System.IO.Compression
             Add-Type -AssemblyName System.IO.Compression.FileSystem
             $zip=[IO.Compression.ZipFile]::Open($destination,[IO.Compression.ZipArchiveMode]::Update)
             try {
