@@ -10,6 +10,7 @@ import { prepareReview, createReviewedCandidate } from './curation.mjs';
 import { evaluateTrajectory } from './trajectory.mjs';
 import { decideProposal, proposalDecisionView } from './decisions.mjs';
 import { registerReviewedCandidate, proposalProgressView } from './progress.mjs';
+import { taskView, observeTask } from './host-observations.mjs';
 
 function evaluatorFor(suite) {
   if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
@@ -64,6 +65,13 @@ export async function execute(args, input) {
     case 'review': return prepareReview(await store.read(), input);
     case 'decision-view': return proposalDecisionView(await store.read(), input);
     case 'progress': return proposalProgressView(await store.read(), input);
+    case 'task-view': return taskView(await store.read(), input);
+    case 'observe': {
+      if (expectedRevision !== undefined) throw new TypeError('observe uses payload.expectedRevision inside its atomic transaction');
+      const result = await store.transact(state => observeTask(state, input, { now: new Date().toISOString() }));
+      const { state, ...receipt } = result;
+      return { revision: state.revision, ...receipt };
+    }
     case 'decide': {
       if (expectedRevision !== undefined) throw new TypeError('decide uses payload.expectedRevision inside its atomic transaction');
       const result = await store.transact(state => decideProposal(state, input, { now: new Date().toISOString() }));
@@ -121,7 +129,7 @@ export async function execute(args, input) {
       const result = await store.transact(state => setProposalStatus(state, input.id, input.status, input.verification), transactionOptions);
       return { revision: result.revision, proposal: result.proposals[input.id] };
     }
-    default: throw new TypeError('Use status, ingest, recall, context, review, decision-view, progress, decide, curate, curate-register, propose, candidate, check, or proposal-status');
+    default: throw new TypeError('Use status, ingest, observe, task-view, recall, context, review, decision-view, progress, decide, curate, curate-register, propose, candidate, check, or proposal-status');
   }
 }
 
