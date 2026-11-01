@@ -1,0 +1,72 @@
+name: JH168 Stage34 original signed result read-only status (no device)
+on:
+  pull_request:
+    branches: ['feat/jh168-stage33-current-main-integration-20261101']
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage34-*'
+      - '.github/workflows/jh168-stage34-original-receipt.yml'
+permissions:
+  contents: read
+jobs:
+  original-signed-readonly:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Exact Stage33 current-main source and production Secure56 untouched
+        run: |
+          git diff --exit-code origin/feat/jh168-stage33-current-main-integration-20261101 -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/owner-enrollment \
+            jh-server/owner-setup/operational-learning \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-receipt-writer.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.mjs
+      - name: Parse Stage34 original owner HMAC/query_only and reversible source patches
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage34-original-receipt-reader.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage34-owner-runtime-patch.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage34-original-receipt-reader.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage34-generated-original-operator.test.mjs
+      - name: Original host and real SQLite restart/expiry/wrong-device no-replay tests
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage34-original-receipt-reader.test.mjs
+      - name: Install ORIGINAL dependencies before generating Secure56 operator
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Actual generated Stage25/26/30 read-only OAuth route, sequential
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage34-generated-original-operator.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/verification/durable-owner-storage.test.mjs
+      - name: Explicit source-only no-effect evidence
+        run: |
+          echo STAGE34_READ_ONLY_SOURCE_REVIEW=YES
+          echo LIVE_OWNER_STATUS_TOOL_DEPLOY=NOT_RUN
+          echo LIVE_DB_MIGRATION=NOT_RUN
+          echo RENDER_DEPLOY=0
+          echo PHONE_ACTIONS=0
+          echo APK_BUILD_INSTALL=0
+          echo ORIGINAL_CLICK_REPLAY=0
