@@ -7,7 +7,7 @@
  * This is NOT live until the original owner-bound host integration is reviewed.
  */
 import {DatabaseSync} from 'node:sqlite';
-import {createHmac,timingSafeEqual} from 'node:crypto';
+import {createHash,createHmac,timingSafeEqual} from 'node:crypto';
 import {lstatSync,realpathSync,existsSync} from 'node:fs';
 import {isAbsolute,resolve,dirname} from 'node:path';
 
@@ -148,14 +148,38 @@ export class Stage29DurableCompletionReadback {
  }
  /** Host only; call after ORIGINAL signed completion and original durable
   * acceptedCompletion. The immutable original journal row is the authority.
-  * No caller-supplied approved=true / resultVerified=true flag is trusted. */
- record({binding,recordId,resultDigest}={}){
+  * No caller-supplied digest or approved=true / resultVerified=true flag is trusted. */
+ record({binding,recordId,originalJob,originalResult}={}){
   this.#ready();
   const b=bound(binding),now=this.#clock();
-  if(!hex32(recordId)||!hex64(resultDigest))
+  if(!hex32(recordId)||!obj(originalJob)||!obj(originalResult)||
+     typeof originalResult.ok!=='boolean')
    fail('STAGE29_ORIGINAL_RECEIPT_IDENTITY_REQUIRED');
+  // Only the original in-memory signed job can be bound to the receipt.
+  if(originalJob.id!==b.jobId||
+     originalJob.type!=='split_screen_session_followup'||
+     originalJob.mcpToolName!=='life_android_execute_computer_action'||
+     originalJob.secureRequestedEffect!=='REVERSIBLE_WRITE'||
+     originalJob.action!=='CLICK'||
+     originalJob.targetDeviceId!==b.deviceId||
+     originalJob.targetDeviceDigest!==b.deviceDigest||
+     originalJob.secureSessionId!==b.secureSessionId||
+     originalJob.commandId!==b.commandId||
+     originalJob.taskDigest!==b.taskDigest||
+     originalJob.requestId!==b.requestId||
+     originalJob.contextId!==b.contextId||
+     originalJob.targetItemRef!==b.targetItemRef||
+     originalJob.expiresAtMs!==b.expiresAtMs||
+     !['in_progress','complete'].includes(originalJob.status))
+   fail('STAGE29_ORIGINAL_HOST_JOB_BINDING_REQUIRED');
   if(b.expiresAtMs<=now||b.expiresAtMs-now>90000)
    return unknown('STAGE29_ORIGINAL_JOB_EXPIRED_OR_OUT_OF_SCOPE');
+  // Recompute the ORIGINAL durableNativeHooks.acceptedCompletion digest.
+  // A changed jobId or session cannot match the already authenticated journal.
+  // Original device result bytes are used only in memory and never persisted.
+  const resultDigest=createHash('sha256')
+   .update(JSON.stringify([originalJob.id,originalJob.secureSessionId,originalResult]))
+   .digest('hex');
   const scope=this.#scope(b),operation=this.#operation(b);
   const result=this.#mac('JH_RECEIPT_V1|'+resultDigest);
   this.#db.exec('BEGIN IMMEDIATE');

@@ -14,7 +14,7 @@ Stage25 \`sfr_\` readback references the original in-memory job; it expires afte
 
 1. The original signed completion HMAC + fresh nonce, exact secure session and device must pass the ORIGINAL production checks.
 2. The ORIGINAL durable \`recordAuthenticatedDeviceResult\` must commit to \`DEVICE_RESULT_RECEIVED\`. Stage29 is not a replacement for that receipt or approval.
-3. The caller passes the original journal \`recordId\`, keyed result digest and **exact original** owner/device/session/command/request/context/item and job expiry binding. Stage29 re-verifies both existing **operation HMAC** (including itemRef + commandDigest) and original **result HMAC** inside SQLite before adding an immutable, HMAC-only lookup row.
+3. The caller provides original journal recordId, **original in-memory Secure56 job and original device result** plus owner/device/session/command/request/context/item/expiry binding. Stage29 rechecks all original job fields, recomputes the result digest in memory, and validates the resulting original journal operation and result HMACs. A caller-supplied digest is not accepted.
 4. A later server instance may use the same existing owner-bound key and namespace to open the ledger **read-only in effect** (SQL SELECT only in the read method); the caller must still pass a host-injected fresh current authorization callback that positively verifies the original binding. A request-side boolean \`authenticated:true\` is never accepted.
 5. Returned status is **historical signed device result received**. It explicitly returns \`taskSuccessVerified:false\`, \`uiTransitionVerified:false\`, \`newJobCreated:false\` and \`replayAllowed:false\`. It cannot recover or re-execute an old click, reconstruct the screen, rebind a changed session or extend expiry.
 
@@ -41,3 +41,6 @@ Node.js 22 \`node:sqlite\` with original \`DurableManualCircuitFence\` on a disp
 - Stage26/28 original code preserved, no new endpoint/approval/Android executor
 
 **Expected evidence**: separate CI run and results. CI is not live installation or production deployment.
+
+## Binding hardening note
+The original draft took an independently supplied raw result digest; its HMAC verification alone could not tie arbitrary jobId/session fields to the original job. This candidate now requires the original trusted in-memory job and original device result, compares all original job fields with the exact binding, and computes the digest inside the host module. Result contents are never persisted. Synthetic tests now reject a swapped in-memory session, command, job ID, device digest, expiry or result.

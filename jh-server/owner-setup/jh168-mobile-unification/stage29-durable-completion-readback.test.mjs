@@ -14,6 +14,15 @@ const namespace='d'.repeat(64);
 const successResult={ok:true,action:'CLICK',resultVerified:true,
   verificationScope:'UI_TRANSITION_ONLY'};
 const hostileResult={ok:false,action:'CLICK',resultVerified:false};
+const hostJob=b=>({
+ id:b.jobId,type:'split_screen_session_followup',
+ mcpToolName:'life_android_execute_computer_action',
+ secureRequestedEffect:'REVERSIBLE_WRITE',action:'CLICK',
+ targetDeviceId:b.deviceId,targetDeviceDigest:b.deviceDigest,
+ secureSessionId:b.secureSessionId,commandId:b.commandId,
+ taskDigest:b.taskDigest,requestId:b.requestId,contextId:b.contextId,
+ targetItemRef:b.targetItemRef,expiresAtMs:b.expiresAtMs,status:'in_progress'
+});
 function fixture(clock=()=>1793508000000){
  const dir=mkdtempSync(join(tmpdir(),'jh-stage29-'));
  const file=join(dir,'manual-circuit.sqlite');
@@ -54,7 +63,7 @@ function originalAccepted(f,{binding=f.bind,result=successResult}={}){
   resultDigest,hostEvidence:guard});
  assert.equal(saved.recorded,true);
  job.close();
- return {recordId:receipt.recordId,resultDigest};
+ return {recordId:receipt.recordId,originalJob:hostJob(binding),originalResult:result};
 }
 const reopen=f=>new Stage29DurableCompletionReadback({file:f.file,key:f.key,
  namespace,clock:f.clock,authorizeRead:f.authorizeRead,mode:'read'});
@@ -81,9 +90,9 @@ test('original pending dispatch cannot be advertised as device-result-received',
     targetItemRef:f.bind.targetItemRef,commandDigest:f.bind.commandDigest}});
   guard.close();
   const readback=reopen(f);
-  const resultDigest=sha('not-authenticated');
   assert.throws(()=>readback.record({binding:f.bind,recordId:receipt.recordId,
-   resultDigest}),/AUTHENTICATED_ORIGINAL_RECEIPT_REQUIRED/);
+   originalJob:hostJob(f.bind),originalResult:successResult}),
+   /AUTHENTICATED_ORIGINAL_RECEIPT_REQUIRED/);
   assert.equal(readback.read({binding:f.bind,principal:f.principal}).ok,false);
   readback.close();
  }finally{f.close()}
@@ -124,10 +133,24 @@ test('only exact original journal operation digest, recordId and accepted result
   const proof=originalAccepted(f);
   const rb=reopen(f);
   for(const bad of [
-   {binding:{...f.bind,commandDigest:sha('other click')},...proof},
-   {binding:f.bind,recordId:'9'.repeat(32),resultDigest:proof.resultDigest},
-   {binding:f.bind,recordId:proof.recordId,resultDigest:sha('fabricated success')}
+    {binding:{...f.bind,commandDigest:sha('other click')},...proof},
+    {binding:f.bind,recordId:'9'.repeat(32),
+      originalJob:proof.originalJob,originalResult:proof.originalResult},
+    {binding:f.bind,recordId:proof.recordId,
+      originalJob:proof.originalJob,originalResult:hostileResult}
   ])assert.throws(()=>rb.record(bad),/AUTHENTICATED_ORIGINAL_RECEIPT_REQUIRED/);
+  for(const [jobKey,changed] of [
+    ['commandId','e'.repeat(32)],
+    ['targetDeviceDigest','e'.repeat(64)],
+    ['secureSessionId','different-session'],
+    ['id','job_999'],
+    ['expiresAtMs',f.bind.expiresAtMs+1]
+  ]){
+    const modified={...proof.originalJob,[jobKey]:changed};
+    assert.throws(()=>rb.record({binding:f.bind,recordId:proof.recordId,
+       originalJob:modified,originalResult:proof.originalResult}),
+       /ORIGINAL_HOST_JOB_BINDING_REQUIRED/,'modified original job '+jobKey);
+  }
   assert.equal(rb.record({binding:f.bind,...proof}).recorded,true);
   const duplicate=rb.record({binding:f.bind,...proof});
   assert.equal(duplicate.code,'STAGE29_ALREADY_RECORDED');
