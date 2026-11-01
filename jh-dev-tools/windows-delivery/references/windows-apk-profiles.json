@@ -116,6 +116,57 @@
         "Packaging pins required file bytes and does not prove external PC inputs, certificates, device state or installation."
       ],
       "review_status": "reviewed"
+    },
+    {
+      "schema": "jh.windows-apk-profile.v1",
+      "id": "JH-WINDOWS-APK-MOBILE13-20261101-1",
+      "version": "1",
+      "entrypoint": "실행.cmd",
+      "required_files": {
+        "POWER_SHELL_ERROR_CHECKLIST.txt": {
+          "sha256": "5b5e11fc7e605b6c82af102f339c9213020028ace61e5e1d0d40092f574da20e",
+          "size": 4060
+        },
+        "data/JH-RUN-SAFETY.ps1": {
+          "sha256": "9ebb716ab9cdb54f47e46c785c11412c4d8ae9c20d2f011376d4e721ca8aae0f",
+          "size": 7311
+        },
+        "data/JH168-Mobile13-UNSIGNED-20261101.apk": {
+          "sha256": "40b8f766692a1e44e8e02fc9ed0de47a1ba172e12c0cf634852ec647cc9905d3",
+          "size": 48835763
+        },
+        "data/Update-Mobile13.ps1": {
+          "sha256": "114e61c42333bfaab1250e49cb7659f249e8d19d59a4229e8a20994344b3e79e",
+          "size": 24318
+        },
+        "data/candidate.json": {
+          "sha256": "0c3c19ae29a6ead313a27b37833a28b03ce03d71640484abd45ffc920a900020",
+          "size": 1104
+        },
+        "사용안내.txt": {
+          "sha256": "a3b6934aacaebd52e2536d13e9e2213e81df9f160e5817f82dd3b692b5537486",
+          "size": 1702
+        },
+        "실행.cmd": {
+          "sha256": "1b3cbf69a08d9f91b7ef116c185ed68effa556398dfb8a8e8bb6e3833130cb60",
+          "size": 5756
+        }
+      },
+      "review_status": "reviewed",
+      "evidence_refs": [
+        "commit:cba70ceb28c54ff1147ab43b143ed7c52ea2eef3",
+        "artifact:github-actions-41299200489",
+        "test:Test-Mobile13.ps1",
+        "source:jh-dev-tools/windows-delivery/mobile13-review.md",
+        "sha256:40b8f766692a1e44e8e02fc9ed0de47a1ba172e12c0cf634852ec647cc9905d3",
+        "library:libfile_235ed43881b88191b39567953d6a3622"
+      ],
+      "limitations": [
+        "Windows PowerShell 5.1 CI verifies 21 synthetic cases and exact runner bytes; it does not use a real key, ADB or phone.",
+        "The private unsigned APK reuses 1183 passing Android tests and is separately pinned by exact size and SHA-256.",
+        "Actual local signing, app installation, coordinated server deployment and phone 13-route E2E remain pending their own verified results.",
+        "The original unknown phone job and durable no-replay fence are not modified or resolved by this updater."
+      ]
     }
   ]
 }
