@@ -34,7 +34,13 @@ export const INSTRUMENTED_OWNER_ADMISSION155=String.raw`
   const jhOwnerAdmissionCodes155=new Set([
     'COMMAND_CHANGED','OWNER_BINDING_CAPTURE_FAILED','OWNER_BINDING_CHANGED',
     'SIGNED_SNAPSHOT_MISSING','SIGNED_SNAPSHOT_INVALID','SPLIT_EVIDENCE_INVALID',
-    'LEDGER_NOT_FIRST_ATTEMPT','RECOVERY_FENCE_REFUSED','PREFLIGHT_UNAVAILABLE'
+    'LEDGER_NOT_FIRST_ATTEMPT','RECOVERY_FENCE_REFUSED','PREFLIGHT_UNAVAILABLE',
+    'authenticated_owner_and_id_required','old_work_discarded_no_auto_resume',
+    'secure_bridge_not_ready','idempotency_existing_operation_no_retry',
+    'uncertain_effect_read_only_reconcile','command_not_active',
+    'bridge_reconnected_old_work_not_replayed','user_command_required',
+    'fresh_target_screen_required','durable_reservation_not_available_no_write_retry',
+    'sensitive_action_requires_explicit_approval'
   ]);
   const jhOwnerAdmissionLastLog155=new Map();
   function jhOwnerAdmissionReject155(code){
@@ -84,7 +90,8 @@ export const INSTRUMENTED_OWNER_ADMISSION155=String.raw`
         serverRequestIdValid:typeof record?.executionId==='string'&&typeof record?.dedupeKey==='string',
         sourceIsAuthoritative:true
       });
-      return gate?.allowDispatch===true?true:jhOwnerAdmissionReject155('RECOVERY_FENCE_REFUSED');
+      return gate?.allowDispatch===true?true:jhOwnerAdmissionReject155(
+        jhOwnerAdmissionCodes155.has(gate?.code)?gate.code:'RECOVERY_FENCE_REFUSED');
     }catch{
       return jhOwnerAdmissionReject155('PREFLIGHT_UNAVAILABLE');
     }
