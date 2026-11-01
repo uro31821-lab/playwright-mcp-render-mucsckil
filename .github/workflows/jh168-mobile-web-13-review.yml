@@ -70,6 +70,8 @@ jobs:
           console.log('JH168_FOUR_ENTRYPOINTS_PHONE_RIGHT=PASS');
           console.log('JH168_GENERATED_RUNTIME_9_ALIASES_NO_REMOTE_PLAYWRIGHT=PASS');
           NODE
+      - name: Full 13-route inventory BEFORE any functional code fixes (source-only)
+        run: node jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-audit.mjs
       - name: Existing Secure56 and right-pane regression tests
         run: |
           node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs
