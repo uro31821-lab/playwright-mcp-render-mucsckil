@@ -63,3 +63,8 @@
 - **G13 (신규, 네이티브 경로 별개):** `BridgeService → AndroidComputerUseTransport → AndroidComputerUseRuntime` 호출과 `BridgeService → AndroidAgent.executeRightPane` 직접 호출은 존재. `GuidedForms → JH168RightVerticalScrollRuntime.scrollInternal / JH168RightHorizontalScrollRuntime.scrollInternal` 각 1개, `AndroidAgent → JH168InputFocusPolicy.select` 1개. 이 별도 경로들이 **9개 alias+4개 entrypoint에서 하나로 일관되게 개입 가능한지** 아직 미검증. 배포 전 실행/완료/창바인딩/승인/복귀를 함께 검증.
 - **G14 (신규, 기능 범위/메타데이터):** 전용 `JH168NativeAction12` enum은 `IME_ENTER`, `RIGHT_WINDOW_CAPTURE`, `UNSUPPORTED` 3종. 일반 CLICK·SCROLL·SET_TEXT는 별도 `AndroidComputerUseRuntime/AndroidAgent` 경로에 있음. 또한 내장 `assets/jh-release.json`의 `installed:false`, `phoneVerified:false`는 실제 별도 설치 검증 보고서와 불일치하는 **과거 후보 메타데이터**이므로 앱 실사용 상태로 취급 금지.
 - 이 감사는 사용자 휴대폰에 이미 설치 보고된 **서명 APK의 로컬 정적 판독**이며 실제 앱 UI 명령 실행 0회. 실제 alias 13개 실기기 종단검증은 여전히 **0/13**.
+
+## 최신 main 호환성 + 원본 네이티브 계약 검증 추가 (2026-11-01)
+- CI [41283451015](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41283451015) `9397ed1d9f4761ea1152616418353d63bfff659b`: 최신 main 10개 핵심 파일 **바이트 동일**; 기존 조합 파일 모바일 패치 import·마지막 wrap 2개 위치만 소스 차이. 원본 9개 `life_web_*` Playwright 현재 운영 소스와 generated Android 후보의 차이는 명확하며, 실기기 13개 미완료는 보존.
+- 원래 서명 APK `129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359`를 로컬에서 함수별 직접 호출·거부 코드 확인: 원본 ComputerUse/window/occlusion/scroll/enter, 새 NativeDispatch의 signed authority·no-replay, IME focus, API34 window screenshot, nested vertical/horizontal **28/28 정적 anchor PASS**. `JH168OriginalSecure56NativeDispatch12`의 **외부 직접 호출 0**은 여전하므로 실제 연결 PASS 아님.
+- 전체 근거: `JH168-MOBILE-LATEST-MAIN-NATIVE-PREFLIGHT.md`. **G01/G02/G06/G07/G12/G13의 원인 분석 강화**, 신규 기능 수정 0회, E2E 0/13 유지.
