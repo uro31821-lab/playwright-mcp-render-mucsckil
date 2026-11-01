@@ -24,7 +24,7 @@ const b=patched.indexOf('  registerOAuthTool("life_android_devices",{',a);
 assert.ok(a>=0&&b>a);
 const body=patched.slice(a,b);
 const names=['navigate','snapshot','click','type','select','press_key','wait','back','screenshot'];
-const ctx='ssc_'+'1'.repeat(32),item='item_'+'2'.repeat(16);
+const ctx='ssc_'+'1'.repeat(32),item='item_'+'2'.repeat(16),rid='4'.repeat(32),rid2='5'.repeat(32);
 const parse=x=>JSON.parse(x.content[0].text);
 function setup({inputAllowed=true,localOnly=false}={}){
  const calls=[],opens=[],captures=[],handlers=new Map();
@@ -63,35 +63,38 @@ test('snapshot sends only signed START or STATUS, rejects invalid original conte
  assert.equal(parse(await f.run('snapshot',{context_id:'bad'})).code,'MOBILE_CONTEXT_ID_INVALID');
 });
 test('click requires exact fresh item and dispatches one signed RIGHT CLICK',async()=>{
- const f=setup();assert.equal(parse(await f.run('click',{context_id:ctx,target_item_ref:item})).action,'CLICK');
+ const f=setup();assert.equal(parse(await f.run('click',{context_id:ctx,target_item_ref:item,request_id:rid})).action,'CLICK');
  assert.equal(f.calls[0].tool,'life_android_execute_computer_action');
  assert.equal(f.calls[0].effect,'REVERSIBLE_WRITE');
+ assert.equal(f.calls[0].payload.requestId,rid);
  assert.equal(parse(await f.run('click',{context_id:ctx,target:'css .button'})).code,'MOBILE_FRESH_ITEM_REF_REQUIRED');
  assert.equal(f.calls.length,1);
 });
 test('type requires original input grant, no implicit submit/CSS, no fallback',async()=>{
- const f=setup();assert.equal(parse(await f.run('type',{context_id:ctx,target_item_ref:item,text:'safe probe'})).action,'SET_TEXT');
+ const f=setup();assert.equal(parse(await f.run('type',{context_id:ctx,target_item_ref:item,request_id:rid,text:'safe probe'})).action,'SET_TEXT');
  assert.deepEqual(f.calls.map(x=>x.type),['split_screen_session_input_preflight','split_screen_session_followup']);
  assert.equal(f.calls[1].payload.inputGrantToken,'synthetic-only');
  assert.equal(f.calls[1].payload.value,'safe probe');
+ assert.equal(f.calls[1].payload.requestId,rid);
  assert.equal(parse(await f.run('type',{context_id:ctx,target_item_ref:item,text:'x',submit:true})).code,'MOBILE_SUBMIT_SEPARATE_ACTION_REQUIRED');
  assert.equal(parse(await f.run('type',{context_id:ctx,target_item_ref:item,text:'x',element:'input#a'})).code,'MOBILE_CSS_SELECTOR_UNSUPPORTED');
  assert.equal(f.calls.length,2);
- const denied=setup({inputAllowed:false});await denied.run('type',{context_id:ctx,target_item_ref:item,text:'x'});
+ const denied=setup({inputAllowed:false});await denied.run('type',{context_id:ctx,target_item_ref:item,request_id:rid,text:'x'});
  assert.equal(denied.calls.length,1);
- const local=setup({localOnly:true});assert.equal(parse(await local.run('type',{context_id:ctx,target_item_ref:item,text:'x'})).code,'MOBILE_LOCAL_INPUT_REQUIRED');
+ const local=setup({localOnly:true});assert.equal(parse(await local.run('type',{context_id:ctx,target_item_ref:item,request_id:rid,text:'x'})).code,'MOBILE_LOCAL_INPUT_REQUIRED');
 });
 test('select OPEN then PICK requires fresh item, rejects HTML internal values',async()=>{
- const f=setup();await f.run('select',{context_id:ctx,phase:'OPEN',target_item_ref:item});
- await f.run('select',{context_id:ctx,phase:'PICK',target_item_ref:'item_'+'3'.repeat(16)});
+ const f=setup();await f.run('select',{context_id:ctx,phase:'OPEN',target_item_ref:item,request_id:rid});
+ await f.run('select',{context_id:ctx,phase:'PICK',target_item_ref:'item_'+'3'.repeat(16),request_id:rid2});
  assert.deepEqual(f.calls.map(x=>x.payload.action),['CLICK','CLICK']);
+ assert.deepEqual(f.calls.map(x=>x.payload.requestId),[rid,rid2]);
  assert.equal(parse(await f.run('select',{context_id:ctx,phase:'PICK',values:['opaque-html-option']})).code,'MOBILE_SELECT_VISIBLE_ITEM_REQUIRED');
 });
 test('press_key only BACK supported, Enter/Tab/Escape are explicitly unverified',async()=>{
  const f=setup();
  for(const key of ['Enter','Tab','Escape'])assert.equal(parse(await f.run('press_key',{key,context_id:ctx})).code,'MOBILE_KEY_NOT_VERIFIED');
  assert.equal(f.calls.length,0);
- assert.equal(parse(await f.run('press_key',{key:'BACK',context_id:ctx})).action,'BACK');
+ assert.equal(parse(await f.run('press_key',{key:'BACK',context_id:ctx,request_id:rid})).action,'BACK');
  assert.equal(f.calls.length,1);
 });
 test('wait always reports unverified condition, no spurious Android action',async()=>{
@@ -103,7 +106,7 @@ test('wait always reports unverified condition, no spurious Android action',asyn
  assert.equal(parse(await f.run('wait',{context_id:ctx,time:31})).code,'MOBILE_WAIT_BUDGET_INVALID');
 });
 test('back sends one RIGHT BACK, does not claim browser history navigation',async()=>{
- const f=setup();const r=parse(await f.run('back',{context_id:ctx}));
+ const f=setup();const r=parse(await f.run('back',{context_id:ctx,request_id:rid}));
  assert.equal(r.action,'BACK');assert.equal(r.browserHistoryNavigationVerified,false);
  assert.equal(f.calls.length,1);
 });
@@ -119,4 +122,28 @@ test('all nine are generated Android RIGHT-only; no cloud Playwright fallback re
  assert.equal((body.match(/registerOAuthTool\("life_web_/g)||[]).length,9);
  assert.ok(!body.includes('browserTool('));
  assert.ok(!body.includes('browser_navigate('));
+});
+
+test('five effectful aliases reject missing, malformed and uppercase request_id with ZERO dispatch',async()=>{
+ for(const [name,args] of [
+  ['click',{context_id:ctx,target_item_ref:item}],
+  ['type',{context_id:ctx,target_item_ref:item,text:'neutral'}],
+  ['select',{context_id:ctx,phase:'OPEN',target_item_ref:item}],
+  ['press_key',{context_id:ctx,key:'BACK'}],
+  ['back',{context_id:ctx}]
+ ]){
+  const f=setup();
+  for(const reqId of [undefined,'ABCDEFABCDEFABCDEFABCDEFABCDEFAB','f'.repeat(31),'z'.repeat(32)]){
+   const r=parse(await f.run(name,{...args,request_id:reqId}));
+   assert.equal(r.code,'MOBILE_REQUEST_ID_REQUIRED',name);
+   assert.equal(f.calls.length,0,'no preflight or phone effect '+name);
+  }
+ }
+});
+test('original one-shot Secure56 id is carried unchanged by the actual signed FOLLOW_UP',async()=>{
+ const f=setup();
+ assert.equal(parse(await f.run('click',{context_id:ctx,target_item_ref:item,request_id:rid})).action,'CLICK');
+ assert.equal(f.calls[0].payload.requestId,rid);
+ assert.equal(f.calls[0].tool,'life_android_execute_computer_action');
+ assert.equal(f.calls.length,1);
 });

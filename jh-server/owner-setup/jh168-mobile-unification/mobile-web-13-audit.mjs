@@ -82,6 +82,8 @@ if((routeArea.match(/registerOAuthTool\("life_web_/g)||[]).length!==9)
 if(routeArea.includes('browserTool('))additional.push('LEGACY_BROWSER_FALLBACK_REMAINS');
 if(!source.includes('jhSplitScreenJob56("split_screen_session_input_preflight'))
  additional.push('ORIGINAL_INPUT_PREFLIGHT_MISSING');
+if(!source.includes('MOBILE_REQUEST_ID_REQUIRED')||!source.includes('requestId,command,targetItemRef:bound.itemRef,action'))
+ additional.push('ORIGINAL_REQUEST_ID_NOT_BOUND');
 if(!source.includes('jhRightWebOpen56=async'))
  additional.push('SIGNED_RIGHT_OPEN_MISSING');
 for(const r of rows){

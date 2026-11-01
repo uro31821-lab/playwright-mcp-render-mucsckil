@@ -40,6 +40,8 @@ test('nine historical web routes use Android RIGHT and keep all other source byt
    assert.match(section,new RegExp('registerOAuthTool\\("life_web_'+name+'"'));
  assert.match(section,/MOBILE_CONTEXT_ID_REQUIRED/);
  assert.match(section,/MOBILE_FRESH_ITEM_REF_REQUIRED/);
+ assert.match(section,/MOBILE_REQUEST_ID_REQUIRED/);
+ assert.match(section,/requestId,command,targetItemRef:bound.itemRef,action/);
  assert.match(section,/MOBILE_KEY_NOT_VERIFIED/);
  assert.match(section,/MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT/);
  assert.match(section,/return jhMobileWebCapture56\(args\)/);

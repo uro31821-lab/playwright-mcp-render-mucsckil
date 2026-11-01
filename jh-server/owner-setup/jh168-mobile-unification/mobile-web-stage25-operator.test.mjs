@@ -66,6 +66,8 @@ test('generated exact Stage25 operator contains 9 phone RIGHT aliases, not cloud
  // secure operator, not only the sliced registration block.
  assert.ok(stage25Runtime.includes('split_screen_session_input_preflight'));
  assert.ok(stage25Runtime.includes('MOBILE_INPUT_PREFLIGHT_NOT_GRANTED'));
+ assert.ok(stage25Runtime.includes('MOBILE_REQUEST_ID_REQUIRED'));
+ assert.ok(stage25Runtime.includes('requestId,command,targetItemRef:bound.itemRef,action'));
  assert.ok(aliases.includes('MOBILE_WAIT_CONDITION_UNVERIFIED'));
  assert.ok(aliases.includes('MOBILE_KEY_NOT_VERIFIED'));
 });
