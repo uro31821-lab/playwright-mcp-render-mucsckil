@@ -61,8 +61,11 @@ test('generated exact Stage25 operator contains 9 phone RIGHT aliases, not cloud
  assert.equal(rows.length,9);
  assert.equal(rows.filter(r=>r.registered&&r.signedRight&&!r.cloudBrowserFallback).length,9,
   'STAGE25_OLD_PLAYWRIGHT_ALIAS_PATH_BLOCKS_DEPLOY');
- assert.ok(aliases.includes('MOBILE_INPUT_PREFLIGHT_NOT_GRANTED')||
-           aliases.includes('split_screen_session_input_preflight'));
+ // Input-preflight helper sits BEFORE the first OAuth alias registrar.
+ // The route invokes jhMobileWebFollow56, so check the entire generated
+ // secure operator, not only the sliced registration block.
+ assert.ok(stage25Runtime.includes('split_screen_session_input_preflight'));
+ assert.ok(stage25Runtime.includes('MOBILE_INPUT_PREFLIGHT_NOT_GRANTED'));
  assert.ok(aliases.includes('MOBILE_WAIT_CONDITION_UNVERIFIED'));
  assert.ok(aliases.includes('MOBILE_KEY_NOT_VERIFIED'));
 });
