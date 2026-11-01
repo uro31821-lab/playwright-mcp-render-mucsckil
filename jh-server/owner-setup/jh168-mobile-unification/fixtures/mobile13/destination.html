@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Mobile 13 · 다음 페이지</title>
+  <link rel="stylesheet" href="fixture.css">
+  <script src="fixture.js" defer></script>
+</head>
+<body data-page="destination" data-fixture-version="1">
+  <header class="page-header">
+    <p class="eyebrow">MOBILE 13 · FIXTURE v1</p>
+    <h1 id="destination-heading" data-testid="destination-heading">다음 페이지 · DESTINATION</h1>
+    <p>첫 화면과 다른 실제 HTML 문서입니다.</p>
+    <p id="phone-e2e-state" data-testid="phone-e2e-state" class="notice">
+      PHONE_E2E: NOT_RUN<br>
+      이 페이지의 표시만으로 휴대폰의 이동·뒤로 동작이 검증되지는 않습니다.
+    </p>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="destination-state-heading">
+      <h2 id="destination-state-heading">이동 후 관찰</h2>
+      <p id="destination-kind" data-testid="destination-kind" class="result">직접 방문 · 경로 미지정</p>
+      <p class="hint">경로 문구는 링크의 의도만 표시합니다. 실제 주소·탭·창과 원 동작의 결과는 별도로 확인합니다.</p>
+      <div id="screenshot-marker" data-testid="screenshot-marker" class="screenshot-marker" aria-label="다음 페이지 색상 표식">
+        <span class="marker-d">A · DESTINATION</span>
+        <span class="marker-c">B · 다음 페이지</span>
+        <span class="marker-b">C · v1</span>
+        <span class="marker-a">D · 화면 표식</span>
+      </div>
+      <a id="back-link" data-testid="back-link" class="action-link" href="index.html">링크로 첫 화면 열기</a>
+      <p class="hint">위 링크는 새 페이지 이동입니다. Android BACK이나 브라우저의 뒤로 가기 검증을 대신하지 않습니다.</p>
+    </section>
+
+    <section class="card" aria-labelledby="observation-heading">
+      <h2 id="observation-heading">현재 페이지 상태</h2>
+      <dl class="state-list">
+        <dt>포커스</dt>
+        <dd id="focus-state" data-testid="focus-state">페이지 본문</dd>
+        <dt>페이지가 감지한 키</dt>
+        <dd id="keyboard-state" data-testid="keyboard-state">아직 없음</dd>
+        <dt>화면 영역</dt>
+        <dd id="viewport-state" data-testid="viewport-state">측정 전</dd>
+        <dt>페이지 스크롤</dt>
+        <dd id="page-scroll-state" data-testid="page-scroll-state">측정 전</dd>
+      </dl>
+      <p class="hint">페이지의 이벤트와 화면 크기는 키보드 또는 Android BACK의 성공 판정이 아닙니다.</p>
+    </section>
+
+    <section class="card" aria-labelledby="events-heading">
+      <h2 id="events-heading">최근 페이지 이벤트</h2>
+      <p class="hint">최신 24개만 표시합니다. 입력값과 작업 식별값을 기록하지 않습니다.</p>
+      <button id="clear-events" data-testid="clear-events" class="secondary" type="button">이벤트 목록 비우기</button>
+      <ol id="event-log" data-testid="event-log" class="event-log" aria-label="최근 페이지 이벤트" aria-live="off"></ol>
+    </section>
+  </main>
+
+  <footer>같은 출처의 정적 검증 페이지 · 자동 이동 없음</footer>
+  <noscript><p class="noscript">페이지 상태 관찰에는 JavaScript가 필요합니다.</p></noscript>
+</body>
+</html>
