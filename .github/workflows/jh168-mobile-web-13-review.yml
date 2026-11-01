@@ -26,8 +26,11 @@ jobs:
           node --check jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.mjs
           node --check jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-fixture-http.mjs
       - name: Nine alias routing and fail-closed tests
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs
+      - name: Verify fixed neutral fixture assets, read-only HTTP and reversible source patch
+        run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-fixture-http.test.mjs
       - name: Run ALL NINE generated signed Android RIGHT alias behavior contracts with inert native doubles
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-runtime-contract.test.mjs
       - name: Verify PR72 exact byte compatibility with LATEST reviewed main (no merge)
@@ -92,6 +95,8 @@ jobs:
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-stage25-operator.test.mjs
       - name: Audit ALL remaining server Playwright tool registrations after 13 mobile aliases
         run: node jh-server/owner-setup/jh168-mobile-unification/mobile-web-residual-playwright-audit.mjs
+      - name: Serve fixture through actual generated Stage25 HTTP in both modes (synthetic loopback only)
+        run: node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-fixture-stage25.test.mjs
       - name: Existing Secure56 and right-pane regression tests
         run: |
           node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs

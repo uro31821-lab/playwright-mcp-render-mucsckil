@@ -28,9 +28,10 @@
 - 후보 `1f55bf118870ebc7d9f4bfa3f57dd7a1a84bd88a`의 Stage25 진입점·owner 설정·Secure56 서버/신뢰 등록부는 운영 기준 `2c310f8`과 해당 파일 차이가 없다. Render 읽기 응답에서도 PR preview OFF, autoDeploy OFF, 기존 운영 branch를 확인했다.
 - APK는 poll뿐 아니라 원 job 완료 주소도 기존 운영 host로 고정하고 redirect를 따르지 않는다. `SecureBridge56`의 서버 신원 digest와 서버 `owner-config.mjs`의 `EXPECTED_ORIGIN` 역시 해당 운영 origin에 연결된다. `PUBLIC_BASE_URL`만 바꾸거나 새 서비스를 만드는 것으로 기존 설치 APK가 후보 큐를 소비한다고 볼 수 없다.
 - Stage25의 CI 생성 경로는 원본 생성·검사용이며 실제 운영 시작은 별도 지정 service/operator 조건을 확인한다. 테스트 조건을 실제 기기 실행 권한으로 사용하지 않는다. 현행 설정 그대로 운영 배포와 APK 전환을 모두 하지 않는 실기기 후보 연결 경로는 확인되지 않았다.
-- [중립 테스트 화면](fixtures/mobile13/README.md)과 [13개 시나리오·기대 증거](fixtures/mobile13/cases.json)를 독립 자산으로 준비했다. 실제 UI 결과를 관찰하기 위한 페이지이며, 운영 runtime에 import하지 않는다. HTTPS 게시·후보 환경 연결·휴대폰 동작은 별도 단계다.
+- [중립 테스트 화면](fixtures/mobile13/README.md)과 [13개 시나리오·기대 증거](fixtures/mobile13/cases.json)를 준비했다. 후속 후보에서는 기존 유효한 `PHONE_RIGHT` 모드에 한해 고정 페이지 4개를 생성 런타임에 포함하는 HTTP 경로를 추가했다. 기본 `ORIGINAL` 모드는 자산을 읽거나 경로를 등록하지 않는다. 현재 운영에는 미적용이며 HTTPS 게시·후보 환경 연결·휴대폰 동작은 별도 단계다.
 - 준비 파일은 G19의 최종 단일 엔진 목표를 바꾸지 않는다. 현재 방식의 운영 origin에서 검증 후보를 적용할지, 별도 환경 지원을 먼저 구현할지에 대한 실제 환경 변경이 남는다. 임의 전달 프록시·인증값 복사·승인 생략으로 우회하지 않는다.
 - 후속 후보 `9baec5776b23e286f34014b090b7ad0c799a85ec`에는 원본 gate를 통과할 때만 선택할 수 있는 임시 `JH_MOBILE_WEB_13_MODE=EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1` 분기가 추가됐다. 미설정 시 원래 도구 등록을 보존한다. 이 선택기와 다른 진행의 CI 변경은 그대로 보존했으며 이번 fixture 준비에서 활성화하거나 운영 반영하지 않았다. 실제 카탈로그와 선택 모드의 일치를 확인해야 한다.
+- `cce1c049`를 기준으로 한 [운영 활성화 검토](JH168-MOBILE-VERIFICATION-ACTIVATION.md)에 고정 자산 경로·정확한 후보 적용·두 모드 확인·원복을 묶었다. 현재 Render `trigger_deploy`는 commit이나 branch 지정 인자가 없어, 운영 branch가 그대로인 상태에서 PR72를 배포한다고 가정할 수 없다. 정확한 후보 적용 수단과 유효한 운영 변경 승인이 남는다. 이 준비로 `LIVE_MOBILE_ROUTE_NOT_DEPLOYED` 또는 `BLOCKED_TEST_FIXTURE_NOT_HOSTED`를 해제하지 않는다.
 
 ### 실제 Stage25 합성 검사 추가 확인
 - 생성된 Stage25 OAuth/Secure56 운영자 소스 안의 13개 경로를 조사. 9개 alias는 Android RIGHT 경로, 4개 entrypoint도 존재.
