@@ -40,6 +40,17 @@ function harness(){
  const context={
   z,URL,
   textResult:v=>({content:[{type:'text',text:JSON.stringify(v)}]}),
+  jhOpenWait56:22000,
+  jhAwaitOpenCompletion56:async(job)=>({job,summary:{
+    code:'RIGHT_ADDRESS_CONFIRMED',rightAddressConfirmed:true,
+    executionStatus:'EFFECT_CONFIRMED',actionSucceeded:true
+  }}),
+  jobResult:job=>({content:[{type:'text',text:JSON.stringify({
+    ok:true,id:job?.id,jobId:job?.id
+  })}]}),
+  jhRequireCommand56:()=>('1'.repeat(32)),
+  active56:()=>({sessionId:'synthetic-current-session'}),
+  waitJob:async job=>job,
   registerOAuthTool:(n,c,h)=>tools.set(n,h),
   browserTool:async(...args)=>{remote.push(args);throw Error('UNEXPECTED_REMOTE_PLAYWRIGHT')},
   jhNativeReturnTarget56:s=>s==='last_work_screen'?'last_work_screen':null,
@@ -72,7 +83,7 @@ test('life_open_service calls the original signed Android RIGHT URL opener once'
  assert.equal(h.jobs[0].type,'open_url');
  assert.equal(h.jobs[0].payload.target,'right_web_link');
  assert.equal(h.jobs[0].payload.url,'https://www.youtube.com');
- assert.equal(r.queued,true);
+ assert.equal(r.rightAddressConfirmed,true);
 });
 test('life_naver_mail shares exactly the same RIGHT opener rather than a new remote browser',async()=>{
  const h=harness();
@@ -81,7 +92,7 @@ test('life_naver_mail shares exactly the same RIGHT opener rather than a new rem
  assert.equal(h.jobs.length,1);
  assert.equal(h.jobs[0].payload.target,'right_web_link');
  assert.equal(h.jobs[0].payload.url,'https://mail.naver.com/');
- assert.equal(r.queued,true);
+ assert.equal(r.rightAddressConfirmed,true);
 });
 test('life_android_open maps website to RIGHT, return-to-work remains separate native path',async()=>{
  const h=harness();
@@ -89,7 +100,7 @@ test('life_android_open maps website to RIGHT, return-to-work remains separate n
  assert.equal(h.remote.length,0);
  assert.equal(h.jobs.length,1);
  assert.equal(h.jobs[0].payload.target,'right_web_link');
- assert.equal(page.queued,true);
+ assert.equal(page.rightAddressConfirmed,true);
  const back=h.parse(await h.call('life_android_open',{target:'last_work_screen'}));
  assert.equal(back.route,'android_return');
  assert.equal(h.jobs.length,2);
