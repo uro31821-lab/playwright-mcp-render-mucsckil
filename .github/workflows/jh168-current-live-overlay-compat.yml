@@ -106,6 +106,8 @@ jobs:
           CI: 'true'
           NODE_ENV: test
           JH_OWNER_DEFER_LISTEN: '1'
+          JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+          JH_STAGE26_SIGNED_COMPLETION_ACK: EXPLICIT_IDENTICAL_SIGNED_RESULT_V1
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/jh168-live-synthetic"

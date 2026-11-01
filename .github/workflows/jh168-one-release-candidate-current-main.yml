@@ -52,11 +52,26 @@ jobs:
             ':(exclude)jh-server/owner-setup/operational-learning/ANDROID-PRODUCER-COMPATIBILITY.md'
           echo JH_ORIGINAL_AUTH_OWNER_ANDROID_STARTUP_UNCHANGED=YES
           echo JH_PR72_REVIEWED_HOST_AND_DOC_ONLY=YES
-      - name: Exact imported source blobs and immutable release blocks
+      - name: Preserve original owner-only Stage33 receipt contract on its EXACT known source, then verify reviewed composite
+        shell: bash
         run: |
+          set -euo pipefail
+          OWNER_ONLY_SHA=c8102ea992af3093b7611fe5495896740299e772
+          git cat-file -e "$OWNER_ONLY_SHA^{commit}"
+          git merge-base --is-ancestor 2c310f8b4a76d40604416e7dd4cb4976fdd1fc85 "$OWNER_ONLY_SHA"
+          OWNER_ONLY="$RUNNER_TEMP/jh168-owner-only-original"
+          git worktree add --detach "$OWNER_ONLY" "$OWNER_ONLY_SHA"
+          (
+            cd "$OWNER_ONLY"
+            node --test --test-reporter=spec \
+              jh-server/owner-setup/jh168-mobile-unification/stage33-current-main-integration.test.mjs \
+              jh-server/owner-setup/jh168-mobile-unification/stage32-release-gates.test.mjs
+          )
+          # In the integrated branch, ALL reviewed Mobile13 source differences
+          # must have identical PR72 Git blobs. This is not a substitute for
+          # the owner-only test above, and not a deployment authorization.
           node --test --test-reporter=spec \
-            jh-server/owner-setup/jh168-mobile-unification/stage33-current-main-integration.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage32-release-gates.test.mjs
+            jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs
       - name: Install pinned original server and owner-only dependencies
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
