@@ -26,7 +26,7 @@ const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 export function createStage36InlineOriginalHandoff({clock=Date.now}={}){
  if(typeof clock!=='function')throw Error('STAGE36_CLOCK_REQUIRED');
  const privateHandoff=new WeakMap();
- let issues=0;
+ const alreadyIssued=new WeakSet();
  function stage({receipt,deviceResult,scope,issue}={}){
   if(!object(receipt)||!object(deviceResult)||!object(scope)||
      typeof issue!=='function')return false;
@@ -46,7 +46,7 @@ export function createStage36InlineOriginalHandoff({clock=Date.now}={}){
      scope.originalAction!=='CLICK'||
      deviceResult.ok!==true||deviceResult.resultVerified!==true)
    return false;
-  if(privateHandoff.has(receipt))return false; // one issue per original result
+  if(alreadyIssued.has(receipt))return false; // one issue for this result lifetime
   const now=safeNow(clock);
   if(now===null)return false;
   let result;
@@ -72,7 +72,7 @@ export function createStage36InlineOriginalHandoff({clock=Date.now}={}){
    original_job_reexecuted:false,
    automatic_replay:false
   }));
-  issues++;
+  alreadyIssued.add(receipt);
   return true;
  }
  function finish({receipt,verified}={}){

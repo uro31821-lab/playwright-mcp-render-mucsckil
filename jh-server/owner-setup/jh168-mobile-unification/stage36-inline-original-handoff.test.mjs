@@ -54,8 +54,8 @@ test('same original result cannot mint a duplicate handle even before screen fin
  assert.equal(b.stage({...s,issue}),false);
  assert.equal(n,1);
  assert.equal(b.finish({receipt:s.receipt,verified:s.verified}).sealed_handle,token);
- assert.equal(b.stage({...s,issue}),true); // a second explicit call after consumption is allowed by pure bridge
- assert.equal(n,2); // host's original signed command guard remains authoritative
+ assert.equal(b.stage({...s,issue}),false); // never issue again for consumed original result
+ assert.equal(n,1);
 });
 test('protected readback failure cannot expose a staged handle',()=>{
  for(const diff of [
