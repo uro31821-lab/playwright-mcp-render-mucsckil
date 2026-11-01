@@ -26,7 +26,12 @@ jobs:
             jh-server/owner-setup/deployment \
             jh-server/owner-setup/android-direct \
             ':(exclude)jh-server/owner-setup/deployment/published-host-router.mjs' \
-            ':(exclude)jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs'
+            ':(exclude)jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs'
+
+      - name: Verify only original mobile composition and one reviewed legacy click-test contract changed
+        run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
       - name: Verify syntax and isolated original-click receipt tests
         run: |
           for f in jh-server/owner-setup/jh168-mobile-unification/split-followup-*.mjs jh-server/owner-setup/jh168-mobile-unification/stage25-*.mjs; do node --check "$f"; done

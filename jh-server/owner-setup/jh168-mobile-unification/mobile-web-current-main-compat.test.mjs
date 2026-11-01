@@ -73,3 +73,14 @@ test('release boundaries remain NOT_RUN until full 13 phone validation',()=>{
  const audit=current(root+'jh168-mobile-unification/JH168-MOBILE-13-DEFECT-LEDGER.md');
  for(const rule of ['0/13','NOT_RUN','G12','G13','G14'])assert.ok(audit.includes(rule));
 });
+
+test('legacy Connection V2 click safety test changes ONLY the exact mobile migration contract',()=>{
+ const filename='jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs';
+ const upstream=show(filename);
+ const candidate=current(filename);
+ const oldSnippet=" assert.ok(click.includes('RIGHT_PHONE_ITEM_REQUIRES_ANDROID_COMPUTER_USE'));\n assert.ok(click.includes('browserTool(\"browser_click\",args)'));\n";
+ const newSnippet=" // Migration must retain current phone item + original request identity\n // and MUST NOT execute the historical cloud Playwright click.\n assert.ok(click.includes('jhMobileWebFollow56(args,\"CLICK\"'));\n assert.ok(!click.includes('browserTool(\"browser_click\",args)'));\n assert.ok(generated.includes('MOBILE_REQUEST_ID_REQUIRED'));\n assert.ok(generated.includes('requestId,command,targetItemRef:bound.itemRef,action'));\n assert.ok(generated.includes('jhSplitScreenOnce155(device,commandId,type,payload,dispatch)'));\n";
+ assert.equal(candidate.split(newSnippet).length,2,'one reviewed new phone click contract');
+ assert.equal(candidate.replace(newSnippet,oldSnippet),upstream,
+   'LEGACY_CONNECTION_CLICK_CONTRACT_UNEXPECTED_CHANGE');
+});
