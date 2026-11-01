@@ -35,6 +35,27 @@ test('CLI ingestion, recall, validation and suggestions survive independent invo
   const status = await execute(['status', ...flags]);
   assert.equal(status.persisted, true); assert.equal(status.counts.events, 2);
   assert.equal(status.counts.lessons, 1);
+  const proposalId = second.newProposals[0].id;
+  const packet = await execute(['review', ...flags], { proposalId });
+  const decision = { proposalId, decisionId: 'synthetic-cli-accept', decision: 'accept',
+    expectedRevision: packet.baseRevision, packetFingerprint: packet.packetFingerprint,
+    reviewer: 'agent', sourceRef: 'source:synthetic-cli-review',
+    reason: 'Select the recorded formatting improvement for follow-up.',
+    eventIds: packet.attempts.map(item => item.eventId) };
+  const selected = await execute(['decide', ...flags], decision);
+  assert.equal(selected.proposal.status, 'accepted');
+  assert.equal(selected.activatedByThisCall, false);
+  assert.equal(selected.liveExecutionVerified, false);
+  const repeated = await execute(['decide', ...flags], decision);
+  assert.equal(repeated.duplicate, true);
+  assert.equal(repeated.revision, selected.revision);
+  assert.deepEqual(repeated.receipt, selected.receipt);
+  const view = await execute(['decision-view', ...flags], { proposalId });
+  assert.equal(view.currentStatus, 'accepted');
+  assert.equal(view.decisionHistory.length, 1);
+  assert.equal(view.readOnly, true);
+  await assert.rejects(execute(['decide', ...flags, '--revision', String(selected.revision)], decision));
+  assert.deepEqual((await execute(['status', ...flags])).counts, status.counts);
 });
 
 test('constraints cover numeric and text output with explicit missing-field failures', () => {

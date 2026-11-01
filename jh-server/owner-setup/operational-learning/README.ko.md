@@ -89,6 +89,20 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 제안 상태는 `open → accepted → implemented → verified`이며, 중간에 `dismissed`로 종료할 수 있습니다. `verified`에는 실제 통과 검사와 근거가 필요합니다. 관측 비용은 독립 작업당 기준값으로 표시하며, 비교 근거가 없는 절감시간·절감률은 만들지 않습니다.
 
+### 제안 채택·기각과 결정 이력
+
+`capabilities.proposalDecisions: true`인 서버는 `life_learning_review`의 명시적인 `DECIDE` 모드로 제안의 채택·기각을 기록합니다. 현재 앱 카탈로그의 mode enum에도 `DECIDE`가 있어야 호출할 수 있습니다. 서버 배포·플러그인 지침 저장만으로 기존 대화의 도구 목록이 갱신됐다고 판단하지 않습니다. 목록이 이전 버전이면 기존 Developer mode MCP 연결의 **Refresh** 후 실제 mode 목록을 다시 확인합니다. 인증이 정상인 Primary 연결을 다른 경로로 바꾸거나 기존 읽기 모드에 쓰기를 숨기지 않습니다.
+
+1. 정상 `PREPARE {proposalId,maxAttempts?}`의 최신 packet을 읽습니다. 그 packet의 `baseRevision`, `packetFingerprint`, 실제 `attempts[].eventId`를 사용합니다.
+2. `DECIDE` payload는 `{proposalId,decisionId,decision,expectedRevision,packetFingerprint,reviewer,sourceRef,reason,eventIds,maxAttempts?}`입니다. `decision`은 `accept` 또는 `dismiss`, `eventIds`는 해당 packet에서 고른 고유 사건 1–16개입니다. `reason`은 민감정보를 제거한 1–512자 판단 이유이고 `maxAttempts`는 준비 때 값(기본 12)과 같아야 합니다.
+3. 실제 사용자 판단은 `reviewer:"user"`와 `user:` 참조, 승인된 범위에서 에이전트가 검토한 판단은 `reviewer:"agent"`와 `source:` 참조로 구분합니다. 이것은 인증된 owner 호출자의 출처 확인이며 서버가 대화 원문을 독립 검증했다는 뜻이 아닙니다. 기능 개발 요청만으로 기존 운영 제안을 임의로 채택·기각하지 않습니다.
+4. 지원하는 새 결정은 `open → accepted/dismissed`, `accepted → dismissed`입니다. 채택은 후속 개선 대상으로 선택했다는 뜻입니다. 사건·독립 작업·교훈 수, 후보 활성 상태, 실제 기기 결과를 바꾸지 않고 `implemented/verified`로 승격하지 않습니다. 완료 미확정 근거도 검토 대상으로 선택할 수 있지만 성공 근거로 바뀌지는 않습니다.
+5. 결정 ID·판단 근거·출처·이전/새 상태·서버 시각·검토 revision/fingerprint를 영수증으로 저장합니다. 파일 잠금 안에서 최신 revision을 대조하고 한 번만 반영합니다. 동일 `decisionId`와 정규화된 동일 payload 재전송은 기존 영수증과 **현재** 상태를 반환하며 revision·이력·학습 횟수를 늘리지 않습니다. 다른 내용으로 ID를 재사용하거나 새 ID로 이미 같은 상태를 다시 기록하면 `LEARNING_DECISION_CONFLICT`입니다. 오래된 새 결정은 `LEARNING_REVISION_CONFLICT`이며 최신 packet을 다시 검토해야 합니다.
+
+처리 뒤에는 읽기 전용 `PREPARE {proposalId,view:"decision"}`로 종료된 제안까지 현재 상태·결정 이력을 조회합니다. 이 view는 검토 packet이나 `CANDIDATE` 입력을 대신하지 않습니다. 전체 상태 목록에는 제한된 `latestDecision` 요약만 붙습니다. 다음 `propose()` 갱신과 다른 controller·서버 재시작 뒤에도 이력을 보존하고, 채택·기각된 제안을 새 자동 제안으로 되살리지 않습니다. 기기 재실행·모델 학습·후속 배포 승인은 결정 기록에 포함되지 않습니다.
+
+독립 CLI의 같은 경로는 `review → decide → decision-view`입니다. `decide`에는 JSON 안의 `expectedRevision`을 사용하고 별도의 `--revision`을 섞지 않습니다. 기존 `proposal-status` API는 유지하며, 새 채택·기각에는 근거와 이력을 남기는 `decide`를 사용합니다. 코드는 [decisions.mjs](decisions.mjs), 동시 수정과 재시작 검사는 [decision-runtime.test.mjs](decision-runtime.test.mjs)에 있습니다.
+
 ## 교훈은 검사 후에만 활용
 
 ### 사용자가 직접 정한 규칙의 첫 등록
