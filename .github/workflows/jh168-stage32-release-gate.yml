@@ -1,0 +1,49 @@
+name: JH168 Stage32 read-only Render release gate and source lineage
+on:
+  pull_request:
+    branches:
+      - feat/jh168-stage31-offline-owner-migration-20261101
+      - jh-fix3-secure-server
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage32-*'
+      - '.github/workflows/jh168-stage32-release-gate.yml'
+permissions:
+  contents: read
+jobs:
+  immutable-readonly-release-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Original Android, OAuth, owner SQLite and prior Stage29-31 unchanged
+        run: |
+          git diff --exit-code origin/feat/jh168-stage31-offline-owner-migration-20261101 -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-receipt-writer.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.mjs
+      - name: Pinned Git ancestors and read-only release blocker tests
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage32-release-gates.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage32-release-gates.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage32-release-gates.test.mjs
+      - name: Confirm review blocks live deployment, migration and device replay
+        run: |
+          node --input-type=module -e "import {readFileSync} from 'node:fs'; import {assessStage32} from './jh-server/owner-setup/jh168-mobile-unification/stage32-release-gates.mjs'; const e=JSON.parse(readFileSync('./jh-server/owner-setup/jh168-mobile-unification/stage32-inspection-evidence.json')); const s=assessStage32(e); if(s.deploymentPermitted||s.liveMigrationPermitted||s.blockingConditions.length===0) process.exit(1); console.log('STAGE32_BLOCK_RELEASE count='+s.blockingConditions.length)"
+          echo LIVE_RENDER_ACTIONS=0
+          echo LIVE_OWNER_MIGRATION=0
+          echo ANDROID_ACTIONS=0
+          echo APK_BUILD_INSTALL=0
+          echo GITHUB_MAIN_MERGE=0
+          echo SERVER_CONFIG_CHANGES=0
