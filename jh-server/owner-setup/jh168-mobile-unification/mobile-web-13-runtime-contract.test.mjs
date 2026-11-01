@@ -1,0 +1,192 @@
+/** JH168 9/9 verification-first: execute GENERATED Android RIGHT alias bodies
+ * against inert signed-native doubles. No phone, Playwright, source changes,
+ * extra approvals or assertion of real device E2E success. */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {patchJH168MobileWebCommands56} from './mobile-web-tool-patch.mjs';
+
+const source=readFileSync(new URL('../../server.mjs',import.meta.url),'utf8');
+const start='  registerOAuthTool("life_web_navigate",{';
+const inject=[
+ '  let jhRightWebOpen56=null;',
+ '  function jhSplitScreenJob56(){}',
+ '  function jhSplitScreenContextId56(){}',
+ '  function jhSplitScreenPayloadHasLocalOnly56(){}',
+ '  function jhRequireCommand56(device){}',
+ "  registerOAuthTool('life_android_split_screen_assistant',{});"
+].join('\n')+'\n';
+assert.ok(source.includes(start));
+const patched=patchJH168MobileWebCommands56(source.replace(start,inject+start));
+const a=patched.indexOf('  // JH168: all nine historical web commands');
+const b=patched.indexOf('  registerOAuthTool("life_android_devices",{',a);
+assert.ok(a>=0&&b>a);
+const body=patched.slice(a,b);
+const names=['navigate','snapshot','click','type','select','press_key','wait','back','screenshot'];
+const ctx='ssc_'+'1'.repeat(32),item='item_'+'2'.repeat(16),rid='4'.repeat(32),rid2='5'.repeat(32);
+const parse=x=>JSON.parse(x.content[0].text);
+function setup({inputAllowed=true,localOnly=false,statusResponse=null}={}){
+ const calls=[],opens=[],captures=[],handlers=new Map();
+ const z=new Proxy(()=>z,{get:()=>z,apply:()=>z});
+ const textResult=v=>({content:[{type:'text',text:JSON.stringify(v)}]});
+ const sandbox={
+  URL,z,textResult,randomBytes:n=>Buffer.alloc(n,1),
+  registerOAuthTool:(n,c,h)=>handlers.set(n,h),
+  jhSplitScreenContextId56:x=>typeof x==='string'&&/^ssc_[a-f0-9]{32}$/.test(x),
+  jhSplitScreenPayloadHasLocalOnly56:p=>localOnly&&p?.action==='SET_TEXT',
+  jhRightWebOpen56:async x=>{opens.push(x);return textResult({ok:true,opened:x.service})},
+  jhSplitScreenJob56:async(type,payload,effect,tool)=>{
+   calls.push({type,payload,effect,tool});
+   if(type==='split_screen_session_status'&&statusResponse!==null)
+    return typeof statusResponse==='function'?statusResponse():statusResponse;
+   return type==='split_screen_session_input_preflight'?
+    {inputAllowed,inputGrantToken:inputAllowed?'synthetic-only':undefined,code:'PREFLIGHT'}:
+    {ok:true,type,action:payload?.action,automaticReplay:false};
+  },
+  fakeCapture:async args=>{captures.push(args);return textResult({ok:true,syntheticCaptured:true})}
+ };
+ vm.runInNewContext(body+'\njhMobileWebCapture56=async(args)=>fakeCapture(args)',sandbox,{timeout:2000});
+ assert.equal(handlers.size,9);
+ return {calls,opens,captures,run:(n,args)=>handlers.get('life_web_'+n)(args)};
+}
+test('navigate signed RIGHT; rejects unsupported URLs and embedded credentials',async()=>{
+ const f=setup();assert.equal(parse(await f.run('navigate',{url:'https://example.org/a'})).opened,'https://example.org/a');
+ for(const url of ['ftp://example.org','https://u:p@example.org','bad']){
+  assert.equal(parse(await f.run('navigate',{url})).code,'MOBILE_URL_INVALID');
+ }
+ assert.equal(f.opens.length,1);
+});
+test('snapshot sends only signed START or STATUS, rejects invalid original context',async()=>{
+ const f=setup();
+ await f.run('snapshot',{goal:'read neutral page'});await f.run('snapshot',{context_id:ctx});
+ assert.deepEqual(f.calls.map(x=>x.type),['split_screen_session_start','split_screen_session_status']);
+ assert.equal(f.calls[0].effect,'READ_ONLY');
+ assert.equal(parse(await f.run('snapshot',{context_id:'bad'})).code,'MOBILE_CONTEXT_ID_INVALID');
+});
+test('click requires exact fresh item and dispatches one signed RIGHT CLICK',async()=>{
+ const f=setup();assert.equal(parse(await f.run('click',{context_id:ctx,target_item_ref:item,request_id:rid})).action,'CLICK');
+ assert.equal(f.calls[0].tool,'life_android_execute_computer_action');
+ assert.equal(f.calls[0].effect,'REVERSIBLE_WRITE');
+ assert.equal(f.calls[0].payload.requestId,rid);
+ assert.equal(parse(await f.run('click',{context_id:ctx,target:'css .button'})).code,'MOBILE_FRESH_ITEM_REF_REQUIRED');
+ assert.equal(f.calls.length,1);
+});
+test('type requires original input grant, no implicit submit/CSS, no fallback',async()=>{
+ const f=setup();assert.equal(parse(await f.run('type',{context_id:ctx,target_item_ref:item,request_id:rid,text:'safe probe'})).action,'SET_TEXT');
+ assert.deepEqual(f.calls.map(x=>x.type),['split_screen_session_input_preflight','split_screen_session_followup']);
+ assert.equal(f.calls[1].payload.inputGrantToken,'synthetic-only');
+ assert.equal(f.calls[1].payload.value,'safe probe');
+ assert.equal(f.calls[1].payload.requestId,rid);
+ assert.equal(parse(await f.run('type',{context_id:ctx,target_item_ref:item,text:'x',submit:true})).code,'MOBILE_SUBMIT_SEPARATE_ACTION_REQUIRED');
+ assert.equal(parse(await f.run('type',{context_id:ctx,target_item_ref:item,text:'x',element:'input#a'})).code,'MOBILE_CSS_SELECTOR_UNSUPPORTED');
+ assert.equal(f.calls.length,2);
+ const denied=setup({inputAllowed:false});await denied.run('type',{context_id:ctx,target_item_ref:item,request_id:rid,text:'x'});
+ assert.equal(denied.calls.length,1);
+ const local=setup({localOnly:true});assert.equal(parse(await local.run('type',{context_id:ctx,target_item_ref:item,request_id:rid,text:'x'})).code,'MOBILE_LOCAL_INPUT_REQUIRED');
+});
+test('select OPEN then PICK requires fresh item, rejects HTML internal values',async()=>{
+ const f=setup();await f.run('select',{context_id:ctx,phase:'OPEN',target_item_ref:item,request_id:rid});
+ await f.run('select',{context_id:ctx,phase:'PICK',target_item_ref:'item_'+'3'.repeat(16),request_id:rid2});
+ assert.deepEqual(f.calls.map(x=>x.payload.action),['CLICK','CLICK']);
+ assert.deepEqual(f.calls.map(x=>x.payload.requestId),[rid,rid2]);
+ assert.equal(parse(await f.run('select',{context_id:ctx,phase:'PICK',values:['opaque-html-option']})).code,'MOBILE_SELECT_VISIBLE_ITEM_REQUIRED');
+});
+test('press_key only BACK supported, Enter/Tab/Escape are explicitly unverified',async()=>{
+ const f=setup();
+ for(const key of ['Enter','Tab','Escape'])assert.equal(parse(await f.run('press_key',{key,context_id:ctx})).code,'MOBILE_KEY_NOT_VERIFIED');
+ assert.equal(f.calls.length,0);
+ assert.equal(parse(await f.run('press_key',{key:'BACK',context_id:ctx,request_id:rid})).action,'BACK');
+ assert.equal(f.calls.length,1);
+});
+test('wait always reports unverified condition, no spurious Android action',async()=>{
+ const f=setup();
+ const r=parse(await f.run('wait',{context_id:ctx,time:2,expected_text:'ready'}));
+ assert.equal(r.code,'MOBILE_WAIT_CONDITION_UNVERIFIED');
+ assert.equal(r.conditionVerified,false);
+ assert.equal(f.calls[0].effect,'READ_ONLY');
+ assert.equal(parse(await f.run('wait',{context_id:ctx,time:31})).code,'MOBILE_WAIT_BUDGET_INVALID');
+});
+test('back sends one RIGHT BACK, does not claim browser history navigation',async()=>{
+ const f=setup();const r=parse(await f.run('back',{context_id:ctx,request_id:rid}));
+ assert.equal(r.action,'BACK');assert.equal(r.browserHistoryNavigationVerified,false);
+ assert.equal(f.calls.length,1);
+});
+test('screenshot fixes SCREENSHOT action and preserves all original scope and consent arguments',async()=>{
+ const f=setup();
+ assert.equal(parse(await f.run('screenshot',{})).code,'MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT');
+ assert.equal(f.captures.length,0);
+ const args=Object.freeze({device_id:'synthetic-phone',task_digest:'a'.repeat(64),
+  run_digest:'b'.repeat(64),screen_grant_token:'synthetic-screen-grant',
+  screen_consent_digest:'c'.repeat(64),lease_token:'synthetic-capture-lease',action:'CLICK'});
+ const r=parse(await f.run('screenshot',args));
+ assert.equal(r.syntheticCaptured,true);assert.equal(f.captures.length,1);
+ assert.notEqual(f.captures[0],args,'the caller input must not be mutated');
+ assert.equal(args.action,'CLICK');
+ assert.deepEqual(JSON.parse(JSON.stringify(f.captures[0])),{...args,action:'SCREENSHOT'});
+ for(const missing of ['screen_grant_token','screen_consent_digest','lease_token']){
+  assert.equal(parse(await f.run('screenshot',{...args,[missing]:''})).code,
+   'MOBILE_CAPTURE_REQUIRES_PHONE_CONSENT');
+ }
+ assert.equal(f.captures.length,1,'missing approval input never reaches capture');
+});
+test('all nine are generated Android RIGHT-only; no cloud Playwright fallback remains',()=>{
+ const f=setup();assert.equal(f.opens.length,0);
+ assert.equal((body.match(/registerOAuthTool\("life_web_/g)||[]).length,9);
+ assert.ok(!body.includes('browserTool('));
+ assert.ok(!body.includes('browser_navigate('));
+});
+
+test('five effectful aliases reject missing, malformed and uppercase request_id with ZERO dispatch',async()=>{
+ for(const [name,args] of [
+  ['click',{context_id:ctx,target_item_ref:item}],
+  ['type',{context_id:ctx,target_item_ref:item,text:'neutral'}],
+  ['select',{context_id:ctx,phase:'OPEN',target_item_ref:item}],
+  ['press_key',{context_id:ctx,key:'BACK'}],
+  ['back',{context_id:ctx}]
+ ]){
+  const f=setup();
+  for(const reqId of [undefined,'ABCDEFABCDEFABCDEFABCDEFABCDEFAB','f'.repeat(31),'z'.repeat(32)]){
+   const r=parse(await f.run(name,{...args,request_id:reqId}));
+   assert.equal(r.code,'MOBILE_REQUEST_ID_REQUIRED',name);
+   assert.equal(f.calls.length,0,'no preflight or phone effect '+name);
+  }
+ }
+});
+test('original one-shot Secure56 id is carried unchanged by the actual signed FOLLOW_UP',async()=>{
+ const f=setup();
+ assert.equal(parse(await f.run('click',{context_id:ctx,target_item_ref:item,request_id:rid})).action,'CLICK');
+ assert.equal(f.calls[0].payload.requestId,rid);
+ assert.equal(f.calls[0].tool,'life_android_execute_computer_action');
+ assert.equal(f.calls.length,1);
+});
+
+test('WAIT can confirm only ONE signed same-right-window exact text readback (synthetic, not phone E2E)',async()=>{
+ // The signed producer shape uses fresh items/layout, not an invented raw-row
+ // array or a generic success flag. Time is sampled only when STATUS returns.
+ const f=setup({statusResponse:()=>{
+  const now=Date.now();
+  return {ok:true,contextId:ctx,code:'ready',state:'ACTIVE',statusReadbackVersion:1,
+   manualStepPending:false,automaticReplay:false,resultVerified:false,
+   packageName:'com.android.chrome',windowId:23,displayId:0,capturedAt:now,
+   layout:{arrangement:'LEFT_RIGHT',chatPackage:'com.openai.chatgpt',chatWindowId:12,
+    chatDisplayId:0,workPackage:'com.android.chrome',workWindowId:23,workDisplayId:0},
+   items:[{itemRef:item,label:'READY'}],splitScreenRequired:true,
+   splitScreen:{kind:'split_screen_evidence',version:'1',verified:'true',
+    layout:'LEFT_RIGHT',chatPackage:'com.openai.chatgpt',chatKind:'NATIVE',
+    chatWindowId:'12',chatBounds:'0,0,500,1200',chatDisplayId:'0',
+    workPackage:'com.android.chrome',workWindowId:'23',workBounds:'500,0,1000,1200',
+    workDisplayId:'0',displayId:'0',displayVerified:'true',observedAtMs:String(now)}};
+ }});
+ const pass=parse(await f.run('wait',{context_id:ctx,time:2,expected_text:'READY'}));
+ assert.equal(pass.code,'MOBILE_WAIT_CONDITION_CONFIRMED');
+ assert.equal(pass.conditionVerified,true);
+ assert.equal(pass.automaticReplay,false);
+ assert.equal(f.calls.length,1);
+ assert.equal(f.calls[0].type,'split_screen_session_status');
+ assert.equal(f.calls[0].effect,'READ_ONLY');
+ const bad=parse(await f.run('wait',{context_id:ctx,time:2,expected_text:'NOT READY'}));
+ assert.equal(bad.code,'MOBILE_WAIT_CONDITION_UNVERIFIED');
+ assert.equal(bad.conditionVerified,false);
+ assert.equal(f.calls.length,2,'only one read-only status per separate user request');
+});

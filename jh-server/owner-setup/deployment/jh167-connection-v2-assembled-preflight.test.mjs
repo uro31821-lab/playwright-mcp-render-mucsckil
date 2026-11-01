@@ -82,8 +82,20 @@ test('ACTUAL protected owner composition generates parsable and importable runti
  const clickStart=generated.indexOf('  registerOAuthTool("life_web_click",{');
  const typeStart=generated.indexOf('  registerOAuthTool("life_web_type",{',clickStart);
  const click=generated.slice(clickStart,typeStart);
- assert.ok(click.includes('RIGHT_PHONE_ITEM_REQUIRES_ANDROID_COMPUTER_USE'));
- assert.ok(click.includes('browserTool("browser_click",args)'));
+ // Legacy execution remains intact when the temporary candidate mode is OFF.
+ // Explicit mobile test mode alone removes the cloud Playwright CLICK route.
+ const migrationEnabled=process.env.JH_MOBILE_WEB_13_MODE==='EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1';
+ if(migrationEnabled){
+   assert.ok(click.includes('jhMobileWebFollow56(args,"CLICK"'));
+   assert.ok(!click.includes('browserTool("browser_click",args)'));
+   assert.ok(generated.includes('MOBILE_REQUEST_ID_REQUIRED'));
+   assert.ok(generated.includes('requestId,command,targetItemRef:bound.itemRef,action'));
+   assert.ok(generated.includes('jhSplitScreenOnce155(device,commandId,type,payload,dispatch)'));
+ }else{
+   assert.ok(click.includes('RIGHT_PHONE_ITEM_REQUIRES_ANDROID_COMPUTER_USE'));
+   assert.ok(click.includes('browserTool("browser_click",args)'));
+   assert.ok(!generated.includes('MOBILE_REQUEST_ID_REQUIRED'));
+ }
  assert.ok(generated.includes('registerOAuthTool("life_android_computer_prepare"'));
  assert.ok(generated.includes('registerOAuthTool("life_android_execute_computer_action"'));
  assert.ok(generated.includes('registerOAuthTool("life_android_split_screen_assistant"') ||

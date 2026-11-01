@@ -1,0 +1,272 @@
+{
+  "schema": "jh.mobile13.fixture-plan.v1",
+  "fixtureVersion": 1,
+  "sourceBasis": "9baec5776b23e286f34014b090b7ad0c799a85ec",
+  "requiredRuntimeMode": "EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1",
+  "scope": "neutral_fixture_preparation_only",
+  "phoneE2E": "NOT_RUN",
+  "hostedHttpsUrl": null,
+  "generatedRuntimeSha": null,
+  "apkSha256": "129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359",
+  "apkEvidence": "historical Stage27 installation record; current installation not checked by this plan",
+  "sharedPrerequisites": [
+    "검증 후보의 실제 모바일 도구 등록과 서버 SHA 확인",
+    "해당 후보와 연결된 기존 Secure56 기기·세션·유효 명령",
+    "중립 페이지의 승인된 HTTPS 게시 및 실제 접근",
+    "원 작업에 필요한 휴대폰 로컬 승인·화면 동의"
+  ],
+  "recordingRules": [
+    "원 command/request/job/receipt의 동일 결속은 개인 검증 기록에만 보존한다.",
+    "request_id는 의도한 개별 동작마다 기존 Secure56 규약으로 지정하며 결과 불명 상태에서 새 ID로 재실행하지 않는다.",
+    "실제 시도한 각 행은 원 증거에 따라 PASS/FAIL/BLOCKED를 기록하고 미실행은 NOT_RUN으로 유지한다.",
+    "페이지의 DOM ID, 화면 내 카운터와 이벤트 목록은 관찰 대상이며 signed itemRef나 서버 영수증이 아니다.",
+    "소스 검사·데스크톱 fixture 동작·Android 실제 실행의 결과를 분리한다.",
+    "폼 데이터·DOM 이벤트는 페이지 메모리에만 남고 새로고침 시 초기화한다.",
+    "승인 토큰·HMAC·nonce·쿠키·실제 화면 원문을 이 공개 manifest에 채우지 않는다."
+  ],
+  "cases": [
+    {
+      "id": "WEB01",
+      "tool": "life_web_navigate",
+      "fixture": "index.html",
+      "actions": [
+        "중립 HTTPS index.html을 오른쪽 Chrome으로 연다."
+      ],
+      "evidence": [
+        "요청 URL과 실제 주소창 관찰을 구분",
+        "원 OPEN job 완료와 직접 창 증거",
+        "LEFT 화면 유지"
+      ],
+      "limits": [
+        "result.url은 요청 echo이며 정확한 표시 주소 원문이 아니다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "WEB02",
+      "tool": "life_web_snapshot",
+      "fixture": "index.html",
+      "actions": [
+        "START로 현재 RIGHT 창을 읽고 같은 context의 STATUS를 조회한다."
+      ],
+      "evidence": [
+        "원 START/STATUS job과 직접 split proof",
+        "현재 window/display/context 및 새 item reference"
+      ],
+      "limits": [
+        "comfort STATUS나 다른 snapshot 결과로 원 proof를 대신하지 않는다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "WEB03",
+      "tool": "life_web_click",
+      "fixture": "index.html",
+      "actions": [
+        "클릭 횟수 버튼을 새 item reference로 정확히 한 번 누른다."
+      ],
+      "evidence": [
+        "동작별 request_id",
+        "원 FOLLOW_UP job과 UI 변화",
+        "클릭 횟수 증가 및 원 창 연결"
+      ],
+      "limits": [
+        "기존 Stage27 Chrome 메뉴 클릭을 반복하지 않는다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "WEB04",
+      "tool": "life_web_type",
+      "fixture": "index.html",
+      "actions": [
+        "첫 입력칸의 실제 포커스·editable을 확인하고 JH TEST를 한 번 입력한다."
+      ],
+      "evidence": [
+        "동작별 request_id와 원 SET_TEXT 결과",
+        "실제 입력 포커스와 가림 여부",
+        "필요한 로컬 입력 승인"
+      ],
+      "limits": [
+        "submit=true는 별도 동작이며 현재 지원되지 않는다.",
+        "비밀번호·OTP·개인정보를 사용하지 않는다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "WEB05",
+      "tool": "life_web_select",
+      "fixture": "index.html",
+      "actions": [
+        "선택 메뉴 OPEN 후 새 화면을 읽는다.",
+        "갱신된 item reference로 옵션 PICK을 수행한다."
+      ],
+      "evidence": [
+        "OPEN과 PICK 각각의 request_id·원 job·결과",
+        "변경된 창 및 새 item reference",
+        "선택된 옵션의 실제 표시"
+      ],
+      "limits": [
+        "HTML option value나 DOM ID를 Android item reference로 사용하지 않는다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "WEB06",
+      "tool": "life_web_press_key",
+      "fixture": "index.html",
+      "actions": [
+        "지원이 확인된 BACK의 실제 효과를 별도 기록한다.",
+        "Enter/Tab/Escape는 지원 계약 확인 전 기기 실행하지 않는다."
+      ],
+      "evidence": [
+        "지원 키의 원 job과 실제 변경 UI",
+        "미지원 키의 CODE_GAP 근거"
+      ],
+      "limits": [
+        "현재 BACK 외 MOBILE_KEY_NOT_VERIFIED.",
+        "페이지의 키 이벤트 감지는 Android 키 연결의 증거가 아니다."
+      ],
+      "codeGaps": [
+        "MOBILE_KEY_NOT_VERIFIED"
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "WEB07",
+      "tool": "life_web_wait",
+      "fixture": "index.html",
+      "actions": [
+        "지연 표시 버튼의 원 클릭 결과를 확인한다.",
+        "실제 조건 변화의 관찰과 도구의 조건 판정 결과를 따로 기록한다."
+      ],
+      "evidence": [
+        "원 STATUS 결과",
+        "실제 지연 문구 변화",
+        "conditionVerified와 제한 코드"
+      ],
+      "limits": [
+        "현재 MOBILE_WAIT_CONDITION_UNVERIFIED를 성공으로 올리지 않는다.",
+        "800ms 경과 자체는 조건 검증이 아니다."
+      ],
+      "codeGaps": [
+        "MOBILE_WAIT_CONDITION_UNVERIFIED"
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "WEB08",
+      "tool": "life_web_back",
+      "fixture": "destination.html",
+      "actions": [
+        "키보드 닫기·팝업 닫기·페이지 뒤로를 각각 구분한다.",
+        "현재 원 작업에 대해 BACK 한 번의 실제 효과를 확인한다."
+      ],
+      "evidence": [
+        "동작별 request_id·원 job·결과",
+        "BACK 전후 창·포커스·주소"
+      ],
+      "limits": [
+        "HTML 돌아가기 링크는 Android BACK 검증을 대신하지 않는다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "WEB09",
+      "tool": "life_web_screenshot",
+      "fixture": "index.html",
+      "actions": [
+        "이 중립 화면에서 기존 화면 동의와 one-shot lease를 사용한다."
+      ],
+      "evidence": [
+        "휴대폰 로컬 동의 확인",
+        "정확한 RIGHT 창과 원 작업의 프레임 결과",
+        "동의·lease의 한 번 소비"
+      ],
+      "limits": [
+        "fixture가 화면 캡처 권한이나 토큰을 생성하지 않는다.",
+        "비밀 승인값과 화면 픽셀을 공개 결과 기록에 포함하지 않는다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "ENTRY01",
+      "tool": "life_route",
+      "fixture": null,
+      "actions": [
+        "중립 웹 주소와 무해한 앱 문장의 분류 결과만 확인한다."
+      ],
+      "evidence": [
+        "분류 결과와 선택 경로",
+        "분류 자체의 실행 부작용 없음"
+      ],
+      "limits": [
+        "정적 페이지는 분류 엔진 검증을 대신하지 않는다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "ENTRY02",
+      "tool": "life_open_service",
+      "fixture": "destination.html",
+      "actions": [
+        "WEB01과 구별되는 목적지를 기존 RIGHT opener로 연다."
+      ],
+      "evidence": [
+        "원 OPEN job·주소 정책 결과·창 증거",
+        "실제 표시 주소와 요청 echo 구분"
+      ],
+      "limits": [
+        "완료한 동일 열기를 중복 실행하지 않는다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "ENTRY03",
+      "tool": "life_naver_mail",
+      "fixture": null,
+      "actions": [
+        "후보의 실제 네이버 메일 열기 경로만 기존 승인 범위에서 별도 확인한다."
+      ],
+      "evidence": [
+        "실제 대상 서비스와 같은 RIGHT opener",
+        "원 OPEN 완료 및 제한된 주소 확인"
+      ],
+      "limits": [
+        "중립 fixture로 Naver 서비스 검증을 대체하지 않는다.",
+        "로그인·메일 내용 읽기·삭제·발송은 이번 검증 범위에 없다."
+      ],
+      "externalServiceRequired": true,
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    },
+    {
+      "id": "ENTRY04",
+      "tool": "life_android_open",
+      "fixture": "index.html",
+      "actions": [
+        "HTTP(S) 열기와 명시적인 last_work_screen 복귀를 별도 분기로 기록한다."
+      ],
+      "evidence": [
+        "웹 분기의 원 OPEN·주소·창 증거",
+        "복귀 분기의 원 화면 결속과 결과"
+      ],
+      "limits": [
+        "fixture는 웹 분기만 제공하며 native/last_work_screen 성공을 만들지 않는다."
+      ],
+      "phoneE2E": "NOT_RUN",
+      "observedEvidence": null
+    }
+  ]
+}
