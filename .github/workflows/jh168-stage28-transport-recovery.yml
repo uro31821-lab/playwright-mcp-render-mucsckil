@@ -1,0 +1,52 @@
+name: JH168 Stage28 signed result recovery (isolated, no device)
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage28-*'
+      - '.github/workflows/jh168-stage28-transport-recovery.yml'
+permissions:
+  contents: read
+jobs:
+  signed-recovery-no-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Assert no production runtime, durable store or Android source changes
+        run: |
+          git diff --exit-code origin/jh-fix3-secure-server -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery-policy.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery-patch.mjs
+      - name: Verify exact isolated test and run synthetic dropped-ACK socket
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage28-transport-recovery.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage28-transport-recovery.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-receipts.test.mjs
+      - name: Preserve pinned existing Secure56 and Stage26 compatibility suites
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          CI=true NODE_ENV=test JH_OWNER_DEFER_LISTEN=1 node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+      - name: Confirm no live phone, key, service deployment or action replay
+        run: |
+          echo JH_STAGE28_ISOLATED_TRANSPORT_FIXTURE_ONLY
+          echo LIVE_HTTP_REDELIVERY_E2E_NOT_RUN
+          echo PHONE_ACTIONS=0
+          echo APK_CHANGE=0
+          echo RENDER_DEPLOY=0
