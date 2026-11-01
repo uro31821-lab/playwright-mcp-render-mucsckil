@@ -29,6 +29,9 @@ jobs:
           node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-fixture-http.mjs
       - name: Nine alias routing and fail-closed tests
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs
+      - name: Run both independently developed policies in ONE integrated CI
+        run: |
+          node --test --test-reporter=spec             jh-server/owner-setup/jh168-mobile-unification/mobile13-wait-condition.test.mjs             jh-server/owner-setup/jh168-mobile-unification/mobile13-browser-retirement.test.mjs
       - name: Verify fixed neutral fixture assets, read-only HTTP and reversible source patch
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-fixture-http.test.mjs
       - name: Run ALL NINE generated signed Android RIGHT alias behavior contracts with inert native doubles

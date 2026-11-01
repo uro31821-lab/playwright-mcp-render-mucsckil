@@ -26,7 +26,7 @@ const body=patched.slice(a,b);
 const names=['navigate','snapshot','click','type','select','press_key','wait','back','screenshot'];
 const ctx='ssc_'+'1'.repeat(32),item='item_'+'2'.repeat(16),rid='4'.repeat(32),rid2='5'.repeat(32);
 const parse=x=>JSON.parse(x.content[0].text);
-function setup({inputAllowed=true,localOnly=false}={}){
+function setup({inputAllowed=true,localOnly=false,statusResponse=null}={}){
  const calls=[],opens=[],captures=[],handlers=new Map();
  const z=new Proxy(()=>z,{get:()=>z,apply:()=>z});
  const textResult=v=>({content:[{type:'text',text:JSON.stringify(v)}]});
@@ -38,6 +38,7 @@ function setup({inputAllowed=true,localOnly=false}={}){
   jhRightWebOpen56:async x=>{opens.push(x);return textResult({ok:true,opened:x.service})},
   jhSplitScreenJob56:async(type,payload,effect,tool)=>{
    calls.push({type,payload,effect,tool});
+   if(type==='split_screen_session_status'&&statusResponse!==null)return statusResponse;
    return type==='split_screen_session_input_preflight'?
     {inputAllowed,inputGrantToken:inputAllowed?'synthetic-only':undefined,code:'PREFLIGHT'}:
     {ok:true,type,action:payload?.action,automaticReplay:false};
@@ -146,4 +147,28 @@ test('original one-shot Secure56 id is carried unchanged by the actual signed FO
  assert.equal(f.calls[0].payload.requestId,rid);
  assert.equal(f.calls[0].tool,'life_android_execute_computer_action');
  assert.equal(f.calls.length,1);
+});
+
+test('WAIT can confirm only ONE signed same-right-window exact text readback (synthetic, not phone E2E)',async()=>{
+ const now=Date.now();
+ const proof={kind:'split_screen_evidence',version:'1',verified:'true',
+  layout:'LEFT_RIGHT',chatPackage:'com.openai.chatgpt',chatKind:'NATIVE',
+  chatWindowId:'12',chatBounds:'0,0,500,1200',
+  workPackage:'com.android.chrome',workWindowId:'23',workBounds:'500,0,1000,1200',
+  observedAtMs:String(now-1000)};
+ const readback={ok:true,contextId:ctx,scopeVerified:true,splitScreenRequired:true,
+  splitScreen:proof,resultScreen:[{...proof},
+   {package:'com.android.chrome',windowId:'23',text:'READY'}]};
+ const f=setup({statusResponse:readback});
+ const pass=parse(await f.run('wait',{context_id:ctx,time:2,expected_text:'READY'}));
+ assert.equal(pass.code,'MOBILE_WAIT_CONDITION_CONFIRMED');
+ assert.equal(pass.conditionVerified,true);
+ assert.equal(pass.automaticReplay,false);
+ assert.equal(f.calls.length,1);
+ assert.equal(f.calls[0].type,'split_screen_session_status');
+ assert.equal(f.calls[0].effect,'READ_ONLY');
+ const bad=parse(await f.run('wait',{context_id:ctx,time:2,expected_text:'NOT READY'}));
+ assert.equal(bad.code,'MOBILE_WAIT_CONDITION_UNVERIFIED');
+ assert.equal(bad.conditionVerified,false);
+ assert.equal(f.calls.length,2,'only one read-only status per separate user request');
 });

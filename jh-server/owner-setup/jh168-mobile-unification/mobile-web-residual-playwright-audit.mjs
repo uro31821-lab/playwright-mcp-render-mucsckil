@@ -10,6 +10,7 @@ import {pathToFileURL} from 'node:url';
 import {buildCleanRestartRelease56}
  from '../deployment/durable-clean-restart-news-review-entry.mjs';
 import {selectJH168MobileWeb13Mode56} from './mobile-web-tool-patch.mjs';
+import {auditMobile13BrowserRetirement56} from './mobile13-browser-retirement.mjs';
 
 assert.equal(selectJH168MobileWeb13Mode56(process.env),'PHONE_RIGHT',
  'RESIDUAL_SCAN_REQUIRES_EXPLICIT_CI_MOBILE_MODE');
@@ -70,4 +71,29 @@ console.log('JH_MOBILE_RESIDUAL_RESULT '+JSON.stringify({
  completePlaywrightRemoval:false,
  actualDeviceE2E:'NOT_RUN',
  safeToDeleteLegacyModules:false
+}));
+
+// Exact code-retirement blockers must include the non-tool browser lifecycle
+// and Connection V2 background browser probe, not just the 13 public aliases.
+const baseFolder=path.resolve('jh-server');
+const browserFiles={};
+for(const name of ['browser-session.mjs','browser-session-runtime.mjs',
+ 'browser-transport.mjs','browser-events.mjs']){
+ browserFiles[name]=readFileSync(path.join(baseFolder,name),'utf8');
+}
+const connSource=readFileSync(path.resolve(
+ 'jh-server/owner-setup/deployment/jh167-connection-v2-runtime.mjs'),'utf8');
+const retirement=auditMobile13BrowserRetirement56({
+ runtimeSource:source,connectionV2Source:connSource,browserFiles
+});
+assert.equal(retirement.migratedToolCount,13);
+assert.equal(retirement.cloudTools.length,0,'CLOUD_TOOL_SURVIVED_PHONE_RIGHT_REGISTRY');
+assert.equal(retirement.readyForRemoval,false,
+ 'REVIEW_LEGACY_BROWSER_REMOVAL_BOUNDARY_CHANGED');
+assert.equal(retirement.deletionAuthorized,false);
+console.log('JH_MOBILE_RETIRED_PLAYWRIGHT_GATE '+JSON.stringify({
+ sourceReadyForDeletion:retirement.readyForRemoval,
+ blockers:retirement.blockers,
+ actualPhoneE2E:'NOT_RUN',
+ deletingLegacyCode:false
 }));
