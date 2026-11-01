@@ -101,4 +101,3 @@ JH에 저장한 실제 사건을 별도 기존 경험 파일이나 Memoria에 �
 LlamaIndex의 다중 retriever 구성과 Haystack의 항목 결합을 참고하고,
 출처 분리·부분 실패·권위 보존은 JH 용도로 구현했다.
 외부 코드 복사·LLM router·벡터 DB·자동 검색어 생성·새 패키지 의존성은 도입하지 않았다.
-

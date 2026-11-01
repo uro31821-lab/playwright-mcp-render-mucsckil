@@ -107,4 +107,3 @@ All existing JH device controls, secure connection, local approvals, command fen
 
 ## GPT 내부 출력과 구매 링크 — v3.4
 For a purchase-location/link request or a request to apply the user's output form, read [the inline-output rules](references/gpt-inline-output.md) and complete that workflow. Deliver the requested content in the ChatGPT answer before any short device-status note. Do not replace the answer with a connection diagnosis, a lone search link, or an Android viewer launch. Preserve all earlier security, source-first NEWS and no-replay rules.
-
