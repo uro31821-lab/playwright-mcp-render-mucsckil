@@ -1,0 +1,50 @@
+name: JH original owner admission generated Stage25/26 review
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/owner-admission-diagnostic-candidate.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/owner-admission-generated-source.test.mjs'
+      - '.github/workflows/jh-original-owner-admission-generated-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  generated-owner-admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Original production Secure56, signer and durable owner bytes unchanged
+        run: |
+          git diff --exit-code origin/jh-fix3-secure-server -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/owner-enrollment
+      - name: Check pure candidate and generated test syntax
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/owner-admission-diagnostic-candidate.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/owner-admission-generated-source.test.mjs
+      - name: Reuse pinned JH owner dependencies without install scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Exact Stage25 and Stage26 signed generated-source diagnostic review
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/owner-admission-generated-source.test.mjs
+      - name: Never start or deploy original owner runtime
+        run: echo OWNER_ADMISSION_ORIGINAL_RUNTIME_UNTOUCHED__NO_PHONE_ACTION__NO_REPLAY
