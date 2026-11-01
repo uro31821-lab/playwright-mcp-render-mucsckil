@@ -84,3 +84,13 @@
 최종 통합에서 필요한 증거: 같은 GPT 명령→RIGHT Chrome/Android 앱 간 중간 개입, 정확한 window/display/context/itemRef 갱신, 현재 화면 포커스·내부/중첩 스크롤·선택/입력·키/조건 대기, 원본 phone-local 승인·결과/복귀, 무재실행, 기존 APK 서명·안면인식·좌우 화면 유지. 서버측 Playwright 자동 fallback 0과 구 명령 로직 0, 전체 기능 회귀를 확인해야 함.
 
 **임시 flag/rollback은 실기기 시험용이며 최종 영구 2엔진 구조가 아님.** 13개 migrated phone E2E 0/13 유지. 실제 기능 소스 수정·운영 배포·휴대폰 실행은 이번 기록 작업에서 수행하지 않음.
+
+## JHAI 원본 결과 감사 연결 — 2026-11-01
+
+[Android producer → 학습 계약 6경로 대조](../operational-learning/ANDROID-PRODUCER-COMPATIBILITY.md)를 G11/G13의 결과 귀속·native 경로 검토에 연결한다. 이 추가 기록은 기능 수정이나 새 실기기 시험이 아니며 기존 **0/13, NOT_RUN**을 유지한다.
+
+- **별도 범위 COMFORT_STATUS_DIRECT_PROOF_MISSING:** 설치 기록과 연결된 Stage27의 `life_android_split_comfort / STATUS` 원 결과에 직접 split/window proof가 없다. 이 도구는 13개 교체 대상에 포함되지 않는다. WEB02/WEB07의 `split_screen_session_start/status`와 구분하고, 이 결함을 13개 실패로 계산하지 않는다.
+- **OPEN_REQUEST_ECHO_NOT_OBSERVED_URL:** 같은 RIGHT opener가 반환하는 `result.url`은 실제 주소창 값이 아니라 요청 주소의 정규화 값이다. Android가 의도적으로 허용한 root redirect/주소 동치 정책 통과를 정확한 표시 URL 일치로 확대하지 않는다. WEB01, ENTRY02/03, ENTRY04의 HTTP(S) 경로에 의미 검토가 관련되며, 현재 기기의 잘못된 열기 또는 정책 자체의 실패가 확인됐다는 뜻은 아니다.
+- 일반 split START/STATUS, CLICK, INSPECT는 각 제한된 관찰·UI 변화·원 결과 수신 scope에 대응하는 producer 연결을 소스에서 확인했다. manualHold STATUS와 INSPECT의 의도된 증거 한계를 별도로 보존한다.
+- comfort `srr_`의 외부 거절 코드는 `SPLIT_READ_SCREEN_PROOF_INVALID`, 내부 verifier 이유는 `SPLIT_PROOF_REQUIRED`다. 원 signed completion은 generic `observed`로 기록될 수 있으며, 증거 조회 거절을 별도 학습 저장 장애나 새 원 시도로 만들지 않는다.
+- 수정은 기존 전수 조사 후 공통 원인 일괄 수정 순서를 따른다. 이전 APK·운영 배포·Stage27 성공 클릭·미확정 과거 동작을 반복하지 않는다.
