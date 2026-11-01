@@ -42,8 +42,18 @@ test('real owner bootstrap records authenticated MCP calls across clients and pr
     results.push(JSON.parse(line.slice('LEARNING_HTTP_RESULT '.length)));
   }
   assert.equal(results[0].firstAttempts, 1);
-  assert.equal(results[0].attempts, 2);
-  assert.equal(results[1].firstAttempts, 3);
-  assert.equal(results[1].attempts, 4);
+  assert.equal(results[0].attempts, 4); // Two actual status observations and two synthetic fixture failures.
+  assert.equal(results[0].syntheticProposalAttempts, 2);
+  assert.equal(results[1].firstAttempts, 5);
+  assert.equal(results[1].attempts, 6);
+  assert.equal(results[1].syntheticProposalAttempts, 0);
+  assert.equal(results[0].proposalDecisionAuth, true);
+  for (const result of results) {
+    assert.equal(result.proposalDecisionCatalog, true);
+    assert.equal(result.proposalDecisions, 2);
+    assert.equal(result.decisionRetryNoop, true);
+  }
+  assert.equal(results[1].proposalDecisionPersisted, true);
+  assert.equal(results[1].proposalDecisionHistoryHash, results[0].proposalDecisionHistoryHash);
   assert.ok(results[1].revision > results[0].revision);
 });

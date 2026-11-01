@@ -7,6 +7,7 @@ import { bindRegression, checkLesson } from './regression.mjs';
 import { evaluateConstraints } from './constraints.mjs';
 import { prepareReview, createReviewedCandidate } from './curation.mjs';
 import { evaluateTrajectory } from './trajectory.mjs';
+import { decideProposal, proposalDecisionView } from './decisions.mjs';
 
 function evaluatorFor(suite) {
   if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
@@ -45,6 +46,14 @@ export async function execute(args, input) {
       return recallContext(await store.read(), input.query, input.options);
     }
     case 'review': return prepareReview(await store.read(), input);
+    case 'decision-view': return proposalDecisionView(await store.read(), input);
+    case 'decide': {
+      if (expectedRevision !== undefined) throw new TypeError('decide uses payload.expectedRevision inside its atomic transaction');
+      const result = await store.transact(state => decideProposal(state, input, { now: new Date().toISOString() }));
+      return { revision: result.state.revision, proposal: result.proposal,
+        receipt: result.receipt, duplicate: result.duplicate, externalEffects: false,
+        activatedByThisCall: false, liveExecutionVerified: false };
+    }
     case 'curate': {
       if (!input || Object.keys(input).some(key => !['review', 'suite'].includes(key))) throw new TypeError('curate requires review and suite');
       evaluatorFor(input.suite);
@@ -85,7 +94,7 @@ export async function execute(args, input) {
       const result = await store.transact(state => setProposalStatus(state, input.id, input.status, input.verification), transactionOptions);
       return { revision: result.revision, proposal: result.proposals[input.id] };
     }
-    default: throw new TypeError('Use status, ingest, recall, context, review, curate, propose, candidate, check, or proposal-status');
+    default: throw new TypeError('Use status, ingest, recall, context, review, decision-view, decide, curate, propose, candidate, check, or proposal-status');
   }
 }
 

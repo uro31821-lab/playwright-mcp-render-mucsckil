@@ -6,6 +6,8 @@ import './review.test.mjs';
 import './cli.test.mjs';
 import './server-runtime.test.mjs';
 import './proposal-scope.test.mjs';
+import './decisions.test.mjs';
+import './decision-runtime.test.mjs';
 import './runtime-patch.test.mjs';
 import './owner-host.test.mjs';
 import './owner-patch.test.mjs';

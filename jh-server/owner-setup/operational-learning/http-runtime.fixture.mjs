@@ -11,6 +11,8 @@ import { takeStorageSecrets, materializeStorageKeys } from '../deployment/storag
 import { prepareOperationalStorage } from '../deployment/operational-service-entry.mjs';
 import { prepareOrVerifyDurableRelease, INITIAL_MODE, READY_MODE } from '../deployment/durable-live-release.mjs';
 import { buildPendingApprovalOperatorEntrypoint56 } from '../server-integration/pending-approval-operator-entry.mjs';
+import { FileLearningStore } from './store.mjs';
+import { ingest, propose } from './engine.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const data = JSON.parse(readFileSync(process.argv[2], 'utf8'));
@@ -101,6 +103,7 @@ try {
   assert.equal(first.operationalLearning.capabilities.explicitInstructions, true);
   assert.equal(first.operationalLearning.capabilities.commonRules, true);
   assert.equal(first.operationalLearning.capabilities.scopedProposals, true);
+  assert.equal(first.operationalLearning.capabilities.proposalDecisions, true);
   const beforeUnauthorized = readFileSync(file);
   const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
   assert.equal(preflight.ok, true);
@@ -146,6 +149,9 @@ try {
     assert.equal(tool.description.includes('Start each NEW user instruction'), false);
     assert.ok(tool.securitySchemes?.some(item => item.type === 'oauth2') || tool._meta?.securitySchemes?.some(item => item.type === 'oauth2'));
   }
+  const reviewTool = catalog.find(item => item.name === 'life_learning_review');
+  assert.deepEqual(reviewTool.inputSchema.properties.mode.enum, ['PREPARE', 'CANDIDATE', 'CHECK', 'DECIDE']);
+  assert.equal(reviewTool.annotations.readOnlyHint, false);
   const unauthorized = await call('unauthorized', 'life_status', {}, false);
   assert.equal(unauthorized.status, 200); // Existing MCP authentication challenge contract.
   assert.equal(unauthorized.envelope.result.isError, true);
@@ -191,10 +197,136 @@ try {
   assert.deepEqual(readFileSync(file), beforeContextReads);
   const afterDirectives = JSON.parse(readFileSync(file, 'utf8')).state;
   for (const key of ['events', 'attempts', 'proposals']) assert.deepEqual(afterDirectives[key], beforeDirectives[key]);
+
+  // Seed only independent synthetic fixture observations through the real engine.
+  // Decisions themselves must never create observations, run a target, or activate a rule.
+  const syntheticFailureIds = [1, 2].map(n => 'synthetic-http-proposal-failure-' + n);
+  const seededAttempts = phase === 'first' ? syntheticFailureIds.length : 0;
+  if (phase === 'first') {
+    const envelope = JSON.parse(readFileSync(file, 'utf8'));
+    const fixtureStore = new FileLearningStore({ file, ownerScope: envelope.ownerScope });
+    await fixtureStore.transact(state => {
+      for (const [index, eventId] of syntheticFailureIds.entries()) {
+        state = ingest(state, { eventId, taskId: 'synthetic-http-proposal-task-' + index,
+          attemptId: 'synthetic-http-proposal-attempt-' + index, sequence: 1,
+          timestamp: '2026-10-31T00:00:00.000Z', domain: 'output', operation: 'life_output_format.table',
+          engine: preflight.scope.engine, context: preflight.scope.context,
+          outcome: 'failure_verified', source: 'host_verified', errorCode: 'SYNTHETIC_OUTPUT_FIELD_MISSING',
+          evidenceRefs: ['fixture:synthetic-http-output-' + index] }).state;
+      }
+      return propose(state, { now: '2026-10-31T00:00:00.000Z' });
+    }, { expectedRevision: afterDirectives.revision });
+  }
+  const beforeDecisions = JSON.parse(readFileSync(file, 'utf8')).state;
+  assert.equal(Object.keys(beforeDecisions.proposals).length, 1);
+  const proposalId = Object.keys(beforeDecisions.proposals)[0];
+  const decisionView = async id => {
+    const before = readFileSync(file);
+    const response = await call(id, 'life_learning_review', { mode: 'PREPARE',
+      payload: JSON.stringify({ view: 'decision', proposalId }) });
+    assert.equal(response.ok, true);
+    assert.equal(response.view.schema, 'jh.learning-proposal-decision-view.v1');
+    assert.equal(response.view.proposalId, proposalId);
+    assert.equal(response.view.readOnly, true);
+    assert.equal(response.view.advisoryOnly, true);
+    assert.equal(response.view.externalEffects, false);
+    assert.equal(response.view.liveExecutionVerified, false);
+    assert.deepEqual(readFileSync(file), before);
+    return response.view;
+  };
+  const inputFromReceipt = receipt => ({ proposalId: receipt.proposalId, decisionId: receipt.decisionId,
+    decision: receipt.decision, expectedRevision: receipt.baseRevision,
+    packetFingerprint: receipt.packetFingerprint, maxAttempts: receipt.maxAttempts,
+    reviewer: receipt.reviewer, sourceRef: receipt.sourceRef, reason: receipt.reason,
+    eventIds: receipt.eventIds });
+  const decide = (id, input, authorized = true) => call(id, 'life_learning_review', {
+    mode: 'DECIDE', payload: JSON.stringify(input) }, authorized);
+  const assertDecision = (response, status, duplicate) => {
+    assert.equal(response.ok, true);
+    assert.equal(response.mode, 'DECIDE');
+    assert.equal(response.proposal.id, proposalId);
+    assert.equal(response.proposal.status, status);
+    assert.equal(response.duplicate, duplicate);
+    assert.equal(response.externalEffects, false);
+    assert.equal(response.activatedByThisCall, false);
+    assert.equal(response.liveExecutionVerified, false);
+  };
+  if (phase === 'first') {
+    const emptyView = await decisionView('decision-view-before');
+    assert.equal(emptyView.currentStatus, 'open');
+    assert.deepEqual(emptyView.decisionHistory, []);
+    assert.equal(emptyView.latestDecision, null);
+    const preparedDecision = await call('decision-prepare-accept', 'life_learning_review', { mode: 'PREPARE',
+      payload: JSON.stringify({ proposalId }) });
+    assert.equal(preparedDecision.ok, true);
+    const packet = preparedDecision.packet;
+    assert.deepEqual(packet.attempts.map(item => item.eventId).sort(), syntheticFailureIds);
+    const acceptInput = { proposalId, decisionId: 'synthetic-http-accept-v1', decision: 'accept',
+      expectedRevision: packet.baseRevision, packetFingerprint: packet.packetFingerprint,
+      maxAttempts: packet.maxAttempts, reviewer: 'agent', sourceRef: 'source:synthetic-http-agent-review',
+      reason: 'Select the fixture proposal for review without executing its suggested action.',
+      eventIds: packet.attempts.map(item => item.eventId).sort() };
+    const beforeAccept = readFileSync(file);
+    const deniedDecision = await decide('unauthorized-decision', acceptInput, false);
+    assert.equal(deniedDecision.envelope.result.isError, true);
+    assert.ok(deniedDecision.envelope.result._meta['mcp/www_authenticate'].length > 0);
+    assert.deepEqual(readFileSync(file), beforeAccept);
+    const invalidDecision = await decide('invalid-decision', { ...acceptInput, decision: 'execute' });
+    assert.equal(invalidDecision.code, 'LEARNING_REQUEST_INVALID');
+    assert.deepEqual(readFileSync(file), beforeAccept);
+    const staleDecision = await decide('stale-decision', { ...acceptInput, expectedRevision: packet.baseRevision - 1 });
+    assert.equal(staleDecision.code, 'LEARNING_REVISION_CONFLICT');
+    assert.deepEqual(readFileSync(file), beforeAccept);
+    const accepted = await decide('proposal-accept', acceptInput);
+    assertDecision(accepted, 'accepted', false);
+    assert.equal(accepted.receipt.fromStatus, 'open');
+    assert.equal(accepted.receipt.toStatus, 'accepted');
+    assert.deepEqual(inputFromReceipt(accepted.receipt), acceptInput);
+    const afterAccept = readFileSync(file);
+    const acceptAgain = await decide('proposal-accept-retry', acceptInput);
+    assertDecision(acceptAgain, 'accepted', true);
+    assert.deepEqual(acceptAgain.receipt, accepted.receipt);
+    assert.equal(acceptAgain.revision, accepted.revision);
+    assert.deepEqual(readFileSync(file), afterAccept);
+    const conflictingDecision = await decide('proposal-accept-conflict', {
+      ...acceptInput, reason: 'A different decision body cannot reuse the same decision ID.' });
+    assert.equal(conflictingDecision.code, 'LEARNING_DECISION_CONFLICT');
+    assert.deepEqual(readFileSync(file), afterAccept);
+    const acceptedView = await decisionView('decision-view-accepted');
+    assert.equal(acceptedView.currentStatus, 'accepted');
+    assert.deepEqual(acceptedView.decisionHistory, [accepted.receipt]);
+    const prepareDismissal = await call('decision-prepare-dismiss', 'life_learning_review', { mode: 'PREPARE',
+      payload: JSON.stringify({ proposalId }) });
+    assert.equal(prepareDismissal.ok, true);
+    const dismissInput = { ...acceptInput, decisionId: 'synthetic-http-dismiss-v1', decision: 'dismiss',
+      expectedRevision: prepareDismissal.packet.baseRevision, packetFingerprint: prepareDismissal.packet.packetFingerprint,
+      reviewer: 'user', sourceRef: 'user:synthetic-http-dismissal',
+      reason: 'Synthetic owner chooses to stop offering this fixture proposal.' };
+    const dismissed = await decide('proposal-dismiss', dismissInput);
+    assertDecision(dismissed, 'dismissed', false);
+    assert.equal(dismissed.receipt.fromStatus, 'accepted');
+    assert.equal(dismissed.receipt.toStatus, 'dismissed');
+    assert.deepEqual(inputFromReceipt(dismissed.receipt), dismissInput);
+  }
+  const finalDecisionView = await decisionView(phase + '-decision-view-final');
+  assert.equal(finalDecisionView.currentStatus, 'dismissed');
+  assert.deepEqual(finalDecisionView.allowedDecisions, []);
+  assert.deepEqual(finalDecisionView.decisionHistory.map(item => item.decisionId),
+    ['synthetic-http-accept-v1', 'synthetic-http-dismiss-v1']);
+  assert.equal(finalDecisionView.latestDecision.decisionId, 'synthetic-http-dismiss-v1');
+  const lastReceipt = finalDecisionView.decisionHistory[1];
+  const beforeRetry = readFileSync(file);
+  const duplicateDismissal = await decide(phase + '-dismissal-retry', inputFromReceipt(lastReceipt));
+  assertDecision(duplicateDismissal, 'dismissed', true);
+  assert.deepEqual(duplicateDismissal.receipt, lastReceipt);
+  assert.deepEqual(readFileSync(file), beforeRetry);
+  const afterDecisions = JSON.parse(readFileSync(file, 'utf8')).state;
+  for (const key of ['events', 'attempts', 'lessons']) assert.deepEqual(afterDecisions[key], beforeDecisions[key]);
   const second = await call(phase + '-room-b', 'life_status');
   assert.equal(second.registeredAndroidDevices, 0);
-  assert.equal(second.operationalLearning.counts.attempts, first.operationalLearning.counts.attempts + 1);
-  assert.equal(second.operationalLearning.counts.proposals, 0);
+  assert.equal(second.operationalLearning.counts.attempts, first.operationalLearning.counts.attempts + seededAttempts + 1);
+  assert.equal(second.operationalLearning.counts.proposals, 1);
+  assert.equal(second.operationalLearning.availableAdvice.proposals, 0);
   assert.equal(second.operationalLearning.pending, 0);
   assert.equal(second.operationalLearning.attemptOutcomes.success_verified ?? 0, 0);
   const stored = readFileSync(file, 'utf8');
@@ -210,5 +342,9 @@ try {
     authenticated: true, unauthorizedRejected: true, receiptDedupe: true,
     ownerBootstrapInstalled: true, memoryPreflight: true, memoryReviewAuth: true,
     explicitInstruction: true, commonRuleRecall: true, commonRulePersisted: phase === 'restart', externalRequests, realDevices: 0,
+    syntheticProposalAttempts: seededAttempts, proposalDecisionCatalog: true, proposalDecisionAuth: phase === 'first',
+    proposalDecisions: finalDecisionView.decisionHistory.length, decisionRetryNoop: true,
+    proposalDecisionHistoryHash: createHash('sha256').update(JSON.stringify(finalDecisionView.decisionHistory)).digest('hex'),
+    proposalDecisionPersisted: phase === 'restart',
   }));
 } finally { key.fill(0); await running?.close(); }

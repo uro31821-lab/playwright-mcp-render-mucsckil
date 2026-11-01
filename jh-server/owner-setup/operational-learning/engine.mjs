@@ -495,7 +495,8 @@ export function propose(state, options = {}) {
         verification_gap: 'Improve receipt/readback checks for the existing attempt.',
         learning_evaluation: 'Compare candidate approaches on separate held-out cases.' }[kind],
       requiredValidation: ['Evidence review', 'Matching environment and rule version', 'Effect-free regression', 'Outcome readback before live success claims'],
-      ...(existing?.verification ? { verification: clone(existing.verification) } : {}), ...extra };
+      ...(existing?.verification ? { verification: clone(existing.verification) } : {}),
+      ...(existing?.decisionHistory ? { decisionHistory: clone(existing.decisionHistory) } : {}), ...extra };
     if (existing && same(existing, proposal)) return;
     if (!existing) capacity(next, 'proposals');
     next.proposals[id] = proposal; changed = true;

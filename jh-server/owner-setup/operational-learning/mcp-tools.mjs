@@ -10,7 +10,8 @@ export function registerLearningTools({ registerOAuthTool, z, textResult, getCon
     }
     try { return textResult(await controller[method](...args)); }
     catch (error) {
-      const code = error?.code === 'LEARNING_REVISION_CONFLICT' ? error.code : 'LEARNING_REQUEST_INVALID';
+      const code = ['LEARNING_REVISION_CONFLICT', 'LEARNING_DECISION_CONFLICT'].includes(error?.code)
+        ? error.code : 'LEARNING_REQUEST_INVALID';
       return textResult({ ok: false, code, replayAllowed: false });
     }
   };
@@ -25,9 +26,9 @@ export function registerLearningTools({ registerOAuthTool, z, textResult, getCon
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, args => call('context', args));
   registerOAuthTool('life_learning_review', {
-    title: 'Review JH experience and validate a rule candidate',
-    description: 'Owner memory only; never executes phone actions or model training. PREPARE reads an existing proposal. CANDIDATE accepts either {review,suite} for a reviewed inference, or {instruction,suite,expectedRevision} for an actual explicit user instruction; preserve its exact text, user source reference and SHA-256, and specify all_jh_tasks or one tool/mode. It stores only a candidate, never fabricated events or proposals. CHECK runs the registered candidate\'s bounded regression and records active/quarantined status. payload is a JSON object. The authenticated caller attests the instruction source; the server does not read chats or Library. Never send secrets or raw screen content.',
-    inputSchema: { mode: z.enum(['PREPARE', 'CANDIDATE', 'CHECK']), payload: z.string().min(2).max(65536) },
+    title: 'Review JH experience, decide on a proposal, and validate a rule',
+    description: 'Owner memory only; never executes phone actions or model training. PREPARE reads an existing proposal; {proposalId,view:"decision"} reads its current status and decision history, including closed proposals. DECIDE records accept/dismiss only, using decisionId, expectedRevision, packetFingerprint, reviewer, sourceRef, reason and eventIds from the current PREPARE packet. Reuse the exact payload after an uncertain decision response; the same ID with changed content is rejected. Acceptance selects an improvement for follow-up; it does not implement it, activate a lesson or verify a live outcome. CANDIDATE accepts either {review,suite} for a reviewed inference, or {instruction,suite,expectedRevision} for an actual explicit user instruction; preserve exact text, user source reference and SHA-256, and specify all_jh_tasks or one tool/mode. It stores a candidate, never fabricated events or proposals. CHECK runs its bounded regression and records active/quarantined status. payload is a JSON object. The authenticated caller attests the decision/instruction source; the server does not read chats or Library. Never send secrets or raw screen content.',
+    inputSchema: { mode: z.enum(['PREPARE', 'CANDIDATE', 'CHECK', 'DECIDE']), payload: z.string().min(2).max(65536) },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
   }, async ({ mode, payload }) => {
     let input;

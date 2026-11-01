@@ -4,6 +4,7 @@ import { FileLearningStore } from './store.mjs';
 import { ingest, recallContexts, propose, addLesson, evaluateLesson } from './engine.mjs';
 import { prepareReview, createReviewedCandidate } from './curation.mjs';
 import { createInstructionCandidate } from './instructions.mjs';
+import { decideProposal, proposalDecisionView, decisionSummary } from './decisions.mjs';
 import { bindRegression, runRegression } from './regression.mjs';
 import { evaluateConstraints } from './constraints.mjs';
 import { evaluateTrajectory } from './trajectory.mjs';
@@ -414,12 +415,31 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
 
   /** Structured review only. An agent inference cannot claim user authority. */
   async function review(mode, input) {
-    if (!['PREPARE', 'CANDIDATE', 'CHECK'].includes(mode)) throw new TypeError('LEARNING_REVIEW_MODE_INVALID');
+    if (!['PREPARE', 'CANDIDATE', 'CHECK', 'DECIDE'].includes(mode)) throw new TypeError('LEARNING_REVIEW_MODE_INVALID');
     await queue;
     const current = await refresh();
     if (!current || closed || closing) return unavailableResult();
     if (mode === 'PREPARE') {
+      if (Object.hasOwn(input, 'view')) {
+        requestFields(input, ['proposalId', 'view']);
+        if (input.view !== 'decision') throw new TypeError('LEARNING_REQUEST_INVALID');
+        return { ok: true, mode, view: proposalDecisionView(current, { proposalId: input.proposalId }),
+          externalEffects: false };
+      }
       return { ok: true, mode, packet: prepareReview(current, input), externalEffects: false };
+    }
+    if (mode === 'DECIDE') {
+      // Check the expected revision inside the same file lock that saves the
+      // decision. An exact already-recorded retry is read-only even when its
+      // original expected revision is now old; all new decisions require CAS.
+      const saved = await store.transact(value => decideProposal(value, input, { now: clock() }));
+      state = saved.state;
+      const item = saved.proposal;
+      return { ok: true, mode, revision: saved.state.revision,
+        proposal: { id: item.id, kind: item.kind, status: item.status, scope: clone(item.scope) },
+        receipt: saved.receipt, duplicate: saved.duplicate,
+        sourceAuthentication: 'authenticated_owner_attestation',
+        advisoryOnly: true, externalEffects: false, activatedByThisCall: false, liveExecutionVerified: false };
     }
     if (mode === 'CANDIDATE') {
       if (Object.hasOwn(input, 'instruction')) {
@@ -477,13 +497,17 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     const known = current ?? state;
     const attempts = Object.values(known?.attempts ?? {});
     const proposals = Object.values(known?.proposals ?? {});
-    const proposalSummary = proposals.map(item => ({ id: item.id, kind: item.kind, status: item.status,
-      independentTaskCount: item.independentTaskCount, advisoryOnly: true }));
+    const proposalSummary = proposals.map(item => {
+      const latestDecision = decisionSummary(item);
+      return { id: item.id, kind: item.kind, status: item.status,
+        independentTaskCount: item.independentTaskCount, advisoryOnly: true,
+        ...(latestDecision ? { latestDecision } : {}) };
+    });
     return {
       enabled: Boolean(store && environment && !closed), degraded: failures > 0,
       apiVersion: 3, capabilities: { preflightContext: true, reviewedCandidates: true,
         temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true,
-        scopedProposals: true },
+        scopedProposals: true, proposalDecisions: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,
