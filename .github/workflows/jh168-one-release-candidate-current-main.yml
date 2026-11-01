@@ -34,15 +34,24 @@ jobs:
           git merge-base --is-ancestor 2c310f8b4a76d40604416e7dd4cb4976fdd1fc85 HEAD
       - name: PROTECT original Secure56, OAuth, approval, Android, owner volume, learning and real startup
         run: |
+          # Original source protection remains strict: review exact PR72
+          # three host changes, their reversal and every protected path.
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs
           git diff --exit-code 2c310f8b4a76d40604416e7dd4cb4976fdd1fc85 HEAD -- \
             jh-server/server.mjs \
             jh-server/owner-setup/deployment \
+            ':(exclude)jh-server/owner-setup/deployment/durable-native-host.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs' \
             jh-server/owner-setup/server-integration \
             jh-server/owner-setup/android-direct \
             jh-server/owner-setup/trusted-server \
             jh-server/owner-setup/owner-enrollment \
-            jh-server/owner-setup/operational-learning
+            jh-server/owner-setup/operational-learning \
+            ':(exclude)jh-server/owner-setup/operational-learning/ANDROID-PRODUCER-COMPATIBILITY.md'
           echo JH_ORIGINAL_AUTH_OWNER_ANDROID_STARTUP_UNCHANGED=YES
+          echo JH_PR72_REVIEWED_HOST_AND_DOC_ONLY=YES
       - name: Exact imported source blobs and immutable release blocks
         run: |
           node --test --test-reporter=spec \

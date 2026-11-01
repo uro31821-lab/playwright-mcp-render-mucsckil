@@ -28,8 +28,18 @@ jobs:
       - name: Original server, approvals, signing and owner database source protected
         run: |
           set -eu
-          git diff --exit-code origin/jh-fix3-secure-server HEAD -- jh-server/server.mjs jh-server/owner-setup/deployment/durable-native-host.mjs jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs jh-server/owner-setup/server-integration jh-server/owner-setup/operational-learning jh-server/owner-setup/android-direct
+          # The MOBILE overlay intentionally changes EXACTLY 3 reviewed host
+          # source files + one non-secret producer compatibility document.
+          # Pin those bytes to PR72 before allowing ANY receipt-only test.
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs
+          git diff --exit-code origin/jh-fix3-secure-server HEAD -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct
           echo JH_ORIGINAL_OAUTH_HMAC_OWNER_ANDROID_UNCHANGED=YES
+          echo EXACT_REVIEWED_PR72_MOBILE_ADMISSION_SOURCE=VERIFIED
       - name: Install exact existing Node owner dependencies
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false

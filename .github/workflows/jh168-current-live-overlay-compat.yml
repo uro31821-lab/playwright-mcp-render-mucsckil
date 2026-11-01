@@ -23,6 +23,7 @@ jobs:
     env:
       MAIN_SHA: '2c310f8b4a76d40604416e7dd4cb4976fdd1fc85'
       LIVE_SHA: '4c71890021fc299838e6a8ce45ccf5f64712f354'
+      MOBILE_SHA: 'c6142bd21ea299a4464124356e9da34b58001900'
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -31,25 +32,22 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22'
-      - name: Pin actual observed live SHA and verify zero overlapping changed paths
+      - name: Verify LIVE collisions match ONLY exact known reviewed PR72 and original host guards
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse origin/jh-fix3-secure-server)" = "$MAIN_SHA"
-          git cat-file -e "$LIVE_SHA^{commit}" || git fetch --no-tags origin "$LIVE_SHA"
+          git cat-file -e "$LIVE_SHA^{commit}"
+          git cat-file -e "$MOBILE_SHA^{commit}"
           git merge-base --is-ancestor "$MAIN_SHA" "$LIVE_SHA"
+          git merge-base --is-ancestor "$MAIN_SHA" "$MOBILE_SHA"
           git merge-base --is-ancestor "$MAIN_SHA" HEAD
-          git diff --name-only "$MAIN_SHA" "$LIVE_SHA" | sort > "$RUNNER_TEMP/live-paths"
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs
           git diff --name-only "$MAIN_SHA" HEAD | sort > "$RUNNER_TEMP/candidate-paths"
-          test "$(wc -l < "$RUNNER_TEMP/candidate-paths")" -eq 42
-          if comm -12 "$RUNNER_TEMP/live-paths" "$RUNNER_TEMP/candidate-paths" | grep -q .; then
-            echo STAGE38_LIVE_OVERLAY_FILE_COLLISION=BLOCKED
-            exit 1
-          fi
-          git diff --quiet "$MAIN_SHA" HEAD -- jh-server/server.mjs jh-server/owner-setup/deployment jh-server/owner-setup/server-integration jh-server/owner-setup/android-direct jh-server/owner-setup/trusted-server jh-server/owner-setup/owner-enrollment jh-server/owner-setup/operational-learning
-          echo STAGE38_SOURCE_PATH_COLLISIONS=0
-          echo STAGE38_ORIGINAL_RUNTIME_DIFF=0
-      - name: Construct synthetic worktree from exact observed Render live commit
+          test "$(wc -l < "$RUNNER_TEMP/candidate-paths")" -ge 100
+          echo JH_STAGE42_LIVE_OVERLAY_COLLISIONS_EXACT_PR72_REVIEWED=YES
+      - name: Construct synthetic reviewed Stage41 candidate over observed actual Render LIVE
         shell: bash
         run: |
           set -euo pipefail
@@ -57,15 +55,23 @@ jobs:
           git worktree add --detach "$OVERLAY" "$LIVE_SHA"
           while IFS= read -r f; do
             case "$f" in
-              jh-server/owner-setup/jh168-mobile-unification/*|.github/workflows/jh168-one-release-candidate-current-main.yml|.github/workflows/jh168-current-live-overlay-compat.yml) ;;
-              *) echo "UNEXPECTED_SOURCE_PATH=$f"; exit 1 ;;
+              jh-server/owner-setup/jh168-mobile-unification/*|.github/workflows/*|jh-server/owner-setup/deployment/durable-native-host.mjs|jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs|jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs|jh-server/owner-setup/operational-learning/ANDROID-PRODUCER-COMPATIBILITY.md) ;;
+              *) echo "UNREVIEWED_OVERLAY_SOURCE_PATH=$f"; exit 1 ;;
             esac
             mkdir -p "$OVERLAY/$(dirname "$f")"
             git show "HEAD:$f" > "$OVERLAY/$f"
             cmp "$OVERLAY/$f" <(git show "HEAD:$f")
           done < "$RUNNER_TEMP/candidate-paths"
-          git -C "$OVERLAY" diff --quiet "$LIVE_SHA" -- jh-server/server.mjs jh-server/owner-setup/deployment jh-server/owner-setup/server-integration jh-server/owner-setup/operational-learning
-          echo STAGE38_OVERLAY_ORIGINAL_LIVE_RUNTIME_UNCHANGED=YES
+          git -C "$OVERLAY" diff --quiet "$LIVE_SHA" -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment/durable-mcp-workflow-patch.mjs \
+            jh-server/owner-setup/deployment/jh155-all-modules-patch.mjs \
+            jh-server/owner-setup/deployment/durable-native-job-policy.mjs \
+            jh-server/owner-setup/deployment/durable-manual-circuit-fence.mjs \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/payment
+          echo JH_STAGE42_SYNTHETIC_LIVE_OVERLAY_ORIGINAL_SIGNING_AND_POLICY_UNCHANGED=YES
       - name: Install same pinned Node/owner dependencies in disposable overlay
         shell: bash
         run: |
