@@ -13,6 +13,11 @@ const pairs=[
   "        const focus=jhFocus44.start({device,commandId,currentCommand:jhCommandVersion56(device)});\n"+
   "        if(!focus.ok)return textResult({ok:false,code:focus.code,replayAllowed:false});\n"+
   "      }"],
+ ["      if(jhMcpWorkflows56.size>=8)return textResult({ok:false,code:'workflow_capacity_no_replay'});",
+  "      if(jhMcpWorkflows56.size>=8){\n"+
+  "        if(mode==='BEGIN'&&request_id)jhFocus44.release({device,commandId});\n"+
+  "        return textResult({ok:false,code:'workflow_capacity_no_replay'});\n"+
+  "      }"],
  ["      }catch(e){if(jhMcpWorkflows56.get(w.id)!==w)return textResult({ok:false,code:'site_switch_discarded'});",
   "      }catch(e){if(mode==='BEGIN'&&request_id)jhFocus44.release({device,commandId});\n"+
   "        if(jhMcpWorkflows56.get(w.id)!==w)return textResult({ok:false,code:'site_switch_discarded'});"]
