@@ -88,8 +88,8 @@ test('additional generated tool after capture remains unchanged',()=>{
 test('temporary verified mode: default and empty restore ORIGINAL source byte-for-byte',()=>{
  assert.equal(selectJH168MobileWeb13Mode56({}),'ORIGINAL');
  assert.equal(selectJH168MobileWeb13Mode56({JH_MOBILE_WEB_13_MODE:''}),'ORIGINAL');
- assert.equal(patchJH168MobileWeb13VerifiedMode56(preparedRightPane,{}),prepared);
- assert.equal(patchJH168MobileWeb13VerifiedMode56(preparedRightPane,{JH_MOBILE_WEB_13_MODE:''}),prepared);
+ assert.equal(patchJH168MobileWeb13VerifiedMode56(preparedRightPane,{}),preparedRightPane);
+ assert.equal(patchJH168MobileWeb13VerifiedMode56(preparedRightPane,{JH_MOBILE_WEB_13_MODE:''}),preparedRightPane);
 });
 test('temporary mode FAILS CLOSED: invalid flag, wrong host, wrong stage25 scope, CI cannot claim production',()=>{
  const key='JH_MOBILE_WEB_13_MODE';
