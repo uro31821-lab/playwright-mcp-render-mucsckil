@@ -16,6 +16,9 @@ const RECEIPT_TOOLS = new Set([
 ]);
 const RECEIPT_MODES = new Set(['STATUS', 'RECEIPT_STATUS', 'READBACK_PENDING']);
 const VERIFIED = new Set(['success_verified', 'failure_verified']);
+const SPLIT_READ_SCOPE = 'SPLIT_READ_LAYOUT_ONLY';
+const SPLIT_READ_REFERENCE = 'source:jh-split-read-layout-only';
+const SPLIT_READ_TYPES = new Set(['split_screen_session_start', 'split_screen_session_status']);
 const SAFE_CODES = new Set([
   'JOB_ERROR', 'JOB_EXPIRED', 'TIMEOUT', 'ACCESS_DENIED', 'APPROVAL_REQUIRED',
   'AUTH_REQUIRED', 'INVALID_REQUEST', 'CANCELLED', 'COMPLETION_UNKNOWN',
@@ -105,7 +108,7 @@ function settleWithin(promise, milliseconds) {
 /**
  * One configured personal-server owner, shared across that owner's connections.
  * This is not OAuth multi-user isolation or a Library synchronization adapter.
- * Only trusted host code supplies call identity and verifiedOutcome.
+ * Only trusted host code supplies call identity and verified result/observation metadata.
  */
 export async function createServerLearning({ file, ownerScope, runtimeId, context,
   clock = () => new Date().toISOString() }) {
@@ -203,6 +206,16 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       const sameObservation = previous && previous.outcome === observation.outcome &&
         (previous.errorCode ?? null) === (observation.errorCode ?? null) &&
         JSON.stringify(previous.evidenceRefs) === JSON.stringify(observation.evidenceRefs);
+      // A confirmed layout observation is narrower than task success, but a
+      // later generic completion/poll must not erase its bound receipt. A new
+      // verified outcome may still advance this attempt through the usual path.
+      const hasSplitReadObservation = previous?.outcome === 'observed' &&
+        previous.source === 'host_verified' && Array.isArray(previous.evidenceRefs) &&
+        previous.evidenceRefs.length === 2 && /^sha256:[a-f0-9]{64}$/.test(previous.evidenceRefs[0]) &&
+        previous.evidenceRefs[1] === SPLIT_READ_REFERENCE;
+      if (hasSplitReadObservation && ['observed', 'pending', 'completion_unknown'].includes(observation.outcome)) {
+        return { state: current, ...(sameObservation ? { duplicate: true } : { skipped: true }) };
+      }
       const wouldDowngrade = previous && VERIFIED.has(previous.outcome) && !VERIFIED.has(observation.outcome);
       const latePending = previous && previous.outcome !== 'pending' && observation.outcome === 'pending';
       if (sameObservation || wouldDowngrade || latePending) return { state: current, duplicate: true };
@@ -220,10 +233,14 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
 
   function snapshotJob(job) {
     if (!job || !identity(job.id)) throw new TypeError('LEARNING_JOB_ID_REQUIRED');
+    const type = name(job.type);
     return {
-      attemptId: jobAttempt(job.id), operation: 'job.' + name(job.type),
+      attemptId: jobAttempt(job.id), type, operation: 'job.' + type,
       commandId: identity(job.commandId), status: typeof job.status === 'string' ? job.status : 'unknown',
       code: SAFE_CODES.has(job.code) ? job.code : (job.code === undefined ? null : 'HOST_CODE_REDACTED'),
+      observationScopeSupplied: 'verifiedObservationScope' in job,
+      verifiedObservationScope: job.verifiedObservationScope,
+      verifiedOutcomeSupplied: 'verifiedOutcome' in job,
       verifiedOutcome: VERIFIED.has(job.verifiedOutcome) ? job.verifiedOutcome : null,
       evidenceDigest: digest(job.evidenceDigest),
     };
@@ -243,6 +260,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     if (closed) return;
     try {
       const input = snapshotJob(job);
+      if (input.observationScopeSupplied) return;
       const caller = calls.getStore();
       if (caller) { caller.hasJobs = true; caller.jobAttempts.add(input.attemptId); }
       const scope = bindings.get(input.attemptId) ?? caller?.scope ?? scopeFor(input.operation, input.commandId);
@@ -255,18 +273,30 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     if (closed) return;
     try {
       const input = snapshotJob(job);
+      if (input.observationScopeSupplied) return;
       const scope = bindings.get(input.attemptId) ?? scopeFor(input.operation, input.commandId);
       queueWork(() => record(input.attemptId, scope, jobObservation(input, 'completed')));
     } catch (error) { failed(error); }
   }
 
-  /** Trusted host readback of an existing completed job; not a public write tool. */
+  /** Trusted host readback of an existing completed job; not a public write tool.
+   * Layout-only read receipts are observations, never task success or failure.
+   */
   function receiptObserved(job) {
     if (closed) return;
     try {
       const input = snapshotJob(job);
-      if (input.status !== 'complete' || !input.verifiedOutcome || !input.evidenceDigest || !input.commandId) return;
-      queueWork(() => record(input.attemptId, null, jobObservation(input, 'completed'),
+      if (input.status !== 'complete' || !input.evidenceDigest || !input.commandId) return;
+      let observation;
+      if (input.observationScopeSupplied) {
+        if (input.verifiedObservationScope !== SPLIT_READ_SCOPE || !SPLIT_READ_TYPES.has(input.type) ||
+            input.verifiedOutcomeSupplied) return;
+        observation = { outcome: 'observed', evidenceRefs: ['sha256:' + input.evidenceDigest, SPLIT_READ_REFERENCE] };
+      } else {
+        if (!input.verifiedOutcome) return;
+        observation = jobObservation(input, 'completed');
+      }
+      queueWork(() => record(input.attemptId, null, observation,
         { existingReceiptTaskId: taskId(input.commandId) }));
     } catch (error) { failed(error); }
   }
@@ -539,7 +569,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       apiVersion: 3, capabilities: { preflightContext: true, reviewedCandidates: true,
         temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true,
         scopedProposals: true, proposalDecisions: true,
-        existingReceiptReconciliation: true, reviewReadiness: true },
+        existingReceiptReconciliation: true, reviewReadiness: true, splitReadObservationReconciliation: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,
