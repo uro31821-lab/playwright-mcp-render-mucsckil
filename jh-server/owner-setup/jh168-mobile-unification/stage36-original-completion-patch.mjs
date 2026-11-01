@@ -52,7 +52,10 @@ const PROTECTED_RETURN_NEW=[
  '    // Only the ORIGINAL protected JH155 screen-verification result can',
  '    // release a sealed reference created during this same signed dispatch.',
  '    const stage36CompletionHandoff56=stage36InlineOriginalHandoff56.finish({receipt,verified});',
- '    return {...(receipt||{}),',
+ '    // Never allow an untrusted Android result to supply a fake handle.',
+ '    const {originalReceiptHandoff:stage36IgnoredNativeHandle56,',
+ '      ...stage36SafeNativeResult56}=receipt||{};',
+ '    return {...stage36SafeNativeResult56,',
  '      ...(stage36CompletionHandoff56?{originalReceiptHandoff:stage36CompletionHandoff56}:{}),',
  '      ok:receipt?receipt.ok===true:verified.verified===true,'
 ].join('\n');

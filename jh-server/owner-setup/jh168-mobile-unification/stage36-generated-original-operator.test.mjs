@@ -62,6 +62,8 @@ test('actual generated Secure56 original operator has exact reversible Stage36 h
  const finishCode=stage36.slice(stage36.indexOf('const stage36CompletionHandoff56='),
   stage36.indexOf('resultVerification:jhResultVerificationSummary56(verified)',finish));
  assert.match(finishCode,/originalReceiptHandoff:stage36CompletionHandoff56/);
+ assert.match(finishCode,/stage36IgnoredNativeHandle56/);
+ assert.match(finishCode,/stage36SafeNativeResult56/);
  assert.ok(!finishCode.includes('mk('));
  assert.ok(!finishCode.includes('waitJob('));
  const check=path.join(root,'server-integration/stage36-only-syntax-check.mjs');
