@@ -27,7 +27,7 @@ jobs:
             jh-server/owner-setup/android-direct
       - name: Verify syntax and isolated original-click receipt tests
         run: |
-          for f in jh-server/owner-setup/jh168-mobile-unification/split-followup-*.mjs; do node --check "$f"; done
+          for f in jh-server/owner-setup/jh168-mobile-unification/split-followup-*.mjs jh-server/owner-setup/jh168-mobile-unification/stage25-*.mjs; do node --check "$f"; done
           node --test --test-reporter=spec \
             jh-server/owner-setup/jh168-mobile-unification/split-followup-receipts.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/split-followup-receipt-patch.test.mjs
@@ -44,6 +44,7 @@ jobs:
         run: |
           node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/split-followup-generated-runtime.test.mjs
           node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage22-generated-server-candidate.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage25-split-followup-operational-entry.test.mjs
       - name: Review only, never deploy or invoke the phone
         run: |
           echo JH168_SPLIT_FOLLOWUP_RECEIPT_SOURCE_REVIEW_ONLY
