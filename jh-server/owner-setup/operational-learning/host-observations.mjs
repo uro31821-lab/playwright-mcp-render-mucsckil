@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { createState, ingest, propose } from './engine.mjs';
+import { proposalContext } from './proposal-context.mjs';
 
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,127}$/;
 const REF = /^(?:sha256|event|fixture|user|artifact|library|regression|test|source|commit):[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$/;
@@ -213,7 +214,7 @@ export function observeTask(state, input, options = {}) {
     if (canonical(event) !== canonical(previous)) conflict();
     const group = collectTask(state, event.taskId).get(event.attemptId);
     return { state, event: structuredClone(previous), duplicate: true, recorded: false, projectionChanged: false,
-      current: attemptSummary(group), newProposals: [], externalEffects: false, replayAllowed: false };
+      current: attemptSummary(group), newProposals: [], newProposalsOmitted: 0, externalEffects: false, replayAllowed: false };
   }
   if (expectedRevision !== state.revision) fail('Observation revision is stale', 'LEARNING_REVISION_CONFLICT');
   const group = collectTask(state, event.taskId).get(event.attemptId);
@@ -226,7 +227,13 @@ export function observeTask(state, input, options = {}) {
   const recorded = ingest(state, event);
   const offered = propose(recorded.state, options);
   const current = attemptSummary(collectTask(offered.state, event.taskId).get(event.attemptId));
+  // Proposals may be recalculated for other stored scopes. Deliver only NEW,
+  // relevant open summaries; all stored proposals remain recoverable via context.
+  const newlyOffered = { ...offered.state,
+    proposals: Object.fromEntries(offered.proposals.map(proposal => [proposal.id, proposal])) };
+  const delivery = proposalContext(newlyOffered, [scopeOf(event)]);
   return { state: offered.state, event: structuredClone(offered.state.events[event.eventId]), duplicate: false,
     recorded: true, projectionChanged: group?.projection.eventId !== current.projection.eventId,
-    current, newProposals: structuredClone(offered.proposals), externalEffects: false, replayAllowed: false };
+    current, newProposals: delivery.items, newProposalsOmitted: delivery.omitted,
+    externalEffects: false, replayAllowed: false };
 }

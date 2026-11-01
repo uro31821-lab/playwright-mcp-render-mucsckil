@@ -254,7 +254,7 @@ suite에 `evaluator: "jh.trajectory.v1"`을 명시하면 [trajectory.mjs](trajec
 
 잠금 안에서 동일 사건을 먼저 대조합니다. 정확한 재전송은 오래된 expectedRevision과 timestamp여도 원래 사건을 반환하고 제안을 다시 계산하거나 파일·revision을 바꾸지 않습니다. 새로운 사건에만 expectedRevision을 검사하고, 해당 시도 **전체 사건**의 최대 sequence에 1을 더합니다. 관찰 시각은 전체 사건의 최대 시각보다 과거일 수 없고, 시간대 표기는 파싱된 시각으로 비교합니다. 같은 시각은 트랜잭션 순서로 정합니다. 순서가 소진됐거나 scope가 바뀌면 거절합니다. 이후 기존 `ingest → propose` 결과를 한 번에 저장합니다. 기존 verified 결과를 약한 후속 상태로 낮추지 않는 엔진 규칙도 유지합니다.
 
-CLI `observe`는 payload의 expectedRevision을 사용하므로 `--revision`을 함께 받지 않습니다. 독립 API `observeTask(state,input,{now?})`는 store의 transaction 안에서 호출하며 바깥 transaction의 revision 검사에 중복 복구를 가로막게 하지 않습니다. CLI 반환은 `revision,event,duplicate,recorded,projectionChanged,current,newProposals,externalEffects:false,replayAllowed:false`입니다. event는 원래 관찰 영수증이고 current는 **현재** 시도 요약입니다. 과거 관찰을 재전송해도 현재 결과를 과거로 되돌리지 않습니다. 기록됐다는 사실과 유효 결과가 바뀌었다는 사실을 구분합니다.
+CLI `observe`는 payload의 expectedRevision을 사용하므로 `--revision`을 함께 받지 않습니다. 독립 API `observeTask(state,input,{now?})`는 store의 transaction 안에서 호출하며 바깥 transaction의 revision 검사에 중복 복구를 가로막게 하지 않습니다. CLI 반환은 `revision,event,duplicate,recorded,projectionChanged,current,newProposals,newProposalsOmitted,externalEffects:false,replayAllowed:false`입니다. event는 원래 관찰 영수증이고 current는 **현재** 시도 요약입니다. 과거 관찰을 재전송해도 현재 결과를 과거로 되돌리지 않습니다. 기록됐다는 사실과 유효 결과가 바뀌었다는 사실을 구분합니다.
 
 새 관찰의 오래된 revision은 최신 상태를 다시 읽어 검토하고 저장 변경분만 재적용합니다. 같은 참조의 다른 내용을 새 ID로 포장하거나 과거 관찰 시각을 현재로 고쳐 거절을 우회하지 않습니다. 응답 불명확 시 같은 payload만 재전송하고 실제 업무를 다시 실행하지 않습니다. 기존 `ingest`의 명시적 역사 기록·배열 입력·호환 동작은 유지되며, 일반 호스트 관찰의 충돌 검사를 피하는 대체 경로로 쓰지 않습니다.
 
@@ -275,7 +275,7 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `observe` | `{taskId,attemptId,observationRef,scope,observation,expectedRevision}`: 동일 관찰 멱등 기록, `--revision`과 함께 사용 금지 |
 | `ingest` | 이벤트 객체 또는 1~100개 이벤트 배열 |
 | `recall` | `{domain, operation, engine, context}` |
-| `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 |
+| `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 두 형식 모두 선택 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}` 지원 |
 | `review` | `{proposalId,maxAttempts?}`: 실제 근거 검토 packet 읽기 |
 | `curate` | `{review,suite}`: 구체적인 검토 결과를 검증된 형식의 후보 정의로 변환. 저장·활성화는 별도 |
 | `propose` | `{}` 또는 `{now, thresholds}` |
@@ -284,6 +284,23 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `proposal-status` | `{id, status, verification?}` |
 
 `context`에는 `query`와 `queries` 중 정확히 하나만 전달합니다. 다중 입력은 같은 엔진과 전체 `context`의 고유 exact scope 1~3개를 받습니다. 호스트가 확인한 공통 범위와 현재 업무 범위를 함께 넣으면 저장소를 한 번 읽고 기존 `recallContexts()`로 출처 우선순위·동급 충돌·같은 지침 중복·전체 개수와 문자 예산을 판정합니다. 중복 범위는 호출자가 제거하고 실제 엔진·환경이 다른 범위를 억지로 통일하지 않습니다. 반환은 `{lessons,conflicts,omitted,fingerprint,revision}`이며 기존 단일 범위의 결과·지문을 유지합니다. 조회는 기억 파일을 바꾸지 않으며 MCP mode나 서버의 관찰 범위를 추가하지 않습니다.
+
+### 범위별 열린 제안 조회와 복구
+
+동봉 CLI `context`는 선택적인 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}`를 받습니다. 이 입력을 생략하면 기존 단일·다중 context의 반환과 교훈 지문을 그대로 유지합니다. `proposals:{}`를 넣으면 **동일한 저장소 읽기 결과**에서 기존 교훈과 함께 `proposalContext`를 반환합니다. 서버 MCP `life_learning_context`의 입력이나 응답을 바꾸지 않습니다.
+
+`proposalContext`는 `schema:"jh.learning-proposal-context.v1"`, `revision`, `items`, `omitted`, `suppressed`, `fingerprint`, `readOnly:true`, `advisoryOnly:true`, `externalEffects:false`를 포함합니다. 호출만으로 사건·시도·제안을 만들거나 제안을 재계산하지 않습니다.
+
+- 요청한 고유 exact scope 1~3개 안의 **open 제안**만 선택합니다. 모든 query는 같은 엔진과 전체 context를 사용합니다. 다른 영역·작업·엔진·플랫폼·버전·환경의 제안은 예산을 소모하지 않습니다.
+- `learning_evaluation`의 `operation:"*"`만 같은 영역·엔진·전체 context에서 허용합니다. 이를 전체 JH 공통 제안으로 넓히지 않습니다. 불완전한 scope나 일반적인 잘못된 과거 제안 정의는 선택하지 않으며, 접근자·Proxy·실행 가능한 값이 포함된 상태는 읽기를 거절합니다.
+- 기본 한도는 3개/3000자이며 `limit`은 1~10, `maxChars`는 1~16384입니다. 문자 예산은 reason·proposedChange·requiredValidation의 Unicode 코드 포인트 합계입니다. 문장을 자르지 않고 예산에 맞지 않는 항목 전체를 생략합니다. 교훈 조회의 limit/maxChars와 별도 예산입니다.
+- 항목은 실제 ID·종류·scope·상태·생성 시각·독립 작업 수·이유·제안 변경·검증 조건·관측 비용을 요약합니다. 비용의 `savings:null`은 절감 효과가 측정되지 않았다는 뜻입니다. 근거는 최대 8개와 `evidenceRefsOmitted/evidenceRefsTruncated`를 반환합니다.
+- 각 `noticeFingerprint`는 **생략 전 전체 근거 참조**와 해당 안내의 실제 의미 필드에 연결됩니다. 조회 순서나 관련 없는 revision 증가만으로 지문이 바뀌지 않습니다. 교훈의 `fingerprint`와 `proposalContext.fingerprint`를 구별합니다. 두 안내 지문은 PREPARE의 `packetFingerprint`가 아닙니다. 결정·후보 등록에는 실제 proposalId로 새 review/PREPARE를 읽어 얻은 검토 지문을 사용합니다.
+- `seenNoticeFingerprints`는 현재 대화에서 실제로 이미 안내한 정확한 내용의 지문을 담는 고유 SHA-256 배열이며 최대 64개입니다. 범위·상태 필터 뒤, 예산 전에 이 내용을 제외하고 `suppressed`로 집계합니다. `omitted`는 아직 제외되지 않은 적격 항목 중 예산으로 빠진 수입니다. 내용이 바뀐 같은 ID의 제안은 새 지문으로 다시 나타날 수 있습니다.
+
+관찰 저장 응답을 놓쳐도 기존 열린 제안은 이 조회로 복구합니다. 정확한 `observe` 재전송이 `newProposals:[]`를 반환하는 것은 제안 재계산을 하지 않았다는 뜻이며, 현재 저장소에 열린 제안이 없다는 뜻이 아닙니다. 처음 만든 관찰의 `newProposals`도 전체 재계산 결과 중 **현재 관찰의 정확한 scope에 맞는 제한된 요약**이며 기본 제안 예산을 적용합니다. `newProposalsOmitted`는 그 범위의 예산 생략 수입니다. 다른 범위에 만들어진 제안은 저장소에 보존되며 적합한 다음 업무에서 조회합니다. 기존 `ingest/propose` 배열 반환은 유지합니다.
+
+조회 결과나 seen 배열을 영속적인 전달 완료·사용자 열람·채택·기각·규칙 활성화·실제 개선 증거로 사용하지 않습니다. 본문에 안내했는지 확인할 수 없는 지문을 넣지 않으며, 응답 유실 때는 seen을 임의로 채우지 않습니다. 여러 대화방의 전달 완료를 공유하는 기능은 없습니다. 필요한 실제 proposalId로 기존 `review/decision-view/progress`를 읽고 승인된 판단·후보 검증 절차로 이어갑니다.
 
 `candidate`와 후속 `check`에는 같은 교훈·시험 정의를 사용합니다. 처음부터 `check`로 등록·검사를 함께 수행할 수도 있습니다. 전체 CLI 입력 검증은 [cli.mjs](cli.mjs)를 따릅니다.
 
