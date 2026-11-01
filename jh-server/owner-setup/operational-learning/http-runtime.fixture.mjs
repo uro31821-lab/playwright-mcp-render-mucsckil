@@ -104,6 +104,7 @@ try {
   assert.equal(first.operationalLearning.capabilities.commonRules, true);
   assert.equal(first.operationalLearning.capabilities.scopedProposals, true);
   assert.equal(first.operationalLearning.capabilities.proposalDecisions, true);
+  assert.equal(first.operationalLearning.capabilities.proposalProgress, true);
   assert.equal(first.operationalLearning.capabilities.existingReceiptReconciliation, true);
   assert.equal(first.operationalLearning.capabilities.reviewReadiness, true);
   assert.equal(first.operationalLearning.capabilities.splitReadObservationReconciliation, true);
@@ -220,9 +221,78 @@ try {
       return propose(state, { now: '2026-10-31T00:00:00.000Z' });
     }, { expectedRevision: afterDirectives.revision });
   }
+  const proposalState = JSON.parse(readFileSync(file, 'utf8')).state;
+  assert.equal(Object.keys(proposalState.proposals).length, 1);
+  const proposalId = Object.keys(proposalState.proposals)[0];
+  const progressView = async id => {
+    const before = readFileSync(file);
+    const response = await call(id, 'life_learning_review', { mode: 'PREPARE',
+      payload: JSON.stringify({ view: 'progress', proposalId }) });
+    assert.equal(response.ok, true);
+    assert.equal(response.view.schema, 'jh.learning-proposal-progress.v1');
+    assert.equal(response.view.proposalId, proposalId);
+    assert.equal(response.view.readOnly, true);
+    assert.equal(response.view.externalEffects, false);
+    assert.equal(response.view.liveExecutionVerified, false);
+    assert.equal(response.view.recallScope, 'candidate_and_common');
+    assert.deepEqual(readFileSync(file), before);
+    return response.view;
+  };
+  const linkedLessonId = 'synthetic-http-reviewed-candidate-v1';
+  if (phase === 'first') {
+    const empty = await progressView('progress-before-candidate');
+    assert.deepEqual(empty.candidates, [], 'Existing explicit instructions are not inferred proposal links');
+    const before = readFileSync(file);
+    const denied = await call('unauthorized-progress', 'life_learning_review', { mode: 'PREPARE',
+      payload: JSON.stringify({ view: 'progress', proposalId }) }, false);
+    assert.equal(denied.envelope.result.isError, true);
+    assert.ok(denied.envelope.result._meta['mcp/www_authenticate'].length > 0);
+    const invalid = await call('invalid-progress-write', 'life_learning_review', { mode: 'PREPARE',
+      payload: JSON.stringify({ view: 'progress', proposalId, status: 'verified' }) });
+    assert.equal(invalid.code, 'LEARNING_REQUEST_INVALID');
+    assert.deepEqual(readFileSync(file), before);
+    const preparedCandidate = await call('prepare-linked-candidate', 'life_learning_review', { mode: 'PREPARE',
+      payload: JSON.stringify({ proposalId }) });
+    const packet = preparedCandidate.packet;
+    const review = { proposalId, baseRevision: packet.baseRevision, packetFingerprint: packet.packetFingerprint,
+      lessonId: linkedLessonId, ruleVersion: '1', scope: packet.proposal.scope,
+      cause: 'Synthetic fixture output omitted its required evidence field.',
+      resolution: 'Check the evidence field in the recorded output contract.',
+      expectedEffect: 'Reject the synthetic missing-evidence case before claiming a complete output.',
+      guidance: 'Include the required evidence field in the synthetic output.',
+      eventIds: syntheticFailureIds, reviewer: 'agent' };
+    const suite = { ...instructionSuite, id: 'synthetic-http-linked-regression' };
+    const candidate = await call('register-linked-candidate', 'life_learning_review', { mode: 'CANDIDATE',
+      payload: JSON.stringify({ review, suite }) });
+    assert.equal(candidate.ok, true);
+    assert.equal(candidate.duplicate, false);
+    assert.equal(candidate.lesson.id, linkedLessonId);
+    assert.equal(candidate.link.lessonId, linkedLessonId);
+    assert.equal(candidate.revision, packet.baseRevision + 1);
+    const unchecked = await progressView('progress-before-check');
+    assert.equal(unchecked.candidates.length, 1);
+    assert.equal(unchecked.candidates[0].lessonState, 'candidate');
+    assert.equal(unchecked.candidates[0].evaluation.status, 'not_run');
+    assert.equal(unchecked.candidates[0].recallIncluded, false);
+    const checked = await call('check-linked-candidate', 'life_learning_review', { mode: 'CHECK',
+      payload: JSON.stringify({ lesson: candidate.lesson, suite: candidate.suite, expectedRevision: candidate.revision }) });
+    assert.equal(checked.ok, true);
+    assert.equal(checked.lessonState, 'active');
+    assert.equal(checked.liveExecutionVerified, false);
+    const refreshed = await call('prepare-linked-duplicate', 'life_learning_review', { mode: 'PREPARE',
+      payload: JSON.stringify({ proposalId }) });
+    const duplicateReview = { ...review, baseRevision: refreshed.packet.baseRevision,
+      packetFingerprint: refreshed.packet.packetFingerprint };
+    const beforeDuplicate = readFileSync(file);
+    const duplicate = await call('register-linked-duplicate', 'life_learning_review', { mode: 'CANDIDATE',
+      payload: JSON.stringify({ review: duplicateReview, suite }) });
+    assert.equal(duplicate.ok, true);
+    assert.equal(duplicate.duplicate, true);
+    assert.deepEqual(duplicate.link, candidate.link);
+    assert.equal(duplicate.lesson.state, 'active');
+    assert.deepEqual(readFileSync(file), beforeDuplicate);
+  }
   const beforeDecisions = JSON.parse(readFileSync(file, 'utf8')).state;
-  assert.equal(Object.keys(beforeDecisions.proposals).length, 1);
-  const proposalId = Object.keys(beforeDecisions.proposals)[0];
   const decisionView = async id => {
     const before = readFileSync(file);
     const response = await call(id, 'life_learning_review', { mode: 'PREPARE',
@@ -335,6 +405,19 @@ try {
   assert.deepEqual(readFileSync(file), beforeRetry);
   const afterDecisions = JSON.parse(readFileSync(file, 'utf8')).state;
   for (const key of ['events', 'attempts', 'lessons']) assert.deepEqual(afterDecisions[key], beforeDecisions[key]);
+  const finalProgress = await progressView(phase + '-progress-after-decision');
+  assert.equal(finalProgress.currentStatus, 'dismissed');
+  assert.equal(finalProgress.candidates.length, 1);
+  const progressCandidate = finalProgress.candidates[0];
+  assert.equal(progressCandidate.link.lessonId, linkedLessonId);
+  assert.equal(progressCandidate.bindingStatus, 'matched');
+  assert.equal(progressCandidate.lessonState, 'active');
+  assert.equal(progressCandidate.evaluation.status, 'passed');
+  assert.equal(progressCandidate.evaluation.passed, 2);
+  assert.equal(progressCandidate.recallIncluded, true);
+  assert.equal(progressCandidate.pastApplicationVerified, false);
+  assert.equal(progressCandidate.liveImprovementVerified, false);
+  assert.equal(afterDecisions.proposals[proposalId].verification, undefined);
   const second = await call(phase + '-room-b', 'life_status');
   assert.equal(second.registeredAndroidDevices, 0);
   assert.equal(second.operationalLearning.counts.attempts, first.operationalLearning.counts.attempts + seededAttempts + 1);
@@ -359,6 +442,8 @@ try {
     proposalDecisions: finalDecisionView.decisionHistory.length, decisionRetryNoop: true,
     proposalDecisionHistoryHash: createHash('sha256').update(JSON.stringify(finalDecisionView.decisionHistory)).digest('hex'),
     proposalDecisionPersisted: phase === 'restart', reviewReadiness: phase === 'first',
+    proposalProgress: true, proposalProgressPersisted: phase === 'restart',
+    proposalProgressLinkHash: createHash('sha256').update(JSON.stringify(progressCandidate.link)).digest('hex'),
     existingReceiptReconciliationCapability: first.operationalLearning.capabilities.existingReceiptReconciliation,
     splitReadObservationReconciliationCapability: first.operationalLearning.capabilities.splitReadObservationReconciliation,
   }));

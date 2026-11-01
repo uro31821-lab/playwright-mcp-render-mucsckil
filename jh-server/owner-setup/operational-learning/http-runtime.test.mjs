@@ -55,8 +55,11 @@ test('real owner bootstrap records authenticated MCP calls across clients and pr
     assert.equal(result.proposalDecisionCatalog, true);
     assert.equal(result.proposalDecisions, 2);
     assert.equal(result.decisionRetryNoop, true);
+    assert.equal(result.proposalProgress, true);
   }
   assert.equal(results[1].proposalDecisionPersisted, true);
   assert.equal(results[1].proposalDecisionHistoryHash, results[0].proposalDecisionHistoryHash);
+  assert.equal(results[1].proposalProgressPersisted, true);
+  assert.equal(results[1].proposalProgressLinkHash, results[0].proposalProgressLinkHash);
   assert.ok(results[1].revision > results[0].revision);
 });

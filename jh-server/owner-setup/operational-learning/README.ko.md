@@ -121,6 +121,24 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 독립 CLI의 같은 경로는 `review → decide → decision-view`입니다. `decide`에는 JSON 안의 `expectedRevision`을 사용하고 별도의 `--revision`을 섞지 않습니다. 기존 `proposal-status` API는 유지하며, 새 채택·기각에는 근거와 이력을 남기는 `decide`를 사용합니다. 코드는 [decisions.mjs](decisions.mjs), 동시 수정과 재시작 검사는 [decision-runtime.test.mjs](decision-runtime.test.mjs)에 있습니다.
 
+### 제안에서 후보·검사 결과까지 연결
+
+`capabilities.proposalProgress: true`이면 기존 `CANDIDATE {review,suite}`가 검토한 후보와 원래 제안의 `candidateLinks`를 같은 저장 잠금·revision 변경 안에서 기록합니다. 연결에는 후보 ID·버전·입력 fingerprint, 검토 packet·사건 ID·검토자, 등록 시각과 검사 종류·ID·버전만 남깁니다. 제안당 최대 32개이며 최초 연결은 변경하지 않습니다. 열린 또는 채택된 제안에서 새 packet으로 같은 candidate/active 후보를 다시 등록하면 기존 연결을 반환하고 기억·revision·검사 상태를 바꾸지 않습니다. 격리된 정의의 재등록과 종료된 제안의 새 검토는 기존 정책대로 거절합니다. 오래된 packet의 재전송은 기존 revision 검사를 계속 받습니다.
+
+기존 `PREPARE`에 `{proposalId,view:"progress"}`를 보내면 `view.schema: "jh.learning-proposal-progress.v1"`과 명시적으로 연결된 후보들의 현재 진행 상태를 읽습니다. 종료·기각한 제안도 조회할 수 있습니다. 조회는 상태·경험을 변경하지 않으며 새로운 MCP mode나 기기 명령이 필요하지 않습니다.
+
+| 조회 내용 | 해석 |
+| --- | --- |
+| `bindingStatus` | 저장된 후보 ID·버전·입력 fingerprint·범위의 일치 여부. 없거나 달라졌으면 추정 복구하지 않음 |
+| `lessonState`, `evaluation` | 현재 후보/활성/격리 상태와 같은 정의에 연결된 실제 회귀 결과·불투명 근거 |
+| `temporalStatus` | 현재 시점에서 유효기간 안인지 여부 |
+| `recallIncluded`, `conflicts` | 현재 조회 예산과 범위에서 기존 recall 엔진이 실제 포함하는지 여부 |
+| `pastApplicationVerified`, `liveImprovementVerified` | 항상 false. 실제 적용 이력이나 업무 개선 효과를 이 조회로 증명하지 않음 |
+
+서버 조회는 후보 범위와 기존 공통 규칙을 함께 판정합니다. 독립 CLI `progress`는 후보의 정확한 범위만 조회하며 `recallScope`로 이를 구분합니다. `recallIncluded: false`는 만료·충돌·대체·출력 예산 등으로도 생기므로 검사 실패로 단정하지 않습니다. `active`나 회귀 통과를 제안의 구현 완료·실제 효과 검증으로 승격하지 않습니다. 제안의 채택·기각과 교훈의 활성·격리는 별도 상태입니다.
+
+과거 교훈의 문구·영역·사건이 비슷해도 연결을 새로 추정하지 않습니다. 명시 사용자 규칙이나 기존 직접 `candidate` 등록도 제안 연결이 자동 생성되지 않습니다. 독립 CLI에서 연결까지 남길 때는 `review → curate-register → check → progress`를 사용합니다. `curate-register`는 `{review,suite}`를 받고 `review.baseRevision`으로 원자적 검사를 하므로 `--revision`을 함께 쓰지 않습니다. 기존 읽기 전용 `curate`와 직접 `candidate`는 유지됩니다. 구현은 [progress.mjs](progress.mjs), 핵심·CLI·runtime·HTTP 재시작 검사는 해당 test와 기존 전체 runner에 연결되어 있습니다.
+
 ## 교훈은 검사 후에만 활용
 
 ### 사용자가 직접 정한 규칙의 첫 등록
