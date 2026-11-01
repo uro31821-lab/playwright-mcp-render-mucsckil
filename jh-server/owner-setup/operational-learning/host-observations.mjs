@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { types } from 'node:util';
-import { createState, ingest, propose } from './engine.mjs';
+import { ingest, propose, validateEvent } from './engine.mjs';
 import { proposalContext } from './proposal-context.mjs';
 
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,127}$/;
@@ -82,9 +82,9 @@ function stateCheck(state) {
   dataOnly(state);
 }
 function validEvent(event) {
-  // Exercise the existing event contract against disposable state. This neither
-  // writes a file nor changes the caller's real revision or event collection.
-  ingest(createState(), event);
+  // Historical shape validation must not bind a receipt to today's rule state.
+  // New uses are state-checked only by ingest inside the real store transaction.
+  validateEvent(event);
 }
 const scopeOf = event => ({ domain: event.domain, operation: event.operation, engine: event.engine,
   context: structuredClone(event.context) });
@@ -108,14 +108,16 @@ function normalized(input) {
   token(input.taskId, 'task ID'); token(input.attemptId, 'attempt ID'); revision(input.expectedRevision);
   if (typeof input.observationRef !== 'string' || !REF.test(input.observationRef)) fail('Invalid observation reference');
   fields(input.scope, ['domain', 'operation', 'engine', 'context'], [], 'observation scope');
-  fields(input.observation, ['timestamp', 'outcome', 'source', 'evidenceRefs'], ['errorCode', 'metrics', 'labels'], 'observation');
+  fields(input.observation, ['timestamp', 'outcome', 'source', 'evidenceRefs'], ['errorCode', 'metrics', 'labels', 'ruleUses'], 'observation');
   const event = { eventId: eventIdFor(input.taskId, input.attemptId, input.observationRef),
     taskId: input.taskId, attemptId: input.attemptId, sequence: 0,
     ...structuredClone(input.scope), ...structuredClone(input.observation) };
   validEvent(event);
   if (!event.evidenceRefs.includes(input.observationRef)) fail('Observation reference must be supplied in evidenceRefs');
+  if (event.ruleUses?.some(usage => usage.useRef === input.observationRef)) fail('Rule use and result observation require distinct references');
+  const identityReferences = new Set([input.observationRef, ...(event.ruleUses ?? []).map(usage => usage.useRef)]);
   if (['success_verified', 'failure_verified'].includes(event.outcome) &&
-      !event.evidenceRefs.some(reference => reference !== input.observationRef)) fail('Verified outcomes need separate result evidence');
+      !event.evidenceRefs.some(reference => !identityReferences.has(reference))) fail('Verified outcomes need separate result evidence');
   return { event, expectedRevision: input.expectedRevision };
 }
 function observationRef(event) {
@@ -129,7 +131,34 @@ function eventSummary(event) {
     evidenceRefs: event.evidenceRefs.slice(0, MAX_EVIDENCE),
     evidenceRefsOmitted: Math.max(0, event.evidenceRefs.length - MAX_EVIDENCE),
     evidenceRefsTruncated: event.evidenceRefs.length > MAX_EVIDENCE,
-    ...Object.fromEntries(['errorCode', 'metrics', 'labels'].filter(key => own(event, key)).map(key => [key, structuredClone(event[key])])) };
+    ...Object.fromEntries(['errorCode', 'metrics', 'labels'].filter(key => own(event, key)).map(key => [key, structuredClone(event[key])])),
+    ...(event.ruleUses ? { ruleUses: event.ruleUses.map(usage => ruleUseSummary(event, usage)) } : {}) };
+}
+function ruleUseSummary(event, usage) {
+  const selected = usage.selection;
+  return { useRef: usage.useRef, lessonId: selected.lessonId, ruleVersion: selected.ruleVersion,
+    inputFingerprint: selected.inputFingerprint, definitionFingerprint: selected.definitionFingerprint,
+    selectionFingerprint: selected.fingerprint, selectedAt: selected.selectedAt, appliedAt: usage.appliedAt,
+    recordedEventId: event.eventId, recordedAt: event.timestamp, evidenceRefs: [...usage.evidenceRefs],
+    sourceAuthentication: 'host_attestation', applicationVerified: false,
+    preActionTimingVerified: false, liveImprovementVerified: false };
+}
+function attemptRuleUses(group) {
+  const references = new Set(); const items = [];
+  const projection = group.projection;
+  for (const event of group.events) for (const usage of event.ruleUses ?? []) {
+    if (references.has(usage.useRef)) fail('Stored attempt contains a duplicate rule-use reference');
+    references.add(usage.useRef);
+    if (items.length >= MAX_EVIDENCE) continue;
+    const afterUse = projection.sequence >= event.sequence && Date.parse(projection.timestamp) >= Date.parse(usage.appliedAt);
+    items.push({ ...ruleUseSummary(event, usage), result: {
+      eventId: projection.eventId, outcome: projection.outcome, timestamp: projection.timestamp, source: projection.source,
+      evidenceRefs: projection.evidenceRefs.slice(0, MAX_EVIDENCE),
+      evidenceRefsTruncated: projection.evidenceRefs.length > MAX_EVIDENCE,
+      evidenceRefsOmitted: Math.max(0, projection.evidenceRefs.length - MAX_EVIDENCE),
+      afterUse, verified: afterUse && ['success_verified', 'failure_verified'].includes(projection.outcome) } });
+  }
+  return items.length ? { items, total: references.size, omitted: references.size - items.length } : null;
 }
 const byId = (left, right) => left < right ? -1 : left > right ? 1 : 0;
 const bySequence = (left, right) => right.sequence - left.sequence ||
@@ -165,11 +194,13 @@ function collectTask(state, taskId) {
 }
 function attemptSummary(group) {
   const projection = group.projection;
+  const ruleUses = attemptRuleUses(group);
   return { taskId: projection.taskId, attemptId: projection.attemptId, scope: scopeOf(projection),
     eventCount: group.events.length, maxSequence: group.maxSequence,
     nextSequence: group.maxSequence === MAX_SEQUENCE ? null : group.maxSequence + 1,
     sequenceExhausted: group.maxSequence === MAX_SEQUENCE, latestObservedAt: group.latestObservedAt,
-    projection: eventSummary(projection), latestObservation: eventSummary(group.events[0]) };
+    projection: eventSummary(projection), latestObservation: eventSummary(group.events[0]),
+    ...(ruleUses ? { ruleUses } : {}) };
 }
 
 /** Read existing host/legacy task evidence only; never invent an identity or retry work. */
@@ -217,6 +248,10 @@ export function observeTask(state, input, options = {}) {
       current: attemptSummary(group), newProposals: [], newProposalsOmitted: 0, externalEffects: false, replayAllowed: false };
   }
   if (expectedRevision !== state.revision) fail('Observation revision is stale', 'LEARNING_REVISION_CONFLICT');
+  if (event.ruleUses && own(options, 'now') &&
+      (!Number.isFinite(Date.parse(options.now)) || Date.parse(event.timestamp) > Date.parse(options.now))) {
+    fail('New rule-use observation is later than the host clock', 'LEARNING_RULE_USE_FUTURE');
+  }
   const group = collectTask(state, event.taskId).get(event.attemptId);
   if (group?.maxSequence === MAX_SEQUENCE) fail('Attempt sequence is exhausted', 'LEARNING_SEQUENCE_EXHAUSTED');
   if (group && Date.parse(event.timestamp) < Date.parse(group.latestObservedAt)) fail('Observation is older than existing attempt evidence', 'LEARNING_OBSERVATION_STALE');

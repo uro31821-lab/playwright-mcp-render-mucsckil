@@ -51,7 +51,7 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 ## 기억하는 사실과 중복 처리
 
-이벤트는 `eventId`, `taskId`, `attemptId`, `sequence`, 시각, 영역·작업·엔진·환경, 결과, 근거 식별자를 갖습니다. 선택 항목은 오류 코드, 소요시간·사용자 단계·도구 호출 수, 검토·수정 시도·holdout 표시입니다. 원문 화면·메시지·인증정보나 임의 필드를 넣지 않습니다.
+이벤트는 `eventId`, `taskId`, `attemptId`, `sequence`, 시각, 영역·작업·엔진·환경, 결과, 근거 식별자를 갖습니다. 선택 항목은 오류 코드, 소요시간·사용자 단계·도구 호출 수, 검토·수정 시도·holdout 표시와 아래 호스트 사용 확인 계약의 ruleUses입니다. 원문 화면·메시지·인증정보나 임의 필드를 넣지 않습니다.
 
 ```json
 {
@@ -343,7 +343,7 @@ suite에 `evaluator: "jh.trajectory.v1"`을 명시하면 [trajectory.mjs](trajec
 }
 ```
 
-예시는 형식 설명이며 실제 경험으로 넣지 않습니다. 현재 기억의 revision과 실제 관찰 값을 사용합니다. `observation`의 선택 필드는 기존 사건과 같은 `errorCode/metrics/labels`이며 알 수 없는 필드·접근자·Proxy 등 데이터가 아닌 입력은 거절합니다.
+예시는 형식 설명이며 실제 경험으로 넣지 않습니다. 현재 기억의 revision과 실제 관찰 값을 사용합니다. `observation`의 선택 필드는 기존 사건과 같은 `errorCode/metrics/labels` 및 아래의 `ruleUses`이며 알 수 없는 필드·접근자·Proxy 등 데이터가 아닌 입력은 거절합니다.
 
 `observationRef`는 하나의 실제 관찰을 가리키는 안정적인 불투명 참조입니다. 호출자가 `evidenceRefs`에 같은 참조를 포함해야 하며 자동 삽입하지 않습니다. `success_verified/failure_verified`에는 `host_verified/user_explicit` 출처와 **observationRef 이외의 실제 결과 근거**도 필요합니다. 이 검사는 참조 계약을 검증할 뿐 호스트의 분류나 원문 결과를 독립 확인하지 않습니다. 과거 자료를 지금 처음 확인했다면 timestamp는 지금의 관찰 시각이며, 자료의 원격 생성 시각과 구분합니다.
 
@@ -354,6 +354,63 @@ suite에 `evaluator: "jh.trajectory.v1"`을 명시하면 [trajectory.mjs](trajec
 CLI `observe`는 payload의 expectedRevision을 사용하므로 `--revision`을 함께 받지 않습니다. 독립 API `observeTask(state,input,{now?})`는 store의 transaction 안에서 호출하며 바깥 transaction의 revision 검사에 중복 복구를 가로막게 하지 않습니다. CLI 반환은 `revision,event,duplicate,recorded,projectionChanged,current,newProposals,newProposalsOmitted,externalEffects:false,replayAllowed:false`입니다. event는 원래 관찰 영수증이고 current는 **현재** 시도 요약입니다. 과거 관찰을 재전송해도 현재 결과를 과거로 되돌리지 않습니다. 기록됐다는 사실과 유효 결과가 바뀌었다는 사실을 구분합니다.
 
 새 관찰의 오래된 revision은 최신 상태를 다시 읽어 검토하고 저장 변경분만 재적용합니다. 같은 참조의 다른 내용을 새 ID로 포장하거나 과거 관찰 시각을 현재로 고쳐 거절을 우회하지 않습니다. 응답 불명확 시 같은 payload만 재전송하고 실제 업무를 다시 실행하지 않습니다. 기존 `ingest`의 명시적 역사 기록·배열 입력·호환 동작은 유지되며, 일반 호스트 관찰의 충돌 검사를 피하는 대체 경로로 쓰지 않습니다.
+
+## 실제 규칙 사용과 결과 연결
+
+호스트 CLI의 `usage-prepare → observe.observation.ruleUses → task-view`는 **선택한 규칙, 실제 사용에 관한 호스트 확인, 같은 시도의 결과**를 연결합니다. 준비만으로 사용을 기록하지 않으며 원래의 새 결과 사건 한 건에 선택 정보를 함께 저장합니다. root state 스키마와 사건·시도 계산 기준은 유지합니다. 서버 MCP에 새 mode를 추가하거나 자동으로 모든 조회를 사용으로 표시하는 기능은 아닙니다.
+
+### 읽기 전용 usage-prepare
+
+입력은 `{taskId,attemptId,lessonId,scope,globalRecall?,options?:{limit,maxChars}}`입니다. 실제 `context`가 반환한 규칙 ID와 해당 작업의 안정적인 식별자를 사용합니다. scope는 현재 업무 전체 범위이고 globalRecall은 실제 binding에서 가져온 동일 엔진·전체 context의 `orchestration / learning.scope`만 허용합니다. 코드가 이 한두 범위를 구성하므로 임의 queries로 다른 업무 규칙을 끼워 넣을 수 없습니다.
+
+공통 규칙을 함께 조회한 실제 작업은 같은 globalRecall과 예산을 전달합니다. 중복 범위는 한 번만 사용합니다. 기본 예산은 5개/4000자, 허용 최대는 20개/16384자입니다. 준비 시점에 기존 엄격한 lesson-view의 passed·recallIncluded 판정과 평가 시각을 확인합니다. 후보·격리·충돌·예산 제외·그 시점의 만료 규칙은 준비할 수 없습니다.
+
+CLI는 기억을 한 번만 읽고 호스트 현재 시각을 사용합니다. `--revision`, 입력 now·queries·expectedRevision은 받지 않습니다. 순수 API `prepareRuleUse(state,input,{now?})`의 별도 now는 시험/신뢰된 호스트 시계용입니다. 없는 저장소도 만들지 않습니다.
+
+반환 `schema:"jh.learning-rule-use-preparation.v1"`에는 다음 selection과 `readOnly:true,usageRecorded:false,externalEffects:false,sourceAuthentication:"host_attestation"`가 있습니다. `preActionTimingVerified,applicationVerified,liveImprovementVerified`는 false입니다.
+
+| selection 필드 | 의미 |
+| --- | --- |
+| schema | `jh.learning-rule-selection.v1` |
+| taskId, attemptId, scope, globalRecall? | 이 선택을 사용할 실제 작업·시도·업무 범위 |
+| lessonId, ruleVersion, inputFingerprint | 저장된 정확한 규칙과 검사 입력 결합 |
+| definitionFingerprint | 원문·범위·근거·선택 metadata를 포함한 전체 정의의 정규 SHA-256 |
+| evaluationFingerprint | 준비 때 저장된 전체 평가 영수증의 정규 SHA-256 |
+| selectedAt, revision | 준비한 호스트 시각과 당시 상태 revision |
+| recallFingerprint, limit, maxChars | 실제 합산 조회 지문과 예산 |
+| fingerprint | fingerprint 필드만 제외한 selection 전체의 정규 SHA-256 |
+
+규칙 guidance·전체 suite를 매 사용 기록에 복사하지 않습니다. 해시는 우발적인 내용 불일치와 연결을 검사하며 인증 서명이나 실제 사전 실행 증명이 아닙니다. 준비 응답을 실제 사용 전에 보존하고 사후에 시각을 꾸며 복원하지 않습니다.
+
+### 실제 결과와 함께 사용 확인
+
+새 실제 관찰의 선택 필드 `ruleUses`는 고유 규칙 최대 4개 배열입니다. 각 항목은 정확히 다음 내용을 갖습니다.
+
+```js
+{
+  useRef: actualApplicationReference,
+  selection: prepared.selection,
+  appliedAt: actualApplicationTime,
+  confirmation: "applied_in_this_attempt",
+  evidenceRefs: actualApplicationEvidence
+}
+```
+
+위 코드는 값의 출처를 나타내는 설명이며 그대로 실행할 입력이 아닙니다. useRef는 실제 사용 관찰 하나의 안정적인 지원 불투명 참조입니다. 근거는 고유 1~8개이며 useRef를 직접 포함하고 바깥 observation.evidenceRefs에도 모두 포함해야 합니다. 결과 observationRef와 useRef는 달라야 합니다. verified 결과에는 observationRef와 모든 useRef 식별자 이외의 실제 결과 근거가 필요합니다. 실제 산출물이 사용과 결과를 함께 뒷받침하면 같은 artifact 참조를 쓸 수 있습니다. 실제 사용 근거를 읽었는지·결과가 무엇인지는 호스트가 확인하며 참조 문법이나 선택 지문만으로 검증했다고 표현하지 않습니다.
+
+관찰 source는 `host_verified`이고 confirmation은 정확히 `applied_in_this_attempt`입니다. 선택과 사건의 taskId·attemptId·업무 범위가 같아야 하며 `selectedAt ≤ appliedAt ≤ observation.timestamp`를 요구합니다. CLI observe는 새 사용을 호스트 현재 시각보다 미래로 기록하는 입력도 거절합니다. 사용하지 않은 규칙은 생략합니다.
+
+새 ingest는 현재 정확한 정의·평가·합산 조회를 다시 대조합니다. 당시 revision 이후 무관한 사건이 추가돼도 관련 정의·평가·조회가 동일하면 허용하고 observe의 expectedRevision CAS는 현재 값으로 별도 확인합니다. 준비와 실제 사용 시점 모두 규칙이 선택돼야 합니다. 이후 기간만 만료됐어도 두 시점에서 유효했으면 기록할 수 있습니다. 현재 격리·평가 변경·선택 변경은 보수적으로 거절합니다. 이런 경우 원래 결과는 ruleUses 없이 사실대로 기록하고 사용 연결 미완료를 알립니다. 이미 끝난 행동에 새 준비 영수증을 끼워 넣거나 업무를 재실행하지 않습니다.
+
+동일 observationRef의 정확한 재전송은 현재 규칙 검사·CAS·시계 검사 전에 기존 사건을 복구합니다. 선택·useRef·시각·확인값·근거를 모두 보존해야 합니다. 같은 observationRef의 다른 내용과 다른 새 사건의 기존 useRef 재사용은 거절됩니다. 후속 결과 관찰에서는 원래 ruleUses를 복사하지 않습니다. 이미 저장된 사건을 사용 이력만 보강하려고 새 사건으로 만들지 않습니다.
+
+### 사용 이력과 현재 결과 읽기
+
+사용 이력이 있는 시도의 `task-view`와 observe.current에는 `ruleUses:{items,total,omitted}`가 추가됩니다. 전체 원본 사건에서 최근 사용 최대 8개를 반환하므로 후속 결과가 ruleUses 없이 들어와도 연결을 유지합니다. 원래 사용이 없는 구형 시도 출력은 그대로입니다.
+
+각 항목은 useRef·정확한 규칙 지문·선택/사용 시각·recordedEventId·recordedAt·사용 근거를 반환합니다. result에는 현재 유효 projection의 eventId·outcome·timestamp·source·제한된 근거가 있습니다. `afterUse`는 결과의 sequence가 원래 사용 기록의 sequence 이상이고 timestamp가 실제 적용 시각 appliedAt 이상인지, `verified`는 그 조건에 더해 결과가 success_verified 또는 failure_verified인지 나타냅니다. verified는 성공 여부가 아니므로 outcome을 함께 확인합니다. 마지막 약한 관찰보다 이전의 검증 결과가 보존된 경우 afterUse가 false일 수 있습니다.
+
+모든 사용 요약은 `sourceAuthentication:"host_attestation"`이고 `applicationVerified,preActionTimingVerified,liveImprovementVerified`는 false입니다. 사용 확인과 결과의 연결은 독립 실행 증명·성공의 인과 효과·절감률을 증명하지 않습니다. labels의 reviewed/ruleRemediationTried/holdout, 규칙 활성·제안 상태·추가 학습 기준도 자동으로 바꾸지 않습니다.
 
 ## CLI 사용
 
@@ -376,6 +433,7 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `review` | `{proposalId,maxAttempts?}`: 실제 근거 검토 packet 읽기 |
 | `instruction` | `{instruction,suite,scope,globalRecall?}`: 명시 사용자 규칙을 읽기 전용 준비, baseRevision 반환, `--revision` 금지 |
 | `lesson-view` | `{lessonId,query 또는 queries,options?}`: 저장 규칙·기존 평가·현재 조회 포함 상태의 읽기 전용 진단, `--revision` 금지 |
+| `usage-prepare` | `{taskId,attemptId,lessonId,scope,globalRecall?,options?:{limit,maxChars}}`: 실제 사용 전 규칙 선택을 읽기 전용 준비, `--revision` 금지 |
 | `curate` | `{review,suite}`: 구체적인 검토 결과를 검증된 형식의 후보 정의로 변환. 저장·활성화는 별도 |
 | `propose` | `{}` 또는 `{now, thresholds}` |
 | `candidate` | `{lesson, suite}`: 시험에 연결된 후보 등록, 활성화하지 않음 |

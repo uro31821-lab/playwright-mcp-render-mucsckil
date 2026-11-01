@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { validateRuleUses, ruleUseScopes, ruleDefinition, ruleUseHash } from './rule-use-contract.mjs';
 
 const SCHEMA = 'jh.operational-learning.v1';
 const DOMAINS = new Set([
@@ -115,11 +116,14 @@ export function createState() {
   return { schema: SCHEMA, revision: 0, events: {}, attempts: {}, lessons: {}, proposals: {} };
 }
 
-function validateEvent(event) {
+export function validateEvent(event) {
+  // Usage receipts are data-only attestations. Shape validation deliberately does
+  // not depend on today's lesson state, so historical events remain readable.
+  validateRuleUses(event);
   fields(event, [
     'eventId', 'taskId', 'attemptId', 'sequence', 'timestamp', 'domain',
     'operation', 'engine', 'context', 'outcome', 'source', 'evidenceRefs',
-  ], ['errorCode', 'metrics', 'labels'], 'event');
+  ], ['errorCode', 'metrics', 'labels', 'ruleUses'], 'event');
   for (const key of ['eventId', 'taskId', 'attemptId']) token(event[key], key);
   integer(event.sequence, 'sequence'); iso(event.timestamp); scope(event);
   if (!OUTCOMES.has(event.outcome)) fail('Invalid outcome');
@@ -139,6 +143,50 @@ function validateEvent(event) {
   }
 }
 
+function validateNewRuleUses(state, event) {
+  if (!own(event, 'ruleUses')) return;
+  const usedReferences = new Set();
+  for (const [id, previous] of Object.entries(state.events)) {
+    if (!own(previous, 'ruleUses')) continue;
+    validateEvent(previous);
+    if (previous.eventId !== id) fail('Invalid stored rule-use event binding');
+    for (const usage of previous.ruleUses) {
+      if (usedReferences.has(usage.useRef)) fail('Stored rule-use reference is duplicated');
+      usedReferences.add(usage.useRef);
+    }
+  }
+  for (const usage of event.ruleUses) {
+    const selected = usage.selection;
+    if (usedReferences.has(usage.useRef)) fail('Rule-use reference already belongs to another event');
+    if (selected.revision > state.revision || !own(state.lessons, selected.lessonId)) fail('Rule selection does not identify current memory');
+    const lesson = state.lessons[selected.lessonId];
+    // Validate data before reading optional receipt properties or invoking core
+    // helpers. The hash is not an authentication token or proof of actual use.
+    ruleUseHash(lesson);
+    const definition = ruleDefinition(lesson);
+    const evaluation = lesson.evaluation;
+    if (lesson.state !== 'active' || lesson.advisoryOnly !== true ||
+        definition.id !== selected.lessonId || definition.ruleVersion !== selected.ruleVersion ||
+        definition.inputFingerprint !== selected.inputFingerprint ||
+        ruleUseHash(definition) !== selected.definitionFingerprint || !evaluation ||
+        ruleUseHash(evaluation) !== selected.evaluationFingerprint ||
+        evaluation.passed < 1 || evaluation.failed !== 0 || evaluation.skipped !== 0) {
+      fail('Rule selection no longer matches an active checked definition');
+    }
+    if (evaluateLesson(state, lesson.id, evaluation) !== state || !evaluation.timestamp ||
+        Date.parse(selected.selectedAt) < Date.parse(evaluation.timestamp)) fail('Rule selection needs the existing dated evaluation');
+    const scopes = ruleUseScopes(selected);
+    const budget = { limit: selected.limit, maxChars: selected.maxChars };
+    const recalled = recallContexts(state, scopes, { now: selected.selectedAt, ...budget });
+    const included = result => result.lessons.some(item => item.id === selected.lessonId &&
+      item.ruleVersion === selected.ruleVersion && item.inputFingerprint === selected.inputFingerprint);
+    if (recalled.fingerprint !== selected.recallFingerprint || !included(recalled)) fail('Rule selection no longer matches its recalled context');
+    const applied = usage.appliedAt === selected.selectedAt ? recalled
+      : recallContexts(state, scopes, { now: usage.appliedAt, ...budget });
+    if (!included(applied)) fail('Rule was not eligible in the attested application context');
+  }
+}
+
 export function ingest(state, event) {
   stateCheck(state); validateEvent(event);
   // Optional undefined fields from JavaScript callers have the same meaning as absent JSON fields.
@@ -147,6 +195,9 @@ export function ingest(state, event) {
     if (!same(state.events[event.eventId], event)) fail('Conflicting event ID');
     return { state, duplicate: true, changed: false };
   }
+  // Exact retransmission above preserves a historical receipt even after a rule
+  // expires, changes or is quarantined. A NEW usage must pass current bindings.
+  validateNewRuleUses(state, event);
   capacity(state, 'events');
   const attemptKey = hash([event.taskId, event.attemptId]);
   const previous = state.attempts[attemptKey];
