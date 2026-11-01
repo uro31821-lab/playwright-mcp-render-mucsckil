@@ -5,6 +5,7 @@
 ## 구분해야 할 시험 결과
 - SOURCE-ROUTE: [GitHub CI 41281264302](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41281264302)에서 9/9 모바일 웹 alias, 4/4 진입 경로의 생성 소스 라우팅 PASS. 이는 source-only 결과임.
 - GENERATED-ALIAS-CONTRACT: [GitHub CI 41281758552](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41281758552)에서 생성된 9개 handler의 실함수 호출 (오프라인·무효과 mock) 10/10 PASS. 개인 기기 UI 실행 증거가 아님.
+- GENERATED-ENTRY-CONTRACT: [GitHub CI 41282199180](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/41282199180) **5/5 PASS**; 실제 생성된 4개 entry handler를 무효과 signed Android job doubles로 호출하여 동일 RIGHT opener, 원본 앱/화면 복귀 분리, 원격 Playwright 불호출 확인. **실기기 미실시.** 테스트 환경에서 원본 헬퍼 재선언·완료 헬퍼 누락으로 2차례 수정 후 최종 실행 성공 (제품 기능 수정 0건).
 - INSTALLED-ANDROID-STATIC: 앞서 서명·설치 확인된 JH168 Stage27 APK SHA256 `129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359`를 로컬에서 정적으로 판독. 컴파일 문자열/타입 `JH168NestedScrollPolicy`, `JH168InputFocusPolicy`, `JH168RightVerticalScrollRuntime`, `JH168RightHorizontalScrollRuntime`, `JH168OriginalSecure56NativeDispatch12`, `NATIVE_IME_ENTER_ONE_SHOT_GRANT_REQUIRED`, `ACTION_SCROLL_LEFT`, `ACTION_SCROLL_RIGHT`, `JH168_STAGE27_CHROME_POPUP_READBACK_V1` 확인. **포함된 타입/문구 ≠ 실제 사용자 작업 정상 실행**, 해당 APK가 PR #72 서버 alias와 통합돼 배포된 것도 아님.
 - DEPLOYED-MCP-ROUTE: 실제 연결된 JH 도구 설명에 `life_web_navigate/snapshot/click/type/select/press_key/wait/back/screenshot`은 여전히 server Playwright/별도 브라우저로 기재. `life_open_service`, `life_naver_mail`, `life_android_open`은 phone RIGHT Chrome 경로 안내, `life_route`은 분류. **PR #72 신규 웹 alias가 운영에 적용됐다는 증거가 없음.**
 - REAL-DEVICE-MIGRATED-E2E: **0/13 PASS; 13/13 아직 NOT_RUN**. Stage27 독립 Chrome 메뉴 CLICK 성공은 보존하지만, WEB-03 migration alias E2E로 중복 계산하지 않는다.
@@ -21,10 +22,10 @@
 | WEB07 | `life_web_wait` | PASS | STATUS만 조회·조건 미확인 PASS | NOT_RUN |
 | WEB08 | `life_web_back` | PASS | BACK 1회, 브라우저 history 성공 가정 금지 PASS | NOT_RUN |
 | WEB09 | `life_web_screenshot` | PASS | local consent 인자·원본 capture stub PASS | NOT_RUN |
-| ENTRY01 | `life_route` | PASS | 원본 generated source validator PASS / 동적 전체 실행 미검증 | NOT_RUN |
-| ENTRY02 | `life_open_service` | PASS | 원본 generated source validator PASS / 동적 전체 실행 미검증 | NOT_RUN |
-| ENTRY03 | `life_naver_mail` | PASS | 원본 generated source validator PASS / 동적 전체 실행 미검증 | NOT_RUN |
-| ENTRY04 | `life_android_open` | PASS | 원본 generated source validator PASS / 동적 전체 실행 미검증 | NOT_RUN |
+| ENTRY01 | `life_route` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
+| ENTRY02 | `life_open_service` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
+| ENTRY03 | `life_naver_mail` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
+| ENTRY04 | `life_android_open` | PASS | 원본 generated source validator PASS / 생성 핸들러 모의시험 PASS | NOT_RUN |
 
 ## 발견·미해결 항목 — 이번에는 수정하지 않고 취합
 | 분류 | 항목 | 근거·관찰 | 일괄 수정 후보 / 필요한 확인 |
@@ -48,4 +49,10 @@
 - 과거 SQLite 29건을 지우거나 완료 처리하지 않는다. 별도 문제이며 이 전환 과제의 진행 단계로 전용하지 않는다.
 - 안전상 차단된 기능을 서버 Playwright로 몰래 폴백시키지 않는다.
 
-**다음 차례:** 4개 ENTRY의 생성 런타임 **동작 계약을 코드 실행으로 확인**, 이어서 실제 배포되지 않아 검증 불가능한 13개 폰 E2E를 BLOCKED로 남기고, 기존 서명 APK의 실제 스크롤/포커스/native 승인 계약과 비교. 모든 항목을 한 장부로 고정한 뒤 공유 원인 **일괄 1회 수정**.
+**다음 차례:** 13개 생성 핸들러의 동적 계약까지 **전부 PASS (9개 10 tests + 4개 5 tests)**. 이제 실제 설치 APK의 Android native 포커스·중첩 스크롤·창 ID/캡처/IME 권한 계약을 확인하고, 최신 main과 PR #72의 차이를 한 번에 분석한다. 실기기 alias 13개 E2E는 새 경로가 운영 미배포이므로 여전히 **NOT_RUN/BLOCKED**. 후보 배포/기기 승인이 필요하면 명시적 출시 게이트를 거친다. 그 후 전 기능에서 발견된 공통 원인만 **일괄 1회 수정**.
+
+## 추가 정적 확인: 27단계 실제 서명 APK
+- 사용자 휴대폰에 설치 성공했던 원본 서명 APK SHA-256: `129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359`.
+- DEX 실제 `JH168NativeAction12` enum 필드: `IME_ENTER`, `RIGHT_WINDOW_CAPTURE`, `UNSUPPORTED`. APK 내부 `JH168RightNativeExecutor` 메서드 `imeEnterOnce`, `captureRightWindowOnce`; `JH168RightVerticalScrollRuntime`의 `scrollInternal`, `nestedReadback`; `JH168InputFocusPolicy`의 `select`, `verified` 타입/메서드가 컴파일됨. **핸들러 호출 성공/기기 런타임 적용 증거와 혼동 금지.**
+- 웹 alias `life_web_press_key`의 `Enter` 거부는 현재 서버 라우트 수준에서 확인되며, APK `IME_ENTER` 기능 존재는 향후 함께 검증할 설계 후보이지 즉시 연결 완료 증거가 아니다.
+- 2026-11-01T06:46Z 기준 PR #72의 원본 비교는 최신 `jh-fix3-secure-server`보다 **67커밋 뒤**. 시각·커밋 기준을 보존하고, 최신 소스 변경을 덮어쓰지 않는 1회 통합 게이트가 필요하다.
