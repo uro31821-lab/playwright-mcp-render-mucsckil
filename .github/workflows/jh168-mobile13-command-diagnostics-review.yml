@@ -1,0 +1,63 @@
+name: JH168 Mobile13 read-only command diagnostics (NO RELEASE)
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/MOBILE13-COMMAND-DIAGNOSTICS-REVIEW.md'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage44-device-focus.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs'
+      - '.github/workflows/jh168-mobile13-command-diagnostics-review.yml'
+permissions:
+  contents: read
+jobs:
+  pure-status-and-original-guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+      JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+      JH_STAGE26_SIGNED_COMPLETION_ACK: EXPLICIT_IDENTICAL_SIGNED_RESULT_V1
+      JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS: EXPLICIT_ORIGINAL_OWNER_REASON_V1
+      JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS: EXPLICIT_SIGNED_COMMAND_CAUSE_V1
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with: {fetch-depth: 0, persist-credentials: false}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22'}
+      - name: Exact reviewed MAIN and original protected source
+        run: |
+          test "$(git rev-parse origin/jh-fix3-secure-server)" = f32cf6c7d615245d2f8307ae467dcfc0450dc359
+          git diff --exit-code f32cf6c7d615245d2f8307ae467dcfc0450dc359 HEAD -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/payment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/operational-learning \
+            jh-server/owner-setup/owner-enrollment
+      - name: Original dependency manifests and locked owner dependencies
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Pure generated status, scope isolation, exact reversal and affected existing regressions
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage44-device-focus.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage41-command-lifecycle.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-runtime-contract.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-fixture-stage25.test.mjs \
+            jh-server/verification/durable-computer-policy.test.mjs
