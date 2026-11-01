@@ -39,6 +39,7 @@ jobs:
           CI: 'true'
           NODE_ENV: test
           JH_OWNER_DEFER_LISTEN: '1'
+          JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
           JH_EXACT_LIVE_ROOT: original-live-4c
         run: |
           node --test --test-reporter=spec \
