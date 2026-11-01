@@ -1,0 +1,28 @@
+{
+  "schema": "jh.mobile13.windows-presigned-update.v1",
+  "candidateId": "JH168-MOBILE13-20261101",
+  "taskKind": "INSTALL_VERIFIED_SIGNED_APK_ONCE",
+  "unsignedSha256": "40b8f766692a1e44e8e02fc9ed0de47a1ba172e12c0cf634852ec647cc9905d3",
+  "sourceSha256": "e586b6ec4f5d4316196220cee269ae364351791ebd759e80eb93f8cc4598154d",
+  "applicationId": "com.koreanlifehub.bridge",
+  "versionCode": 168,
+  "versionName": "jh168-gemini-right-v2-release",
+  "certificateSha256": "7cc577efe48e865fdbe799b92aa9edf89724631361ae97979f2b8e4a940a288b",
+  "previousInstalledSha256": "129bcc55a9fbf04ebe2bb19d86958fd94f4dc6fd0969bb020105e7f162510359",
+  "serverCandidate": "c6142bd21ea299a4464124356e9da34b58001900",
+  "buildEvidence": {
+    "tests": 1183,
+    "failed": 0,
+    "skipped": 0,
+    "suites": 103,
+    "buildLogSha256": "eae713d0564a6081c7285a4eff8bcf59d2028e26d4a261321ea7c497f5a083ee"
+  },
+  "androidInstall": "NOT_RUN",
+  "deviceE2E": "NOT_RUN",
+  "serverApplication": "SEPARATE_AFTER_INSTALLED_RESULT",
+  "noReplay": true,
+  "signedFile": "data/JH168-Mobile13-SIGNED-20261101.apk",
+  "signedSha256": "ffe38e54654b3174cba3d6c03c484a6b4701c527c9f080d25febe325050afd4f",
+  "signedBytes": 48884022,
+  "localSigning": "NOT_PERFORMED_BY_THIS_UPDATER"
+}

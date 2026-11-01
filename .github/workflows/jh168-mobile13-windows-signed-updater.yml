@@ -1,0 +1,40 @@
+name: JH168 Mobile13 Windows pre-signed updater
+
+on:
+  push:
+    branches: ['feat/jh168-mobile13-presigned-*']
+    paths:
+      - 'jh-dev-tools/windows-delivery/mobile13-signed/**'
+      - 'jh-dev-tools/windows-delivery/tests/Test-Mobile13Signed.ps1'
+      - '.github/workflows/jh168-mobile13-windows-signed-updater.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jh168-mobile13-presigned-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actual-windows-presigned-updater:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Preserve reviewed source bytes before checkout
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot preserve source line endings' }
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Require Windows PowerShell 5.1
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw 'Actual Windows PowerShell 5.1 is required' }
+          $PSVersionTable.PSVersion.ToString()
+      - name: Exercise pre-signed updates, persistent guards and current-run results
+        run: |
+          & './jh-dev-tools/windows-delivery/tests/Test-Mobile13Signed.ps1' -KitRoot './jh-dev-tools/windows-delivery/mobile13-signed'
+          if (!$?) { throw 'Mobile13 pre-signed updater checks failed' }
