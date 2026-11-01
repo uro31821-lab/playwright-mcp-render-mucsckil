@@ -8,6 +8,7 @@ import { evaluateConstraints } from './constraints.mjs';
 import { prepareReview, createReviewedCandidate } from './curation.mjs';
 import { evaluateTrajectory } from './trajectory.mjs';
 import { decideProposal, proposalDecisionView } from './decisions.mjs';
+import { registerReviewedCandidate, proposalProgressView } from './progress.mjs';
 
 function evaluatorFor(suite) {
   if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
@@ -47,6 +48,7 @@ export async function execute(args, input) {
     }
     case 'review': return prepareReview(await store.read(), input);
     case 'decision-view': return proposalDecisionView(await store.read(), input);
+    case 'progress': return proposalProgressView(await store.read(), input);
     case 'decide': {
       if (expectedRevision !== undefined) throw new TypeError('decide uses payload.expectedRevision inside its atomic transaction');
       const result = await store.transact(state => decideProposal(state, input, { now: new Date().toISOString() }));
@@ -58,6 +60,16 @@ export async function execute(args, input) {
       if (!input || Object.keys(input).some(key => !['review', 'suite'].includes(key))) throw new TypeError('curate requires review and suite');
       evaluatorFor(input.suite);
       return createReviewedCandidate(await store.read(), input.review, input.suite);
+    }
+    case 'curate-register': {
+      if (expectedRevision !== undefined) throw new TypeError('curate-register uses review.baseRevision inside its atomic transaction');
+      if (!input || Object.keys(input).some(key => !['review', 'suite'].includes(key))) throw new TypeError('curate-register requires review and suite');
+      evaluatorFor(input.suite);
+      const saved = await store.transact(state => registerReviewedCandidate(state, input.review, input.suite),
+        { expectedRevision: input.review?.baseRevision });
+      return { revision: saved.state.revision, lesson: saved.state.lessons[saved.lesson.id],
+        suite: saved.suite, reviewSummary: saved.reviewSummary, link: saved.link, duplicate: saved.duplicate,
+        activatedByThisCall: false, externalEffects: false };
     }
     case 'ingest': {
       const events = Array.isArray(input) ? input : [input];
@@ -94,7 +106,7 @@ export async function execute(args, input) {
       const result = await store.transact(state => setProposalStatus(state, input.id, input.status, input.verification), transactionOptions);
       return { revision: result.revision, proposal: result.proposals[input.id] };
     }
-    default: throw new TypeError('Use status, ingest, recall, context, review, decision-view, decide, curate, propose, candidate, check, or proposal-status');
+    default: throw new TypeError('Use status, ingest, recall, context, review, decision-view, progress, decide, curate, curate-register, propose, candidate, check, or proposal-status');
   }
 }
 

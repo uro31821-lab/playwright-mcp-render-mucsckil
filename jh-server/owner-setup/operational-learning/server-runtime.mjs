@@ -2,7 +2,8 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import { FileLearningStore } from './store.mjs';
 import { ingest, recallContexts, propose, addLesson, evaluateLesson } from './engine.mjs';
-import { prepareReview, createReviewedCandidate } from './curation.mjs';
+import { prepareReview } from './curation.mjs';
+import { registerReviewedCandidate, proposalProgressView } from './progress.mjs';
 import { createInstructionCandidate } from './instructions.mjs';
 import { decideProposal, proposalDecisionView, decisionSummary } from './decisions.mjs';
 import { bindRegression, runRegression } from './regression.mjs';
@@ -483,6 +484,10 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     if (mode === 'PREPARE') {
       if (Object.hasOwn(input, 'view')) {
         requestFields(input, ['proposalId', 'view']);
+        if (input.view === 'progress') {
+          return { ok: true, mode, view: proposalProgressView(current, { proposalId: input.proposalId },
+            { now: clock(), commonScope: commonRuleScope() }), externalEffects: false };
+        }
         if (input.view !== 'decision') throw new TypeError('LEARNING_REQUEST_INVALID');
         return { ok: true, mode, view: proposalDecisionView(current, { proposalId: input.proposalId }),
           externalEffects: false };
@@ -524,13 +529,14 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       }
       requestFields(input, ['review', 'suite']);
       evaluatorFor(input.suite);
-      const candidate = createReviewedCandidate(current, input.review, input.suite);
-      const saved = await store.transact(value => addLesson(value, candidate.lesson),
+      const saved = await store.transact(value => registerReviewedCandidate(value, input.review, input.suite,
+        { now: clock() }),
         { expectedRevision: input.review.baseRevision });
-      state = saved;
-      return { ok: true, mode, revision: saved.revision,
-        lesson: saved.lessons[candidate.lesson.id], suite: candidate.suite,
-        reviewSummary: candidate.reviewSummary, externalEffects: false, activatedByThisCall: false };
+      state = saved.state;
+      return { ok: true, mode, revision: saved.state.revision,
+        lesson: saved.state.lessons[saved.lesson.id], suite: saved.suite,
+        reviewSummary: saved.reviewSummary, link: saved.link, duplicate: saved.duplicate,
+        externalEffects: false, activatedByThisCall: false };
     }
     requestFields(input, ['lesson', 'suite', 'expectedRevision']);
     if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0 ||
@@ -568,7 +574,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       enabled: Boolean(store && environment && !closed), degraded: failures > 0,
       apiVersion: 3, capabilities: { preflightContext: true, reviewedCandidates: true,
         temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true,
-        scopedProposals: true, proposalDecisions: true,
+        scopedProposals: true, proposalDecisions: true, proposalProgress: true,
         existingReceiptReconciliation: true, reviewReadiness: true, splitReadObservationReconciliation: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,

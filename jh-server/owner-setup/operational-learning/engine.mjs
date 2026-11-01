@@ -496,7 +496,8 @@ export function propose(state, options = {}) {
         learning_evaluation: 'Compare candidate approaches on separate held-out cases.' }[kind],
       requiredValidation: ['Evidence review', 'Matching environment and rule version', 'Effect-free regression', 'Outcome readback before live success claims'],
       ...(existing?.verification ? { verification: clone(existing.verification) } : {}),
-      ...(existing?.decisionHistory ? { decisionHistory: clone(existing.decisionHistory) } : {}), ...extra };
+      ...(existing?.decisionHistory ? { decisionHistory: clone(existing.decisionHistory) } : {}),
+      ...(existing?.candidateLinks ? { candidateLinks: clone(existing.candidateLinks) } : {}), ...extra };
     if (existing && same(existing, proposal)) return;
     if (!existing) capacity(next, 'proposals');
     next.proposals[id] = proposal; changed = true;
