@@ -24,7 +24,9 @@ jobs:
             jh-server/server.mjs \
             jh-server/owner-setup/server-integration/server.mjs \
             jh-server/owner-setup/deployment \
-            jh-server/owner-setup/android-direct
+            jh-server/owner-setup/android-direct \
+            ':(exclude)jh-server/owner-setup/deployment/published-host-router.mjs' \
+            ':(exclude)jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs'
       - name: Install exact existing dependencies without scripts
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
@@ -42,6 +44,7 @@ jobs:
             jh-server/owner-setup/server-integration/pending-approval-real-runtime-candidate.test.mjs \
             jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs
           node --test --test-reporter=spec jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs
       - name: Source-only approval, no Render listener or Android action
         run: |
           test -z "${JH_PENDING_APPROVAL_OPERATOR_ENABLE:-}"
