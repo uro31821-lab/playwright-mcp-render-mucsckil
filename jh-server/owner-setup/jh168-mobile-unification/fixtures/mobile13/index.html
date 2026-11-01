@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Mobile 13 · 중립 검증 화면</title>
+  <link rel="stylesheet" href="fixture.css">
+  <script src="fixture.js" defer></script>
+</head>
+<body data-page="index" data-fixture-version="1">
+  <a class="skip-link" href="#main">검증 항목으로 이동</a>
+  <header class="page-header">
+    <p class="eyebrow">MOBILE 13 · FIXTURE v1</p>
+    <h1>중립 검증 화면</h1>
+    <p>한 번의 동작과 화면의 변화를 구분해 관찰합니다.</p>
+    <p id="phone-e2e-state" data-testid="phone-e2e-state" class="notice">
+      PHONE_E2E: NOT_RUN<br>
+      아래 숫자와 문구는 페이지 상태이며, 휴대폰 검증 결과가 아닙니다.
+    </p>
+  </header>
+
+  <main id="main">
+    <section class="card" aria-labelledby="observation-heading">
+      <h2 id="observation-heading">현재 페이지 상태</h2>
+      <dl class="state-list">
+        <dt>포커스</dt>
+        <dd id="focus-state" data-testid="focus-state">페이지 본문</dd>
+        <dt>페이지가 감지한 키</dt>
+        <dd id="keyboard-state" data-testid="keyboard-state">아직 없음</dd>
+        <dt>화면 영역</dt>
+        <dd id="viewport-state" data-testid="viewport-state">측정 전</dd>
+        <dt>페이지 스크롤</dt>
+        <dd id="page-scroll-state" data-testid="page-scroll-state">측정 전</dd>
+      </dl>
+      <p class="hint">화면 영역의 크기만 표시합니다. 키보드 열림이나 닫힘을 자동 판정하지 않습니다.</p>
+      <div id="screenshot-marker" data-testid="screenshot-marker" class="screenshot-marker" aria-label="화면 비교용 색상 표식">
+        <span class="marker-a">A · INDEX</span>
+        <span class="marker-b">B · 13</span>
+        <span class="marker-c">C · v1</span>
+        <span class="marker-d">D · 화면 표식</span>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="click-heading">
+      <p class="eyebrow">01 · CLICK</p>
+      <h2 id="click-heading">클릭 횟수</h2>
+      <p>버튼 한 번에 이 화면의 숫자만 1 증가합니다.</p>
+      <button id="click-button" data-testid="click-button" type="button">클릭 횟수 1 올리기</button>
+      <p class="result">현재 횟수: <output id="click-count" data-testid="click-count" aria-live="polite">0</output></p>
+    </section>
+
+    <section class="card" aria-labelledby="form-heading">
+      <p class="eyebrow">02 · INPUT &amp; FOCUS</p>
+      <h2 id="form-heading">연습 문구 입력</h2>
+      <p>JH TEST, SAMPLE 같은 연습 문구를 사용합니다. 이벤트에는 입력 길이만 기록합니다.</p>
+      <form id="test-form" data-testid="test-form" method="dialog" autocomplete="off">
+        <label for="input-one">첫 번째 연습 문구</label>
+        <input id="input-one" data-testid="input-one" name="practice-one" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="예: JH TEST">
+        <p class="hint">입력 길이: <output id="input-one-length" data-testid="input-one-length">0</output></p>
+        <label for="input-two">두 번째 연습 문구</label>
+        <input id="input-two" data-testid="input-two" name="practice-two" type="text" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="예: SAMPLE">
+        <p class="hint">입력 길이: <output id="input-two-length" data-testid="input-two-length">0</output></p>
+        <button id="form-submit" data-testid="form-submit" type="submit">페이지 안에서 입력 확인</button>
+      </form>
+      <p id="form-result" data-testid="form-result" class="result" aria-live="polite">아직 확인하지 않음</p>
+      <p class="hint">확인 동작은 전송하지 않습니다. Enter, Tab 지원 여부는 실제 도구 계약과 따로 확인합니다.</p>
+    </section>
+
+    <section class="card" aria-labelledby="select-heading">
+      <p class="eyebrow">03 · NATIVE SELECT</p>
+      <h2 id="select-heading">선택 메뉴</h2>
+      <label for="native-select">연습 색상</label>
+      <select id="native-select" data-testid="native-select">
+        <option value="" selected disabled>색상을 선택하세요</option>
+        <option value="blue">파랑 연습 옵션</option>
+        <option value="orange">주황 연습 옵션</option>
+      </select>
+      <p id="select-result" data-testid="select-result" class="result" aria-live="polite">아직 선택하지 않음</p>
+      <p class="hint">메뉴 열기와 옵션 선택은 서로 다른 동작으로 관찰합니다.</p>
+    </section>
+
+    <section class="card" aria-labelledby="delay-heading">
+      <p class="eyebrow">04 · DELAYED CONDITION</p>
+      <h2 id="delay-heading">800ms 뒤 조건 표시</h2>
+      <p>버튼을 눌렀을 때만 타이머를 시작합니다.</p>
+      <button id="delay-button" data-testid="delay-button" type="button">800ms 뒤 문구 표시</button>
+      <p id="delay-status" data-testid="delay-status" data-state="idle" class="result" aria-live="polite">IDLE · 시작 전</p>
+      <p class="hint">시간 경과와 도구의 조건 검증은 별개입니다.</p>
+    </section>
+
+    <section class="card" aria-labelledby="vertical-heading">
+      <p class="eyebrow">05 · NESTED VERTICAL SCROLL</p>
+      <h2 id="vertical-heading">바깥·안쪽 세로 스크롤</h2>
+      <p>두 영역의 위치를 각각 관찰합니다. 끝 표식은 자동으로 이동하지 않습니다.</p>
+      <p id="vertical-status" data-testid="vertical-status" class="metric">바깥 영역: 측정 전</p>
+      <p id="inner-status" data-testid="inner-status" class="metric">안쪽 영역: 측정 전</p>
+      <div id="vertical-scroll" data-testid="vertical-scroll" class="scroll-box vertical-scroll" tabindex="0" role="region" aria-label="바깥 세로 스크롤 영역">
+        <div class="scroll-panel">OUTER_START · 바깥 영역 시작</div>
+        <p class="inner-label">아래 테두리 안은 별도의 세로 스크롤입니다.</p>
+        <div id="inner-scroll" data-testid="inner-scroll" class="scroll-box inner-scroll" tabindex="0" role="region" aria-label="안쪽 세로 스크롤 영역">
+          <div class="scroll-panel tall-panel">INNER_START · 안쪽 영역 시작</div>
+          <div class="scroll-panel tall-panel">INNER_MIDDLE · 안쪽 중간</div>
+          <div id="inner-end" data-testid="inner-end" class="end-marker">INNER_END · 안쪽 끝</div>
+        </div>
+        <div class="scroll-panel outer-spacer">OUTER_MIDDLE · 바깥 영역 중간</div>
+        <div id="vertical-end" data-testid="vertical-end" class="end-marker">VERTICAL_END · 바깥 끝</div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="horizontal-heading">
+      <p class="eyebrow">06 · HORIZONTAL SCROLL</p>
+      <h2 id="horizontal-heading">내부 가로 스크롤</h2>
+      <p>영역 안을 오른쪽으로 이동해 마지막 표식을 확인합니다.</p>
+      <p id="horizontal-status" data-testid="horizontal-status" class="metric">가로 영역: 측정 전</p>
+      <div id="horizontal-scroll" data-testid="horizontal-scroll" class="scroll-box horizontal-scroll" dir="ltr" tabindex="0" role="region" aria-label="가로 스크롤 영역">
+        <div class="horizontal-track">
+          <div class="scroll-panel">HORIZONTAL_START<br>가로 시작</div>
+          <div class="scroll-panel">HORIZONTAL_MIDDLE<br>가로 중간</div>
+          <div id="horizontal-end" data-testid="horizontal-end" class="end-marker">HORIZONTAL_END<br>가로 끝</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="dialog-heading">
+      <p class="eyebrow">07 · DIALOG</p>
+      <h2 id="dialog-heading">무해한 대화상자</h2>
+      <button id="dialog-open" data-testid="dialog-open" type="button">연습 대화상자 열기</button>
+      <p id="dialog-status" data-testid="dialog-status" class="result" aria-live="polite">CLOSED · 아직 열지 않음</p>
+      <p class="hint">닫기 버튼, Escape, Android BACK의 효과를 각각 관찰합니다. Android BACK은 페이지 키 이벤트로 전달되지 않을 수 있습니다.</p>
+      <dialog id="test-dialog" data-testid="test-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-help">
+        <h2 id="dialog-title">연습 대화상자</h2>
+        <p id="dialog-help">이 창은 연습용입니다. 닫기 버튼과 Escape 또는 Android BACK의 결과를 혼동하지 마세요.</p>
+        <button id="dialog-close" data-testid="dialog-close" type="button" autofocus>연습 대화상자 닫기</button>
+      </dialog>
+    </section>
+
+    <section class="card" aria-labelledby="navigation-heading">
+      <p class="eyebrow">08 · NAVIGATION</p>
+      <h2 id="navigation-heading">다음 페이지로 이동</h2>
+      <p>같은 출처의 별도 정적 페이지를 엽니다. 실제 탭과 주소의 변화를 관찰합니다.</p>
+      <div class="action-stack">
+        <a id="same-tab-link" data-testid="same-tab-link" class="action-link" href="destination.html?via=same-tab">같은 탭에서 다음 페이지 열기</a>
+        <a id="new-tab-link" data-testid="new-tab-link" class="action-link secondary" href="destination.html?via=new-tab" target="_blank" rel="noopener noreferrer">새 탭에서 다음 페이지 열기</a>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="events-heading">
+      <h2 id="events-heading">최근 페이지 이벤트</h2>
+      <p class="hint">최신 24개만 표시합니다. 입력값·서명·영수증·승인값을 기록하거나 생성하지 않습니다.</p>
+      <button id="clear-events" data-testid="clear-events" class="secondary" type="button">이벤트 목록 비우기</button>
+      <ol id="event-log" data-testid="event-log" class="event-log" aria-label="최근 페이지 이벤트" aria-live="off"></ol>
+    </section>
+  </main>
+
+  <footer>페이지 상태는 임시입니다. 새로고침하면 검증용 상태가 초기화됩니다.</footer>
+  <noscript><p class="noscript">페이지 상태 관찰에는 JavaScript가 필요합니다. 폼은 외부로 전송하지 않습니다.</p></noscript>
+</body>
+</html>
