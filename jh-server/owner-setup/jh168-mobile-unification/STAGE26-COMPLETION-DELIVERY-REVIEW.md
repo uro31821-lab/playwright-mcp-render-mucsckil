@@ -48,3 +48,13 @@ Local pure-JVM policy tests: 40 pass / 0 fail. **Full Gradle Android build/tests
 
 **No BullMQ, Redis, new certificate, token, personal data or public APK in GitHub.**
 
+
+## Windows build handoff integrity
+
+- Build-only ZIP: `JH26_완료응답_안전재전달_압축풀기_실행.zip`
+- ZIP SHA-256: `35095a2b684326b18032522bbb3a183be8eebe52111b8bc30a2a718708a34022`
+- Internal payload SHA-256: `8db4be06986e07c3a448bb8d7e902d935545ee529dd2fc0d1a69e2dbb51d4db0`
+- Android 401 source files pinned individually and validated against bytes in the inner ZIP.
+- Windows entry `실행.cmd` extracts the internal source to a short user-local path and runs the original Gradle 8.9 / JDK 17 / SDK 35 release tests and unsigned APK assemble. Windows execution is NOT_RUN.
+- Local 40 Kotlin JVM policy tests are NOT a substitute for full Android Gradle or live phone verification.
+- Existing JH168 Stage24 signed APK stays installed; no full app data reset.
