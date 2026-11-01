@@ -1,7 +1,7 @@
-/** JH168 Stage44 MAIN source protection. The earlier Stage42 test was
- * pinned to pre-PR111 MAIN 2c310f8, but actual deployed MAIN advanced to
- * reviewed e346a1c9. Preserve original PR72 history, require zero current
- * changes to global protected source and pin real LIVE to current MAIN.
+/** JH168 read-only command diagnostics source protection.
+ * The observed deployed MAIN is exactly reviewed Stage44 f32cf6c7.
+ * Preserve PR72 provenance, zero protected-runtime changes, and an exact
+ * eight-file diagnostic delta. A later MAIN requires a new source review.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,9 +11,9 @@ import {reverseJH168Mobile13ActionPolicyHost56}
  from './mobile13-action-policy-patch.mjs';
 
 const PRE_MOBILE='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
-const REVIEWED_MAIN='e346a1c9d425428df5cba4069f26842450542b43';
+const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
 const REVIEWED_PR72='c6142bd21ea299a4464124356e9da34b58001900';
-const LIVE='e346a1c9d425428df5cba4069f26842450542b43';
+const LIVE='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
 const ROOT='jh-server/owner-setup/';
 const git=(args)=>execFileSync('git',args,{encoding:'utf8',timeout:15000,maxBuffer:20*1024*1024}).trim();
 const show=(sha,path)=>execFileSync('git',['show',sha+':'+path],{encoding:'utf8',timeout:15000,maxBuffer:20*1024*1024});
@@ -22,14 +22,14 @@ const protectedRoots=[
  'jh-server/server.mjs',ROOT+'deployment',ROOT+'payment',ROOT+'server-integration',
  ROOT+'android-direct',ROOT+'trusted-server',ROOT+'owner-enrollment',ROOT+'operational-learning'
 ];
-test('MAIN advanced to exact reviewed deployed PR111, original pre-mobile provenance still available',()=>{
+test('MAIN is exact reviewed deployed Stage44, original pre-mobile provenance still available',()=>{
  assert.equal(git(['rev-parse','origin/jh-fix3-secure-server']),REVIEWED_MAIN);
  for(const sha of [PRE_MOBILE,REVIEWED_MAIN,REVIEWED_PR72,LIVE])assert.equal(git(['cat-file','-t',sha]),'commit');
  assert.equal(git(['merge-base',PRE_MOBILE,REVIEWED_MAIN]),PRE_MOBILE);
  assert.equal(git(['merge-base',PRE_MOBILE,REVIEWED_PR72]),PRE_MOBILE);
  assert.equal(git(['merge-base',REVIEWED_MAIN,'HEAD']),REVIEWED_MAIN);
 });
-test('ALL original Secure56, device, owner, payment, approval and journal protected sources unchanged in Stage44',()=>{
+test('ALL original Secure56, device, owner, payment, approval and journal protected sources unchanged by diagnostics',()=>{
  assert.deepEqual(files(protectedRoots),[],'UNREVIEWED_PROTECTED_SOURCE_CHANGE');
 });
 test('previous exact PR72 mobile host modifications remain byte-identical and reversible to old original',()=>{
@@ -43,21 +43,26 @@ test('previous exact PR72 mobile host modifications remain byte-identical and re
   ROOT+'operational-learning/ANDROID-PRODUCER-COMPATIBILITY.md'])
   assert.equal(readFileSync(other,'utf8'),show(REVIEWED_PR72,other));
 });
-test('current live source is EXACT approved MAIN, no hidden overlay collision or rollback',()=>{
+test('observed LIVE baseline is exact reviewed MAIN and candidate changes only eight diagnostic files',()=>{
  assert.equal(LIVE,REVIEWED_MAIN);
- const current=files(['.github/workflows',ROOT+'deployment',ROOT+'operational-learning',ROOT+'jh168-mobile-unification']);
+ const current=files([]);
  const allowed=[
-  '.github/workflows/jh168-stage44-signed-task-focus-review.yml',
+  '.github/workflows/jh168-mobile13-command-diagnostics-review.yml',
+  ROOT+'jh168-mobile-unification/mobile13-command-diagnostics.mjs',
+  ROOT+'jh168-mobile-unification/mobile13-command-diagnostics.test.mjs',
+  ROOT+'jh168-mobile-unification/MOBILE13-COMMAND-DIAGNOSTICS-REVIEW.md',
   ROOT+'jh168-mobile-unification/stage44-device-focus.mjs',
-  ROOT+'jh168-mobile-unification/stage44-device-focus-patch.mjs',
-  ROOT+'jh168-mobile-unification/stage44-device-focus.test.mjs',
-  ROOT+'jh168-mobile-unification/STAGE44-SINGLE-COMMAND-FOCUS.md',
   ROOT+'jh168-mobile-unification/stage25-live-operator-followup-entry.mjs',
   ROOT+'jh168-mobile-unification/mobile-web-current-main-compat.test.mjs',
   ROOT+'jh168-mobile-unification/stage42-protected-source-provenance.test.mjs'
  ];
- for(const path of current)assert.ok(allowed.includes(path),'UNREVIEWED_CHANGED_FILE '+path);
- assert.equal(current.length,allowed.length,'STAGE44_EXPECTED_FILES_ONLY');
+ assert.deepEqual(current.sort(),allowed.sort(),'MOBILE13_DIAGNOSTICS_EXACT_FILES_ONLY');
+ for(const path of [
+  'stage44-device-focus-patch.mjs','stage44-device-focus.test.mjs',
+  'stage41-command-lifecycle-patch.mjs','stage40-owner-admission-diagnostics-patch.mjs',
+  'mobile-web-tool-patch.mjs','mobile13-action-policy-patch.mjs'
+ ])assert.equal(readFileSync(ROOT+'jh168-mobile-unification/'+path,'utf8'),
+  show(REVIEWED_MAIN,ROOT+'jh168-mobile-unification/'+path));
 });
 test('release remains opt-in, old actions never replay and phone E2E is not inferred from source',()=>{
  const source=readFileSync(ROOT+'jh168-mobile-unification/STAGE44-SINGLE-COMMAND-FOCUS.md','utf8');

@@ -1,6 +1,7 @@
 /** JH168 verified-current-MAIN mobile/source review (NO RELEASE).
  * Preserve BOTH historical PR72 / 2c310f8 source evidence and the reviewed
- * NEW main e346a1c9; Stage44 may edit only its generated operator selection.
+ * Stage44 main f32cf6c7; command diagnostics may edit only its generated
+ * operator selection and add a pure focus observation method.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,7 +10,7 @@ import {execFileSync} from 'node:child_process';
 import {reverseJH168Mobile13ActionPolicyHost56} from './mobile13-action-policy-patch.mjs';
 
 const ORIGINAL='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
-const REVIEWED_MAIN='e346a1c9d425428df5cba4069f26842450542b43';
+const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
 const MOBILE='c6142bd21ea299a4464124356e9da34b58001900';
 const ROOT='jh-server/owner-setup/';
 const show=(sha,path)=>execFileSync('git',['show',sha+':'+path],{
@@ -50,7 +51,7 @@ test('current MAIN host contains EXACT originally reviewed PR72 mobile patches w
  assert.equal(current(host),show(MOBILE,host));
  assert.equal(reverseJH168Mobile13ActionPolicyHost56(current(host)),show(ORIGINAL,host));
 });
-test('mobile 9+4 composition is reviewed PR72 and ALREADY in MAIN, not duplicated during Stage44',()=>{
+test('mobile 9+4 composition is reviewed PR72 and ALREADY in MAIN, not duplicated by diagnostics',()=>{
  const p=ROOT+'deployment/jh167-article-operational-review-composition.mjs';
  const s=current(p);
  assert.equal(s,show(MOBILE,p));
