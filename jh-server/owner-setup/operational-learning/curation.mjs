@@ -126,6 +126,41 @@ function lessonDefinition(lesson, { omitId = false } = {}) {
   return Object.fromEntries(DEFINITION.filter(key => own(lesson, key) && !(omitId && key === 'id')).map(key => [key, structuredClone(lesson[key])]));
 }
 
+function evidenceReadiness(proposal, matches, selected) {
+  // Counts describe current matching attempts, not additional independent tasks.
+  // A digest identifies evidence; it cannot establish the outcome it describes.
+  const currentEligible = matches.filter(eligible);
+  const currentVerifiedOutcomeCount = currentEligible.filter(event =>
+    ['success_verified', 'failure_verified'].includes(event.outcome)).length;
+  const visibleEligibleCount = selected.filter(eligible).length;
+  let status = 'more_evidence_required';
+  let reasonCode;
+  let nextEvidence;
+  if (visibleEligibleCount > 0) {
+    status = 'ready_for_review';
+    reasonCode = 'ELIGIBLE_CURRENT_EVIDENCE_VISIBLE';
+    nextEvidence = ['REVIEW_SCOPED_RULE_CANDIDATE', 'RUN_BOUND_EFFECT_FREE_REGRESSION'];
+  } else if (currentEligible.length > 0) {
+    status = 'evidence_not_visible';
+    reasonCode = 'ELIGIBLE_EVIDENCE_OUTSIDE_VISIBLE_PACKET';
+    nextEvidence = ['READ_CURRENT_ELIGIBLE_EVIDENCE', 'PREPARE_PACKET_WITH_ELIGIBLE_EVIDENCE'];
+  } else if (proposal.kind === 'verification_gap') {
+    reasonCode = 'VERIFIED_OUTCOME_REQUIRED';
+    nextEvidence = ['READ_ORIGINAL_BOUND_RECEIPT', 'CORRECT_ORIGINAL_ATTEMPT_FROM_VERIFIED_RECEIPT',
+      'REVIEW_SEPARATE_VERIFIED_IMPROVEMENT_EVIDENCE'];
+  } else if (matches.every(event => event.outcome === 'blocked')) {
+    reasonCode = 'BLOCKED_ATTEMPT_NEEDS_ELIGIBLE_EVIDENCE';
+    nextEvidence = ['READ_EXISTING_BLOCK_REASON_WITHOUT_BYPASS',
+      'REVIEW_SEPARATE_VERIFIED_OR_EXPLICIT_CORRECTION_EVIDENCE'];
+  } else {
+    reasonCode = 'VERIFIED_OR_EXPLICIT_CORRECTION_REQUIRED';
+    nextEvidence = ['OBTAIN_VERIFIED_OR_EXPLICIT_CORRECTION_EVIDENCE', 'PREPARE_REVIEW_AGAIN'];
+  }
+  return { schema: 'jh.learning-evidence-readiness.v1', status, reasonCode,
+    currentVerifiedOutcomeCount, currentEligibleCount: currentEligible.length, visibleEligibleCount,
+    nextEvidence, automaticReplayAllowed: false, outcomeInferenceAllowed: false, activationPerformed: false };
+}
+
 /** Return structured, bounded evidence for an agent/host to review. This performs no model call. */
 export function prepareReview(state, options) {
   stateCheck(state);
@@ -152,6 +187,7 @@ export function prepareReview(state, options) {
     currentLessons: scopedLessons.slice(0, 20).map(lesson => ({ ...lessonDefinition(lesson), state: lesson.state })),
     currentLessonsTruncated: scopedLessons.length > 20,
     candidateEligible: matches.some(eligible), automaticInference: false,
+    evidenceReadiness: evidenceReadiness(proposal, matches, selected),
     requirements: {
       cause: 'Write a redacted reviewed inference, not an unobserved verified cause.',
       resolution: 'Describe the concrete proposed fix or workflow change.',

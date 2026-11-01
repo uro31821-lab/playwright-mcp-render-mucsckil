@@ -11,6 +11,11 @@ const TOOL_ANCHOR = '  registerOAuthTool("life_status",{';
 const CREATED = '  return cacheSet(recentJobs,key,j);';
 const COMPLETED = '    j.status="complete";j.result=body.result;j.completedAt=new Date().toISOString();';
 const RETENTION = '    if((j.status==="complete"||j.status==="error"||j.status==="expired") && j.completedAt && now-Date.parse(j.completedAt)>COMPLETED_JOB_RETENTION_MS)jobs.delete(id);';
+const OPEN_RECEIPT = '    const legacy=jobResult(observed.job);';
+const OBSERVE_OPEN_RECEIPT = String.raw`    if(observed.summary?.executionStatus==='EFFECT_CONFIRMED'&&observed.summary.actionSucceeded===true&&
+       observed.summary.confirmationScope==='REQUESTED_ADDRESS_IN_RIGHT_CHROME_AT_RECEIPT_TIME')
+      jhLearningObserveJob56('receiptObserved',observed.job);
+`;
 
 const SHARED = String.raw`
 // Only a host-installed observer can receive these bounded metadata records.
@@ -48,9 +53,9 @@ function jhLearningJobMeta56(job,completed){
 }
 function jhLearningObserveJob56(method,job){
   const controller=jhLearningController56;
-  if(!controller)return;
+  if(!controller||typeof controller[method]!=='function')return;
   try{
-    const meta=jhLearningJobMeta56(job,method==='jobCompleted');
+    const meta=jhLearningJobMeta56(job,method==='jobCompleted'||method==='receiptObserved');
     if(meta)Promise.resolve(controller[method](meta)).catch(()=>{});
   }catch{} // Observation cannot change the accepted job or its HTTP response.
 }
@@ -106,7 +111,7 @@ export function installOperationalLearning56(controller){
   const methods=['invoke','jobCreated','jobCompleted','status','close'];
   if(!controller||methods.some(key=>typeof controller[key]!=='function'))
     throw Error('LEARNING_CONTROLLER_REQUIRED');
-  const exposed=[...methods,...['context','review'].filter(key=>typeof controller[key]==='function')];
+  const exposed=[...methods,...['context','review','receiptObserved'].filter(key=>typeof controller[key]==='function')];
   const installed=Object.freeze(Object.fromEntries(exposed.map(key=>[key,controller[key].bind(controller)])));
   jhLearningController56=installed;jhLearningInstalled56=true;
   let closed=false;
@@ -124,6 +129,7 @@ const PAIRS = [
   [CREATED, '  jhLearningObserveJob56("jobCreated",j);\n' + CREATED],
   [COMPLETED, COMPLETED + '\n    jhLearningObserveJob56("jobCompleted",j);'],
   [RETENTION, '    if(j.status==="error"||j.status==="expired")jhLearningObserveJob56("jobCompleted",j);\n' + RETENTION],
+  [OPEN_RECEIPT, OBSERVE_OPEN_RECEIPT + OPEN_RECEIPT],
 ];
 const REQUIRED = [
   'const pendingApprovalReceipts56=createPendingApprovalReceiptRegistry56();',

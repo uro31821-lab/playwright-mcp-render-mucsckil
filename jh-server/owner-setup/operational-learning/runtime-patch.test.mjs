@@ -3,14 +3,21 @@ import assert from 'node:assert/strict';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import { runInNewContext } from 'node:vm';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { applyOperationalLearningPatch, reverseOperationalLearningPatch } from './runtime-patch.mjs';
-import { describeOpenCompletion } from '../deployment/jh167-open-completion.mjs';
+import { createServerLearning } from './server-runtime.mjs';
+import { FileLearningStore } from './store.mjs';
+import { describeOpenCompletion, awaitOpenCompletion, patchJH167OpenCompletion56,
+  OPEN_COMPLETION_WAIT_MS, OPEN_STATUS_WAIT_MS } from '../deployment/jh167-open-completion.mjs';
 
 const command = 'a'.repeat(32);
 const copy = value => JSON.parse(JSON.stringify(value));
-// Small executable host fixture: no HTTP server, sockets, files, or device tools.
-// Exact production insertion anchors retain authentication/admission ordering.
-const source = String.raw`
+// Small executable host fixture: no HTTP server, sockets, or device tools.
+// The production open-completion patch supplies the real helper and status path;
+// synthetic accepted jobs do not claim an actual signed device verification.
+const source = patchJH167OpenCompletion56(String.raw`
 const jobs=new Map(),devices=new Map(),recentJobs=new Map();
 const httpServer={listening:false};
 const pendingApprovalReceipts56=createPendingApprovalReceiptRegistry56();
@@ -19,9 +26,14 @@ const computerInspectReceipt56=createComputerInspectReceiptRegistry56();
 const jhCommandContext56=new JhAsyncLocalStorage56();
 const jhV2State56={activeMcpCalls:0,lastMcpAt:0};
 const JOB_TTL_MS=90000,COMPLETED_JOB_RETENTION_MS=600000;
-let sequence=0,durableAllowed=true;
+let sequence=0,durableAllowed=true,waits=0,activeSession='private-session';
+let waitImpl=async job=>job;
 const durableNativeHooks56={beforeDispatch:()=>({allowed:durableAllowed}),acceptedCompletion:()=>({allowed:durableAllowed})};
 function jhRequireCommand56(){return jhCommandContext56.getStore()?.commandId;}
+function active56(){return activeSession?{sessionId:activeSession}:null;}
+function waitJob(job,budget){waits++;return waitImpl(job,budget);}
+function textResult(value){return {content:[{type:'text',text:JSON.stringify(value)}]};}
+function jobResult(job){return textResult(job?{id:job.id,status:job.status,result:job.result??null}:{notFound:true});}
 function jhCommandTool56(name,config,handler){return {config,handler:async(args,extra)=>{
   const input={...args};delete input.command_id;
   return jhCommandContext56.run({commandId:args?.command_id},()=>handler(input,extra));
@@ -38,7 +50,7 @@ function cleanupJobs(){
 }
 function mk(type,p={},deviceId='fixture-device'){
   const key=type+'|'+JSON.stringify(p),cached=cacheGet(recentJobs,key);if(cached)return cached;
-  const id='job_'+(++sequence),j={id,type,status:'queued',...p,commandId:jhRequireCommand56()};
+  const id='job_'+(++sequence),j={id,type,status:'queued',targetDeviceId:deviceId,...p,commandId:jhRequireCommand56()};
   jobs.set(id,j);
   if(!deviceId){j.status='error';j.error='no active Android device';}
   return cacheSet(recentJobs,key,j);
@@ -61,14 +73,37 @@ function memoryCatalogFixture(){
   const registerOAuthTool=()=>{};
   registerOAuthTool("life_status",{});
 }
-`;
+  let jhRightWebOpen56=null;
+async function fixtureDirectOpen(j,raw){
+      const finished=await waitJob(j,22000);
+      return textResult({route:"android_right",service:raw,url:raw,jobId:j.id,
+        rightAddressConfirmed:finished?.status==="complete"&&finished?.result?.rightAddressConfirmed===true,
+        job:jobResult(finished)});
+}
+async function fixtureAliasOpen(j,raw,url){
+        const finished=await waitJob(j,22000);
+        return textResult({route:"android_right",service:raw,url,jobId:j.id,
+          rightAddressConfirmed:finished?.status==="complete"&&finished?.result?.rightAddressConfirmed===true,
+          job:jobResult(finished)});
+}
+function receiptTool(){
+  const registerOAuthTool=(name,config,handler)=>register(name,handler,config);
+  return registerOAuthTool("life_job_status",{
+    description:"Read a queued Android job result.",
+    inputSchema:{}
+  },async({job_id})=>{cleanupJobs();return jobResult(jobs.get(job_id));});
+}
+`);
 
-function host() {
-  const patched = applyOperationalLearningPatch(source);
+function host({ learning = true } = {}) {
+  const patched = learning ? applyOperationalLearningPatch(source) : source;
   const executable = patched.replace(/^(?:import[^\n]+\n)+/, '').replace('export function installOperationalLearning56', 'function installOperationalLearning56');
   const sandbox = {
     JhAsyncLocalStorage56: AsyncLocalStorage,
     jhLearningDescribeOpen56: describeOpenCompletion,
+    jhAwaitOpenCompletion56: awaitOpenCompletion,
+    jhOpenWait56: OPEN_COMPLETION_WAIT_MS,
+    jhOpenStatusWait56: OPEN_STATUS_WAIT_MS,
     sha56: value => createHash('sha256').update(value).digest('hex'),
     stable56: JSON.stringify,
     createPendingApprovalReceiptRegistry56: () => ({}),
@@ -76,15 +111,32 @@ function host() {
     createComputerInspectReceiptRegistry56: () => ({}),
   };
   runInNewContext('"use strict";\n' + executable + `
-globalThis.api={install:installOperationalLearning56,register,mk,complete,cleanupJobs,jobs,devices,httpServer,
-  wrap:jhLearningHandler56,current:()=>jhCommandContext56.getStore()?.commandId,
-  active:()=>jhV2State56.activeMcpCalls,setDurable:value=>{durableAllowed=value;}};`, sandbox);
+globalThis.api={install:typeof installOperationalLearning56==='function'?installOperationalLearning56:null,
+  register,mk,complete,cleanupJobs,jobs,devices,httpServer,receiptTool,
+  openDirect:fixtureDirectOpen,openAlias:fixtureAliasOpen,
+  wrap:typeof jhLearningHandler56==='function'?jhLearningHandler56:null,
+  current:()=>jhCommandContext56.getStore()?.commandId,
+  active:()=>jhV2State56.activeMcpCalls,setDurable:value=>{durableAllowed=value;},
+  waits:()=>waits,setWait:value=>{waitImpl=value;},setSession:value=>{activeSession=value;}};`, sandbox);
   return sandbox.api;
 }
 const controller = changes => ({
   invoke: (_call, run) => run(), jobCreated() {}, jobCompleted() {},
   status: async () => ({ installed: true, events: 1 }), close() {}, ...changes,
 });
+
+function openReceiptFixture(at = Date.now()) {
+  const url = 'https://private.invalid/open-proof';
+  return { id: 'job_1', type: 'open_url', status: 'complete', targetDeviceId: 'fixture-device',
+    commandId: command, secureSessionId: 'private-session', url, startedAtMs: at - 1000,
+    completedAt: new Date(at).toISOString(),
+    result: { ok: true, url, rightAddressConfirmed: true, splitScreenRequired: true,
+      code: 'RIGHT_ADDRESS_CONFIRMED', body: 'synthetic-private-body', grant: 'synthetic-private-grant',
+      splitScreen: { kind: 'split_screen_evidence', version: '1', verified: 'true',
+        layout: 'LEFT_RIGHT', chatPackage: 'com.openai.chatgpt', chatKind: 'NATIVE', chatWindowId: '1',
+        chatBounds: '0,0,500,900', workPackage: 'com.android.chrome', workWindowId: '2',
+        workBounds: '510,0,1000,900', observedAtMs: String(at) } } };
+}
 
 test('outer patch reverses exactly and rejects incomplete, duplicate, or drifted sources', () => {
   const output = applyOperationalLearningPatch(source);
@@ -94,6 +146,8 @@ test('outer patch reverses exactly and rejects incomplete, duplicate, or drifted
   assert.throws(() => applyOperationalLearningPatch(output), /COMPLETE_OPERATOR/);
   assert.throws(() => applyOperationalLearningPatch(source.replace('const computerInspectReceipt56=', 'const other=')), /COMPLETE_OPERATOR/);
   assert.throws(() => applyOperationalLearningPatch(source.replace('  return cacheSet(recentJobs,key,j);', '  return j;')), /ANCHOR_DRIFT/);
+  assert.throws(() => applyOperationalLearningPatch(source.replace('    const legacy=jobResult(observed.job);', '    const legacy=jobResult(null);')), /ANCHOR_DRIFT/);
+  assert.throws(() => applyOperationalLearningPatch(source + '\n    const legacy=jobResult(observed.job);'), /ANCHOR_DRIFT/);
   assert.throws(() => applyOperationalLearningPatch(source + '\nconst scoped=jhCommandTool56(name,config,handler);'), /ANCHOR_DRIFT/);
   assert.throws(() => reverseOperationalLearningPatch(output.replace('jhLearningHandler56(name,handler)', 'handler')), /REVERSE_ANCHOR/);
 });
@@ -226,6 +280,144 @@ test('only reviewed open completion proof can elevate a receipt to verified succ
   assert.equal(received.at(-1).verifiedOutcome, undefined);
   api.complete(job, { result: { ok: true, rightAddressConfirmed: true } });
   assert.equal(received.at(-1).verifiedOutcome, undefined);
+});
+
+test('real open helper and later status forward only the same bounded verified receipt metadata', async () => {
+  const api = host(), baseline = host({ learning: false });
+  const created = [], completed = [], receipts = [];
+  api.install(controller({ jobCreated: meta => created.push(meta), jobCompleted: meta => completed.push(meta),
+    receiptObserved: meta => receipts.push(meta) }));
+  const fixture = openReceiptFixture(); let job;
+  const opened = await api.register('life_open_service', () => {
+    job = api.mk('open_url', { secureSessionId: fixture.secureSessionId, url: fixture.url,
+      startedAtMs: fixture.startedAtMs });
+    assert.equal(api.complete(job, { result: fixture.result }), 200);
+    return api.openDirect(job, fixture.url);
+  }).handler({ command_id: command });
+  const original = await baseline.register('life_open_service', () =>
+    baseline.openDirect(copy(job), fixture.url)).handler({ command_id: command });
+  assert.deepEqual(copy(opened), copy(original));
+  assert.equal(created.length, 1); assert.equal(completed.length, 1); assert.equal(receipts.length, 1);
+  assert.equal(Object.isFrozen(receipts[0]), true);
+  assert.deepEqual(copy(receipts[0]), copy(completed[0]));
+  assert.deepEqual(Object.keys(receipts[0]).sort(),
+    ['id', 'type', 'commandId', 'status', 'code', 'evidenceDigest', 'verifiedOutcome'].sort());
+  assert.equal(receipts[0].commandId, command); assert.equal(receipts[0].status, 'complete');
+  assert.equal(receipts[0].verifiedOutcome, 'success_verified');
+  assert.match(receipts[0].evidenceDigest, /^[a-f0-9]{64}$/);
+  assert.doesNotMatch(JSON.stringify(receipts), /private|https:|splitScreen|secureSession|grant|body/);
+
+  baseline.jobs.set(job.id, copy(job));
+  const status = api.receiptTool(), originalStatus = baseline.receiptTool();
+  const args = { command_id: command, job_id: job.id };
+  const snapshot = copy(job);
+  for (let i = 0; i < 2; i++) {
+    assert.deepEqual(copy(await status.handler(args)), copy(await originalStatus.handler(args)));
+  }
+  assert.equal(receipts.length, 3);
+  assert.deepEqual(copy(receipts[1]), copy(receipts[0]));
+  assert.deepEqual(copy(receipts[2]), copy(receipts[0]));
+  assert.equal(created.length, 1); assert.equal(completed.length, 1);
+  assert.equal(api.jobs.size, 1); assert.equal(api.waits(), 0);
+  assert.deepEqual(copy(job), snapshot);
+});
+
+test('pending, unverified and changed-binding receipts never reach the learning observer', async () => {
+  const cases = [
+    { name: 'pending', change: job => { job.status = 'in_progress'; }, code: 'OPEN_COMPLETION_PENDING' },
+    { name: 'spoofed success without proof', change: job => {
+      job.result = { ok: true, url: job.url, rightAddressConfirmed: true, verifiedOutcome: 'success_verified' };
+    }, code: 'OPEN_RESULT_UNCONFIRMED' },
+    { name: 'wrong URL', change: job => { job.result.url = 'https://other.invalid/'; }, code: 'OPEN_RESULT_UNCONFIRMED' },
+    { name: 'stale proof', change: job => {
+      job.result.splitScreen.observedAtMs = String(Number(job.result.splitScreen.observedAtMs) - 60000);
+    }, code: 'OPEN_RESULT_UNCONFIRMED' },
+    { name: 'wrong command', change: job => { job.commandId = 'b'.repeat(32); }, code: 'OPEN_COMPLETION_BINDING_CHANGED' },
+    { name: 'changed session', session: 'different-session', code: 'OPEN_COMPLETION_BINDING_CHANGED' },
+    ...['id', 'commandId', 'targetDeviceId', 'secureSessionId'].map(field => ({
+      name: 'wait substituted ' + field, change: job => { job.status = 'in_progress'; },
+      wait: job => ({ ...job, [field]: 'different-binding' }), code: 'OPEN_COMPLETION_CORRELATION_MISMATCH',
+    })),
+  ];
+  for (const item of cases) {
+    const api = host(), baseline = host({ learning: false }); let observations = 0;
+    api.install(controller({ receiptObserved: () => observations++ }));
+    const job = openReceiptFixture(); item.change?.(job);
+    api.jobs.set(job.id, job); baseline.jobs.set(job.id, copy(job));
+    for (const current of [api, baseline]) {
+      if (item.session) current.setSession(item.session);
+      if (item.wait) current.setWait(item.wait);
+    }
+    const snapshot = copy(job), args = { command_id: command, job_id: job.id };
+    const result = await api.receiptTool().handler(args);
+    assert.equal(JSON.parse(result.content[0].text).code, item.code, item.name);
+    assert.deepEqual(copy(result), copy(await baseline.receiptTool().handler(args)), item.name);
+    assert.equal(observations, 0, item.name);
+    assert.deepEqual(copy(job), snapshot, item.name);
+    assert.equal(api.jobs.size, 1, item.name); assert.equal(api.active(), 0, item.name);
+  }
+});
+
+test('optional receipt observer absence and sync or async failure preserve the original status result', async () => {
+  const modes = ['absent', 'sync', 'async'];
+  for (const mode of modes) {
+    const api = host(), baseline = host({ learning: false }); let observations = 0;
+    const receiptObserved = mode === 'sync' ? () => { observations++; throw Error('private storage failure'); }
+      : async () => { observations++; throw Error('private storage failure'); };
+    api.install(controller(mode === 'absent' ? {} : { receiptObserved }));
+    const job = openReceiptFixture(); api.jobs.set(job.id, job); baseline.jobs.set(job.id, copy(job));
+    const snapshot = copy(job), args = { command_id: command, job_id: job.id };
+    assert.deepEqual(copy(await api.receiptTool().handler(args)), copy(await baseline.receiptTool().handler(args)), mode);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(observations, mode === 'absent' ? 0 : 1, mode);
+    assert.deepEqual(copy(job), snapshot, mode); assert.equal(api.active(), 0, mode);
+  }
+});
+
+test('patched status helper reconciles one original attempt through the real controller and temporary store', async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'jh-learning-open-receipt-'));
+  const file = path.join(dir, 'learning.json'), ownerScope = 'fixture-owner-receipt';
+  let runtime;
+  t.after(async () => { try { await runtime?.close(); } finally { await rm(dir, { recursive: true, force: true }); } });
+  runtime = await createServerLearning({ file, ownerScope, runtimeId: 'fixture-open-runtime',
+    context: { platform: 'server', version: 'fixture-v1', environment: 'synthetic-test' } });
+  const store = new FileLearningStore({ file, ownerScope });
+  const api = host(), baseline = host({ learning: false });
+  // Simulate a missed completion observation, while keeping the accepted host job.
+  api.install({ ...runtime, jobCompleted() {} });
+  const fixture = openReceiptFixture(), failure = new Error('synthetic initial wait failure'); let job;
+  api.setWait(() => { throw failure; });
+  await assert.rejects(api.register('life_open_service', () => {
+    job = api.mk('open_url', { secureSessionId: fixture.secureSessionId, url: fixture.url,
+      startedAtMs: fixture.startedAtMs });
+    return api.openDirect(job, fixture.url);
+  }).handler({ command_id: command }), error => error === failure);
+  const before = await store.read(), originalAttempt = Object.values(before.attempts)[0];
+  assert.equal(Object.keys(before.attempts).length, 1);
+  assert.equal(originalAttempt.outcome, 'completion_unknown');
+  assert.equal(originalAttempt.operation, 'life_open_service');
+  assert.equal(api.complete(job, { result: fixture.result }), 200);
+  assert.equal((await store.read()).revision, before.revision);
+  api.setWait(async value => value);
+  baseline.jobs.set(job.id, copy(job));
+  const status = api.receiptTool(), args = { command_id: command, job_id: job.id };
+  const result = await status.handler(args);
+  assert.deepEqual(copy(result), copy(await baseline.receiptTool().handler(args)));
+  const after = await store.read(), reconciled = Object.values(after.attempts)[0];
+  assert.equal(Object.keys(after.attempts).length, 1);
+  assert.equal(Object.keys(after.events).length, Object.keys(before.events).length + 1);
+  assert.equal(reconciled.attemptId, originalAttempt.attemptId);
+  for (const field of ['taskId', 'operation', 'domain', 'engine', 'context']) {
+    assert.deepEqual(reconciled[field], originalAttempt[field], field);
+  }
+  assert.equal(reconciled.outcome, 'success_verified');
+  assert.match(reconciled.evidenceRefs[0], /^sha256:[a-f0-9]{64}$/);
+  const bytes = await readFile(file, 'utf8');
+  await status.handler(args);
+  assert.equal(await readFile(file, 'utf8'), bytes);
+  assert.doesNotMatch(bytes, /private-session|private\.invalid|synthetic-private-body|synthetic-private-grant/);
+  assert.equal(api.jobs.size, 1); assert.equal(api.waits(), 1);
+  assert.equal((await runtime.status()).degraded, false);
 });
 
 test('existing cleanup observes expired/error outcomes before retention removal without creating jobs', async () => {

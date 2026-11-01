@@ -175,9 +175,28 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     return current ?? null;
   }
 
-  async function record(attemptId, fallbackScope, observation) {
+  async function record(attemptId, fallbackScope, observation, { existingReceiptTaskId } = {}) {
     const result = await store.transact(current => {
-      const previous = Object.values(current.attempts).find(item => item.attemptId === attemptId);
+      const attempts = Object.values(current.attempts);
+      const matches = existingReceiptTaskId === undefined ? null : attempts.filter(item => item.attemptId === attemptId);
+      const previous = matches ? matches[0] : attempts.find(item => item.attemptId === attemptId);
+      if (existingReceiptTaskId !== undefined) {
+        // A receipt read may reconcile only the uniquely recorded original job.
+        // Never create a new attempt or guess a legacy binding across runtimes.
+        if (matches.length !== 1 || previous.taskId !== existingReceiptTaskId ||
+            previous.source !== 'host_verified' || previous.engine !== ENGINE ||
+            !['platform', 'version', 'environment'].every(key => previous.context?.[key] === environment[key])) {
+          return { state: current, skipped: true };
+        }
+        if (VERIFIED.has(previous.outcome)) {
+          const duplicate = previous.outcome === observation.outcome &&
+            JSON.stringify(previous.evidenceRefs) === JSON.stringify(observation.evidenceRefs);
+          return { state: current, ...(duplicate ? { duplicate: true } : { skipped: true }) };
+        }
+        if (!['pending', 'completion_unknown', 'observed'].includes(previous.outcome)) {
+          return { state: current, skipped: true };
+        }
+      }
       const original = previous ? { taskId: previous.taskId, domain: previous.domain,
         operation: previous.operation, engine: previous.engine, context: clone(previous.context) } : fallbackScope;
       if (!original) throw new TypeError('LEARNING_CORRELATION_REQUIRED');
@@ -195,6 +214,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       return { ...propose(observed.state, { now: event.timestamp }), duplicate: observed.duplicate };
     });
     state = result.state;
+    if (result.skipped) return;
     if (result.duplicate) activity.duplicates++; else activity.recorded++;
   }
 
@@ -237,6 +257,17 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       const input = snapshotJob(job);
       const scope = bindings.get(input.attemptId) ?? scopeFor(input.operation, input.commandId);
       queueWork(() => record(input.attemptId, scope, jobObservation(input, 'completed')));
+    } catch (error) { failed(error); }
+  }
+
+  /** Trusted host readback of an existing completed job; not a public write tool. */
+  function receiptObserved(job) {
+    if (closed) return;
+    try {
+      const input = snapshotJob(job);
+      if (input.status !== 'complete' || !input.verifiedOutcome || !input.evidenceDigest || !input.commandId) return;
+      queueWork(() => record(input.attemptId, null, jobObservation(input, 'completed'),
+        { existingReceiptTaskId: taskId(input.commandId) }));
     } catch (error) { failed(error); }
   }
 
@@ -507,7 +538,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       enabled: Boolean(store && environment && !closed), degraded: failures > 0,
       apiVersion: 3, capabilities: { preflightContext: true, reviewedCandidates: true,
         temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true,
-        scopedProposals: true, proposalDecisions: true },
+        scopedProposals: true, proposalDecisions: true,
+        existingReceiptReconciliation: true, reviewReadiness: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,
@@ -552,5 +584,5 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     })();
     return closing;
   }
-  return Object.freeze({ invoke, jobCreated, jobCompleted, context: preflightContext, review, status, close });
+  return Object.freeze({ invoke, jobCreated, jobCompleted, receiptObserved, context: preflightContext, review, status, close });
 }

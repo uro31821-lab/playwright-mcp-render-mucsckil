@@ -104,6 +104,8 @@ try {
   assert.equal(first.operationalLearning.capabilities.commonRules, true);
   assert.equal(first.operationalLearning.capabilities.scopedProposals, true);
   assert.equal(first.operationalLearning.capabilities.proposalDecisions, true);
+  assert.equal(first.operationalLearning.capabilities.existingReceiptReconciliation, true);
+  assert.equal(first.operationalLearning.capabilities.reviewReadiness, true);
   const beforeUnauthorized = readFileSync(file);
   const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
   assert.equal(preflight.ok, true);
@@ -256,11 +258,21 @@ try {
     assert.equal(emptyView.currentStatus, 'open');
     assert.deepEqual(emptyView.decisionHistory, []);
     assert.equal(emptyView.latestDecision, null);
+    const beforePrepare = readFileSync(file);
     const preparedDecision = await call('decision-prepare-accept', 'life_learning_review', { mode: 'PREPARE',
       payload: JSON.stringify({ proposalId }) });
     assert.equal(preparedDecision.ok, true);
     const packet = preparedDecision.packet;
     assert.deepEqual(packet.attempts.map(item => item.eventId).sort(), syntheticFailureIds);
+    assert.equal(packet.evidenceReadiness.schema, 'jh.learning-evidence-readiness.v1');
+    assert.equal(packet.evidenceReadiness.status, 'ready_for_review');
+    assert.equal(packet.evidenceReadiness.currentVerifiedOutcomeCount, 2);
+    assert.equal(packet.evidenceReadiness.currentEligibleCount, 2);
+    assert.equal(packet.evidenceReadiness.visibleEligibleCount, 2);
+    assert.equal(packet.evidenceReadiness.automaticReplayAllowed, false);
+    assert.equal(packet.evidenceReadiness.outcomeInferenceAllowed, false);
+    assert.equal(packet.evidenceReadiness.activationPerformed, false);
+    assert.deepEqual(readFileSync(file), beforePrepare);
     const acceptInput = { proposalId, decisionId: 'synthetic-http-accept-v1', decision: 'accept',
       expectedRevision: packet.baseRevision, packetFingerprint: packet.packetFingerprint,
       maxAttempts: packet.maxAttempts, reviewer: 'agent', sourceRef: 'source:synthetic-http-agent-review',
@@ -345,6 +357,7 @@ try {
     syntheticProposalAttempts: seededAttempts, proposalDecisionCatalog: true, proposalDecisionAuth: phase === 'first',
     proposalDecisions: finalDecisionView.decisionHistory.length, decisionRetryNoop: true,
     proposalDecisionHistoryHash: createHash('sha256').update(JSON.stringify(finalDecisionView.decisionHistory)).digest('hex'),
-    proposalDecisionPersisted: phase === 'restart',
+    proposalDecisionPersisted: phase === 'restart', reviewReadiness: phase === 'first',
+    existingReceiptReconciliationCapability: first.operationalLearning.capabilities.existingReceiptReconciliation,
   }));
 } finally { key.fill(0); await running?.close(); }
