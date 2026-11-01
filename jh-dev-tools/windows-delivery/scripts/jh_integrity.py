@@ -591,7 +591,8 @@ def package(root, output, *, overwrite: bool = False, windows_release: bool = Fa
         if not result["ok"]:
             raise IntegrityError(f"Source changed during packaging: {json.dumps(result, ensure_ascii=False)}")
         inspect_zip(temporary)
-        with temporary.open("rb") as stream:
+        # Windows requires a writable descriptor when flushing the owned temporary file.
+        with temporary.open("r+b") as stream:
             os.fsync(stream.fileno())
         zip_digest = _read_file(temporary)["sha256"]
         _publish(temporary, target, False)
