@@ -56,3 +56,10 @@
 - DEX 실제 `JH168NativeAction12` enum 필드: `IME_ENTER`, `RIGHT_WINDOW_CAPTURE`, `UNSUPPORTED`. APK 내부 `JH168RightNativeExecutor` 메서드 `imeEnterOnce`, `captureRightWindowOnce`; `JH168RightVerticalScrollRuntime`의 `scrollInternal`, `nestedReadback`; `JH168InputFocusPolicy`의 `select`, `verified` 타입/메서드가 컴파일됨. **핸들러 호출 성공/기기 런타임 적용 증거와 혼동 금지.**
 - 웹 alias `life_web_press_key`의 `Enter` 거부는 현재 서버 라우트 수준에서 확인되며, APK `IME_ENTER` 기능 존재는 향후 함께 검증할 설계 후보이지 즉시 연결 완료 증거가 아니다.
 - 2026-11-01T06:46Z 기준 PR #72의 원본 비교는 최신 `jh-fix3-secure-server`보다 **67커밋 뒤**. 시각·커밋 기준을 보존하고, 최신 소스 변경을 덮어쓰지 않는 1회 통합 게이트가 필요하다.
+
+## 서명 APK 실제 DEX 호출 연결 정적 검증 — 2026-11-01
+- 새로운 [JH168-MOBILE-APK-NATIVE-CALLGRAPH.md](JH168-MOBILE-APK-NATIVE-CALLGRAPH.md)에서 원본 서명 APK 해시 `129bcc55...` / DEX 2개 체크섬 통과 / 실제 메서드 호출 지도를 보존한다.
+- **G12 (신규, 단일 네이티브 엔진 연결 의심):** `JH168OriginalSecure56NativeDispatch12.executeOriginalJobOnce`는 컴파일됐지만 양쪽 DEX에서 타 클래스의 `invoke-*` 호출 **0개**, 해당 클래스의 `new-instance` **0개**. 정적 직접 호출 증거가 없다는 뜻이며 reflection/dynamic 연결 부재까지 증명하는 것은 아님. 실기기/통합 전 DEX 외 호출·DI·MCP→Bridge 실제 연결 확인.
+- **G13 (신규, 네이티브 경로 별개):** `BridgeService → AndroidComputerUseTransport → AndroidComputerUseRuntime` 호출과 `BridgeService → AndroidAgent.executeRightPane` 직접 호출은 존재. `GuidedForms → JH168RightVerticalScrollRuntime.scrollInternal / JH168RightHorizontalScrollRuntime.scrollInternal` 각 1개, `AndroidAgent → JH168InputFocusPolicy.select` 1개. 이 별도 경로들이 **9개 alias+4개 entrypoint에서 하나로 일관되게 개입 가능한지** 아직 미검증. 배포 전 실행/완료/창바인딩/승인/복귀를 함께 검증.
+- **G14 (신규, 기능 범위/메타데이터):** 전용 `JH168NativeAction12` enum은 `IME_ENTER`, `RIGHT_WINDOW_CAPTURE`, `UNSUPPORTED` 3종. 일반 CLICK·SCROLL·SET_TEXT는 별도 `AndroidComputerUseRuntime/AndroidAgent` 경로에 있음. 또한 내장 `assets/jh-release.json`의 `installed:false`, `phoneVerified:false`는 실제 별도 설치 검증 보고서와 불일치하는 **과거 후보 메타데이터**이므로 앱 실사용 상태로 취급 금지.
+- 이 감사는 사용자 휴대폰에 이미 설치 보고된 **서명 APK의 로컬 정적 판독**이며 실제 앱 UI 명령 실행 0회. 실제 alias 13개 실기기 종단검증은 여전히 **0/13**.
