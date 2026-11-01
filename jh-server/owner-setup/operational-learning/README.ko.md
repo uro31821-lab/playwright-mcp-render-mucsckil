@@ -210,6 +210,48 @@ JSON은 stdin으로 전달하고 원문을 셸 명령에 보간하지 않습니�
 `createHostInstructionCandidate(state,instruction,suite,{scope,globalRecall?})`는 같은 검증·중복·회귀 결합을 재사용하며 `{lesson,suite,instructionSummary}`만 반환합니다. CLI의 baseRevision·readOnly 외피는 한 번 읽은 상태에서 추가합니다. 기존 MCP mode·서버 인증 경로·서버와 별도 기억의 동기화는 변경하지 않습니다. 기록된 입력/출력 제약 검사는 실제 다음 대화의 준수나 기기 실행 성공을 대신하지 않습니다.
 
 
+### 규칙 한 건의 상태 확인
+
+동봉 CLI `lesson-view`와 순수 API `lessonView(state,input)`는 proposal 연결이 없는 명시 사용자 규칙·직접 후보도 현재 저장 상태에서 점검합니다. 새 후보·사건·proposal을 만들지 않고, 기존 CHECK를 재실행하거나 기존 평가 이력을 바꾸지 않습니다. 서버 MCP의 mode·입력은 변경하지 않습니다.
+
+입력은 `{lessonId,query,options?}` 또는 `{lessonId,queries,options?}`이며 query/queries 중 정확히 하나가 필수입니다. `lessonId`는 실제 응답이나 체크포인트의 기존 ID입니다. 쿼리와 옵션은 `context`와 같습니다. 고유 exact scope 1–3개가 같은 engine·전체 context를 사용하고, 선택 옵션은 `now/limit/maxChars`뿐입니다. 기본 예산은 5개/4000자, 최대는 20개/16384자입니다. 현재 업무와 공통 기억의 실제 범위·예산을 전달하고 저장된 규칙의 scope를 현재 업무라고 추정하지 않습니다.
+
+```json
+{
+  "lessonId": "example-known-rule-id",
+  "queries": [
+    {"domain":"orchestration","operation":"learning.scope","engine":"jh-agent","context":{"platform":"chatgpt","version":"operational-learning-v1","environment":"personal"}},
+    {"domain":"output","operation":"summary.format","engine":"jh-agent","context":{"platform":"chatgpt","version":"operational-learning-v1","environment":"personal"}}
+  ],
+  "options": {"limit":5,"maxChars":4000}
+}
+```
+
+예시는 입력 형식 설명이며 ID·현재 업무 범위는 실제 확인한 값으로 치환합니다. CLI의 `--revision`은 거절합니다. 저장소를 한 번 읽어 아래 결과를 산출하며, 존재하지 않는 ID에는 `LEARNING_LESSON_NOT_FOUND`를 반환하고 파일·부모 폴더·잠금 파일을 만들지 않습니다.
+
+| 반환 항목 | 의미 |
+| --- | --- |
+| `schema`, `lessonId`, `revision`, `checkedAt` | `jh.learning-lesson-view.v1` 진단의 대상·스냅샷·판정 시각 |
+| `definition` | 저장된 ID·ruleVersion·inputFingerprint·scope·전체 guidance·제한된 evidenceRefs·존재하는 metadata |
+| `lessonState` | 현재 저장된 candidate/active/quarantined 상태 |
+| `evaluation` | 기존 평가 영수증의 not_run/passed/failed/invalid 상태, 시각·통과/실패/건너뜀 수·제한된 근거 |
+| `temporalStatus` | not_yet_valid/in_window/expired. 유효 시작은 포함하고 종료 시각은 제외 |
+| `scopeMatches` | 전달한 현재 scope 집합에 저장 규칙의 exact scope가 있는지 |
+| `engineRecallIncluded` | 같은 시각·범위·예산으로 기존 recall 엔진을 실행한 포함 여부 |
+| `recallIncluded` | 평가 영수증의 무결성까지 확인한 이 진단의 재사용 판정. invalid 평가는 false |
+| `selectionStatus` | included/invalid_evaluation/not_in_scope/candidate/quarantined/not_yet_valid/expired/not_selected |
+| `conflicts`, `conflictsTruncated` | 해당 규칙을 포함하는 현재 충돌과 생략 여부 |
+| `recallBudget`, `recallFingerprint`, `recallOmitted` | 실제 context와 같은 조회 예산·지문·전체 생략 수 |
+
+definition의 guidance는 기존 최대 2048자 규칙을 유지해 전체를 반환합니다. 정의·평가의 evidenceRefs는 각각 최대 8개와 `evidenceRefsTruncated`를 반환합니다. 충돌은 최대 4개, 각 충돌의 lessonIds는 최대 16개이며 생략을 표시합니다. 다른 규칙의 guidance 전체나 실행 이력을 함께 반환하지 않습니다.
+
+저장 정의는 기존 `addLesson`, 평가 영수증은 같은 receipt에 대한 기존 `evaluateLesson` 검증을 재사용합니다. 이 과정의 반환 상태는 저장하지 않습니다. 정상 정의·영수증에서는 현재 `context`의 포함 여부와 지문을 그대로 사용합니다. 영수증이 손상됐는데 기존 엔진의 더 작은 활성 필터에는 포함될 수 있는 경우, `engineRecallIncluded`와 별도로 `recallIncluded:false`, `selectionStatus:invalid_evaluation`을 반환해 차이를 숨기지 않습니다.
+
+`not_selected`의 세부 원인은 추정하지 않습니다. `active + passed + in_window`라도 권위·같은 지침 중복·대체·예산 등으로 선택되지 않을 수 있습니다. `recallOmitted`는 이런 미선택과 충돌도 포함하므로 전부 예산 초과로 설명하지 않습니다. 대체 이력·기간은 기존 엔진 정책을 따르며 후속 규칙 만료를 이유로 과거 규칙을 되살리지 않습니다.
+
+이 결과는 저장된 상태에 대한 **읽기 전용 진단**입니다. `readOnly/advisoryOnly`는 true, `externalEffects/pastApplicationVerified/liveImprovementVerified/liveExecutionVerified`는 false입니다. `user_explicit` 출처 또는 `user:` 참조만으로 원문을 독립 조회했다거나 과거 `host_attestation` 경로에서 등록됐다고 복원하지 않습니다. 저장하지 않은 instructionSummary·원래 appliesTo·원래 suite 본문이나 suite ID/버전도 추정하지 않습니다. 실제 재검사에는 보존한 suite가 필요하고, 현재 조회 포함은 실제 과거 적용·효과·기기 실행 성공의 증거가 아닙니다.
+
+
 ### 경험에서 구체적인 후보를 작성
 
 `life_learning_review`는 `mode`와 JSON 문자열 `payload`를 받는다. `PREPARE`는 `{proposalId,maxAttempts?}`로 실제 제안과 현재 근거를 읽는다. `CANDIDATE`는 `{review,suite}`를 받아 현재 packet의 revision/fingerprint, 사건·범위·출처를 대조하고 구체적인 후보만 저장한다. `CHECK`는 `{lesson,suite,expectedRevision}`로 저장된 후보와 동일한 정의를 실제 평가한 뒤 활성/격리 상태를 기록한다. 두 도구의 호출 자체는 새로운 실패나 반복 업무 횟수로 세지 않는다.
@@ -333,6 +375,7 @@ node jh-server/owner-setup/operational-learning/cli.mjs check --store /absolute/
 | `context` | `{query:{domain,operation,engine,context},options?:{now?,limit?,maxChars?}}` 또는 `{queries:[범위1,범위2],options?:{now?,limit?,maxChars?}}`: 기간·충돌·전체 예산을 적용한 읽기 두 형식 모두 선택 `proposals:{limit?,maxChars?,seenNoticeFingerprints?}` 지원 |
 | `review` | `{proposalId,maxAttempts?}`: 실제 근거 검토 packet 읽기 |
 | `instruction` | `{instruction,suite,scope,globalRecall?}`: 명시 사용자 규칙을 읽기 전용 준비, baseRevision 반환, `--revision` 금지 |
+| `lesson-view` | `{lessonId,query 또는 queries,options?}`: 저장 규칙·기존 평가·현재 조회 포함 상태의 읽기 전용 진단, `--revision` 금지 |
 | `curate` | `{review,suite}`: 구체적인 검토 결과를 검증된 형식의 후보 정의로 변환. 저장·활성화는 별도 |
 | `propose` | `{}` 또는 `{now, thresholds}` |
 | `candidate` | `{lesson, suite}`: 시험에 연결된 후보 등록, 활성화하지 않음 |

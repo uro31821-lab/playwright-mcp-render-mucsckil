@@ -28,3 +28,5 @@ import './multi-context.test.mjs';
 import './instructions.test.mjs';
 import './host-instructions.test.mjs';
 import './host-instructions-cli.test.mjs';
+import './lesson-view.test.mjs';
+import './lesson-view-cli.test.mjs';
