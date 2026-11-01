@@ -1,0 +1,80 @@
+name: JH168 Stage31 owner-volume offline addon preflight (source-only)
+on:
+  pull_request:
+    branches:
+      - jh-fix3-secure-server
+      - feat/jh168-stage30-atomic-owner-host-20261101
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage31-*'
+      - '.github/workflows/jh168-stage31-owner-addon.yml'
+permissions:
+  contents: read
+jobs:
+  offline-owner-volume-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Preserve original production, owner storage and Android sources
+        run: |
+          git diff --exit-code origin/feat/jh168-stage30-atomic-owner-host-20261101 -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery-policy.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery-patch.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-receipt-writer.mjs
+      - name: Prepare existing pinned owner dependencies before importing original config
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Stage31 private snapshot, lock and migration scenarios
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.test.mjs
+      - name: Stage30 same-COMMIT crash and Stage28 transport regressions
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-host-integration.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage28-transport-recovery.test.mjs
+      - name: Prior secure operator, owner and approved storage regressions
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+        run: |
+          # These suites generate the SAME attested operator files.
+          # Running the file suites concurrently races the generated Stage26
+          # runtime and yields false STAGE26_COMPLETE_ACK_PREFIX_MISSING.
+          # Keep them sequential, without changing production Secure56 code.
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-generated-secure-runtime.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/verification/durable-owner-storage.test.mjs
+      - name: Explicit no-effect boundary
+        run: |
+          echo JH_STAGE31_SOURCE_REVIEW_ONLY=YES
+          echo JH_STAGE31_PRODUCTION_VOLUME_UNCHANGED=YES
+          echo LIVE_MIGRATION=NOT_RUN
+          echo LIVE_RESTART=NOT_RUN
+          echo ORIGINAL_APK_REUSED=YES
+          echo REAL_PHONE_ACTIONS=0
+          echo SERVER_DEPLOY=0
+          echo AUTOMATIC_REPLAY=0
