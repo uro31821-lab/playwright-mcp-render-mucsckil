@@ -38,7 +38,7 @@ test('actual current-main upstream commit is an ancestor, and only new review fi
   assert.ok(p.startsWith('jh-server/owner-setup/jh168-mobile-unification/stage2')||
             p.startsWith('jh-server/owner-setup/jh168-mobile-unification/stage3')||
             p.startsWith('jh-server/owner-setup/jh168-mobile-unification/STAGE')||
-            p==='.github/workflows/jh168-stage33-current-main-integration.yml',
+            p==='.github/workflows/jh168-one-release-candidate-current-main.yml',
     'unexpected protected main path changed: '+p);
  }
  assert.ok(!changed.some(p=>p.includes('android-direct')||p.includes('server-integration')||
