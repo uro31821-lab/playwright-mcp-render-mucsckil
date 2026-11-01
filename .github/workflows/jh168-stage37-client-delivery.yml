@@ -1,0 +1,62 @@
+name: JH168 Stage37 actual client-result MCP envelope verification (no live actions)
+on:
+  pull_request:
+    branches: ['feat/jh168-stage36-inline-original-handoff-20261101']
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage37-*'
+      - '.github/workflows/jh168-stage37-client-delivery.yml'
+permissions:
+  contents: read
+jobs:
+  original-receipt-to-client-without-phone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Original Secure56, Android, owner SQLite, Stage36 source all unchanged
+        run: |
+          git diff --exit-code origin/feat/jh168-stage36-inline-original-handoff-20261101 -- \
+            jh-server/server.mjs \
+            jh-server/owner-setup/deployment \
+            jh-server/owner-setup/server-integration \
+            jh-server/owner-setup/android-direct \
+            jh-server/owner-setup/trusted-server \
+            jh-server/owner-setup/owner-enrollment \
+            jh-server/owner-setup/operational-learning \
+            jh-server/owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage30-atomic-receipt-writer.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage31-offline-owner-addon.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage34-original-receipt-reader.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage35-sealed-reference.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage35-sealed-handoff-patch.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage36-inline-original-handoff.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage36-original-completion-patch.mjs
+          echo STAGE37_PRODUCTION_CODE_CHANGE=0
+      - name: Original owner SQLite to exact MCP text to client readback, and lost-response blocker
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage37-client-delivery-e2e.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage37-client-delivery-e2e.test.mjs
+      - name: Existing Stage36 per-original-response protected completion no replay
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage36-inline-original-handoff.test.mjs
+      - name: Explicit lost completion response remains unavailable, no replay
+        run: |
+          grep -q 'original completion response is LOST: no client handle can be recovered' \
+            jh-server/owner-setup/jh168-mobile-unification/stage37-client-delivery-e2e.test.mjs
+          echo STAGE37_LOST_COMPLETION_RESPONSE=RECOVERY_UNAVAILABLE_NO_REPLAY
+          echo STAGE37_REAL_PHONE_E2E=NOT_RUN
+          echo STAGE36_LIVE_RENDER=NOT_DEPLOYED
+          echo CLIENT_CROSS_CHAT_PERSISTENCE=NOT_IMPLEMENTED
+          echo ORIGINAL_COMMAND_REPLAY=0
+          echo PHONE_ACTIONS=0
+          echo APK_BUILD_INSTALL=0
+          echo RENDER_DEPLOY=0
+          echo OWNER_SQLITE_MIGRATION=0
