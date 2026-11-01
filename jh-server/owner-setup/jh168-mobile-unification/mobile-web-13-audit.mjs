@@ -84,6 +84,9 @@ if(!source.includes('jhSplitScreenJob56("split_screen_session_input_preflight'))
  additional.push('ORIGINAL_INPUT_PREFLIGHT_MISSING');
 if(!source.includes('MOBILE_REQUEST_ID_REQUIRED')||!source.includes('requestId,command,targetItemRef:bound.itemRef,action'))
  additional.push('ORIGINAL_REQUEST_ID_NOT_BOUND');
+if(!source.includes('MOBILE_NATIVE_SIGNED_DEVICE_REQUIRED')||
+   !source.includes('MOBILE_NATIVE_ORIGINAL_COMMAND_REQUIRED'))
+ additional.push('ORIGINAL_NATIVE_APP_ENTRY_NOT_CONNECTED');
 if(!source.includes('jhRightWebOpen56=async'))
  additional.push('SIGNED_RIGHT_OPEN_MISSING');
 for(const r of rows){

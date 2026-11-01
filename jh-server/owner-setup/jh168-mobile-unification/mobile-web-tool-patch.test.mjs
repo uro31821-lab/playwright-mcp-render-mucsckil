@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {patchJH168MobileWebCommands56,patchJH168MobileWeb13VerifiedMode56,patchJH168MobileStatusOnly56,selectJH168MobileWeb13Mode56,JH168_MOBILE_13_VERIFY_MODE56} from './mobile-web-tool-patch.mjs';
+import {patchJH168MobileWebCommands56,patchJH168MobileWeb13VerifiedMode56,patchJH168MobileStatusOnly56,patchJH168MobileNativeAppEntry56,selectJH168MobileWeb13Mode56,JH168_MOBILE_13_VERIFY_MODE56} from './mobile-web-tool-patch.mjs';
 
 const original=readFileSync(new URL('../../server.mjs',import.meta.url),'utf8');
 const marker='  registerOAuthTool("life_web_navigate",{';
@@ -175,4 +175,27 @@ test('status patch refuses changed browser probe, missing status or duplicate ma
   )),/STATUS_SOURCE_DRIFT/);
  assert.throws(()=>patchJH168MobileStatusOnly56(prepared.replace(
   '  registerOAuthTool("life_status",{','')),/STATUS_BOUNDARY_CHANGED/);
+});
+
+test('native app patch only changes the exact signed Android open alias and preserves all other tools',()=>{
+ const source=[
+  '  registerOAuthTool("life_android_open",{',
+  '    inputSchema:{}',
+  '  },async({target,url})=>{',
+  '    const raw=String(url||target||"").trim();',
+  '    const returnTarget=jhNativeReturnTarget56(raw);',
+  '    if(returnTarget){return textResult({route:"android_return"});}',
+  '    return jhRightWebOpen56({service:raw});',
+  '  });',
+  '  const cuSchema56={};'
+ ].join('\n');
+ const out=patchJH168MobileNativeAppEntry56(source);
+ assert.ok(out.includes('MOBILE_NATIVE_SIGNED_DEVICE_REQUIRED'));
+ assert.ok(out.includes('MOBILE_NATIVE_ORIGINAL_COMMAND_REQUIRED'));
+ assert.ok(out.includes('requiresFreshWindowReadback:true'));
+ assert.ok(out.includes('target:raw,url:""'));
+ assert.ok(!out.includes('browserTool('));
+ assert.equal(out.slice(0,out.indexOf('  registerOAuthTool("life_android_open",{')),
+    source.slice(0,source.indexOf('  registerOAuthTool("life_android_open",{')));
+ assert.throws(()=>patchJH168MobileNativeAppEntry56(out),/NATIVE_ENTRY_GUARD_DRIFT/);
 });

@@ -94,7 +94,8 @@ export function selectJH168MobileWeb13Mode56(env=process.env){
 export function patchJH168MobileWeb13VerifiedMode56(source,env=process.env){
  const mode=selectJH168MobileWeb13Mode56(env);
  return mode==='ORIGINAL'?source:
-   patchJH168MobileStatusOnly56(patchJH168MobileWebCommands56(source));
+   patchJH168MobileNativeAppEntry56(
+     patchJH168MobileStatusOnly56(patchJH168MobileWebCommands56(source)));
 }
 
 /** Mobile diagnostic ONLY: do not initialize or call the separate Playwright
@@ -128,5 +129,58 @@ export function patchJH168MobileStatusOnly56(source){
    throw Error('JH168_MOBILE_STATUS_NOT_REVERSIBLE');
  if(changed.includes('await ensureBrowser()')||changed.includes('browserTool(')||
    changed.includes('browserRpc('))throw Error('JH168_MOBILE_STATUS_CLOUD_PROBE_REMAINS');
+ return source.slice(0,a)+changed+source.slice(b);
+}
+
+
+/** Explicit native Android app launch through the SAME Secure56 signed device
+ * queue as RIGHT Chrome. The historical right-pane patch preserved sites and
+ * previous-screen return but accidentally narrowed this compatibility alias
+ * to URLs only. Do not route app intent to server Playwright or guess an app
+ * from an ambiguous service name.
+ *
+ * A queued native open is NEVER an observed phone success. Caller MUST use a
+ * fresh right window readback and existing job receipt before the next action.
+ */
+export function patchJH168MobileNativeAppEntry56(source){
+ const start='  registerOAuthTool("life_android_open",{';
+ const end='  const cuSchema56={';
+ if(typeof source!=='string'||source.split(start).length!==2||source.split(end).length!==2)
+   throw Error('JH168_MOBILE_NATIVE_ENTRY_SCOPE_CHANGED');
+ const a=source.indexOf(start),b=source.indexOf(end,a);
+ if(a<0||b<=a)throw Error('JH168_MOBILE_NATIVE_ENTRY_ORDER_CHANGED');
+ const block=source.slice(a,b);
+ const old='    return jhRightWebOpen56({service:raw});';
+ const added=[
+  '    // Only an explicitly named Android app is eligible; websites and',
+  '    // ambiguous brands continue to the original signed RIGHT URL opener.',
+  '    if(!url && /^[가-힣A-Za-z0-9 ._-]{1,80}(?:앱|\\\\s+native\\\\s+app)$/i.test(raw)){',
+  '      const device=chooseDevice(),session=device&&active56(device);',
+  '      const meta=device?devices.get(device):null;',
+  '      if(!session||meta?.secureBridgeVersion!==56||meta?.secureActive!==true||',
+  '         !Number.isFinite(meta.lastSeen)||Date.now()-meta.lastSeen>30000)',
+  '        return textResult({ok:false,route:"android_right",',
+  '          code:"MOBILE_NATIVE_SIGNED_DEVICE_REQUIRED",automaticReplay:false});',
+  '      // Fail closed before mk(): never schedule without the original owner command.',
+  '      const commandId=jhRequireCommand56(device);',
+  '      if(typeof commandId!=="string"||!/^[a-f0-9]{32}$/.test(commandId))',
+  '        return textResult({ok:false,route:"android_right",',
+  '          code:"MOBILE_NATIVE_ORIGINAL_COMMAND_REQUIRED",automaticReplay:false});',
+  '      const job=mk("open_url",{target:raw,url:""},device);',
+  '      return textResult({route:"android_right",operation:"native_app_open",',
+  '        queued:job?.status==="queued",jobId:job?.id||null,',
+  '        requiresFreshWindowReadback:true,screenVerified:false,',
+  '        automaticReplay:false});',
+  '    }',
+  old
+ ].join('\n');
+ if(block.split(old).length!==2||
+    !block.includes('jhNativeReturnTarget56(raw)')||
+    !block.includes('returnTarget')||
+    block.includes('operation:"native_app_open"'))
+   throw Error('JH168_MOBILE_NATIVE_ENTRY_GUARD_DRIFT');
+ const changed=block.replace(old,added);
+ if(changed.replace(added,old)!==block)throw Error('JH168_MOBILE_NATIVE_ENTRY_REVERSAL_FAILED');
+ if(changed.includes('browserTool('))throw Error('JH168_MOBILE_NATIVE_REMOTE_BROWSER_DISALLOWED');
  return source.slice(0,a)+changed+source.slice(b);
 }

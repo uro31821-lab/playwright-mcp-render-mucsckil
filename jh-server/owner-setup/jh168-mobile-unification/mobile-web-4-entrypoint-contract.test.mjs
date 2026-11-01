@@ -49,6 +49,7 @@ function harness(){
     ok:true,id:job?.id,jobId:job?.id
   })}]}),
   jhRequireCommand56:()=>('1'.repeat(32)),
+  chooseDevice:()=>('mock-phone'),
   active56:()=>({sessionId:'synthetic-current-session'}),
   waitJob:async job=>job,
   registerOAuthTool:(n,c,h)=>tools.set(n,h),
@@ -58,7 +59,7 @@ function harness(){
    jobs.push({type,payload});
    return {id:'job_'+jobs.length,status:'queued',targetDeviceId:'mock-phone'};
   },
-  devices:new Map([['mock-phone',true]]),
+  devices:new Map([['mock-phone',{secureBridgeVersion:56,secureActive:true,lastSeen:Date.now()}]]),
   notifications:notices
  };
  vm.runInNewContext(chunks.join('\n'),context,
@@ -114,4 +115,36 @@ test('all four source-generated entrypoints avoid cloud browser and preserve ori
  assert.ok(fullSource.includes('jhInspectSplitEvidence155'));
  assert.ok(fullSource.includes('registerOAuthTool("life_web_click"'));
  assert.equal(h.remote.length,0);
+});
+
+test('explicit Android app is routed to original signed phone job; websites stay RIGHT Chrome',async()=>{
+ const h=harness();
+ const result=h.parse(await h.call('life_android_open',{target:'한국투자증권 앱'}));
+ assert.equal(result.operation,'native_app_open');
+ assert.equal(result.queued,true);
+ assert.equal(result.screenVerified,false);
+ assert.equal(result.requiresFreshWindowReadback,true);
+ assert.equal(result.automaticReplay,false);
+ assert.equal(h.jobs.length,1);
+ assert.equal(h.jobs[0].type,'open_url');
+ assert.equal(h.jobs[0].payload.target,'한국투자증권 앱');
+ assert.equal(h.jobs[0].payload.url,'');
+ assert.equal(h.remote.length,0);
+ const page=h.parse(await h.call('life_android_open',{target:'유튜브'}));
+ assert.equal(page.rightAddressConfirmed,true);
+ assert.equal(h.jobs.length,2);
+ assert.equal(h.jobs[1].payload.target,'right_web_link');
+});
+test('app route does not automatically take over ambiguous website or wrong signed device',async()=>{
+ const h=harness();
+ const noApp=h.parse(await h.call('life_android_open',{target:'알 수 없는 서비스'}));
+ assert.equal(noApp.code,'RIGHT_WEB_URL_NOT_MAPPED');
+ assert.equal(h.jobs.length,0);
+ const source=fullSource;
+ const start=source.indexOf('  registerOAuthTool("life_android_open",{');
+ const end=source.indexOf('  const cuSchema56={',start);
+ const block=source.slice(start,end);
+ assert.match(block,/MOBILE_NATIVE_SIGNED_DEVICE_REQUIRED/);
+ assert.match(block,/MOBILE_NATIVE_ORIGINAL_COMMAND_REQUIRED/);
+ assert.doesNotMatch(block,/browserTool\(/);
 });
