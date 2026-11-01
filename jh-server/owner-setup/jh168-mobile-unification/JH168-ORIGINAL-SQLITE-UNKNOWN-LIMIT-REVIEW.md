@@ -31,3 +31,29 @@ This uses DatabaseSync with readOnly=true and PRAGMA query_only=ON; it SELECTs o
 2. Continue source-only and read-only development independently of the historical rows. A truly new phone action requires the original Secure56 gates, live capacity, no duplicate unresolved identity and any mandatory phone-local approval.
 3. For a blocked admission, investigate separately: exact duplicate unknown, true global capacity, unsupported action/policy, missing original command/session/device binding, and owner storage/SQLite error.
 4. Do not merge, deploy, restart, migrate, alter authorization, or replay the completed Stage27 Chrome click based on this source-only review. Any operational cutover needs a fresh original owner count, backup/rollback verification and separate approval.
+
+
+## 2026-11-01: actual OWNER_ADMISSION_BLOCKED reproduction and root-cause boundary
+
+An existing JH Mobile13 neutral-page life_web_snapshot read succeeded but a subsequent life_web_click returned OWNER_ADMISSION_BLOCKED before phone execution. Exact original request payload, signed command/job ID and unmasked durable denial code are not recorded with that reproduction; do not assert a specific cause from the top-level error alone.
+
+At live Render source 4c718900, the original durable-native-host.mjs separates:
+- policy DENY (e.g. DURABLE_OPERATION_NOT_SUPPORTED for malformed signed CLICK/action)
+- exact original operation duplicate (DURABLE_PREVIOUS_OUTCOME_UNKNOWN)
+- missing job/device/session binding (DURABLE_JOB_BINDING_REQUIRED)
+- capacity or SQLite exception, currently collapsed to DURABLE_STORAGE_UNAVAILABLE (503).
+Original 29/466 counts cannot explain a global 512/10,000 capacity block.
+
+The new jh-original-owner-admission-click.test.mjs uses original createDurableNativeHooks and isolated SQLite to verify: correctly shaped CLICK is admitted, the same unresolved CLICK identity is not re-sent, an independent request is admitted, and malformed CLICK or BACK remain fail-closed. This proves policy behavior for controlled exact inputs, **not** the cause of the historical OWNER_ADMISSION_BLOCKED request.
+
+## One-read, no-deploy production count collection
+
+Use the existing Render service Dashboard > Shell on the running **original** jh-secure-bridge-fix4 instance, not GitHub Actions, another Render service or predeploy. Run the following as one shell command; it reads only aggregate data and does not require installing this draft PR:
+
+    node -e 'const {DatabaseSync}=require("node:sqlite");const {statfsSync,statSync,existsSync}=require("node:fs");const p="/var/data/jh-owner-state/manual-circuit.sqlite";const d=new DatabaseSync(p,{readOnly:true});try{d.exec("PRAGMA query_only=ON");const rows=d.prepare("SELECT status,COUNT(*) AS n,MAX(created_ms) AS newestCreatedMs,MAX(completed_ms) AS newestCompletedMs FROM circuit_actions GROUP BY status").all();const f=statfsSync("/var/data");console.log(JSON.stringify({checkedAtUtc:new Date().toISOString(),rows,dbBytes:statSync(p).size,walBytes:existsSync(p+"-wal")?statSync(p+"-wal").size:0,freeBytes:f.bavail*f.bsize}));}finally{d.close()}'
+
+**Never paste secrets, operation HMAC, record IDs, approval grants or raw task payloads into a chat or GitHub.** An unchanged aggregate alone cannot identify which exact original click was refused. Compare the current aggregate to historical 29/466 only as context; to confirm the specific failure use the **original** denied job's safe signed readback/denial code, without starting a new command or repeating the click.
+
+## Fix rules
+
+If global cap is genuinely reached, retain unknown records and audit journal/backup safely; do not raise caps or delete rows. If duplicate, recover only the exact original receipt and keep no-replay. If malformed original CLICK, repair the true mobile alias/owner producer binding on an isolated candidate with full protected CI. If device/session/window stale, acquire fresh read-only context for a **new, independently authorized** action; do not replay unresolved effects. If owner storage fails, validate filesystem/permissions/mount/SQLite WAL and backup privately before any migration. Never convert unsupported actions into unrestricted dispatch.
