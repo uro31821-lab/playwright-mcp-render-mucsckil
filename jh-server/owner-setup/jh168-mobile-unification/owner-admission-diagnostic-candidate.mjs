@@ -3,7 +3,7 @@
  * fixed enum strings, no owner/device/job IDs, HMACs, actions or screen data.
  * This patch is NOT selected by the published entrypoint.
  */
-export const ORIGINAL_OWNER_ADMISSION155=String.raw\`
+export const ORIGINAL_OWNER_ADMISSION155=String.raw`
   async function jhOwnerAdmission155(device,commandId,record,firstAttempt){
     if(jhRequireCommand56(device)!==commandId)return false;
     const binding=jhPaymentLifecycle.captureBinding({device_id:device});
@@ -25,9 +25,9 @@ export const ORIGINAL_OWNER_ADMISSION155=String.raw\`
       sourceIsAuthoritative:true
     }).allowDispatch;
   }
-\`.replaceAll('\\\`','\`');
+`;
 
-export const INSTRUMENTED_OWNER_ADMISSION155=String.raw\`
+export const INSTRUMENTED_OWNER_ADMISSION155=String.raw`
   // Bounded and non-authoritative original owner-admission audit.
   // No raw exceptions, identifiers, token material, screen text or action
   // payloads enter the record. This observer cannot grant/retry a job.
@@ -89,7 +89,7 @@ export const INSTRUMENTED_OWNER_ADMISSION155=String.raw\`
       return jhOwnerAdmissionReject155('PREFLIGHT_UNAVAILABLE');
     }
   }
-\`.replaceAll('\\\`','\`');
+`;
 
 const once=(text,token)=>text.split(token).length===2;
 /** Replaces ONE exact original helper, with no other source edits. */
