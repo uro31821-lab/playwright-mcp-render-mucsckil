@@ -1,0 +1,110 @@
+{
+  "schema": "jh.mobile13-zip32-fixture.v1",
+  "producerPlatform": "linux",
+  "packagerSha256": "417d8edbbc569680cb502f5fd09455190940773390df8d131fb9b00e2f06e9b2",
+  "zipSha256": "dcc96a4944bce1bff129af46d58d02a49a6d37d999b0b0dbc8b4f24a820e2ab0",
+  "zipBase64": "UEsDBBQAAAAIAAAAIQDCZLRzIgAAACAAAAAfAAAAUE9XRVJfU0hFTExfRVJST1JfQ0hFQ0tMSVNULnR4dAuO9AvxcA3xdI53DHL28AxzjXf29wtx9PRzDYr39/OJBABQSwMEFAAAAAgAAAAhADgTeoscAAAAGgAAABYAAABkYXRhL0pILVJVTi1TQUZFVFkucHMxU1YIjvQL8XAN8XSO9/MPiXeNcHUODXF14eUCAFBLAwQUAAAACAAAACEAc4wFKQUBAAAAAQAAKQAAAGRhdGEvSkgxNjgtTW9iaWxlMTMtVU5TSUdORUQtMjAyNjExMDEuYXBrAQAB//4AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/UEsDBBQAAAAIAAAAIQA17AQdIgAAACAAAAAYAAAAZGF0YS9VcGRhdGUtTW9iaWxlMTMucHMxK8koyi9XUA+O9AvxcA3xdI738w+Jd41wdQ4NcXVR5+UCAFBLAwQUAAAACAAAACEASwrotj8AAAA9AAAAEwAAAGRhdGEvY2FuZGlkYXRlLmpzb26rVipOzkjNTVSyUgqO9AvxcA3xdI53DHL28AxzjXf29wtx9PRzDYr39/OJVNJRKkpNzHEsyFaySkvMKU6tBQBQSwMEFAAACAgAAAAhAPik6q4fAAAAHQAAABAAAADsgqzsmqnslYjrgrQudHh0ezt1zqsdDQrBkX4hHq4hns7xfv4h8a4Rrs6hIa4uAFBLAwQUAAAICAAAACEAFFBiCDEAAAA0AAAACgAAAOyLpO2WiS5jbWRzSE3OyFfIT0vj5QKzgiP9QjxcQzyd4/38Q+JdI1ydQ0NcXYCSFZklCvpJCpaWvFwAUEsBAhQDFAAAAAgAAAAhAMJktHMiAAAAIAAAAB8AAAAAAAAAAAAAAKSBAAAAAFBPV0VSX1NIRUxMX0VSUk9SX0NIRUNLTElTVC50eHRQSwECFAMUAAAACAAAACEAOBN6ixwAAAAaAAAAFgAAAAAAAAAAAAAApIFfAAAAZGF0YS9KSC1SVU4tU0FGRVRZLnBzMVBLAQIUAxQAAAAIAAAAIQBzjAUpBQEAAAABAAApAAAAAAAAAAAAAACkga8AAABkYXRhL0pIMTY4LU1vYmlsZTEzLVVOU0lHTkVELTIwMjYxMTAxLmFwa1BLAQIUAxQAAAAIAAAAIQA17AQdIgAAACAAAAAYAAAAAAAAAAAAAACkgfsBAABkYXRhL1VwZGF0ZS1Nb2JpbGUxMy5wczFQSwECFAMUAAAACAAAACEASwrotj8AAAA9AAAAEwAAAAAAAAAAAAAApIFTAgAAZGF0YS9jYW5kaWRhdGUuanNvblBLAQIUAxQAAAgIAAAAIQD4pOquHwAAAB0AAAAQAAAAAAAAAAAAAACkgcMCAADsgqzsmqnslYjrgrQudHh0UEsBAhQDFAAACAgAAAAhABRQYggxAAAANAAAAAoAAAAAAAAAAAAAAKSBEAMAAOyLpO2WiS5jbWRQSwUGAAAAAAcABwDlAQAAaQMAAAAA",
+  "manifest": {
+    "algorithm": "sha256",
+    "development_preflight": {
+      "checked_files": [
+        "data/JH-RUN-SAFETY.ps1",
+        "data/Update-Mobile13.ps1",
+        "\uc2e4\ud589.cmd"
+      ],
+      "checker_sha256": "08032e3d6a3dc05252abcfae88a8ce94db5433eaf01da098ff4562b090c39b00",
+      "checks": [
+        "CMD_ENCODING",
+        "PS_ALIAS_COLLISION",
+        "PS_AUTOMATIC_VARIABLE",
+        "PS_ENCODING",
+        "WINDOWS_ENTRYPOINT"
+      ],
+      "findings": [],
+      "fingerprint": "ad9a2f5089aca4c236888aa4dda40622e5ac1a36b00845e59a9ca66c8d90dc8b",
+      "limitations": [
+        "Known literal patterns only; retain target-host AST/Get-Alias checks",
+        "No build, signing, installation, or device action was executed"
+      ],
+      "ok": true,
+      "powershell_syntax": "not_run",
+      "registry_sha256": "71e4a4bd1c279fd4ecccc6ffe5b7e9748459a727e25aa566c95abecc40525b48",
+      "schema": "jh.development-preflight.v1",
+      "scope": "known_regression_preflight",
+      "status": "passed",
+      "windows_execution": "not_run"
+    },
+    "excluded": [],
+    "exclusions": {
+      "directories": [
+        ".aws",
+        ".azure",
+        ".credentials",
+        ".gcloud",
+        ".git",
+        ".gnupg",
+        ".gradle",
+        ".jh-dev",
+        ".kube",
+        ".secrets",
+        ".ssh",
+        ".venv",
+        "__pycache__",
+        "build",
+        "credentials",
+        "dist",
+        "node_modules",
+        "secrets",
+        "venv"
+      ],
+      "file_patterns": [
+        "*.jks",
+        "*.key",
+        "*.keystore",
+        "*.p12",
+        "*.pem",
+        "*.pfx",
+        ".env",
+        ".env.*",
+        ".jh-integrity-tmp-*",
+        "credentials*.json",
+        "service-account*.json",
+        "service_account*.json"
+      ],
+      "paths": []
+    },
+    "file_count": 7,
+    "files": {
+      "POWER_SHELL_ERROR_CHECKLIST.txt": {
+        "sha256": "a8847e01aa9879e27d55c598c794a0c784f6e8b03b520034f3221bf91cee332b",
+        "size": 32
+      },
+      "data/JH-RUN-SAFETY.ps1": {
+        "sha256": "8f3bd09ec07e14ef82204352043185a558a38de493bf0390c6105bc37acea424",
+        "size": 26
+      },
+      "data/JH168-Mobile13-UNSIGNED-20261101.apk": {
+        "sha256": "40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880",
+        "size": 256
+      },
+      "data/Update-Mobile13.ps1": {
+        "sha256": "c21cdcee11474141c8e0bc31b602d368afe729a9f781af8d93e2c8b34d9cddbc",
+        "size": 32
+      },
+      "data/candidate.json": {
+        "sha256": "518f71383b4aa8657a2940bc95d6034ad94c8d46aa55ec173185d75afd699e8a",
+        "size": 61
+      },
+      "\uc0ac\uc6a9\uc548\ub0b4.txt": {
+        "sha256": "aff732ff74e054f7ed684ceb18582b90fff7a311e66a3b002cf69d69f252a49b",
+        "size": 29
+      },
+      "\uc2e4\ud589.cmd": {
+        "sha256": "3fb28fbeb1a010a7fb04a4b7a34f776da80d53f10f3dc0327e8722d8888ff467",
+        "size": 52
+      }
+    },
+    "schema": "jh.integrity.manifest.v1",
+    "total_bytes": 488
+  }
+}
