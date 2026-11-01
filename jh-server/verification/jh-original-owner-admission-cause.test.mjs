@@ -82,6 +82,7 @@ function build(source,overrides={}){
   const fn=get(...Object.values(deps));
   const record={state:'PREPARING',attemptCount:1,executionId:'synthetic-exec',
     dedupeKey:'synthetic-dedupe',dispatchStartedAt:null};
+  if(state.missingExecutionId)record.executionId=null;
   return {fn,state,record,logs};
 }
 
@@ -94,7 +95,8 @@ for(const [name,options,expected,throwsOriginal] of [
   ['signed device/session mismatch',{signedValid:false},'SIGNED_SNAPSHOT_INVALID',false],
   ['malformed original snapshot rows',{rowsValid:false},'SIGNED_SNAPSHOT_MISSING',false],
   ['stale/right-pane evidence invalid',{proofValid:false},'SPLIT_EVIDENCE_INVALID',false],
-  ['old/cancelled command fence',{blocked:true},'RECOVERY_FENCE_REFUSED',false],
+  ['old/cancelled command fence',{blocked:true},'old_work_discarded_no_auto_resume',false],
+  ['owner execution id missing',{missingExecutionId:true},'authenticated_owner_and_id_required',false],
   ['nonfirst durable execution record',{firstAttempt:false},'LEDGER_NOT_FIRST_ATTEMPT',false]
 ]){
   test(name+' never grants a blocked original dispatch',async()=>{
