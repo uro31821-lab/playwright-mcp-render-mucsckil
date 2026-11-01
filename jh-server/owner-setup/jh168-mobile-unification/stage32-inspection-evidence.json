@@ -1,0 +1,128 @@
+{
+  "schema": "JH168_STAGE32_DEPLOYMENT_INSPECTION_V1",
+  "observedAtUtc": "2026-11-01T05:10:00Z",
+  "scope": "READ_ONLY_EXTERNAL_OBSERVATION_SNAPSHOT",
+  "verifiedReadOnly": true,
+  "render": {
+    "serviceId": "srv-db0fjl2d0e5s73be114g",
+    "serviceName": "jh-secure-bridge-fix4",
+    "repository": "uro31821-lab/playwright-mcp-render-mucsckil",
+    "branch": "jh-fix3-secure-server",
+    "autoDeploy": "no",
+    "runningInstanceCount": 1,
+    "nodeStartCommand": "cd jh-server && npm start",
+    "disk": {
+      "mountPath": "/var/data",
+      "provisionedGB": 1,
+      "availableBytes": null,
+      "liveOwnerJournalUncertainCount": null,
+      "backupCapacityVerified": false
+    },
+    "latestLiveDeploy": {
+      "id": "dep-dbjatok9v7es739j36dg",
+      "status": "live",
+      "commit": "473e8ed20b5d651d7c05f05c2af97f1779038ecb",
+      "deployedAtUtc": "2026-11-01T03:16:35Z"
+    },
+    "startupFlagsObserved": {
+      "stage25Followup": true,
+      "stage26IdenticalAck": true,
+      "originalPendingApprovalPreserved": true,
+      "automaticReplay": false,
+      "stage29Active": false,
+      "stage30Active": false,
+      "stage31LiveMigrated": false,
+      "operatorEnvironmentExactRead": false
+    },
+    "generatedRuntimeSha256": "7d2f120cb4a7f0f730d638e53e65a8ead342d0ca3833f05e33947568adb8121c",
+    "recoveryQuarantineObservation": {
+      "event": "JH_TRUST_RECOVERY_UNCERTAIN_QUARANTINED",
+      "count": 57,
+      "atUtc": "2026-11-01T04:54:05Z",
+      "ledgerKind": "TRUST_RECOVERY",
+      "doesNotProveManualCircuitUnknownCount": true
+    },
+    "privateOwnerBackupPolicyReviewed": false,
+    "actualDiskSnapshotVerified": false
+  },
+  "github": {
+    "mainBranch": "jh-fix3-secure-server",
+    "mainHeadAtObservation": "a875b3f3b3e369f49e31250c83035582e2498cc9",
+    "liveToMainAheadCommits": 5,
+    "stage29Branch": "feat/jh168-stage29-owner-journal-readback-20261101",
+    "stage30Branch": "feat/jh168-stage30-atomic-owner-host-20261101",
+    "stage31Branch": "feat/jh168-stage31-offline-owner-migration-20261101",
+    "stage29Head": "e852d735e70b763ab10c5924a8de96f9e93a7e51",
+    "stage30Head": "b213600c126063a9e1f49cb1d4cb1abaf8c8cfcd",
+    "stage31Head": "2b6ab1a918e837211d586dcc547885580c998e29",
+    "stage31BehindMainCommits": 2,
+    "stagedFilesRelativeToMain": 18,
+    "prStack": [
+      {
+        "number": 93,
+        "draft": true,
+        "merged": false
+      },
+      {
+        "number": 94,
+        "draft": true,
+        "merged": false
+      },
+      {
+        "number": 96,
+        "draft": true,
+        "merged": false
+      }
+    ],
+    "stage28SeparatePr": {
+      "number": 91,
+      "draft": true,
+      "merged": false,
+      "alreadyInStage29Ancestry": true
+    },
+    "legacyPlaywrightConsolidation": {
+      "number": 72,
+      "draft": true,
+      "merged": false,
+      "scope": "SEPARATE_UNRELATED_9_AND_4"
+    },
+    "ci": [
+      {
+        "stage": 28,
+        "run": 41273434857,
+        "conclusion": "success"
+      },
+      {
+        "stage": 29,
+        "run": 41274141199,
+        "conclusion": "success"
+      },
+      {
+        "stage": 30,
+        "run": 41274965845,
+        "conclusion": "success"
+      },
+      {
+        "stage": 31,
+        "run": 41275504358,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "releaseReadiness": {
+    "stage30SelectedHostIntegratedInProduction": false,
+    "stage31OwnerVolumeMigrated": false,
+    "rollbackPreflightVerified": false,
+    "historicalReceiptOwnerReadEndpointVerified": false,
+    "explicitlyApprovedLiveMigration": false,
+    "explicitlyApprovedDeploy": false
+  },
+  "provenance": {
+    "renderService": "Render connector read-only list_services/get_service",
+    "renderDeploy": "Render connector read-only list_deploys",
+    "renderFlags": "Render read-only app logs 2026-11-01T03:16:31Z",
+    "quarantined": "Render read-only app log 2026-11-01T04:54:05Z",
+    "gitLineage": "GitHub compare and get_pr_info",
+    "ci": "GitHub Actions completed run metadata"
+  }
+}
