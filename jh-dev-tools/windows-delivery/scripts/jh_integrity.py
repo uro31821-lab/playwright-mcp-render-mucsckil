@@ -580,7 +580,9 @@ def package(root, output, *, overwrite: bool = False, windows_release: bool = Fa
                 info.create_system = 3
                 info.external_attr = (stat.S_IFREG | 0o644) << 16
                 info.compress_type = zipfile.ZIP_DEFLATED
-                with archive.open(info, "w", force_zip64=True) as stream:
+                # The snapshot supplies the size; small Windows bundles need no ZIP64 header.
+                info.file_size = expected["size"]
+                with archive.open(info, "w") as stream:
                     observed = _read_file(root.joinpath(*name.split("/")), stream)
                 if observed != expected:
                     raise IntegrityError(f"Source changed during packaging: {name}")
@@ -589,7 +591,8 @@ def package(root, output, *, overwrite: bool = False, windows_release: bool = Fa
         if not result["ok"]:
             raise IntegrityError(f"Source changed during packaging: {json.dumps(result, ensure_ascii=False)}")
         inspect_zip(temporary)
-        with temporary.open("rb") as stream:
+        # Windows requires a writable descriptor when flushing the owned temporary file.
+        with temporary.open("r+b") as stream:
             os.fsync(stream.fileno())
         zip_digest = _read_file(temporary)["sha256"]
         _publish(temporary, target, False)
