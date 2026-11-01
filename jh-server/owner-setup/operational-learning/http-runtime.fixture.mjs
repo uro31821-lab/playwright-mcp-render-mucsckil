@@ -106,6 +106,7 @@ try {
   assert.equal(first.operationalLearning.capabilities.proposalDecisions, true);
   assert.equal(first.operationalLearning.capabilities.existingReceiptReconciliation, true);
   assert.equal(first.operationalLearning.capabilities.reviewReadiness, true);
+  assert.equal(first.operationalLearning.capabilities.splitReadObservationReconciliation, true);
   const beforeUnauthorized = readFileSync(file);
   const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
   assert.equal(preflight.ok, true);
@@ -359,5 +360,6 @@ try {
     proposalDecisionHistoryHash: createHash('sha256').update(JSON.stringify(finalDecisionView.decisionHistory)).digest('hex'),
     proposalDecisionPersisted: phase === 'restart', reviewReadiness: phase === 'first',
     existingReceiptReconciliationCapability: first.operationalLearning.capabilities.existingReceiptReconciliation,
+    splitReadObservationReconciliationCapability: first.operationalLearning.capabilities.splitReadObservationReconciliation,
   }));
 } finally { key.fill(0); await running?.close(); }

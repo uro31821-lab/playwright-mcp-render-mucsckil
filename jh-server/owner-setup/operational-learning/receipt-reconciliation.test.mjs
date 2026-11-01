@@ -13,6 +13,8 @@ const NOW = '2026-11-01T05:00:00.000Z';
 const CONTEXT = { platform: 'server', version: 'fixture-v1', environment: 'receipt-reconciliation-test' };
 const DIGEST = 'a'.repeat(64);
 const OTHER_DIGEST = 'b'.repeat(64);
+const SPLIT_SCOPE = 'SPLIT_READ_LAYOUT_ONLY';
+const SPLIT_REFERENCE = 'source:jh-split-read-layout-only';
 
 async function setup(t) {
   const directory = await mkdtemp(path.join(tmpdir(), 'jh-receipt-reconciliation-'));
@@ -46,18 +48,23 @@ function receipt(id, extra = {}) {
   return job(id, { status: 'complete', verifiedOutcome: 'success_verified', evidenceDigest: DIGEST, ...extra });
 }
 
+function splitReceipt(id, extra = {}) {
+  return job(id, { type: 'split_screen_session_start', status: 'complete',
+    verifiedObservationScope: SPLIT_SCOPE, evidenceDigest: DIGEST, ...extra });
+}
+
 function response(value = { ok: true, signed: 'PRIVATE_UNMODIFIED_RESULT' }) {
   return { content: [{ type: 'text', text: JSON.stringify(value) }], structuredContent: value };
 }
 
-async function seedJob(runtime, id, outcome = 'completion_unknown') {
+async function seedJob(runtime, id, outcome = 'completion_unknown', options = {}) {
   let executions = 0;
   const original = response();
-  const result = await runtime.invoke(call(id), () => {
+  const result = await runtime.invoke(call(id, options.call), () => {
     executions++;
-    runtime.jobCreated(job(id));
-    if (outcome === 'completion_unknown') runtime.jobCompleted(job(id, { status: 'expired', code: 'JOB_EXPIRED' }));
-    if (outcome === 'observed') runtime.jobCompleted(job(id, { status: 'complete' }));
+    runtime.jobCreated(job(id, options.job));
+    if (outcome === 'completion_unknown') runtime.jobCompleted(job(id, { ...options.job, status: 'expired', code: 'JOB_EXPIRED' }));
+    if (outcome === 'observed') runtime.jobCompleted(job(id, { ...options.job, status: 'complete' }));
     return original;
   });
   assert.equal(executions, 1);
@@ -65,6 +72,10 @@ async function seedJob(runtime, id, outcome = 'completion_unknown') {
   assert.strictEqual(result.structuredContent, original.structuredContent);
   return { original, executions };
 }
+
+const seedSplitRead = (runtime, id, outcome = 'completion_unknown', type = 'split_screen_session_start') =>
+  seedJob(runtime, id, outcome, { job: { type }, call: { name: 'life_android_split_screen_assistant',
+    mode: type === 'split_screen_session_start' ? 'START' : 'STATUS' } });
 
 const soleAttempt = state => {
   assert.equal(Object.keys(state.attempts).length, 1);
@@ -342,4 +353,180 @@ test('accepted improvement work and its decision history remain separate from re
   assert.equal(Object.values(complete.attempts).every(item => item.outcome === 'success_verified'), true);
   assert.equal(Object.keys(complete.attempts).length, 2);
   assert.equal(Object.keys(complete.lessons).length, 0);
+});
+
+test('split layout receipts preserve their narrow observation scope on the same original read attempt', async t => {
+  for (const type of ['split_screen_session_start', 'split_screen_session_status']) {
+    for (const initial of ['pending', 'observed', 'completion_unknown']) {
+      const { runtime, store, file } = await setup(t);
+      const id = type + '-' + initial;
+      await seedSplitRead(runtime, id, initial, type);
+      const before = await store.read(), original = soleAttempt(before);
+      runtime.receiptObserved(splitReceipt(id, { type, result: { screen: 'PRIVATE_SPLIT_SCREEN' },
+        commandText: 'PRIVATE_SPLIT_COMMAND' }));
+      const status = await runtime.status(), after = await store.read(), observation = soleAttempt(after);
+      for (const field of ['taskId', 'attemptId', 'operation', 'domain', 'engine', 'context']) {
+        assert.deepEqual(observation[field], original[field], field);
+      }
+      assert.equal(observation.sequence, original.sequence + 1);
+      assert.equal(Object.keys(after.events).length, Object.keys(before.events).length + 1);
+      assert.equal(observation.outcome, 'observed');
+      assert.deepEqual(observation.evidenceRefs, ['sha256:' + DIGEST, SPLIT_REFERENCE]);
+      assert.equal(observation.errorCode, undefined);
+      assert.deepEqual(status.attemptOutcomes, { observed: 1 });
+      assert.equal(status.capabilities.splitReadObservationReconciliation, true);
+      assert.equal(status.degraded, false);
+      if (initial === 'completion_unknown') {
+        assert.equal(soleGap(after).status, 'resolved', 'receipt uncertainty is resolved, not task success');
+        assert.equal(soleGap(after).verification, undefined);
+      }
+      assert.doesNotMatch(await readFile(file, 'utf8'), /PRIVATE_SPLIT_SCREEN|PRIVATE_SPLIT_COMMAND|private-job|private-command/);
+    }
+  }
+});
+
+test('incomplete, unknown and mixed split observation metadata are ignored without raw persistence', async t => {
+  const { runtime, file, store } = await setup(t);
+  await seedSplitRead(runtime, 'metadata');
+  const baseline = await readFile(file, 'utf8');
+  const invalid = [
+    ...[undefined, null, '', 'SPLIT_READ', 'PRIVATE_UNKNOWN_SCOPE', ['SPLIT_READ_LAYOUT_ONLY']]
+      .map(verifiedObservationScope => ({ verifiedObservationScope })),
+    ...[undefined, null, 'observed', 'success_verified', 'failure_verified'].map(verifiedOutcome => ({ verifiedOutcome })),
+    ...['open_url', 'agent_snapshot', 'split_screen_session_followup', 'split_screen_session_save_analysis',
+      'SPLIT_SCREEN_SESSION_START'].map(type => ({ type })),
+    ...['queued', 'in_progress', 'error', 'expired'].map(status => ({ status })),
+    { evidenceDigest: undefined }, { evidenceDigest: 'PRIVATE_INVALID_DIGEST' },
+    { commandId: undefined }, { commandId: '' }, { commandId: 'private-command-wrong-task' },
+  ];
+  for (const change of invalid) runtime.receiptObserved(splitReceipt('metadata', change));
+  const inherited = splitReceipt('metadata', { verifiedOutcome: 'success_verified' });
+  delete inherited.verifiedObservationScope;
+  Object.setPrototypeOf(inherited, { verifiedObservationScope: SPLIT_SCOPE });
+  runtime.receiptObserved(inherited);
+  assert.equal((await runtime.status()).degraded, false);
+  assert.equal(await readFile(file, 'utf8'), baseline);
+  assert.equal(soleAttempt(await store.read()).outcome, 'completion_unknown');
+});
+
+test('split observation metadata is receipt-only and cannot manufacture evidence through generic job hooks', async t => {
+  const { runtime, store, file } = await setup(t);
+  for (const change of [{}, { verifiedObservationScope: 'PRIVATE_OTHER_SCOPE' }, { verifiedOutcome: 'success_verified' }]) {
+    runtime.jobCreated(splitReceipt('not-created', change));
+    runtime.jobCompleted(splitReceipt('not-created', change));
+  }
+  assert.equal((await runtime.status()).counts.events, 0);
+  await assert.rejects(readFile(file), { code: 'ENOENT' });
+  await seedSplitRead(runtime, 'plain-completion', 'pending');
+  runtime.jobCompleted(job('plain-completion', { type: 'split_screen_session_start',
+    status: 'complete', evidenceDigest: DIGEST }));
+  await runtime.status();
+  const ordinary = soleAttempt(await store.read());
+  assert.equal(ordinary.outcome, 'observed');
+  assert.deepEqual(ordinary.evidenceRefs, ['sha256:' + DIGEST]);
+  assert.equal(ordinary.evidenceRefs.includes(SPLIT_REFERENCE), false);
+});
+
+test('layout-only receipts retain existing-attempt, runtime, environment and terminal-state boundaries', async t => {
+  const { runtime, controller, store, file } = await setup(t);
+  runtime.receiptObserved(splitReceipt('not-dispatched'));
+  assert.equal((await runtime.status()).counts.attempts, 0);
+  await assert.rejects(readFile(file), { code: 'ENOENT' });
+  await seedSplitRead(runtime, 'bound-layout');
+  const baseline = await readFile(file, 'utf8');
+  const otherRuntime = await controller({ runtimeId: 'other-layout-runtime' });
+  const otherContext = await controller({ context: { ...CONTEXT, environment: 'other-layout-environment' } });
+  for (const reader of [otherRuntime, otherContext]) {
+    reader.receiptObserved(splitReceipt('bound-layout'));
+    assert.equal((await reader.status()).degraded, false);
+  }
+  assert.equal(await readFile(file, 'utf8'), baseline);
+
+  for (const outcome of ['blocked', 'cancelled', 'success_verified', 'failure_verified']) {
+    const fixture = await setup(t);
+    await seedSplitRead(fixture.runtime, outcome, 'pending');
+    await fixture.store.transact(state => {
+      const original = soleAttempt(state);
+      return ingest(state, { ...original, eventId: 'synthetic-layout-terminal-' + outcome,
+        sequence: original.sequence + 1, outcome, evidenceRefs: ['sha256:' + OTHER_DIGEST] }).state;
+    });
+    const bytes = await readFile(fixture.file, 'utf8');
+    fixture.runtime.receiptObserved(splitReceipt(outcome));
+    assert.equal((await fixture.runtime.status()).degraded, false);
+    assert.equal(await readFile(fixture.file, 'utf8'), bytes, outcome);
+  }
+});
+
+test('concurrent and repeated layout receipt reads add exactly one narrow observation', async t => {
+  const { runtime, controller, store, file } = await setup(t);
+  await seedSplitRead(runtime, 'same-layout');
+  const before = await store.read(), other = await controller();
+  runtime.receiptObserved(splitReceipt('same-layout'));
+  other.receiptObserved(splitReceipt('same-layout'));
+  await Promise.all([runtime.status(), other.status()]);
+  const after = await store.read(), bytes = await readFile(file, 'utf8');
+  assert.equal(Object.keys(after.events).length, Object.keys(before.events).length + 1);
+  assert.equal(soleAttempt(after).sequence, soleAttempt(before).sequence + 1);
+  for (let index = 0; index < 3; index++) runtime.receiptObserved(splitReceipt('same-layout'));
+  await runtime.status();
+  assert.equal(await readFile(file, 'utf8'), bytes);
+});
+
+test('later generic observations and conflicting layout digests cannot erase the confirmed layout receipt', async t => {
+  const { runtime, store, file } = await setup(t);
+  await seedSplitRead(runtime, 'preserve-layout');
+  runtime.receiptObserved(splitReceipt('preserve-layout'));
+  await runtime.status();
+  const bytes = await readFile(file, 'utf8'), original = soleAttempt(await store.read());
+  runtime.jobCreated(job('preserve-layout', { type: 'split_screen_session_start' }));
+  runtime.jobCompleted(job('preserve-layout', { type: 'split_screen_session_start', status: 'complete' }));
+  runtime.jobCompleted(job('preserve-layout', { type: 'split_screen_session_start', status: 'complete', evidenceDigest: OTHER_DIGEST }));
+  runtime.jobCompleted(job('preserve-layout', { type: 'split_screen_session_start', status: 'expired', code: 'JOB_EXPIRED' }));
+  runtime.receiptObserved(splitReceipt('preserve-layout', { evidenceDigest: OTHER_DIGEST }));
+  runtime.receiptObserved(splitReceipt('preserve-layout', { verifiedObservationScope: 'SPLIT_READ_CONTENT_VERIFIED' }));
+  assert.equal((await runtime.status()).degraded, false);
+  assert.equal(await readFile(file, 'utf8'), bytes);
+  assert.deepEqual(soleAttempt(await store.read()), original);
+});
+
+test('a later independently verified result may advance a layout observation while retaining its historical event', async t => {
+  for (const method of ['receiptObserved', 'jobCompleted']) {
+    const { runtime, store } = await setup(t);
+    await seedSplitRead(runtime, method);
+    runtime.receiptObserved(splitReceipt(method));
+    await runtime.status();
+    const before = await store.read(), original = soleAttempt(before);
+    runtime[method](receipt(method, { type: 'split_screen_session_start', evidenceDigest: OTHER_DIGEST }));
+    await runtime.status();
+    const after = await store.read(), verified = soleAttempt(after);
+    assert.equal(verified.outcome, 'success_verified');
+    assert.equal(verified.sequence, original.sequence + 1);
+    assert.deepEqual(verified.evidenceRefs, ['sha256:' + OTHER_DIGEST]);
+    assert.deepEqual(after.events[original.eventId], before.events[original.eventId]);
+    runtime.receiptObserved(splitReceipt(method));
+    await runtime.status();
+    assert.deepEqual(await store.read(), after);
+  }
+});
+
+test('three layout-only observations cannot become candidate evidence or a verified-success automation', async t => {
+  const { runtime, store } = await setup(t);
+  for (const id of ['layout-one', 'layout-two', 'layout-three', 'still-unknown']) await seedSplitRead(runtime, id);
+  const proposalId = soleGap(await store.read()).id;
+  for (const id of ['layout-one', 'layout-two', 'layout-three']) runtime.receiptObserved(splitReceipt(id));
+  const status = await runtime.status(), state = await store.read();
+  assert.deepEqual(status.attemptOutcomes, { completion_unknown: 1, observed: 3 });
+  assert.equal(Object.values(state.proposals).some(item => item.kind === 'workflow_automation'), false);
+  assert.equal(Object.keys(state.lessons).length, 0);
+  const prepared = await runtime.review('PREPARE', { proposalId });
+  assert.equal(prepared.packet.candidateEligible, false);
+  assert.equal(prepared.packet.evidenceReadiness.currentVerifiedOutcomeCount, 0);
+  assert.equal(prepared.packet.evidenceReadiness.currentEligibleCount, 0);
+  assert.equal(prepared.packet.attempts.length, 1, 'layout-only observations are not verified proposal evidence');
+  runtime.receiptObserved(splitReceipt('still-unknown'));
+  const completeStatus = await runtime.status(), completed = await store.read();
+  assert.deepEqual(completeStatus.attemptOutcomes, { observed: 4 });
+  assert.equal(soleGap(completed).status, 'resolved');
+  assert.equal(soleGap(completed).verification, undefined);
+  assert.equal(Object.values(completed.proposals).some(item => item.kind === 'workflow_automation'), false);
 });

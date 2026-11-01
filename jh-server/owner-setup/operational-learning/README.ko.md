@@ -76,13 +76,21 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 ### 기존 영수증을 읽을 때 원래 시도 보완
 
-`capabilities.existingReceiptReconciliation: true`는 기존 호스트의 검증된 영수증 조회를 같은 학습 시도에 연결하는 기능입니다. 새 MCP 쓰기 모드나 사용자 입력의 성공 플래그를 받지 않습니다. 현재 연결 지점은 `jhOpenCompletion56()`이며, 원래 `life_job_status` 또는 open 완료 확인이 기존 명령·세션·job 일치 검사와 엄격한 오른쪽 Chrome 주소 검증을 통과했을 때만 동작합니다.
+`capabilities.existingReceiptReconciliation: true`는 기존 호스트의 검증된 영수증 조회를 같은 학습 시도에 연결하는 기능입니다. 새 MCP 쓰기 모드나 사용자 입력의 성공 플래그를 받지 않습니다. URL 완료 결과의 연결 지점은 `jhOpenCompletion56()`이며, 원래 `life_job_status` 또는 open 완료 확인이 기존 명령·세션·job 일치 검사와 엄격한 오른쪽 Chrome 주소 검증을 통과했을 때만 동작합니다.
 
-호스트 전용 `receiptObserved(job)`는 검증된 결과와 근거 digest가 있는 완료 메타데이터를 받습니다. 파일 잠금 안에서 현재 runtime의 **이미 존재하는 유일한 원래 attempt**, 명령에 연결된 task, host 출처, 엔진·환경을 대조합니다. `pending`, `observed`, `completion_unknown`만 원래 scope와 attempt를 보존하며 보완합니다. 조회 자체를 새 시도나 독립 경험으로 만들지 않고, 같은 검증 결과는 중복 처리합니다. 서로 다른 기존 검증 결과, 연결 불일치, 차단·취소, 원래 시도 누락은 덮어쓰지 않습니다. 원래 응답·예외·실행 횟수는 유지됩니다.
+호스트 전용 `receiptObserved(job)`는 검증된 결과 또는 아래의 제한된 관찰 범위와 근거 digest가 있는 완료 메타데이터를 받습니다. 파일 잠금 안에서 현재 runtime의 **이미 존재하는 유일한 원래 attempt**, 명령에 연결된 task, host 출처, 엔진·환경을 대조합니다. `pending`, `observed`, `completion_unknown`만 원래 scope와 attempt를 보존하며 보완합니다. 조회 자체를 새 시도나 독립 경험으로 만들지 않고, 같은 근거는 중복 처리합니다. 서로 다른 기존 검증 결과, 연결 불일치, 차단·취소, 원래 시도 누락은 덮어쓰지 않습니다. 원래 응답·예외·실행 횟수는 유지됩니다.
 
 이 결과의 의미는 **영수증 수신 당시 요청 주소가 오른쪽 Chrome에서 확인됨**입니다. 현재 화면, 전체 페이지 내용이나 이후 작업 완료를 뜻하지 않습니다. 일반 `ok:true`, 서명된 결과 수신 또는 durable journal의 수신 상태만으로 성공을 만들지 않습니다.
 
 현재 기기 job·영수증은 메모리 Map에 있으므로 실제 서버 재시작 후 복원되지 않습니다. 새 runtimeId에서 과거 `job_1` 같은 번호를 이용해 기억을 추측 연결하지 않습니다. 학습 기억의 재시작 보존과 기기 영수증의 재시작 복구는 서로 다른 기능입니다. 이 보완은 원래 작업에서 필요한 기존 결과 조회에만 적용하며 학습을 위해 기기 작업을 추가하거나 재실행하지 않습니다. 정정 후 기존 `open` 확인 제안은 남은 미확정 시도가 없을 때 `resolved`가 되며, 사용자가 채택·기각한 상태와 판단 이력은 유지합니다.
+
+### 분할 화면의 제한된 관찰 근거 연결
+
+`capabilities.splitReadObservationReconciliation: true`이면 기존 `jhSplitReadStatus56()`의 성공한 원래 영수증 조회를 같은 시도에 연결합니다. `READBACK_PENDING` 또는 기존 STATUS 영수증 별칭을 사용하며 새 도구·mode·기기 조회는 추가하지 않습니다. registry가 실제로 읽은 원래 job 하나만 전달하고, `split_screen_session_start/status`와 `life_android_capture_work_window`의 `READ_ONLY` 경로로 제한합니다. 기존 device·session·command·taskDigest·영수증 만료 검사와 조회 시각 기준 split proof 검사를 그대로 통과해야 합니다. 다른 snapshot을 원래 job의 결과로 바꾸지 않습니다.
+
+호스트 전용 metadata의 고정값 `verifiedObservationScope: "SPLIT_READ_LAYOUT_ONLY"`는 원래 서명된 읽기 결과에서 최근 좌우 창 배치가 확인됐다는 뜻입니다. 저장 결과는 **`observed`**이며, 근거 digest와 `source:jh-split-read-layout-only`만 남깁니다. 특정 목표 앱, 화면 내용·items·summarySource의 정확성, 요청·응답 context 일치나 전체 업무 성공은 이 검사 범위에 포함되지 않습니다. `success_verified`·후보 적격 근거·자동화 성공 횟수로 올리지 않습니다. 일반 완료 콜백과 임의의 `resultVerified/scopeVerified` 값도 이 관찰 증거를 만들 수 없습니다.
+
+기존의 검증된 결과·차단·취소는 보존합니다. 같은 제한 관찰의 반복은 새 사건이 아니며 이후 일반 대기·미확정·관찰 통지가 이 근거를 지우지 않습니다. 실제 검증된 업무 결과가 생겼을 때만 기존 계약에 따라 더 강한 결과로 진행합니다. 기존 엔진이 미확정 상태가 없어진 `open` verification_gap을 `resolved`로 정리해도 **결과 수신의 불확실성이 해소된 것**이며 업무 성공·규칙 활성화·개선 효과 검증을 뜻하지 않습니다.
 
 ## 네 종류의 개선 제안
 

@@ -16,6 +16,15 @@ const OBSERVE_OPEN_RECEIPT = String.raw`    if(observed.summary?.executionStatus
        observed.summary.confirmationScope==='REQUESTED_ADDRESS_IN_RIGHT_CHROME_AT_RECEIPT_TIME')
       jhLearningObserveJob56('receiptObserved',observed.job);
 `;
+const SPLIT_RECEIPT = String.raw`    return jhSplitReadReceipts56.read({
+      receiptRef,deviceId:device,sessionId:auth.sessionId,commandId
+    },id=>jobs.get(id),screen=>jhInspectSplitEvidence155(screen).ok===true);`;
+const OBSERVE_SPLIT_RECEIPT = String.raw`    let learningJob=null;
+    const receipt=jhSplitReadReceipts56.read({
+      receiptRef,deviceId:device,sessionId:auth.sessionId,commandId
+    },id=>{learningJob=jobs.get(id);return learningJob;},screen=>jhInspectSplitEvidence155(screen).ok===true);
+    jhLearningObserveSplitReceipt56(learningJob,receipt,{deviceId:device,sessionId:auth.sessionId,commandId});
+    return receipt;`;
 
 const SHARED = String.raw`
 // Only a host-installed observer can receive these bounded metadata records.
@@ -58,6 +67,30 @@ function jhLearningObserveJob56(method,job){
     const meta=jhLearningJobMeta56(job,method==='jobCompleted'||method==='receiptObserved');
     if(meta)Promise.resolve(controller[method](meta)).catch(()=>{});
   }catch{} // Observation cannot change the accepted job or its HTTP response.
+}
+function jhLearningObserveSplitReceipt56(job,receipt,binding){
+  const controller=jhLearningController56;
+  if(!controller||typeof controller.receiptObserved!=='function')return;
+  try{
+    if(!job||!binding||!['split_screen_session_start','split_screen_session_status'].includes(job.type)||
+       job.mcpToolName!=='life_android_capture_work_window'||job.secureRequestedEffect!=='READ_ONLY'||
+       job.status!=='complete'||job.result?.ok!==true||jobs.get(job.id)!==job||
+       !binding.deviceId||!binding.sessionId||!jhLearningCommandId56(binding.commandId)||
+       job.targetDeviceId!==binding.deviceId||job.secureSessionId!==binding.sessionId||job.commandId!==binding.commandId||
+       !/^[a-f0-9]{64}$/.test(job.taskDigest||'')||
+       receipt?.ok!==true||receipt.receiptRecovered!==true||receipt.readOnly!==true||
+       receipt.automaticReplay!==false||receipt.newJobCreated!==false||
+       receipt.jobDigest!==sha56(job.id)||receipt.taskDigest!==job.taskDigest||
+       jhInspectSplitEvidence155(job.result).ok!==true)return;
+    const meta=jhLearningJobMeta56(job,true);
+    if(!meta?.evidenceDigest||meta.commandId!==binding.commandId)return;
+    // The existing verifier confirms recent split layout only. It does not
+    // establish the requested screen content, target app or whole task outcome.
+    const observation=Object.freeze({id:meta.id,type:meta.type,commandId:meta.commandId,
+      status:meta.status,evidenceDigest:meta.evidenceDigest,
+      verifiedObservationScope:'SPLIT_READ_LAYOUT_ONLY'});
+    Promise.resolve(controller.receiptObserved(observation)).catch(()=>{});
+  }catch{} // Keep the original receipt and every existing authority unchanged.
 }
 async function jhLearningStatus56(result,controller){
   if(!result||!Array.isArray(result.content)||result.content[0]?.type!=='text')return result;
@@ -130,6 +163,7 @@ const PAIRS = [
   [COMPLETED, COMPLETED + '\n    jhLearningObserveJob56("jobCompleted",j);'],
   [RETENTION, '    if(j.status==="error"||j.status==="expired")jhLearningObserveJob56("jobCompleted",j);\n' + RETENTION],
   [OPEN_RECEIPT, OBSERVE_OPEN_RECEIPT + OPEN_RECEIPT],
+  [SPLIT_RECEIPT, OBSERVE_SPLIT_RECEIPT],
 ];
 const REQUIRED = [
   'const pendingApprovalReceipts56=createPendingApprovalReceiptRegistry56();',
