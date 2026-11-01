@@ -22,6 +22,8 @@ jobs:
           node --check jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs
       - name: Nine alias routing and fail-closed tests
         run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs
+      - name: Run ALL NINE generated signed Android RIGHT alias behavior contracts with inert native doubles
+        run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-runtime-contract.test.mjs
       - name: Build actual generated Secure56 runtime without starting service
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
