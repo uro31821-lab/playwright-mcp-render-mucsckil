@@ -43,6 +43,7 @@ jobs:
           JH_OWNER_DEFER_LISTEN: '1'
         run: |
           node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/split-followup-generated-runtime.test.mjs
+          node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage22-generated-server-candidate.test.mjs
       - name: Review only, never deploy or invoke the phone
         run: |
           echo JH168_SPLIT_FOLLOWUP_RECEIPT_SOURCE_REVIEW_ONLY
