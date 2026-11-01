@@ -1,7 +1,7 @@
 /** JH168 verified-current-MAIN mobile/source review (NO RELEASE).
  * Preserve BOTH historical PR72 / 2c310f8 source evidence and the reviewed
- * Stage44 main f32cf6c7; command diagnostics may edit only its generated
- * operator selection and add a pure focus observation method.
+ * deployed diagnostic main bd816757. The new host-memory transport changes
+ * only the separately reviewed learning boundary; mobile execution is fixed.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +10,7 @@ import {execFileSync} from 'node:child_process';
 import {reverseJH168Mobile13ActionPolicyHost56} from './mobile13-action-policy-patch.mjs';
 
 const ORIGINAL='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
-const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
+const REVIEWED_MAIN='bd81675725609e67ca7bb2f8dc45f101f0820d8b';
 const MOBILE='c6142bd21ea299a4464124356e9da34b58001900';
 const ROOT='jh-server/owner-setup/';
 const show=(sha,path)=>execFileSync('git',['show',sha+':'+path],{

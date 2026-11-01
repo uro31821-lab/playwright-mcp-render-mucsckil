@@ -13,6 +13,8 @@ import './progress-runtime.test.mjs';
 import './progress-cli.test.mjs';
 import './host-observations.test.mjs';
 import './host-observations-cli.test.mjs';
+import './host-memory-bridge.test.mjs';
+import './host-memory-runtime.test.mjs';
 import './proposal-context.test.mjs';
 import './proposal-context-cli.test.mjs';
 import './receipt-reconciliation.test.mjs';

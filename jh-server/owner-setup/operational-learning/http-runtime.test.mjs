@@ -36,6 +36,8 @@ function runPhase({ dir, root, data }, phase) {
     cwd: root, encoding: 'utf8', timeout: phase === 'comfort' ? 45000 : 35000,
     env: { PATH: process.env.PATH, CI: 'true', NODE_ENV: 'test', JH_OWNER_DEFER_LISTEN: '1',
       LIFE_HUB_TOKEN: 'SYNTHETIC_LEARNING_HTTP_TOKEN_20261031',
+      ...(phase.startsWith('host-memory-')
+        ? { JH_HOST_MEMORY_BRIDGE: 'EXPLICIT_OWNER_HOST_MEMORY_V1' } : {}),
       JH_OAUTH_STATE_FILE: path.join(dir, 'oauth.json') },
   });
 }
@@ -74,6 +76,36 @@ test('real owner bootstrap records authenticated MCP calls across clients and pr
   assert.equal(results[1].proposalProgressPersisted, true);
   assert.equal(results[1].proposalProgressLinkHash, results[0].proposalProgressLinkHash);
   assert.ok(results[1].revision > results[0].revision);
+});
+
+test('generated owner MCP shares explicit host observations across clients and restart without recursive events or device effects', { timeout: 90000 }, t => {
+  const setup = fixture(t);
+  const results = [];
+  for (const phase of ['host-memory-first', 'host-memory-restart']) {
+    const child = runPhase(setup, phase);
+    assert.equal(child.status, 0, (child.error?.message ?? '') + '\n' + child.stderr + '\n' + child.stdout);
+    const line = child.stdout.split('\n').find(item => item.startsWith('LEARNING_HOST_MEMORY_HTTP_RESULT '));
+    assert.ok(line, child.stdout);
+    results.push(JSON.parse(line.slice('LEARNING_HOST_MEMORY_HTTP_RESULT '.length)));
+  }
+  for (const result of results) {
+    for (const key of ['generatedRuntime', 'ownerBootstrapInstalled', 'authenticated', 'explicitHostCapability',
+      'unauthorizedRejected', 'invalidPayloadsRejected', 'twoClientReadback', 'exactRetryNoop', 'conflictRejected',
+      'staleNewObservationRejected', 'noRecursiveEvents', 'scopeIsolated', 'journalUnchanged', 'noAutomaticRuleActivation'])
+      assert.equal(result[key], true, key);
+    assert.equal(result.hostEvents, 1);
+    assert.equal(result.hostAttempts, 1);
+    assert.equal(result.ordinaryChatsObserved, false);
+    assert.equal(result.librarySync, 'not_connected');
+    assert.equal(result.sourceAuthentication, 'authenticated_owner_attestation');
+    assert.equal(result.realDevices, 0);
+    assert.equal(result.phoneToolsCalled, 0);
+    assert.equal(result.externalRequests, 0);
+  }
+  assert.equal(results[1].originalPayloadPersisted, true);
+  assert.equal(results[1].restartBytesUnchangedBeforeStatus, true);
+  assert.equal(results[1].eventId, results[0].eventId);
+  assert.equal(results[1].eventSha256, results[0].eventSha256);
 });
 
 test('generated runtime reconciles a real cir_ HTTP readback from a synthetic signed INSPECT only', { timeout: 60000 }, t => {
