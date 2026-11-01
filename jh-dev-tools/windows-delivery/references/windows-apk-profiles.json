@@ -167,6 +167,57 @@
         "Actual local signing, app installation, coordinated server deployment and phone 13-route E2E remain pending their own verified results.",
         "The original unknown phone job and durable no-replay fence are not modified or resolved by this updater."
       ]
+    },
+    {
+      "schema": "jh.windows-apk-profile.v1",
+      "id": "JH-WINDOWS-APK-MOBILE13-PRESIGNED-20261101-1",
+      "version": "1",
+      "entrypoint": "실행.cmd",
+      "required_files": {
+        "POWER_SHELL_ERROR_CHECKLIST.txt": {
+          "size": 4060,
+          "sha256": "5b5e11fc7e605b6c82af102f339c9213020028ace61e5e1d0d40092f574da20e"
+        },
+        "data/JH-RUN-SAFETY.ps1": {
+          "size": 7311,
+          "sha256": "9ebb716ab9cdb54f47e46c785c11412c4d8ae9c20d2f011376d4e721ca8aae0f"
+        },
+        "data/JH168-Mobile13-SIGNED-20261101.apk": {
+          "size": 48884022,
+          "sha256": "ffe38e54654b3174cba3d6c03c484a6b4701c527c9f080d25febe325050afd4f"
+        },
+        "data/Update-Mobile13.ps1": {
+          "size": 19359,
+          "sha256": "e341a8851f5d0554cb2db39469e9c78b6e8e2d90599a6e725f4b5284239c1cb9"
+        },
+        "data/candidate.json": {
+          "size": 1244,
+          "sha256": "1cef82cd49114f5c3e4f42a861db5a1f695dab16870fc8a9c26be5fddc05760c"
+        },
+        "사용안내.txt": {
+          "size": 1518,
+          "sha256": "7aa3297cd6615eb3b1fac04f087838cea7b5132074c33be6198e8bc230714f2e"
+        },
+        "실행.cmd": {
+          "size": 5753,
+          "sha256": "9d37a8c9daf910872873e210b72c72004af2e12807543e5f18c8700dac87dff8"
+        }
+      },
+      "review_status": "reviewed",
+      "evidence_refs": [
+        "commit:75b3c0f3929247d9ce94d3d2a311c33b531c3ceb",
+        "artifact:github-actions-41302737894",
+        "test:Test-Mobile13Signed.ps1",
+        "source:jh-dev-tools/windows-delivery/mobile13-signed-review.md",
+        "sha256:ffe38e54654b3174cba3d6c03c484a6b4701c527c9f080d25febe325050afd4f",
+        "library:libfile_dc6c493622c88191bb825a2b514bc135"
+      ],
+      "limitations": [
+        "Actual Windows PowerShell 5.1 CI verified 25 synthetic cases and exact runner/CMD/helper bytes; no real ADB or phone ran.",
+        "The separately signed private APK passed original-certificate verification and all 514 unsigned payload entries matched; this package pins its exact signed bytes.",
+        "Same original candidate/device persistent install fence is retained; already installed exact bytes are read back with zero new installation.",
+        "Actual phone installation, coordinated server deployment and 13-route device E2E remain pending their own evidence."
+      ]
     }
   ]
 }
