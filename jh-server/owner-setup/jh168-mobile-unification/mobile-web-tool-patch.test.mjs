@@ -170,7 +170,9 @@ test('phone-only life_status reads signed poll evidence with NO legacy cloud bro
 });
 test('status patch refuses changed browser probe, missing status or duplicate marker',()=>{
  assert.throws(()=>patchJH168MobileStatusOnly56(prepared.replace(
-  'await ensureBrowser()','await anUnreviewedBrowser()')),/STATUS_SOURCE_DRIFT/);
+  'try{ await ensureBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }',
+  'try{ await anUnreviewedBrowser(); browser="ready"; }catch(e){ browser="error: "+e.message; }'
+  )),/STATUS_SOURCE_DRIFT/);
  assert.throws(()=>patchJH168MobileStatusOnly56(prepared.replace(
   '  registerOAuthTool("life_status",{','')),/STATUS_BOUNDARY_CHANGED/);
 });
