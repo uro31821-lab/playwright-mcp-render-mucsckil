@@ -12,6 +12,7 @@ import { decideProposal, proposalDecisionView } from './decisions.mjs';
 import { registerReviewedCandidate, proposalProgressView } from './progress.mjs';
 import { taskView, observeTask } from './host-observations.mjs';
 import { proposalContext } from './proposal-context.mjs';
+import { createHostInstructionCandidate } from './instructions.mjs';
 
 function evaluatorFor(suite) {
   if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
@@ -28,6 +29,16 @@ function contextRequest(input) {
       Object.values(descriptors).some(item => !Object.hasOwn(item, 'value') || !item.enumerable) ||
       Object.hasOwn(input, 'query') === Object.hasOwn(input, 'queries')) fail();
   if (Object.hasOwn(input, 'proposals') && input.proposals === undefined) fail();
+}
+
+function instructionRequest(input) {
+  const fail = () => { throw new TypeError('instruction requires instruction, suite, scope, and optional globalRecall'); };
+  if (!input || typeof input !== 'object' || types.isProxy(input) || Array.isArray(input) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(input))) fail();
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  if (Reflect.ownKeys(input).some(key => typeof key !== 'string' || !['instruction', 'suite', 'scope', 'globalRecall'].includes(key)) ||
+      Object.values(descriptors).some(item => !Object.hasOwn(item, 'value') || !item.enumerable) ||
+      ['instruction', 'suite', 'scope'].some(key => !Object.hasOwn(input, key))) fail();
 }
 
 function options(args) {
@@ -69,6 +80,17 @@ export async function execute(args, input) {
       return { ...advice, proposalContext: proposalContext(state, queries, input.proposals) };
     }
     case 'review': return prepareReview(await store.read(), input);
+    case 'instruction': {
+      if (expectedRevision !== undefined) throw new TypeError('instruction is read-only; use its baseRevision when registering the candidate');
+      instructionRequest(input);
+      const state = await store.read();
+      const hostOptions = { scope: input.scope,
+        ...(Object.hasOwn(input, 'globalRecall') ? { globalRecall: input.globalRecall } : {}) };
+      const prepared = createHostInstructionCandidate(state, input.instruction, input.suite, hostOptions);
+      evaluatorFor(prepared.suite);
+      return { baseRevision: state.revision, ...prepared, readOnly: true,
+        externalEffects: false, activatedByThisCall: false };
+    }
     case 'decision-view': return proposalDecisionView(await store.read(), input);
     case 'progress': return proposalProgressView(await store.read(), input);
     case 'task-view': return taskView(await store.read(), input);
@@ -135,7 +157,7 @@ export async function execute(args, input) {
       const result = await store.transact(state => setProposalStatus(state, input.id, input.status, input.verification), transactionOptions);
       return { revision: result.revision, proposal: result.proposals[input.id] };
     }
-    default: throw new TypeError('Use status, ingest, observe, task-view, recall, context, review, decision-view, progress, decide, curate, curate-register, propose, candidate, check, or proposal-status');
+    default: throw new TypeError('Use status, ingest, observe, task-view, recall, context, review, instruction, decision-view, progress, decide, curate, curate-register, propose, candidate, check, or proposal-status');
   }
 }
 

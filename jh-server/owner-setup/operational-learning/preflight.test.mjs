@@ -250,6 +250,7 @@ test('explicit instruction MCP rejects mismatched source, credentials, selectors
     value => { value.instruction.provenance = 'host_verified'; },
     value => { value.instruction.arbitrary = 'ignored-input'; },
     value => { value.instruction.appliesTo.target_tool = 'life_status'; },
+    value => { value.instruction.appliesTo = { kind: 'exact_scope' }; },
     value => { value.instruction.sourceRecordRef = 'https://private.invalid/raw-record'; },
     value => { value.review = {}; },
   ];

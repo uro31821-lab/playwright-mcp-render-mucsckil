@@ -26,3 +26,5 @@ import './trajectory.test.mjs';
 import './preflight.test.mjs';
 import './multi-context.test.mjs';
 import './instructions.test.mjs';
+import './host-instructions.test.mjs';
+import './host-instructions-cli.test.mjs';
