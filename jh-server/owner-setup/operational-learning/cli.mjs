@@ -11,6 +11,7 @@ import { evaluateTrajectory } from './trajectory.mjs';
 import { decideProposal, proposalDecisionView } from './decisions.mjs';
 import { registerReviewedCandidate, proposalProgressView } from './progress.mjs';
 import { taskView, observeTask } from './host-observations.mjs';
+import { proposalContext } from './proposal-context.mjs';
 
 function evaluatorFor(suite) {
   if (suite?.evaluator === undefined || suite.evaluator === 'jh.constraints.v1') return evaluateConstraints;
@@ -19,13 +20,14 @@ function evaluatorFor(suite) {
 }
 
 function contextRequest(input) {
-  const fail = () => { throw new TypeError('context requires exactly one of query or queries, and optional options'); };
+  const fail = () => { throw new TypeError('context requires exactly one of query or queries, and optional options and proposals'); };
   if (!input || typeof input !== 'object' || types.isProxy(input) || Array.isArray(input) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(input))) fail();
   const descriptors = Object.getOwnPropertyDescriptors(input);
-  if (Reflect.ownKeys(input).some(key => typeof key !== 'string' || !['query', 'queries', 'options'].includes(key)) ||
+  if (Reflect.ownKeys(input).some(key => typeof key !== 'string' || !['query', 'queries', 'options', 'proposals'].includes(key)) ||
       Object.values(descriptors).some(item => !Object.hasOwn(item, 'value') || !item.enumerable) ||
       Object.hasOwn(input, 'query') === Object.hasOwn(input, 'queries')) fail();
+  if (Object.hasOwn(input, 'proposals') && input.proposals === undefined) fail();
 }
 
 function options(args) {
@@ -58,9 +60,13 @@ export async function execute(args, input) {
       contextRequest(input);
       // All scopes share one snapshot and one authority/conflict/budget decision.
       const state = await store.read();
-      return Object.hasOwn(input, 'queries')
+      const advice = Object.hasOwn(input, 'queries')
         ? recallContexts(state, input.queries, input.options)
         : recallContext(state, input.query, input.options);
+      if (!Object.hasOwn(input, 'proposals')) return advice;
+      // Advice and recoverable open proposals use the same owner snapshot and scopes.
+      const queries = Object.hasOwn(input, 'queries') ? input.queries : [input.query];
+      return { ...advice, proposalContext: proposalContext(state, queries, input.proposals) };
     }
     case 'review': return prepareReview(await store.read(), input);
     case 'decision-view': return proposalDecisionView(await store.read(), input);
