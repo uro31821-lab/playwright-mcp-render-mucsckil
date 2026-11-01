@@ -74,6 +74,8 @@ jobs:
           NODE
       - name: Full 13-route inventory BEFORE any functional code fixes (source-only)
         run: node jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-audit.mjs
+      - name: Invoke ALL FOUR generated original signed RIGHT entrypoints without a device
+        run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs
       - name: Existing Secure56 and right-pane regression tests
         run: |
           node --test --test-concurrency=1 jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs
