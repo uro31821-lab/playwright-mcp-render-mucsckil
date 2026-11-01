@@ -23,6 +23,9 @@ const SPLIT_READ_TYPES = new Set(['split_screen_session_start', 'split_screen_se
 const SPLIT_FOLLOWUP_TYPE = 'split_screen_session_followup';
 const SPLIT_FOLLOWUP_SCOPE = 'SPLIT_FOLLOWUP_CLICK_ONLY';
 const SPLIT_FOLLOWUP_REFERENCE = 'source:jh-split-followup-click-only';
+const COMPUTER_INSPECT_TYPE = 'computer_use_inspect';
+const COMPUTER_INSPECT_SCOPE = 'COMPUTER_INSPECT_RECEIPT_ONLY';
+const COMPUTER_INSPECT_REFERENCE = 'source:jh-computer-inspect-receipt-only';
 const SAFE_CODES = new Set([
   'JOB_ERROR', 'JOB_EXPIRED', 'TIMEOUT', 'ACCESS_DENIED', 'APPROVAL_REQUIRED',
   'AUTH_REQUIRED', 'INVALID_REQUEST', 'CANCELLED', 'COMPLETION_UNKNOWN',
@@ -210,14 +213,14 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       const sameObservation = previous && previous.outcome === observation.outcome &&
         (previous.errorCode ?? null) === (observation.errorCode ?? null) &&
         JSON.stringify(previous.evidenceRefs) === JSON.stringify(observation.evidenceRefs);
-      // A confirmed layout observation is narrower than task success, but a
-      // later generic completion/poll must not erase its bound receipt. A new
+      // A read receipt observation is narrower than task success, but a later
+      // generic completion/poll must not erase its bound receipt. A new
       // verified outcome may still advance this attempt through the usual path.
-      const hasSplitReadObservation = previous?.outcome === 'observed' &&
+      const hasReadReceiptObservation = previous?.outcome === 'observed' &&
         previous.source === 'host_verified' && Array.isArray(previous.evidenceRefs) &&
         previous.evidenceRefs.length === 2 && /^sha256:[a-f0-9]{64}$/.test(previous.evidenceRefs[0]) &&
-        previous.evidenceRefs[1] === SPLIT_READ_REFERENCE;
-      if (hasSplitReadObservation && ['observed', 'pending', 'completion_unknown'].includes(observation.outcome)) {
+        [SPLIT_READ_REFERENCE, COMPUTER_INSPECT_REFERENCE].includes(previous.evidenceRefs[1]);
+      if (hasReadReceiptObservation && ['observed', 'pending', 'completion_unknown'].includes(observation.outcome)) {
         return { state: current, ...(sameObservation ? { duplicate: true } : { skipped: true }) };
       }
       const wouldDowngrade = previous && VERIFIED.has(previous.outcome) && !VERIFIED.has(observation.outcome);
@@ -243,7 +246,10 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       commandId: identity(job.commandId), status: typeof job.status === 'string' ? job.status : 'unknown',
       code: SAFE_CODES.has(job.code) ? job.code : (job.code === undefined ? null : 'HOST_CODE_REDACTED'),
       observationScopeSupplied: 'verifiedObservationScope' in job,
+      observationScopeOwned: Object.hasOwn(job, 'verifiedObservationScope'),
       verifiedObservationScope: job.verifiedObservationScope,
+      inspectReadOnly: Object.hasOwn(job, 'mcpToolName') && job.mcpToolName === 'life_android_computer_inspect' &&
+        Object.hasOwn(job, 'secureRequestedEffect') && job.secureRequestedEffect === 'READ_ONLY',
       outcomeScopeSupplied: 'verifiedOutcomeScope' in job,
       verifiedOutcomeScope: Object.hasOwn(job, 'verifiedOutcomeScope') ? job.verifiedOutcomeScope : null,
       verifiedOutcomeSupplied: 'verifiedOutcome' in job,
@@ -267,7 +273,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     try {
       const input = snapshotJob(job);
       if (input.observationScopeSupplied || input.outcomeScopeSupplied ||
-          (input.type === SPLIT_FOLLOWUP_TYPE && input.verifiedOutcomeSupplied)) return;
+          ([SPLIT_FOLLOWUP_TYPE, COMPUTER_INSPECT_TYPE].includes(input.type) && input.verifiedOutcomeSupplied)) return;
       const caller = calls.getStore();
       if (caller) { caller.hasJobs = true; caller.jobAttempts.add(input.attemptId); }
       const scope = bindings.get(input.attemptId) ?? caller?.scope ?? scopeFor(input.operation, input.commandId);
@@ -281,7 +287,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     try {
       const input = snapshotJob(job);
       if (input.observationScopeSupplied || input.outcomeScopeSupplied ||
-          (input.type === SPLIT_FOLLOWUP_TYPE && input.verifiedOutcomeSupplied)) return;
+          ([SPLIT_FOLLOWUP_TYPE, COMPUTER_INSPECT_TYPE].includes(input.type) && input.verifiedOutcomeSupplied)) return;
       const scope = bindings.get(input.attemptId) ?? scopeFor(input.operation, input.commandId);
       queueWork(() => record(input.attemptId, scope, jobObservation(input, 'completed')));
     } catch (error) { failed(error); }
@@ -289,6 +295,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
 
   /** Trusted host readback of an existing completed job; not a public write tool.
    * Layout-only read receipts are observations, never task success or failure.
+   * An INSPECT receipt confirms only receipt of that original read-only result,
+   * including a device-reported failure; its body is not an outcome assertion.
    * Follow-up success confirms only the approved click and receipt-time right
    * window; the reference must not be reported as the whole user's goal.
    */
@@ -306,11 +314,17 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       } else if (input.type === SPLIT_FOLLOWUP_TYPE) {
         return; // No unscoped follow-up outcome can supply this narrow proof.
       } else if (input.observationScopeSupplied) {
-        if (input.verifiedObservationScope !== SPLIT_READ_SCOPE || !SPLIT_READ_TYPES.has(input.type) ||
-            input.verifiedOutcomeSupplied) return;
-        observation = { outcome: 'observed', evidenceRefs: ['sha256:' + input.evidenceDigest, SPLIT_READ_REFERENCE] };
+        if (input.verifiedOutcomeSupplied) return;
+        let reference;
+        if (input.verifiedObservationScope === SPLIT_READ_SCOPE && SPLIT_READ_TYPES.has(input.type)) {
+          reference = SPLIT_READ_REFERENCE;
+        } else if (input.verifiedObservationScope === COMPUTER_INSPECT_SCOPE &&
+            input.observationScopeOwned && input.type === COMPUTER_INSPECT_TYPE && input.inspectReadOnly) {
+          reference = COMPUTER_INSPECT_REFERENCE;
+        } else return;
+        observation = { outcome: 'observed', evidenceRefs: ['sha256:' + input.evidenceDigest, reference] };
       } else {
-        if (!input.verifiedOutcome) return;
+        if (input.type === COMPUTER_INSPECT_TYPE || !input.verifiedOutcome) return;
         observation = jobObservation(input, 'completed');
       }
       queueWork(() => record(input.attemptId, null, observation,
@@ -592,7 +606,7 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
         temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true,
         scopedProposals: true, proposalDecisions: true, proposalProgress: true,
         existingReceiptReconciliation: true, reviewReadiness: true, splitReadObservationReconciliation: true,
-        splitFollowupClickReceiptReconciliation: true },
+        splitFollowupClickReceiptReconciliation: true, computerInspectReceiptReconciliation: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,

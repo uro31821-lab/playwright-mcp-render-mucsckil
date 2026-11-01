@@ -102,6 +102,16 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 원 시도가 유일하게 존재하고 명령·runtime·엔진·환경이 일치할 때만 `pending`, `observed`, `completion_unknown`을 보완합니다. 반복 조회는 같은 사건 한 번으로 처리하고, 차단·취소·기존 확정 결과는 보존합니다. 미확정·만료·기기 오류·`NOT_DISPATCHED` 반환은 이 성공 근거로 올리지 않습니다. observer가 없거나 실패해도 원래 반환값과 실행 횟수는 유지합니다. 서버 재시작·기존 job 보관 종료·영수증 만료로 사라진 과거 실행은 추측 복구하지 않습니다.
 
+### Computer Use INSPECT 원본 완료 응답의 관찰 연결
+
+`capabilities.computerInspectReceiptReconciliation: true`이면 기존 `life_android_pending_approval_receipt_status`의 `cir_` 원본 조회가 완료된 INSPECT 결과를 같은 학습 시도에 연결합니다. 기존 registry의 기기·device digest·session·command·task digest·선택 run digest·만료 검사를 통과한 바로 그 job 객체만 사용합니다. 별도의 기기 조회·영수증 발급·승인·재실행을 추가하지 않습니다.
+
+registry의 `ok: true`는 원래 job을 찾았다는 뜻입니다. 학습 관찰에는 `computer_use_inspect`, `life_android_computer_inspect`, `READ_ONLY`, `complete`와 객체 형태의 원 결과가 추가로 필요합니다. 대기 중인 job, 만료·변경된 연결, 다른 job의 결과, 일반 완료 콜백의 임의 플래그로 이 범위의 근거를 만들지 않습니다.
+
+호스트는 제한된 메타데이터와 digest, `verifiedObservationScope: "COMPUTER_INSPECT_RECEIPT_ONLY"`만 전달합니다. 저장 결과는 **`observed`**이며 `source:jh-computer-inspect-receipt-only`로 범위를 표시합니다. `result.ok: false`인 원 완료 응답도 수신했다는 관찰까지만 기록합니다. 화면 내용의 정확성, 후속 동작 승인, 사용자 업무의 성공·실패를 확정하지 않으며 `success_verified`나 자동화 성공 횟수로 올리지 않습니다. 원문 화면·결과 본문·token·session 정보는 학습 기억에 저장하지 않습니다.
+
+원래 시도와 task·runtime·엔진·전체 환경이 유일하게 일치할 때만 보완하고, 중복 조회는 새 사건·시도를 만들지 않습니다. 이미 확인한 좁은 관찰 근거를 나중의 일반 대기·미확정·관찰 통지가 지우지 못하게 하며, 차단·취소·기존 확정 결과를 보존합니다. observer가 없거나 실패해도 기존 결과 응답은 유지됩니다. 재시작·영수증 만료로 사라진 과거 기록을 복구한 기능은 아닙니다.
+
 ## 네 종류의 개선 제안
 
 | 종류 | 기본 생성 조건 | 제안 내용 |
