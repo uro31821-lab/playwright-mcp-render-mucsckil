@@ -136,9 +136,10 @@ test('without one-time original owner Stage29 migration, candidate host fails BE
 });
 
 test('original host signed completion, single SQLite commit of both, restart read receives only status',()=>{
- const f=init();
+ const now=Date.now();
+ const f=init(()=>now);
  try{
-  const job=makeJob();
+  const job=makeJob(now);
   assert.deepEqual(runHostOnce(f,job),{allowed:true});
   const j=currentJournal(f);
   assert.equal(j.counts().received,1);
@@ -165,10 +166,11 @@ test('original host signed completion, single SQLite commit of both, restart rea
 });
 
 test('original foreign-session or device mutation cannot force a second result or new CLICK',()=>{
- const f=init();
+ const now=Date.now();
+ const f=init(()=>now);
  try{
   const host=createHost(f);
-  const job=makeJob();
+  const job=makeJob(now);
   host.capture(job,payloadFor(job));
   assert.equal(host.beforeDispatch(job).allowed,true);
   job.status='in_progress';
