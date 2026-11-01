@@ -52,6 +52,7 @@ test('real owner bootstrap records authenticated MCP calls across clients and pr
   for (const result of results) {
     assert.equal(result.existingReceiptReconciliationCapability, true);
     assert.equal(result.splitReadObservationReconciliationCapability, true);
+    assert.equal(result.splitFollowupClickReceiptReconciliationCapability, true);
     assert.equal(result.proposalDecisionCatalog, true);
     assert.equal(result.proposalDecisions, 2);
     assert.equal(result.decisionRetryNoop, true);

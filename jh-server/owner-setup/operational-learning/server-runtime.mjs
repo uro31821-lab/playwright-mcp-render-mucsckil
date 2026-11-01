@@ -20,6 +20,9 @@ const VERIFIED = new Set(['success_verified', 'failure_verified']);
 const SPLIT_READ_SCOPE = 'SPLIT_READ_LAYOUT_ONLY';
 const SPLIT_READ_REFERENCE = 'source:jh-split-read-layout-only';
 const SPLIT_READ_TYPES = new Set(['split_screen_session_start', 'split_screen_session_status']);
+const SPLIT_FOLLOWUP_TYPE = 'split_screen_session_followup';
+const SPLIT_FOLLOWUP_SCOPE = 'SPLIT_FOLLOWUP_CLICK_ONLY';
+const SPLIT_FOLLOWUP_REFERENCE = 'source:jh-split-followup-click-only';
 const SAFE_CODES = new Set([
   'JOB_ERROR', 'JOB_EXPIRED', 'TIMEOUT', 'ACCESS_DENIED', 'APPROVAL_REQUIRED',
   'AUTH_REQUIRED', 'INVALID_REQUEST', 'CANCELLED', 'COMPLETION_UNKNOWN',
@@ -241,6 +244,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       code: SAFE_CODES.has(job.code) ? job.code : (job.code === undefined ? null : 'HOST_CODE_REDACTED'),
       observationScopeSupplied: 'verifiedObservationScope' in job,
       verifiedObservationScope: job.verifiedObservationScope,
+      outcomeScopeSupplied: 'verifiedOutcomeScope' in job,
+      verifiedOutcomeScope: Object.hasOwn(job, 'verifiedOutcomeScope') ? job.verifiedOutcomeScope : null,
       verifiedOutcomeSupplied: 'verifiedOutcome' in job,
       verifiedOutcome: VERIFIED.has(job.verifiedOutcome) ? job.verifiedOutcome : null,
       evidenceDigest: digest(job.evidenceDigest),
@@ -261,7 +266,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     if (closed) return;
     try {
       const input = snapshotJob(job);
-      if (input.observationScopeSupplied) return;
+      if (input.observationScopeSupplied || input.outcomeScopeSupplied ||
+          (input.type === SPLIT_FOLLOWUP_TYPE && input.verifiedOutcomeSupplied)) return;
       const caller = calls.getStore();
       if (caller) { caller.hasJobs = true; caller.jobAttempts.add(input.attemptId); }
       const scope = bindings.get(input.attemptId) ?? caller?.scope ?? scopeFor(input.operation, input.commandId);
@@ -274,7 +280,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     if (closed) return;
     try {
       const input = snapshotJob(job);
-      if (input.observationScopeSupplied) return;
+      if (input.observationScopeSupplied || input.outcomeScopeSupplied ||
+          (input.type === SPLIT_FOLLOWUP_TYPE && input.verifiedOutcomeSupplied)) return;
       const scope = bindings.get(input.attemptId) ?? scopeFor(input.operation, input.commandId);
       queueWork(() => record(input.attemptId, scope, jobObservation(input, 'completed')));
     } catch (error) { failed(error); }
@@ -282,6 +289,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
 
   /** Trusted host readback of an existing completed job; not a public write tool.
    * Layout-only read receipts are observations, never task success or failure.
+   * Follow-up success confirms only the approved click and receipt-time right
+   * window; the reference must not be reported as the whole user's goal.
    */
   function receiptObserved(job) {
     if (closed) return;
@@ -289,7 +298,14 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       const input = snapshotJob(job);
       if (input.status !== 'complete' || !input.evidenceDigest || !input.commandId) return;
       let observation;
-      if (input.observationScopeSupplied) {
+      if (input.outcomeScopeSupplied) {
+        if (input.verifiedOutcomeScope !== SPLIT_FOLLOWUP_SCOPE || input.type !== SPLIT_FOLLOWUP_TYPE ||
+            input.verifiedOutcome !== 'success_verified' || input.observationScopeSupplied) return;
+        observation = { outcome: 'success_verified',
+          evidenceRefs: ['sha256:' + input.evidenceDigest, SPLIT_FOLLOWUP_REFERENCE] };
+      } else if (input.type === SPLIT_FOLLOWUP_TYPE) {
+        return; // No unscoped follow-up outcome can supply this narrow proof.
+      } else if (input.observationScopeSupplied) {
         if (input.verifiedObservationScope !== SPLIT_READ_SCOPE || !SPLIT_READ_TYPES.has(input.type) ||
             input.verifiedOutcomeSupplied) return;
         observation = { outcome: 'observed', evidenceRefs: ['sha256:' + input.evidenceDigest, SPLIT_READ_REFERENCE] };
@@ -575,7 +591,8 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       apiVersion: 3, capabilities: { preflightContext: true, reviewedCandidates: true,
         temporalRules: true, trajectoryRegression: true, explicitInstructions: true, commonRules: true,
         scopedProposals: true, proposalDecisions: true, proposalProgress: true,
-        existingReceiptReconciliation: true, reviewReadiness: true, splitReadObservationReconciliation: true },
+        existingReceiptReconciliation: true, reviewReadiness: true, splitReadObservationReconciliation: true,
+        splitFollowupClickReceiptReconciliation: true },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,

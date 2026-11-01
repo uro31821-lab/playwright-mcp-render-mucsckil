@@ -92,6 +92,16 @@ hook 설치 성공만으로 저장 성공을 판단하지 않습니다. 저장�
 
 기존의 검증된 결과·차단·취소는 보존합니다. 같은 제한 관찰의 반복은 새 사건이 아니며 이후 일반 대기·미확정·관찰 통지가 이 근거를 지우지 않습니다. 실제 검증된 업무 결과가 생겼을 때만 기존 계약에 따라 더 강한 결과로 진행합니다. 기존 엔진이 미확정 상태가 없어진 `open` verification_gap을 `resolved`로 정리해도 **결과 수신의 불확실성이 해소된 것**이며 업무 성공·규칙 활성화·개선 효과 검증을 뜻하지 않습니다.
 
+### FOLLOW_UP 클릭 완료 근거 연결
+
+`capabilities.splitFollowupClickReceiptReconciliation: true`는 학습 런타임이 FOLLOW_UP 클릭의 제한된 완료 근거를 받을 수 있다는 표시입니다. 기존 FOLLOW_UP readback 패치가 함께 적용된 호스트에서는 `READBACK_PENDING`의 `sfr_` 영수증 조회가 검증된 결과를 원래 학습 시도에 연결합니다. 새 조회 도구·역조회 저장소·영수증 발급·클릭 재실행을 추가하지 않습니다.
+
+기존 registry가 같은 기기·device digest·session·command·task digest·request·context·target item 및 만료 조건을 대조하고, 원래 서명된 CLICK 결과와 오른쪽 작업창 증명을 확인해야 합니다. `SPLIT_FOLLOWUP_CLICK_VERIFIED`, `CONFIRMED`, `SIGNED_CLICK_AND_RIGHT_PANE_AT_RECEIPT`를 반환한 바로 그 job 객체만 관찰 대상입니다. 일반 `complete`, `ok:true`, 임의의 `resultVerified` 값이나 다른 job의 결과만으로는 검증된 학습 결과를 만들 수 없습니다.
+
+호스트는 `verifiedOutcome: "success_verified"`, `verifiedOutcomeScope: "SPLIT_FOLLOWUP_CLICK_ONLY"`와 근거 digest만 전달합니다. 저장 결과는 해당 **CLICK과 영수증 수신 시점의 오른쪽 작업창** 범위의 성공이며, 근거에는 `source:jh-split-followup-click-only`를 함께 남깁니다. 전체 사용자 업무, 클릭으로 의도한 후속 업무 결과, 현재 화면의 성공까지 뜻하지 않습니다. 이 근거로 검토하는 제안·규칙도 같은 범위로 제한해야 합니다.
+
+원 시도가 유일하게 존재하고 명령·runtime·엔진·환경이 일치할 때만 `pending`, `observed`, `completion_unknown`을 보완합니다. 반복 조회는 같은 사건 한 번으로 처리하고, 차단·취소·기존 확정 결과는 보존합니다. 미확정·만료·기기 오류·`NOT_DISPATCHED` 반환은 이 성공 근거로 올리지 않습니다. observer가 없거나 실패해도 원래 반환값과 실행 횟수는 유지합니다. 서버 재시작·기존 job 보관 종료·영수증 만료로 사라진 과거 실행은 추측 복구하지 않습니다.
+
 ## 네 종류의 개선 제안
 
 | 종류 | 기본 생성 조건 | 제안 내용 |

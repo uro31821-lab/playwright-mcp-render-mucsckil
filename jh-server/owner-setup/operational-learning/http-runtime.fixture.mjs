@@ -108,6 +108,7 @@ try {
   assert.equal(first.operationalLearning.capabilities.existingReceiptReconciliation, true);
   assert.equal(first.operationalLearning.capabilities.reviewReadiness, true);
   assert.equal(first.operationalLearning.capabilities.splitReadObservationReconciliation, true);
+  assert.equal(first.operationalLearning.capabilities.splitFollowupClickReceiptReconciliation, true);
   const beforeUnauthorized = readFileSync(file);
   const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
   assert.equal(preflight.ok, true);
@@ -446,5 +447,6 @@ try {
     proposalProgressLinkHash: createHash('sha256').update(JSON.stringify(progressCandidate.link)).digest('hex'),
     existingReceiptReconciliationCapability: first.operationalLearning.capabilities.existingReceiptReconciliation,
     splitReadObservationReconciliationCapability: first.operationalLearning.capabilities.splitReadObservationReconciliation,
+    splitFollowupClickReceiptReconciliationCapability: first.operationalLearning.capabilities.splitFollowupClickReceiptReconciliation,
   }));
 } finally { key.fill(0); await running?.close(); }
