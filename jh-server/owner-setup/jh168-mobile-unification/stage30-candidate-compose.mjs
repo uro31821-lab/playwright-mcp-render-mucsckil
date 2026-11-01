@@ -74,7 +74,13 @@ const patch=(source,pairs)=>{
 };
 const reverse=(source,pairs)=>{
  let s=source;
- for(const [oldText,newText]of [...pairs].reverse())s=exact(s,newText,oldText);
+ for(const [oldText,newText]of [...pairs].reverse()){
+  // A new exact anchor can contain its original as a strict prefix:
+  // inverse reconstruction must validate the FULL new anchor exactly once,
+  // rather than reject the original substring before replacing it.
+  if(s.split(newText).length!==2)fail('STAGE30_REVERSE_SOURCE_ANCHOR_CHANGED');
+  s=s.replace(newText,oldText);
+ }
  return s;
 };
 export function applyStage30JournalCandidate(source){
