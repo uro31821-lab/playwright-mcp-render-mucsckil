@@ -189,7 +189,9 @@ try {
     [void][IO.Directory]::CreateDirectory($logRoot)
     if(Test-Path -LiteralPath $resultPath){
         if(!(Test-Path -LiteralPath $resultPath -PathType Leaf)){throw 'EXISTING_RESULT_IS_NOT_A_FILE'}
-        [IO.File]::Copy($resultPath,(Join-Path $logRoot ('previous-'+$Id+'-RESULT.txt')),$false)
+        # Preserve the previous report under the live kit lock, then create a
+        # fresh primary file. Do not depend on replacing an existing result.
+        [IO.File]::Move($resultPath,(Join-Path $logRoot ('previous-'+$Id+'-RESULT.txt')))
     }
     $AllowPrimary=$true
     $Log=Join-Path $logRoot ($Id+'.log')
