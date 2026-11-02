@@ -14,7 +14,7 @@ import {reverseJH168Mobile13ActionPolicyHost56}
 const PRE_MOBILE='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
 const STAGE43_RELEASE='e346a1c9d425428df5cba4069f26842450542b43';
 const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
-const CURRENT_MAIN='d0772eed4965eb4cee724ea5cf3b19a1a29deac2';
+const CURRENT_MAIN='4f12af39623b6e542fd346157b269139eb356e69';
 const REVIEWED_PR72='c6142bd21ea299a4464124356e9da34b58001900';
 const LIVE='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
 const ROOT='jh-server/owner-setup/';
@@ -62,7 +62,9 @@ test('recorded Stage44 LIVE provenance and exact current-main review delta',()=>
   ROOT+'jh168-mobile-unification/mobile-web-current-main-compat.test.mjs',
   ROOT+'jh168-mobile-unification/stage42-protected-source-provenance.test.mjs',
   ROOT+'jh168-mobile-unification/stage49-native-select-window-diagnostic.mjs',
-  ROOT+'jh168-mobile-unification/stage49-native-select-window-diagnostic.test.mjs'
+  ROOT+'jh168-mobile-unification/stage49-native-select-window-diagnostic.test.mjs',
+  ROOT+'jh168-mobile-unification/stage52-original-signed-select-readback.mjs',
+  ROOT+'jh168-mobile-unification/stage52-original-signed-select-readback.test.mjs'
  ];
  for(const path of current)assert.ok(allowed.includes(path),'UNREVIEWED_CHANGED_FILE '+path);
  assert.equal(current.length,allowed.length,'STAGE45_EXPECTED_FILES_ONLY');
