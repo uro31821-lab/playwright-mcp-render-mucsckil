@@ -4,6 +4,7 @@ on:
     branches: [jh-fix3-secure-server]
     paths:
       - 'jh-server/owner-setup/jh168-mobile-unification/stage45-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage49-*'
       - '.github/workflows/jh168-stage45-native-select-proof.yml'
 permissions:
   contents: read
@@ -34,7 +35,14 @@ jobs:
       - name: Signed owner-pane native popup invariant plus explicit no replay negative tests
         run: |
           node --test --test-concurrency=1 --test-reporter=spec \
-            jh-server/owner-setup/jh168-mobile-unification/stage45-native-select-popup-proof.test.mjs
+            jh-server/owner-setup/jh168-mobile-unification/stage45-native-select-popup-proof.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage49-native-select-window-diagnostic.test.mjs
+      - name: Stage49 source-only redacted Android window proof boundary
+        run: |
+          echo JH49_REDACTED_WINDOW_DIAGNOSTIC_ONLY=YES
+          echo JH49_NATIVE_SELECT_PICK_AUTHORIZATION=NEVER_GRANTED
+          echo JH49_PRODUCER_ANDROID_APK=NOT_PART_OF_PUBLIC_PR
+          echo JH49_REAL_DEVICE_E2E=AWAITING_WINDOWS_SIGNED_APK
       - name: Release boundary audit
         run: |
           echo JH_STAGE45_POPUP_OBSERVATION_ONLY=YES
