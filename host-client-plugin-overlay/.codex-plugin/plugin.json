@@ -1,0 +1,53 @@
+{
+  "interface": {
+    "displayName": "JH Secure Live",
+    "shortDescription": "JH167 guide and reservation MCP catalog",
+    "longDescription": "JH167 Secure Bridge via existing Developer mode MCP App. Preserve Primary choice, existing approval, and no-replay. Split-screen START is read-only; unsupported SAVE/FINISH are not retried, with separate verified ChatGPT return where permitted.",
+    "developerName": "JH",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "JH167 Secure Bridge 상태 및 새 가이드형 도구 목록 확인해줘. 화면 자동 클릭 금지.",
+      "life_guide13_catalog으로 실생활 13개 기능을 설명해줘. 읽기 전용으로 실행해.",
+      "오른쪽 Chrome에 열린 이 기사를 화면 도입부만 보지 말고 원문 URL을 찾아 전체 본문을 읽고 출처와 함께 요약해줘."
+    ]
+  },
+  "apps": "./.app.json",
+  "name": "jh-secure-live",
+  "version": "1.19.0",
+  "description": "JH167 guide-first assistant, wired to existing authenticated MCP app. Catalog refresh required for seven additional read-only tools.",
+  "author": {
+    "name": "JH"
+  },
+  "keywords": [
+    "guide13",
+    "reservation",
+    "android",
+    "secure-bridge",
+    "mcp",
+    "computer-use",
+    "automation",
+    "multistep",
+    "approval-reuse",
+    "playwright-integration",
+    "open-completion",
+    "signed-job-readback",
+    "no-replay",
+    "fast-release",
+    "single-device-validation",
+    "reused-apk",
+    "incremental-ci",
+    "unzip-run",
+    "rea-executor",
+    "operational-learning",
+    "experience-memory",
+    "regression",
+    "improvement-suggestions",
+    "shared-work-rules"
+  ],
+  "skills": "./skills"
+}

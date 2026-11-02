@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { createHash, createHmac, generateKeyPairSync, randomBytes, sign } from 'node:crypto';
 import path from 'node:path';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { validateOwnerConfiguration, loadOwnerKey } from '../deployment/owner-config.mjs';
 import { takeStorageSecrets, materializeStorageKeys } from '../deployment/storage-secret-bridge.mjs';
@@ -32,6 +32,8 @@ globalThis.fetch = (url, options) => {
 const built = await buildPendingApprovalOperatorEntrypoint56(root, process.env);
 if (phase === 'inspect' || phase === 'comfort') {
   await signedReadReceiptHttpFixture(phase);
+} else if (phase === 'host-memory-first' || phase === 'host-memory-restart') {
+  await hostMemoryHttpFixture(phase);
 } else {
 const { startUnifiedOwnerServer } = await import(pathToFileURL(built.unifiedFile).href);
 const config = validateOwnerConfiguration(data.input);
@@ -118,6 +120,15 @@ try {
   assert.equal(first.operationalLearning.capabilities.computerInspectReceiptReconciliation, true);
   assert.equal(first.operationalLearning.capabilities.splitComfortStatusReceiptReconciliation, true);
   const beforeUnauthorized = readFileSync(file);
+  assert.equal(first.operationalLearning.capabilities.hostObservationTransport, false);
+  assert.equal(first.operationalLearning.capabilities.hostMemoryContext, false);
+  assert.equal(first.operationalLearning.capabilities.hostTaskReadback, false);
+  const disabledHostMemory = await call(phase + '-disabled-host-memory', 'life_learning_host_context', {
+    domain: 'output', operation: 'summary.format',
+  });
+  assert.equal(disabledHostMemory.ok, false);
+  assert.equal(disabledHostMemory.code, 'LEARNING_HOST_MEMORY_DISABLED');
+  assert.deepEqual(readFileSync(file), beforeUnauthorized);
   const preflight = await call(phase + '-preflight', 'life_learning_context', { target_tool: 'life_android_open' });
   assert.equal(preflight.ok, true);
   assert.equal(preflight.delivery, 'before_execution');
@@ -460,6 +471,228 @@ try {
     splitComfortStatusReceiptReconciliationCapability: first.operationalLearning.capabilities.splitComfortStatusReceiptReconciliation,
   }));
 } finally { key.fill(0); await running?.close(); }
+}
+
+/** Explicit synthetic host submissions through real owner/OAuth MCP routes.
+ * The two client labels identify independent requests to the same configured
+ * owner; they do not select a store or assert a real conversation identity.
+ */
+async function hostMemoryHttpFixture(kind) {
+  const firstPhase = kind === 'host-memory-first';
+  const { startUnifiedOwnerServer } = await import(pathToFileURL(built.unifiedFile).href);
+  const config = validateOwnerConfiguration(data.input);
+  const secrets = takeStorageSecrets({
+    JH_OWNER_STORAGE_SECRET: Buffer.alloc(32, 71).toString('base64'),
+    JH_LIFE_STORAGE_SECRET: Buffer.alloc(32, 72).toString('base64'),
+  });
+  const files = materializeStorageKeys(config, secrets, data.keys);
+  secrets.owner.fill(0); secrets.life.fill(0);
+  const prepared = prepareOperationalStorage(config, files, {
+    confirmation: 'EXPLICIT_ONE_TIME', storageObservations: data.observations,
+  });
+  const key = loadOwnerKey(files.ownerKeyFile, config);
+  const hash = value => createHash('sha256').update(value).digest('hex');
+  const proofFile = path.join(path.dirname(process.argv[2]), 'synthetic-host-memory-proof.json');
+  const memoryFile = path.join(config.stateDir, 'operational-learning-v1.json');
+  const memoryBytes = () => existsSync(memoryFile) ? readFileSync(memoryFile) : null;
+  const memoryState = () => JSON.parse(readFileSync(memoryFile, 'utf8')).state;
+  const journalHashes = () => readdirSync(config.stateDir).filter(name => /\.sqlite(?:-wal)?$/.test(name))
+    .sort().map(name => [name, hash(readFileSync(path.join(config.stateDir, name)))]);
+  const query = { domain: 'output', operation: 'summary.format' };
+  const hostRefs = { task_ref: 'synthetic-host-memory-task', attempt_ref: 'synthetic-host-memory-attempt' };
+  const prior = firstPhase ? null : JSON.parse(readFileSync(proofFile, 'utf8'));
+  const calledTools = [];
+  let running;
+  try {
+    prepareOrVerifyDurableRelease({ config, key, storageObservations: data.observations,
+      mode: firstPhase ? INITIAL_MODE : READY_MODE });
+    running = await startUnifiedOwnerServer({ config, key, lifeStorage: prepared.lifeStorage,
+      storageObservations: data.observations, port: 0, bindAddress: '127.0.0.1' });
+    assert.equal(running.operationalLearningInstalled, true);
+    assert.equal(running.trustCreated, false);
+    assert.equal(running.sessionCreated, false);
+    const origin = 'http://127.0.0.1:' + running.port;
+    const request = async (id, method, params, authorized = true) => {
+      const response = await fetch(origin + '/mcp', { method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream',
+          ...(authorized ? { authorization: 'Bearer ' + process.env.LIFE_HUB_TOKEN } : {}) },
+        body: JSON.stringify({ jsonrpc: '2.0', id, method, ...(params ? { params } : {}) }),
+        signal: AbortSignal.timeout(10000) });
+      assert.equal(response.status, 200);
+      return response.json();
+    };
+    const client = label => async (id, name, args = {}, authorized = true) => {
+      calledTools.push(name);
+      const envelope = await request(label + '-' + id, 'tools/call', { name, arguments: args }, authorized);
+      if (!authorized) return envelope;
+      assert.ok(envelope.result?.content, JSON.stringify(envelope));
+      assert.notEqual(envelope.result.isError, true, JSON.stringify(envelope));
+      return JSON.parse(envelope.result.content[0].text);
+    };
+    const roomA = client('synthetic-host-room-a'), roomB = client('synthetic-host-room-b');
+    const beforeInitialRead = memoryBytes();
+    if (!firstPhase) assert.equal(hash(beforeInitialRead), prior.memorySha256);
+    const initialContext = await roomB('initial-context', 'life_learning_host_context', query);
+    assert.equal(initialContext.ok, true);
+    assert.equal(initialContext.readOnly, true);
+    assert.equal(initialContext.ordinaryChatsObserved, false);
+    assert.equal(initialContext.librarySync, 'not_connected');
+    assert.equal(initialContext.authorizesExecution, false);
+    assert.deepEqual(memoryBytes(), beforeInitialRead);
+    if (firstPhase) assert.deepEqual(initialContext.episodes, []);
+    else {
+      assert.equal(initialContext.episodes.length, 1);
+      assert.equal(initialContext.episodes[0].projection.eventId, prior.eventId);
+      const resumed = await roomB('restart-task', 'life_learning_host_task', hostRefs);
+      assert.equal(resumed.ok, true);
+      assert.equal(resumed.attempts[0].projection.eventId, prior.eventId);
+      assert.deepEqual(memoryBytes(), beforeInitialRead);
+    }
+
+    // The one ordinary status call is the only automatic tool observation in
+    // this phase. Memory calls below must not create recursive tool events.
+    const status = await roomA('status', 'life_status');
+    assert.equal(status.registeredAndroidDevices, 0);
+    assert.equal(status.operationalLearning.enabled, true);
+    assert.equal(status.operationalLearning.degraded, false);
+    for (const capability of ['hostObservationTransport', 'hostMemoryContext', 'hostTaskReadback'])
+      assert.equal(status.operationalLearning.capabilities[capability], true, capability);
+    assert.equal(status.operationalLearning.automaticObservationScope, 'JH tool events only');
+    assert.equal(status.operationalLearning.ordinaryChatsObserved, false);
+    assert.equal(status.operationalLearning.librarySync, 'not_connected');
+    const base = memoryState();
+    const journalsBefore = journalHashes();
+    assert.ok(journalsBefore.length > 0, 'real synthetic owner journals exist');
+    const input = prior?.input ?? {
+      taskRef: hostRefs.task_ref, attemptRef: hostRefs.attempt_ref,
+      observationRef: 'source:synthetic-host-memory-observation', ...query,
+      expectedRevision: base.revision,
+      observation: { timestamp: new Date().toISOString(), outcome: 'success_verified', source: 'host_verified',
+        errorCode: 'SYNTHETIC_OUTPUT_EVIDENCE_CONFIRMED',
+        evidenceRefs: ['source:synthetic-host-memory-observation', 'fixture:synthetic-host-result-evidence'] },
+    };
+    const tools = (await request(kind + '-catalog', 'tools/list')).result.tools;
+    for (const name of ['life_learning_host_context', 'life_learning_host_task', 'life_learning_host_observe']) {
+      const tool = tools.find(item => item.name === name);
+      assert.ok(tool, name);
+      assert.equal(tool.description.includes('Start each NEW user instruction'), false);
+      assert.equal(tool.annotations.readOnlyHint, name !== 'life_learning_host_observe');
+      assert.ok(tool.securitySchemes?.some(item => item.type === 'oauth2') || tool._meta?.securitySchemes?.some(item => item.type === 'oauth2'));
+      for (const forbidden of ['ownerScope', 'owner', 'file', 'engine', 'context'])
+        assert.equal(Object.hasOwn(tool.inputSchema.properties, forbidden), false);
+    }
+    const beforeRejected = memoryBytes();
+    for (const [name, args] of [
+      ['life_learning_host_context', query],
+      ['life_learning_host_task', hostRefs],
+      ['life_learning_host_observe', { payload: JSON.stringify(input) }],
+    ]) {
+      const denied = await roomA('unauthorized-' + name, name, args, false);
+      assert.equal(denied.result.isError, true);
+      assert.ok(denied.result._meta['mcp/www_authenticate'].length > 0);
+      assert.deepEqual(memoryBytes(), beforeRejected);
+    }
+    const credential = 'ghp_' + 'X'.repeat(40);
+    const invalidPayloads = [
+      { ...input, ownerScope: 'synthetic-other-owner' },
+      { ...input, engine: 'jh-server' },
+      { ...input, context: { platform: 'jh-mcp', version: 'server-learning-v1', environment: 'owner-service' } },
+      { ...input, observation: { ...input.observation, ruleUses: [] } },
+      { ...input, observation: { ...input.observation,
+        evidenceRefs: [...input.observation.evidenceRefs, 'source:' + credential] } },
+    ];
+    for (const [index, invalid] of invalidPayloads.entries()) {
+      const rejected = await roomA('invalid-' + index, 'life_learning_host_observe', { payload: JSON.stringify(invalid) });
+      assert.equal(rejected.ok, false);
+      assert.equal(rejected.code, 'LEARNING_REQUEST_INVALID');
+      assert.equal(JSON.stringify(rejected).includes(credential), false);
+      assert.deepEqual(memoryBytes(), beforeRejected);
+    }
+    const receipt = await roomA('observe', 'life_learning_host_observe', { payload: JSON.stringify(input) });
+    assert.equal(receipt.ok, true);
+    assert.equal(receipt.duplicate, !firstPhase);
+    assert.equal(receipt.externalEffects, false);
+    assert.equal(receipt.authorizesExecution, false);
+    assert.equal(receipt.liveExecutionVerified, false);
+    assert.equal(receipt.sourceAuthentication, 'authenticated_owner_attestation');
+    assert.match(receipt.event.taskId, /^host-task-[a-f0-9]{64}$/);
+    assert.match(receipt.event.attemptId, /^host-attempt-[a-f0-9]{64}$/);
+    assert.equal(receipt.event.engine, 'jh-agent');
+    assert.deepEqual(receipt.event.context,
+      { platform: 'chatgpt', version: 'operational-learning-v1', environment: 'personal' });
+    const afterObserved = memoryBytes(), observedState = memoryState();
+    assert.equal(Object.keys(observedState.events).length, Object.keys(base.events).length + (firstPhase ? 1 : 0));
+    assert.equal(Object.keys(observedState.attempts).length, Object.keys(base.attempts).length + (firstPhase ? 1 : 0));
+    assert.deepEqual(observedState.lessons, base.lessons);
+    assert.deepEqual(observedState.proposals, base.proposals);
+    const duplicate = await roomB('duplicate', 'life_learning_host_observe', { payload: JSON.stringify(input) });
+    assert.equal(duplicate.ok, true);
+    assert.equal(duplicate.duplicate, true);
+    assert.equal(duplicate.event.eventId, receipt.event.eventId);
+    assert.deepEqual(memoryBytes(), afterObserved);
+    const conflicting = await roomB('conflict', 'life_learning_host_observe', {
+      payload: JSON.stringify({ ...input, observation: { ...input.observation, errorCode: 'CHANGED_OBSERVATION' } }),
+    });
+    assert.equal(conflicting.ok, false);
+    assert.equal(conflicting.code, 'LEARNING_OBSERVATION_CONFLICT');
+    assert.deepEqual(memoryBytes(), afterObserved);
+    const staleRef = 'source:synthetic-host-memory-stale-observation';
+    const stale = await roomB('stale-new', 'life_learning_host_observe', {
+      payload: JSON.stringify({ ...input, observationRef: staleRef,
+        observation: { ...input.observation, evidenceRefs: [staleRef, 'fixture:synthetic-host-result-evidence'] } }),
+    });
+    assert.equal(stale.ok, false);
+    assert.equal(stale.code, 'LEARNING_REVISION_CONFLICT');
+    assert.deepEqual(memoryBytes(), afterObserved);
+
+    const readback = await roomB('task', 'life_learning_host_task', hostRefs);
+    assert.equal(readback.ok, true);
+    assert.equal(readback.readOnly, true);
+    assert.equal(readback.found, true);
+    assert.equal(readback.counts.taskAttempts, 1);
+    assert.equal(readback.counts.taskEvents, 1);
+    assert.equal(readback.attempts[0].projection.eventId, receipt.event.eventId);
+    const remembered = await roomB('context', 'life_learning_host_context', query);
+    assert.equal(remembered.ok, true);
+    assert.equal(remembered.episodes.length, 1);
+    assert.equal(remembered.episodes[0].projection.eventId, receipt.event.eventId);
+    assert.equal(remembered.episodesRequireReview, true);
+    assert.deepEqual(remembered.lessons, []);
+    const other = await roomB('other-scope', 'life_learning_host_context', { ...query, operation: 'unrelated.format' });
+    assert.deepEqual(other.episodes, []);
+    const serverContext = await roomB('server-scope', 'life_learning_context', { target_tool: 'life_status' });
+    assert.equal(serverContext.scope.engine, 'jh-server');
+    assert.deepEqual(serverContext.lessons, []);
+    const missing = await roomB('missing-task', 'life_learning_host_task', { task_ref: 'synthetic-unrelated-task' });
+    assert.equal(missing.found, false);
+    assert.deepEqual(memoryBytes(), afterObserved);
+    assert.deepEqual(journalHashes(), journalsBefore);
+    const serialized = afterObserved.toString('utf8');
+    for (const privateValue of [process.env.LIFE_HUB_TOKEN, data.input.ownerSubject, credential,
+      hostRefs.task_ref, hostRefs.attempt_ref, 'synthetic-host-room-a', 'synthetic-host-room-b'])
+      assert.equal(serialized.includes(privateValue), false, 'caller identity and credentials are not stored');
+    assert.equal(calledTools.some(name => /android|workflow|job|web_/.test(name)), false);
+    assert.equal(externalRequests, 0);
+    const eventSha256 = hash(JSON.stringify(observedState.events[receipt.event.eventId]));
+    if (prior) {
+      assert.equal(receipt.event.eventId, prior.eventId);
+      assert.equal(eventSha256, prior.eventSha256);
+    }
+    await running.close(); running = null;
+    assert.deepEqual(memoryBytes(), afterObserved);
+    writeFileSync(proofFile, JSON.stringify({ input, eventId: receipt.event.eventId,
+      eventSha256, memorySha256: hash(afterObserved) }), { mode: 0o600 });
+    console.log('LEARNING_HOST_MEMORY_HTTP_RESULT ' + JSON.stringify({
+      phase: kind, generatedRuntime: true, ownerBootstrapInstalled: true, authenticated: true,
+      explicitHostCapability: true, unauthorizedRejected: true, invalidPayloadsRejected: true,
+      twoClientReadback: true, exactRetryNoop: true, conflictRejected: true, staleNewObservationRejected: true,
+      noRecursiveEvents: true, scopeIsolated: true, journalUnchanged: true, noAutomaticRuleActivation: true,
+      originalPayloadPersisted: !firstPhase, restartBytesUnchangedBeforeStatus: !firstPhase,
+      eventId: receipt.event.eventId, eventSha256, ordinaryChatsObserved: false,
+      librarySync: 'not_connected', realDevices: 0, phoneToolsCalled: 0, externalRequests,
+      hostEvents: 1, hostAttempts: 1, sourceAuthentication: receipt.sourceAuthentication,
+    }));
+  } finally { key.fill(0); await running?.close(); }
 }
 
 /** Actual generated MCP/HTTP routes, registry and HMAC verification. Only the

@@ -29,6 +29,8 @@ import {applyStage41CommandLifecyclePatch,reverseStage41CommandLifecyclePatch}
  from './stage41-command-lifecycle-patch.mjs';
 import {applyStage44DeviceFocusPatch,reverseStage44DeviceFocusPatch}
  from './stage44-device-focus-patch.mjs';
+import {applyMobile13CommandDiagnosticsPatch56,reverseMobile13CommandDiagnosticsPatch56}
+ from './mobile13-command-diagnostics.mjs';
 
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const SERVICE='srv-db0fjl2d0e5s73be114g';
@@ -50,6 +52,16 @@ const prod=env=>env?.CI!=='true'&&
   env.JH_DURABLE_RELEASE==='SERVE_READY_V1'&&env.RENDER_SERVICE_ID===SERVICE&&
   env.JH_OWNER_DEFER_LISTEN===undefined;
 function gate(env){if(!ci(env)&&!prod(env))fail('JH_STAGE25_FOLLOWUP_OPERATOR_NOT_AUTHORIZED');}
+const MOBILE13_COMMAND_DIAGNOSTICS_FLAG='EXPLICIT_OWNER_DEVICE_READ_ONLY_V1';
+export function selectMobile13CommandDiagnostics56(env=process.env){
+ const flag=env?.JH_MOBILE13_COMMAND_DIAGNOSTICS;
+ if(flag===undefined||flag==='')return false;
+ if(flag!==MOBILE13_COMMAND_DIAGNOSTICS_FLAG)fail('MOBILE13_COMMAND_DIAGNOSTICS_FLAG_INVALID');
+ if(!ci(env)&&!prod(env))fail('MOBILE13_COMMAND_DIAGNOSTICS_ORIGINAL_OPERATOR_REQUIRED');
+ if(env.JH_MOBILE_WEB_13_MODE!=='EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1')
+  fail('MOBILE13_COMMAND_DIAGNOSTICS_MOBILE_SCOPE_REQUIRED');
+ return true;
+}
 const STAGE44_FOCUS_FLAG='EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1';
 export function selectStage44Focus56(env=process.env){
  const mode=env?.JH_STAGE44_DEVICE_FOCUS;
@@ -132,6 +144,7 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     stamp.stage40OwnerAdmissionDiagnostics!==selectStage40OwnerAdmissionDiagnostics56(env)||
     stamp.stage41CommandLifecycleDiagnostics!==selectStage41CommandLifecycle56(env)||
     stamp.stage44DeviceFocus!==selectStage44Focus56(env)||
+    stamp.mobile13CommandDiagnostics!==selectMobile13CommandDiagnostics56(env)||
     ![stamp.ownerSha256,stamp.unifiedSha256,stamp.operationalSha256]
       .every(s=>/^[a-f0-9]{64}$/.test(s||'')))
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_INVALID');
@@ -140,16 +153,18 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
  const stage40=selectStage40OwnerAdmissionDiagnostics56(env);
  const stage41=selectStage41CommandLifecycle56(env);
  const stage44=selectStage44Focus56(env);
+ const commandDiagnostics=selectMobile13CommandDiagnostics56(env);
  const original=readFileSync(old.file,'utf8');
  const runtime=readFileSync(p.runtime,'utf8');
+ const priorRuntime=commandDiagnostics?reverseMobile13CommandDiagnosticsPatch56(runtime):runtime;
  if(sha(original)!==stamp.parentSha256||
     sha(runtime)!==stamp.runtimeSha256||
     sha(readFileSync(p.owner,'utf8'))!==stamp.ownerSha256||
     sha(readFileSync(p.unified,'utf8'))!==stamp.unifiedSha256||
     sha(readFileSync(p.entry,'utf8'))!==stamp.operationalSha256||
     reverseJH168SplitFollowupReceiptPatch(stage26Ack?
-      reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(runtime):runtime):(stage44?reverseStage44DeviceFocusPatch(runtime):runtime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(runtime):runtime):(stage44?reverseStage44DeviceFocusPatch(runtime):runtime)))):
-      reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(runtime):runtime):(stage44?reverseStage44DeviceFocusPatch(runtime):runtime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(runtime):runtime):(stage44?reverseStage44DeviceFocusPatch(runtime):runtime))))!==original)
+      reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)))):
+      reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime))))!==original)
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_SCOPE_CHANGED');
  return Object.freeze({file:p.runtime,sha256:stamp.runtimeSha256,
   noNewExecutor:true,automaticReplayAllowed:false,originalOperatorVerified:true});
@@ -176,15 +191,18 @@ export async function buildStage25PendingOperatorEntrypoint56(
  const stage40=selectStage40OwnerAdmissionDiagnostics56(env);
  const stage41=selectStage41CommandLifecycle56(env);
  const stage44=selectStage44Focus56(env);
+ const commandDiagnostics=selectMobile13CommandDiagnostics56(env);
  const withFollowup=applyJH168SplitFollowupReceiptPatch(original);
  const stage26Runtime=stage26Ack?applyStage26CompletionAckPatch56(withFollowup):withFollowup;
  const afterReceipt=applyComputerExecutionReceiptPatch(stage26Runtime);
  const afterStage40=stage40?applyStage40OwnerAdmissionDiagnostics(afterReceipt):afterReceipt;
  const afterStage41=stage41?applyStage41CommandLifecyclePatch(afterStage40):afterStage40;
- const runtime=stage44?applyStage44DeviceFocusPatch(afterStage41):afterStage41;
+ const afterStage44=stage44?applyStage44DeviceFocusPatch(afterStage41):afterStage41;
+ const runtime=commandDiagnostics?applyMobile13CommandDiagnosticsPatch56(afterStage44):afterStage44;
+ const priorRuntime=commandDiagnostics?reverseMobile13CommandDiagnosticsPatch56(runtime):runtime;
  if(reverseJH168SplitFollowupReceiptPatch(stage26Ack?
-       reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(runtime):runtime):(stage44?reverseStage44DeviceFocusPatch(runtime):runtime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(runtime):runtime):(stage44?reverseStage44DeviceFocusPatch(runtime):runtime)))):
-       reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(runtime):runtime):(stage44?reverseStage44DeviceFocusPatch(runtime):runtime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(runtime):runtime):(stage44?reverseStage44DeviceFocusPatch(runtime):runtime))))!==original||
+       reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)))):
+       reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime))))!==original||
     runtime.split('jhSplitFollowupReceipts56.issue(').length!==2||
     runtime.split('jhSplitFollowupReceipts56.read(').length!==2||
     runtime.split('computerExecutionReceipts56.issue(').length!==2||
@@ -194,7 +212,8 @@ export async function buildStage25PendingOperatorEntrypoint56(
     (stage41&&(runtime.split('const jhCommandCauses41=new Map();').length!==2||
       runtime.split('function jhCommandCause41(').length!==2))||
     (stage44&&(runtime.split('const jhFocus44=createStage44DeviceFocus(').length!==2||
-      runtime.split('DEVICE_FOCUS_PROTECTED_OTHER_BEGIN').length!==2)))
+      runtime.split('DEVICE_FOCUS_PROTECTED_OTHER_BEGIN').length!==2))||
+    (commandDiagnostics&&runtime.split('secureBridgeVersion:56,mobileRightStatus56,commandDiagnostics').length!==2))
   fail('JH_STAGE25_FOLLOWUP_PATCH_NOT_EXACT');
  emit(p.runtime,runtime);
 
@@ -231,6 +250,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
    stage40OwnerAdmissionDiagnostics:stage40,
    stage41CommandLifecycleDiagnostics:stage41,
    stage44DeviceFocus:stage44,
+   mobile13CommandDiagnostics:commandDiagnostics,
    ...(stage26Ack?{signedCompletionAckStage26:true}:{}),
    productionEnabled:false,automaticReplayAllowed:false
  });
@@ -249,6 +269,7 @@ export async function main(env=process.env){
  const stage40EnabledAtBootstrap=selectStage40OwnerAdmissionDiagnostics56(env);
  const stage41EnabledAtBootstrap=selectStage41CommandLifecycle56(env);
  const stage44EnabledAtBootstrap=selectStage44Focus56(env);
+ const commandDiagnosticsEnabledAtBootstrap=selectMobile13CommandDiagnostics56(env);
  const root=path.resolve(import.meta.dirname,'..');
  const built=await buildStage25PendingOperatorEntrypoint56(root,env);
  const module=await import(pathToFileURL(built.file).href+'?sha='+built.stamp.operationalSha256);
@@ -284,6 +305,12 @@ export async function main(env=process.env){
   console.log('JH_STAGE44_EXCLUSIVE_SIGNED_WORKFLOW_FOCUS_ACTIVE '+JSON.stringify({
    originalBeginAuthorityPreserved:true,phoneSignedDiscardPreserved:true,
    maxLeaseMs:120000,automaticReplay:false,ownerGrantsUnchanged:true,apkChanged:false
+  }));
+ }
+ if(commandDiagnosticsEnabledAtBootstrap){
+  console.log('JH_MOBILE13_COMMAND_DIAGNOSTICS_READ_ONLY_ACTIVE '+JSON.stringify({
+   memorySnapshotOnly:true,authorizesBegin:false,automaticReplay:false,
+   trustRevalidated:false,phoneJobsCreated:false,apkChanged:false
   }));
  }
  return running;

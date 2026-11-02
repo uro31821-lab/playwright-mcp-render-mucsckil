@@ -41,6 +41,7 @@ export async function installOwnerLearning(runtime, { config, runtimeId = random
     controller = await createServerLearning({
       file: path.join(config.stateDir, 'operational-learning-v1.json'),
       ownerScope: 'jh-owner:' + config.accountDigest, runtimeId, context: CONTEXT,
+      hostMemoryEnabled: process.env.JH_HOST_MEMORY_BRIDGE === 'EXPLICIT_OWNER_HOST_MEMORY_V1',
     });
   } catch {
     // A memory-volume problem is visible through life_status but cannot replay,

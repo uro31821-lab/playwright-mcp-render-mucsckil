@@ -29,6 +29,9 @@ jobs:
           node-version: '22'
       - name: Ensure original global durable journal, OAuth, HMAC, Android and startup router are byte-identical
         run: |
+          # Audit the checked-out source before runtime fixtures create their
+          # known untracked generated modules under the source directories.
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
           git diff --exit-code origin/jh-fix3-secure-server HEAD -- \
             jh-server/server.mjs \
             jh-server/owner-setup/deployment/durable-native-job-policy.mjs \
@@ -62,9 +65,12 @@ jobs:
         run: |
           node --test --test-concurrency=1 --test-reporter=spec jh-server/verification/durable-computer-policy.test.mjs
           node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile13-browser-retirement.test.mjs
-          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
       - name: No release, production database cleanup, replay, phone touch or protected policy broadening
         run: |
+          # Generated outputs are fixture results, not new input source. Original
+          # tracked inputs must still be unchanged after every runtime test.
+          git -c core.fileMode=true diff --exit-code HEAD -- \
+            jh-server jh-dev-tools/windows-delivery/fixtures/fix16 package.json package-lock.json
           test -z "${RENDER_SERVICE_ID:-}"
           echo OWNER_HISTORIC_29_UNKNOWN_RECORDS=UNCHANGED
           echo OWNER_SQLITE_MIGRATION=NOT_RUN

@@ -9,11 +9,13 @@ import { decideProposal, proposalDecisionView, decisionSummary } from './decisio
 import { bindRegression, runRegression } from './regression.mjs';
 import { evaluateConstraints } from './constraints.mjs';
 import { evaluateTrajectory } from './trajectory.mjs';
+import { hostMemoryContext, hostMemoryTaskView, observeHostMemory } from './host-memory-bridge.mjs';
 
 const RECEIPT_TOOLS = new Set([
   'life_job_status', 'job_status', 'life_android_pending_approval_receipt_status',
   'life_android_action_approval_status', 'life_android_screen_consent_status',
   'life_learning_context', 'life_learning_review',
+  'life_learning_host_context', 'life_learning_host_task', 'life_learning_host_observe',
 ]);
 const RECEIPT_MODES = new Set(['STATUS', 'RECEIPT_STATUS', 'READBACK_PENDING']);
 const VERIFIED = new Set(['success_verified', 'failure_verified']);
@@ -119,7 +121,8 @@ function settleWithin(promise, milliseconds) {
  * Only trusted host code supplies call identity and verified result/observation metadata.
  */
 export async function createServerLearning({ file, ownerScope, runtimeId, context,
-  clock = () => new Date().toISOString() }) {
+  clock = () => new Date().toISOString(), hostMemoryEnabled = false }) {
+  if (typeof hostMemoryEnabled !== 'boolean') throw new TypeError('LEARNING_HOST_ENABLE_INVALID');
   const calls = new AsyncLocalStorage();
   let bindings = new Map();
   let bindingGroup;
@@ -594,6 +597,54 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       liveExecutionVerified: false, externalEffects: false };
   }
 
+  const hostBoundary = Object.freeze({ advisoryOnly: true, externalEffects: false,
+    replayAllowed: false, authorizesExecution: false,
+    sourceAuthentication: 'authenticated_owner_attestation', sourceRetrievalVerified: false,
+    independentOutcomeVerification: false, liveExecutionVerified: false,
+    ordinaryChatsObserved: false, librarySync: 'not_connected' });
+  function hostDisabled() {
+    return { ok: false, code: 'LEARNING_HOST_MEMORY_DISABLED', ...hostBoundary };
+  }
+  async function hostContext(input) {
+    if (!hostMemoryEnabled) return hostDisabled();
+    await queue;
+    const current = await refresh();
+    if (!current || closed || closing) return unavailableResult();
+    return { ...hostMemoryContext(current, input, { now: clock() }), ok: true, ...hostBoundary };
+  }
+  async function hostTask(input) {
+    if (!hostMemoryEnabled) return hostDisabled();
+    await queue;
+    const current = await refresh();
+    if (!current || closed || closing) return unavailableResult();
+    return { ...hostMemoryTaskView(current, input), ok: true, ...hostBoundary };
+  }
+  async function hostObserve(input) {
+    if (!hostMemoryEnabled) return hostDisabled();
+    await queue;
+    const current = await refresh();
+    if (!current || closed || closing) return unavailableResult();
+    // The core validates CAS inside this same lock, after exact-retry recovery.
+    // Never add an outer revision gate or replace an existing server attempt.
+    let saved;
+    try { saved = await store.transact(value => observeHostMemory(value, input, { now: clock() })); }
+    catch (error) {
+      const storageFailure = (STORE_CODES.has(error?.code) &&
+        !['LEARNING_REVISION_CONFLICT', 'LEARNING_REVISION_INVALID'].includes(error.code)) ||
+        ['EACCES', 'EPERM', 'ENOSPC', 'EROFS', 'EIO', 'EMFILE', 'ENFILE'].includes(error?.code);
+      if (!storageFailure) throw error;
+      failed(error);
+      // A failed/uncertain memory write is not an invalid observation and never
+      // authorizes repeating the original work. Recover this same receipt first.
+      return { ...unavailableResult(), ...hostBoundary,
+        existingObservationReadbackRequired: true, preserveOriginalObservationPayload: true };
+    }
+    state = saved.state;
+    const { state: unused, ...receipt } = saved;
+    return { ...receipt, ok: true, type: 'jh_learning_host_observation', revision: state.revision,
+      readOnly: saved.duplicate === true, ...hostBoundary };
+  }
+
   async function status() {
     await queue;
     const current = await refresh();
@@ -613,7 +664,9 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
         scopedProposals: true, proposalDecisions: true, proposalProgress: true,
         existingReceiptReconciliation: true, reviewReadiness: true, splitReadObservationReconciliation: true,
         splitFollowupClickReceiptReconciliation: true, computerInspectReceiptReconciliation: true,
-        splitComfortStatusReceiptReconciliation: true },
+        splitComfortStatusReceiptReconciliation: true,
+        hostObservationTransport: hostMemoryEnabled, hostMemoryContext: hostMemoryEnabled,
+        hostTaskReadback: hostMemoryEnabled },
       identityModel: 'configured-personal-server-owner', stateAvailable: Boolean(current),
       revision: known?.revision ?? null,
       counts: Object.fromEntries(['events', 'attempts', 'lessons', 'proposals'].map(key => [key,
@@ -626,7 +679,13 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
       availableAdvice: { lessons: Object.values(known?.lessons ?? {}).filter(item => item.state === 'active').length,
         proposals: proposals.filter(item => item.status === 'open').length },
       activity: { ...activity }, diagnostics: { failures, codes: [...faults].sort() },
-      observationScope: 'JH tool events only', librarySync: 'not_connected',
+      observationScope: hostMemoryEnabled
+        ? 'JH tool events and explicitly submitted host observations' : 'JH tool events only',
+      automaticObservationScope: 'JH tool events only', ordinaryChatsObserved: false,
+      hostMemory: { enabled: hostMemoryEnabled, submission: 'explicit_owner_submission',
+        sourceAuthentication: 'authenticated_owner_attestation', independentOutcomeVerification: false,
+        historicalLibraryImported: false, backgroundChatCollection: false },
+      librarySync: 'not_connected',
     };
   }
   async function close() {
@@ -658,5 +717,6 @@ export async function createServerLearning({ file, ownerScope, runtimeId, contex
     })();
     return closing;
   }
-  return Object.freeze({ invoke, jobCreated, jobCompleted, receiptObserved, context: preflightContext, review, status, close });
+  return Object.freeze({ invoke, jobCreated, jobCompleted, receiptObserved, context: preflightContext,
+    review, hostContext, hostTask, hostObserve, status, close });
 }

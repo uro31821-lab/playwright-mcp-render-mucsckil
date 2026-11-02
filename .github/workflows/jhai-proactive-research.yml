@@ -1,0 +1,36 @@
+name: JHAI Proactive Research
+
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'host-proactive-research/**'
+      - '.github/workflows/jhai-proactive-research.yml'
+  push:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'host-proactive-research/**'
+      - '.github/workflows/jhai-proactive-research.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jhai-proactive-research-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-proactive-research:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Use Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Verify portable runtime and private state adapter
+        run: node --test host-proactive-research/*.test.mjs

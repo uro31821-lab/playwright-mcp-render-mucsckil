@@ -35,5 +35,19 @@ export function createStage44DeviceFocus({now=Date.now,maxMs=120000,maxEntries=3
   if(row?.commandId!==commandId)return false;
   map.delete(device);return true;
  }
- return Object.freeze({mayBegin,start,release});
+ // Observation only: unlike mayBegin/start this never purges, releases or
+ // renews a row. Expired/mismatched rows remain exactly as the caller found them.
+ function peek({device,currentCommand,at=now()}={}){
+  const unknown={state:'unknown',present:null,active:null,remainingMs:null,currentCommandMatches:null};
+  if(!valid(device)||!Number.isSafeInteger(at)||at<0)return Object.freeze(unknown);
+  const row=map.get(device);
+  if(!row)return Object.freeze({state:'observed',present:false,active:false,
+   remainingMs:0,currentCommandMatches:null});
+  if(!Number.isSafeInteger(row.until))return Object.freeze(unknown);
+  const remainingMs=Math.max(0,Math.min(maxMs,row.until-at));
+  const matches=cmd(currentCommand)?row.commandId===currentCommand:currentCommand===null?false:null;
+  return Object.freeze({state:'observed',present:true,
+   active:remainingMs===0?false:matches,remainingMs,currentCommandMatches:matches});
+ }
+ return Object.freeze({mayBegin,start,release,peek});
 }
