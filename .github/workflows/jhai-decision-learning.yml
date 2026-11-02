@@ -1,0 +1,36 @@
+name: JHAI Decision Learning
+
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'host-decision-learning/**'
+      - '.github/workflows/jhai-decision-learning.yml'
+  push:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'host-decision-learning/**'
+      - '.github/workflows/jhai-decision-learning.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jhai-decision-learning-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-decision-learning:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Use Node.js 24
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Verify decision lifecycle and current-goal integration
+        run: node --test host-decision-learning/*.test.mjs
