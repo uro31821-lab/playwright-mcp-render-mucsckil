@@ -1,0 +1,35 @@
+name: JHAI Pattern Guidance
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'host-pattern-guidance/**'
+      - 'host-personalization/**'
+      - 'host-decision-learning/**'
+      - 'host-proactive-research/**'
+      - '.github/workflows/jhai-pattern-guidance.yml'
+  push:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'host-pattern-guidance/**'
+      - '.github/workflows/jhai-pattern-guidance.yml'
+permissions:
+  contents: read
+concurrency:
+  group: pattern-guidance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Pattern engine, storage and real runtime integration
+        run: node --test host-pattern-guidance/*.test.mjs
+      - name: Existing research, personalization, decision and dialogue regressions
+        run: node --test host-personalization/*.test.mjs host-proactive-research/*.test.mjs host-decision-learning/*.test.mjs host-personal-dialogue/*.test.mjs
