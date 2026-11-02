@@ -1,0 +1,15 @@
+{
+  "schema": "jh.personalization-binding.v1",
+  "stateFileName": "JH_Personal_Choices_v1.json",
+  "stateSchema": "jh.personalization.v1",
+  "ownerScope": "personal-jh",
+  "storage": "private_library",
+  "mode": "conversation_triggered",
+  "backgroundEnabled": false,
+  "runtime": "../scripts/runtime.js",
+  "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "sourceDirectory": "host-personalization",
+  "existingMemoryMigration": false,
+  "stateIdentityPolicy": "Resolve exact filename through current Library tools, retain its returned ID and version, and never create after a failed or ambiguous lookup.",
+  "examplesAreUserEvidence": false
+}
