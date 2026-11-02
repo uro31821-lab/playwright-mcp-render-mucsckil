@@ -30,6 +30,8 @@ test('stale new write rejected',()=>{const s=active();assert.throws(()=>add(s,{.
 test('state and candidates not mutated by readers/writers',()=>{const s=active(),before=structuredClone(s),c=cand();E.evaluateProposal(s,{now:at(10),candidate:c});add(s,obs(s));assert.deepEqual(s,before);assert.equal(c.sources[0].url,'https://example.org/source');});
 test('unknown raw transcript field rejected',()=>{const s=initial(),r=obs(s);r.data.rawChat='not allowed';assert.throws(()=>add(s,r),/INPUT_INVALID/);});
 test('common credentials rejected without being persisted',()=>{const s=initial(),r=obs(s);r.data.summary='password=synthetic-secret';assert.throws(()=>add(s,r),/INPUT_INVALID/);});
+test('text limits apply after Unicode normalization before returning a state',()=>{const s=initial(),r=obs(s);r.data.summary='ﬃ'.repeat(110);assert.throws(()=>add(s,r),/INPUT_INVALID/);assert.equal(s.revision,0);});
+test('normalized credential-like text is rejected before returning a state',()=>{const s=initial(),r=obs(s);r.data.summary='ｐａｓｓｗｏｒｄ=synthetic-secret';assert.throws(()=>add(s,r),/INPUT_INVALID/);assert.equal(s.revision,0);});
 for(const id of ['__proto__','constructor','prototype'])test('reserved identifier '+id+' rejected',()=>assert.throws(()=>add(initial(),{...obs(initial()),id}),/INPUT_INVALID/));
 test('getters never invoked',()=>{let hits=0;const r=obs(initial());Object.defineProperty(r,'data',{get(){hits++;return {};},enumerable:true});assert.throws(()=>add(initial(),r));assert.equal(hits,0);});
 test('sparse arrays and nonfinite input rejected',()=>{assert.throws(()=>E.fingerprint([,1]));assert.throws(()=>E.fingerprint({x:NaN}));});

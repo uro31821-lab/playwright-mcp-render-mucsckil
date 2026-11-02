@@ -1,7 +1,7 @@
 /** Read-only integration with the ACTUAL installed JH runtimes; callbacks are
  * explicitly supplied by the host. No guessed data, network calls or effects.
  */
-import {clean,check,fingerprint,context,evaluateProposal,mutate,iso,validateState} from './engine.mjs';
+import {clean,check,fingerprint,evidenceFingerprint,context,evaluateProposal,mutate,iso,validateState} from './engine.mjs';
 function fields(x,keys,optional=[]){check(x&&typeof x==='object'&&!Array.isArray(x)&&keys.every(k=>Object.hasOwn(x,k))&&Object.keys(x).every(k=>keys.includes(k)||optional.includes(k)),'PATTERN_ADAPTER_INPUT');}
 function apis(r){
   for(const key of ['research','personal','decision','decisionContext'])check(r?.[key]?.VERSION==='1.0.0','PATTERN_RUNTIME_UNAVAILABLE');
@@ -57,8 +57,8 @@ export function deliveryTransition(states,input,runtimes){
   const proposal=q.proposals[x.researchProposalId];check(proposal&&proposal.topicId===x.topicId,'PATTERN_RESEARCH_MISMATCH');
   const currentGoal=r.decision.goalContext(states.decision,{goalId:p.data.goalId,at:x.at});
   check(currentGoal.eligible&&currentGoal.goalRevision===p.data.goalRevision,'PATTERN_GOAL_CHANGED');
-  const evidence=proposal.sources.map(s=>({url:s.url,contentHash:s.contentHash})).sort((a,b)=>a.url.localeCompare(b.url));
-  check(fingerprint(evidence)===fingerprint(p.data.sources.map(s=>({url:s.url,contentHash:s.contentHash}))),'PATTERN_EVIDENCE_MISMATCH');
+  const evidence=proposal.sources.map(s=>({url:s.url,contentHash:s.contentHash,retrievedAt:s.retrievedAt,kind:s.kind}));
+  check(evidenceFingerprint(evidence,x.at)===evidenceFingerprint(p.data.sources,x.at),'PATTERN_EVIDENCE_MISMATCH');
   const topic=q.topics[x.topicId];check(topic.status==='active'||topic.status==='snoozed'&&topic.until!==null&&Date.parse(x.at)>=Date.parse(topic.until),'PATTERN_TOPIC_PAUSED');
   const a=mutate(states.pattern,{id:x.receiptId,kind:'receipt',sourceRef:x.sourceRef,at:x.at,expectedRevision:states.pattern.revision,data:{proposalId:x.patternProposalId,meaning:'handoff_attempted'}});
   const b=r.research.acknowledge(q,{expectedRevision:q.revision,receiptId:x.receiptId,proposalIds:[x.researchProposalId],at:x.at});

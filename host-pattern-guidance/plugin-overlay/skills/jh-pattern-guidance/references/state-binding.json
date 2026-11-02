@@ -1,0 +1,25 @@
+{
+  "schema": "jh.pattern-guidance-binding.v1",
+  "stateFileName": "JH_Pattern_Memory_v2.json",
+  "stateSchema": "jh.pattern-memory.v2",
+  "ownerScope": "personal-jh",
+  "storage": "private_library",
+  "mode": "conversation_triggered",
+  "backgroundEnabled": false,
+  "runtime": "../scripts/engine.mjs",
+  "installedAdapter": "../scripts/installed-runtime.mjs",
+  "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "sourceDirectory": "host-pattern-guidance",
+  "existingMemoryMigration": false,
+  "stateIdentityPolicy": "Resolve the exact filename through current Library tools; retain the returned ID and version. Never create after failed, ambiguous or corrupt retrieval.",
+  "relatedStateFiles": {
+    "personal": "JH_Personal_Choices_v1.json",
+    "decision": "JH_Decision_Learning_v1.json",
+    "research": "JH_Proactive_Research_v1.json",
+    "dialogue": "JH_Personal_Dialogue_v1.json"
+  },
+  "examplesAreUserEvidence": false,
+  "deliveryIsReadProof": false,
+  "automaticallyChangesPreferences": false,
+  "collectsAllConversations": false
+}

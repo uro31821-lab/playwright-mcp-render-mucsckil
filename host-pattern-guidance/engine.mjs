@@ -34,7 +34,10 @@ export const fingerprint=x=>createHash('sha256').update(canon(clean(x))).digest(
 const equal=(a,b)=>canon(a)===canon(b);
 function fields(x,required,optional=[]){check(x&&typeof x==='object'&&!Array.isArray(x));check(required.every(k=>own(x,k))&&Object.keys(x).every(k=>required.includes(k)||optional.includes(k)));}
 const secret=s=>/\bBearer\s+\S+|(?:api[-_ ]?key|password|access[-_ ]?token|secret)\s*[:=]\s*\S+|-----BEGIN .*PRIVATE KEY-----|\b(?:sk-proj-|ghp_|github_pat_)[\w-]{12,}/i.test(s);
-function text(x,max=500){check(typeof x==='string'&&x.length<=max&&x.trim().length>0&&!/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e]/.test(x)&&!secret(x));return x.normalize('NFKC').trim();}
+function text(x,max=500){
+  const valid=s=>s.length<=max&&s.trim().length>0&&!/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e]/.test(s)&&!secret(s);
+  check(typeof x==='string'&&valid(x));const normalized=x.normalize('NFKC').trim();check(valid(normalized));return normalized;
+}
 function token(x){const v=text(x,160);check(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(v)&&!RESERVED.has(v));return v;}
 function ref(x){const v=text(x,240);check(/^(?:conversation|user|source|artifact|test|commit|file|library):[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(v));return v;}
 export function iso(x){check(typeof x==='string'&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{3})?Z$/.test(x));const n=Date.parse(x);check(Number.isFinite(n));const s=new Date(n).toISOString();check(s===x||s.replace('.000Z','Z')===x);return s;}
@@ -50,6 +53,12 @@ function publicUrl(x){
   u.searchParams.sort();u.hash='';return u.href;
 }
 function source(x,at){fields(x,['url','contentHash','retrievedAt','kind']);check(/^[a-f0-9]{64}$/.test(x.contentHash));check(['official','source','paper'].includes(x.kind));const t=iso(x.retrievedAt);check(t<=at,'PATTERN_SOURCE_FUTURE');return {url:publicUrl(x.url),contentHash:x.contentHash,retrievedAt:t,kind:x.kind};}
+function normalizedSources(value,at){
+  check(Array.isArray(value)&&value.length>0&&value.length<=6,'PATTERN_SOURCE_REQUIRED');
+  const sources=value.map(s=>source(s,at)).sort((a,b)=>a.url.localeCompare(b.url));check(new Set(sources.map(s=>s.url)).size===sources.length);return sources;
+}
+/** Shared identity for persisted normalized evidence and native research sources. */
+export function evidenceFingerprint(value,at){return fingerprint(normalizedSources(clean(value),iso(at)).map(s=>({url:s.url,contentHash:s.contentHash})));}
 const emptyView=()=>({topics:{},rules:{},proposals:{},receipts:{},observations:[],outcomes:[],sources:{}});
 export function createState(input){const x=clean(input);fields(x,['ownerScope','now']);const now=iso(x.now);return {schema:SCHEMA,apiVersion:VERSION,ownerScope:token(x.ownerScope),createdAt:now,updatedAt:now,revision:0,events:[]};}
 function normalize(kind,x,at){
@@ -78,10 +87,9 @@ function normalize(kind,x,at){
   }
   if(kind==='proposal'){
     fields(x,['topicId','changeKey','goalId','goalRevision','summary','sources','sourceRetrievalAttested','goalActive','hardConstraintsMet','mode','benefit','confidence','setupBurden','ongoingBurden','interruptionCost']);
-    check(Array.isArray(x.sources)&&x.sources.length>0&&x.sources.length<=6,'PATTERN_SOURCE_REQUIRED');
     check(x.sourceRetrievalAttested===true,'PATTERN_SOURCE_UNATTESTED');
     check([true,false,null].includes(x.goalActive)&&[true,false,null].includes(x.hardConstraintsMet)&&['normal','busy','explore'].includes(x.mode));
-    const sources=x.sources.map(s=>source(s,at)).sort((a,b)=>a.url.localeCompare(b.url));check(new Set(sources.map(s=>s.url)).size===sources.length);
+    const sources=normalizedSources(x.sources,at);
     return {topicId:token(x.topicId),changeKey:token(x.changeKey),goalId:token(x.goalId),goalRevision:int(x.goalRevision,0,1e9),summary:text(x.summary,500),sources,sourceRetrievalAttested:true,goalActive:x.goalActive,hardConstraintsMet:x.hardConstraintsMet,mode:x.mode,...Object.fromEntries(['benefit','confidence','setupBurden','ongoingBurden','interruptionCost'].map(k=>[k,unit(x[k])]))};
   }
   if(kind==='receipt'){fields(x,['proposalId','meaning']);check(x.meaning==='handoff_attempted');return {proposalId:token(x.proposalId),meaning:x.meaning};}
