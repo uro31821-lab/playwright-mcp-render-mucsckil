@@ -1,0 +1,15 @@
+{
+  "schema": "jh.personalization-source.v1",
+  "repository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "branch": "jh-fix3-secure-server",
+  "directory": "host-personalization",
+  "remoteAvailability": "Repository coordinates identify the intended source; this manifest attests bundled hashes, not remote publication.",
+  "files": {
+    "runtime.js": "ad7835ccfeca98486d8a1478e5a60996cb1d61aaebad094229e2d1538821d0b9",
+    "cli.mjs": "6bf7a9af6d64fc9c9b9cc31ffc3b4000c03ec96bec8ab4075c18285bcccf850f",
+    "SOURCES.md": "988987de686d7ebfe1b10f914f9ed8e9fa67aabcf1a3130593e75b5a3adfb9c9"
+  },
+  "dependencies": [],
+  "sourceCopyPolicy": "Byte-identical copies; run sync-overlay.mjs after source changes.",
+  "privateStateIncluded": false
+}
