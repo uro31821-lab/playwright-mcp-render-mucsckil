@@ -12,7 +12,7 @@ import {reverseJH168Mobile13ActionPolicyHost56} from './mobile13-action-policy-p
 const ORIGINAL='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
 const STAGE43_MERGE='e346a1c9d425428df5cba4069f26842450542b43';
 const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
-const CURRENT_MAIN='d0772eed4965eb4cee724ea5cf3b19a1a29deac2';
+const CURRENT_MAIN='4f12af39623b6e542fd346157b269139eb356e69';
 const MOBILE='c6142bd21ea299a4464124356e9da34b58001900';
 const ROOT='jh-server/owner-setup/';
 const show=(sha,path)=>execFileSync('git',['show',sha+':'+path],{
