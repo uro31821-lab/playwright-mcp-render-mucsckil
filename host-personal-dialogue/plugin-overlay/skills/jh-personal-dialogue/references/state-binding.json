@@ -1,0 +1,18 @@
+{
+  "schema": "jh.personal-dialogue-binding.v1",
+  "stateFileName": "JH_Personal_Dialogue_v1.json",
+  "stateSchema": "jh.personal-dialogue.v1",
+  "ownerScope": "personal-jh",
+  "storage": "private_library",
+  "mode": "conversation_triggered",
+  "backgroundEnabled": false,
+  "runtime": "../scripts/runtime.js",
+  "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "sourceDirectory": "host-personal-dialogue",
+  "existingMemoryMigration": false,
+  "stateIdentityPolicy": "Resolve exact filename with current Library tools, retain the returned ID and version, and never create after a failed or ambiguous lookup.",
+  "examplesAreUserEvidence": false,
+  "feedbackTextAutomaticallyChangesWeights": false,
+  "questionDeliveryIsReadProof": false,
+  "unansweredQuestionIsNegativeFeedback": false
+}
