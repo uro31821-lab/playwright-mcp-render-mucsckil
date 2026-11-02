@@ -62,9 +62,14 @@ export function validateStage49SignedWindowDiagnostic({
    typeof d.sampleTruncated!=='boolean'||
    d.windows.some(x=>!rowValid(x)))
    return safe('WINDOW_DIAGNOSTIC_STRUCTURE_INVALID');
- if(d.code==='STAGE49_ORIGINAL_WORK_BOUNDS_UNAVAILABLE'&&d.windows.length!==0)
-   return safe('NO_WINDOW_CONTENT_WITHOUT_ORIGINAL_BOUNDS');
- if(d.code==='STAGE49_NO_OVERLAPPING_NON_APP_WINDOW'&&d.overlapCount!==0)
+ if(d.code==='STAGE49_ORIGINAL_WORK_BOUNDS_UNAVAILABLE'){
+   if(d.windows.length!==0)return safe('NO_WINDOW_CONTENT_WITHOUT_ORIGINAL_BOUNDS');
+   return safe('ORIGINAL_WORK_BOUNDS_UNAVAILABLE');
+ }
+ if(d.code==='STAGE49_APPLICATION_WINDOW_COUNT_DIAGNOSTIC'&&d.applicationWindowCount<=2)
+   return safe('DIAGNOSTIC_COUNT_INCONSISTENT');
+ if(d.code==='STAGE49_NO_OVERLAPPING_NON_APP_WINDOW'&&
+    (d.overlapCount!==0||d.applicationWindowCount>2))
    return safe('DIAGNOSTIC_COUNT_INCONSISTENT');
  if(d.code==='STAGE49_OVERLAPPING_NON_APP_WINDOW_OBSERVED'&&d.overlapCount===0)
    return safe('DIAGNOSTIC_COUNT_INCONSISTENT');
