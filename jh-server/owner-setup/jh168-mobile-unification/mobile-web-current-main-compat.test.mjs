@@ -1,6 +1,7 @@
 /** JH168 verified-current-MAIN mobile/source review (NO RELEASE).
  * Preserve BOTH historical PR72 / 2c310f8 source evidence and the reviewed
- * recorded Stage44 LIVE f32cf6c7 and CURRENT reviewed main d0772eed;\n * preserve both Stage43 and PR72 history.
+ * recorded Stage44 LIVE f32cf6c7 and CURRENT reviewed main d0772eed;
+ * preserve both Stage43 and PR72 history.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +11,8 @@ import {reverseJH168Mobile13ActionPolicyHost56} from './mobile13-action-policy-p
 
 const ORIGINAL='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
 const STAGE43_MERGE='e346a1c9d425428df5cba4069f26842450542b43';
-const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';\nconst CURRENT_MAIN='d0772eed4965eb4cee724ea5cf3b19a1a29deac2';
+const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
+const CURRENT_MAIN='d0772eed4965eb4cee724ea5cf3b19a1a29deac2';
 const MOBILE='c6142bd21ea299a4464124356e9da34b58001900';
 const ROOT='jh-server/owner-setup/';
 const show=(sha,path)=>execFileSync('git',['show',sha+':'+path],{
@@ -38,7 +40,8 @@ test('re-reviewed current MAIN and historical pre-mobile source are pinned EXACT
  assert.equal(cmd(['rev-parse','refs/remotes/origin/jh-fix3-secure-server']),CURRENT_MAIN,
   'MAIN_ADVANCED_REFRESH_SOURCE_AUDIT');
  assert.equal(cmd(['merge-base',ORIGINAL,REVIEWED_MAIN]),ORIGINAL);
- assert.equal(cmd(['merge-base',STAGE43_MERGE,REVIEWED_MAIN]),STAGE43_MERGE);\n assert.equal(cmd(['merge-base',REVIEWED_MAIN,CURRENT_MAIN]),REVIEWED_MAIN);
+ assert.equal(cmd(['merge-base',STAGE43_MERGE,REVIEWED_MAIN]),STAGE43_MERGE);
+ assert.equal(cmd(['merge-base',REVIEWED_MAIN,CURRENT_MAIN]),REVIEWED_MAIN);
  assert.equal(cmd(['merge-base',ORIGINAL,MOBILE]),ORIGINAL);
  assert.equal(cmd(['merge-base',CURRENT_MAIN,'HEAD']),CURRENT_MAIN);
 });
