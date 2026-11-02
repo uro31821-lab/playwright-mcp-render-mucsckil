@@ -50,6 +50,8 @@ node /absolute/plugin/skills/jh-pattern-guidance/scripts/cli.mjs COMMAND \
 
 기존 조사 모듈의 실제 검색·출처 수집·완료 흐름에서 `proposalId`를 얻는다. 조사·주제 상태를 제안 적격성을 만들기 위해 임의로 재활성화하지 않는다. 공개 검색어는 사적 정보가 없는지 확인한다. URL과 내용 해시는 동일 출처를 확인하는 수단이며 사실성·HTTP 조회를 독립 인증하지 않는다.
 
+`notices`에 현재 후보가 없으면 `reviewInstalled`를 호출하기 위한 후보나 지표를 만들지 않는다. 패턴은 `detectPatterns`로 조회하고 실제 topic이 있을 때만 `context`를 읽는다. 기존 목표가 있으면 `goalContext`, 현재 대화는 `dialogueContext`를 읽어 마지막 검증 결과와 미완료 작업을 이어간다. 계속 요청을 새 명시적 조사 사건으로 바꾸지 않고, 완료 목표·이미 전달된 제안도 그대로 둔다. 새 제안이 없다는 결과는 승인된 작업을 중단할 이유가 아니다.
+
 설치된 skill의 `scripts/installed-runtime.mjs`에서 `reviewInstalled`를 import한다. 기본 상대 경로는 같은 플러그인의 `skills/`를 가리킨다. 별도 검증 디렉터리에서 실행할 때만 실제 검증된 `skillsRoot` 디렉터리 URL을 명시한다. 로더가 의존 해시 변경을 알리면 임의 경로·버전으로 우회하지 말고 실제 변경을 대조한다.
 
 ```js

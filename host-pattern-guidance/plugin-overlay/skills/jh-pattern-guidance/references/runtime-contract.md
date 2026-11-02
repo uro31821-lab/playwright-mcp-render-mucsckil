@@ -9,7 +9,7 @@ API 버전은 `1.0.0`, 상태 스키마는 `jh.pattern-memory.v2`다. 정식 계
 | 시각 | 실제 UTC ISO 문자열 `YYYY-MM-DDTHH:mm:ssZ` 또는 밀리초 세 자리. 상태에는 밀리초 형식으로 정규화. |
 | ID·key·owner | 1~160자, 영문·숫자로 시작, 이후 영문·숫자·`.`·`_`·`:`·`-`. 예약 프로퍼티 이름은 불가. |
 | scope | `{topic, project?, aspect?}`. 각 값은 token이며 소문자로 정규화. 같은 의미 추정으로 범위를 확장하지 않음. |
-| sourceRef | `conversation:`, `user:`, `source:`, `artifact:`, `test:`, `commit:`, `file:`, `library:` 중 하나로 시작하는 불투명 참조, 240자 이내. 실제 출처 위치를 복구할 수 있게 보존. |
+| sourceRef | `conversation:`, `user:`, `source:`, `artifact:`, `test:`, `commit:`, `file:`, `library:` 중 하나로 시작하는 불투명 참조, 전체 240자 이내. 접두사 뒤는 `[A-Za-z0-9][A-Za-z0-9._/-]*`이며 추가 콜론은 불가. 예: `conversation:thread/message`. 실제 출처 위치를 복구할 수 있게 보존. |
 | 상태 | `{schema, apiVersion, ownerScope, createdAt, updatedAt, revision, events}`. 원본 사건 재생으로 검증. |
 | 공통 변경 | `{id, kind, data, sourceRef, at, expectedRevision}`. 새로운 사건은 현재 revision과 일치해야 함. |
 | 변경 반환 | `{state, result}`. `result.changed`, `duplicate`, `id`, `revision` 등을 확인. 반환만으로 저장되지는 않음. |
@@ -67,6 +67,8 @@ sources는 1~6개의 `{url, contentHash, retrievedAt, kind}`다. 공개 HTTPS UR
 states는 `{pattern, personal, decision, research}`다. 런타임은 `personal/decision/research/decisionContext`의 API 버전 1.0.0이며 기존 파일을 해시로 확인한다. 모든 ownerScope가 같아야 하고 패턴 scope와 목표 scope도 같아야 한다.
 
 review input은 `{at, topicId, goalId, proposalId, changeKey, ranking, mode, metrics, hostConditionsVerified}`다. ranking은 `{scope, candidates, context?}`이고 기존 개인화 후보 형식 `{id, label, features, sourceRefs}`을 사용한다. `proposalId`는 기존 조사 notices의 실제 ID여야 하며 해당 ID가 ranking 후보에 있어야 한다. metrics는 다섯 비교 지표만 허용한다. hostConditionsVerified는 true/false/null이다.
+
+검토할 현재 후보가 없으면 이 함수를 호출하지 않고 각 모듈의 읽기 API로 원래 작업을 계속한다. 빈 후보 목록이나 임의의 제안·지표로 필수 입력을 채우지 않는다. 검토와 호출 사이에 실제 후보가 이미 전달되었거나 사라졌으면 `research_not_available_or_already_delivered`를 정상적인 제안 억제로 처리한다. 이때 별도 결과의 pattern과 goalContext를 함께 읽으며 최상위 reason만으로 모든 조건을 설명하지 않는다.
 
 실제 호출은 기존 `notices`, `rankWithGoal`, `reviewContext`, `selectProposals`와 패턴 평가를 결합한다. review 반환은 현재 패턴·목표·과거 결과·순위·show/reason과 적격 후보·연결 지문을 포함한다. `referencesOnly:true`, `permanentPreferencesChanged:false`, `authorizesExecution:false`다.
 
