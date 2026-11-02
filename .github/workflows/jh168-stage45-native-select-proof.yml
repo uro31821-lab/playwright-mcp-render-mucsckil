@@ -5,12 +5,14 @@ on:
     paths:
       - 'jh-server/owner-setup/jh168-mobile-unification/stage45-*'
       - 'jh-server/owner-setup/jh168-mobile-unification/stage49-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage52-*'
       - '.github/workflows/jh168-stage45-native-select-proof.yml'
   pull_request:
     branches: [jh-fix3-secure-server]
     paths:
       - 'jh-server/owner-setup/jh168-mobile-unification/stage45-*'
       - 'jh-server/owner-setup/jh168-mobile-unification/stage49-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage52-*'
       - '.github/workflows/jh168-stage45-native-select-proof.yml'
 permissions:
   contents: read
@@ -42,7 +44,8 @@ jobs:
         run: |
           node --test --test-concurrency=1 --test-reporter=spec \
             jh-server/owner-setup/jh168-mobile-unification/stage45-native-select-popup-proof.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage49-native-select-window-diagnostic.test.mjs
+            jh-server/owner-setup/jh168-mobile-unification/stage49-native-select-window-diagnostic.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage52-original-signed-select-readback.test.mjs
       - name: Stage49 source-only redacted Android window proof boundary
         run: |
           echo JH49_REDACTED_WINDOW_DIAGNOSTIC_ONLY=YES
