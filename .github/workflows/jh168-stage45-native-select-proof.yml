@@ -1,5 +1,11 @@
 name: JH168 Stage45 native select popup original-window proof (SOURCE ONLY)
 on:
+  push:
+    branches: [feat/jh168-stage45-native-select-popup-proof-20261101]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage45-*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage49-*'
+      - '.github/workflows/jh168-stage45-native-select-proof.yml'
   pull_request:
     branches: [jh-fix3-secure-server]
     paths:
