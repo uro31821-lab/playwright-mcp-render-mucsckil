@@ -1,6 +1,7 @@
 /** JH168 Stage44 MAIN source protection. The earlier Stage42 test was
  * pinned to pre-PR111 MAIN 2c310f8, but actual deployed MAIN advanced to
- * recorded Stage44 LIVE f32cf6c7. Current reviewed main is d0772eed.\n * Preserve Stage43 and PR72 history, require zero current
+ * recorded Stage44 LIVE f32cf6c7. Current reviewed main is d0772eed.
+ * Preserve Stage43 and PR72 history, require zero current
  * changes to global protected source and pin real LIVE to current MAIN.
  */
 import test from 'node:test';
@@ -12,7 +13,8 @@ import {reverseJH168Mobile13ActionPolicyHost56}
 
 const PRE_MOBILE='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
 const STAGE43_RELEASE='e346a1c9d425428df5cba4069f26842450542b43';
-const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';\nconst CURRENT_MAIN='d0772eed4965eb4cee724ea5cf3b19a1a29deac2';
+const REVIEWED_MAIN='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
+const CURRENT_MAIN='d0772eed4965eb4cee724ea5cf3b19a1a29deac2';
 const REVIEWED_PR72='c6142bd21ea299a4464124356e9da34b58001900';
 const LIVE='f32cf6c7d615245d2f8307ae467dcfc0450dc359';
 const ROOT='jh-server/owner-setup/';
@@ -28,11 +30,15 @@ test('MAIN advanced to exact reviewed deployed PR111, original pre-mobile proven
  for(const sha of [PRE_MOBILE,STAGE43_RELEASE,REVIEWED_MAIN,CURRENT_MAIN,REVIEWED_PR72,LIVE])assert.equal(git(['cat-file','-t',sha]),'commit');
  assert.equal(git(['merge-base',PRE_MOBILE,REVIEWED_MAIN]),PRE_MOBILE);
  assert.equal(git(['merge-base',STAGE43_RELEASE,REVIEWED_MAIN]),STAGE43_RELEASE);
- assert.equal(git(['merge-base',PRE_MOBILE,REVIEWED_PR72]),PRE_MOBILE);\n assert.equal(git(['merge-base',REVIEWED_MAIN,CURRENT_MAIN]),REVIEWED_MAIN);
+ assert.equal(git(['merge-base',PRE_MOBILE,REVIEWED_PR72]),PRE_MOBILE);
+ assert.equal(git(['merge-base',REVIEWED_MAIN,CURRENT_MAIN]),REVIEWED_MAIN);
  assert.equal(git(['merge-base',CURRENT_MAIN,'HEAD']),CURRENT_MAIN);
 });
 test('ALL original Secure56, device, owner, payment, approval and journal protected sources unchanged in Stage45',()=>{
- assert.deepEqual(files(protectedRoots),[],'UNREVIEWED_PROTECTED_SOURCE_CHANGE');\n // PRs following the recorded Stage44 LIVE may add learning, never silently alter core Secure56.\n const core=protectedRoots.filter(p=>p!==ROOT+'operational-learning');\n assert.equal(git(['diff','--name-only',REVIEWED_MAIN,CURRENT_MAIN,'--',...core]),'');
+ assert.deepEqual(files(protectedRoots),[],'UNREVIEWED_PROTECTED_SOURCE_CHANGE');
+ // PRs following the recorded Stage44 LIVE may add learning, never silently alter core Secure56.
+ const core=protectedRoots.filter(p=>p!==ROOT+'operational-learning');
+ assert.equal(git(['diff','--name-only',REVIEWED_MAIN,CURRENT_MAIN,'--',...core]),'');
 });
 test('previous exact PR72 mobile host modifications remain byte-identical and reversible to old original',()=>{
  const host=ROOT+'deployment/durable-native-host.mjs';
@@ -54,7 +60,9 @@ test('recorded Stage44 LIVE provenance and exact current-main review delta',()=>
   ROOT+'jh168-mobile-unification/stage45-native-select-popup-proof.test.mjs',
   ROOT+'jh168-mobile-unification/STAGE45-NATIVE-SELECT-POPUP-EVIDENCE.md',
   ROOT+'jh168-mobile-unification/mobile-web-current-main-compat.test.mjs',
-  ROOT+'jh168-mobile-unification/stage42-protected-source-provenance.test.mjs',\n  ROOT+'jh168-mobile-unification/stage49-native-select-window-diagnostic.mjs',\n  ROOT+'jh168-mobile-unification/stage49-native-select-window-diagnostic.test.mjs'
+  ROOT+'jh168-mobile-unification/stage42-protected-source-provenance.test.mjs',
+  ROOT+'jh168-mobile-unification/stage49-native-select-window-diagnostic.mjs',
+  ROOT+'jh168-mobile-unification/stage49-native-select-window-diagnostic.test.mjs'
  ];
  for(const path of current)assert.ok(allowed.includes(path),'UNREVIEWED_CHANGED_FILE '+path);
  assert.equal(current.length,allowed.length,'STAGE45_EXPECTED_FILES_ONLY');
