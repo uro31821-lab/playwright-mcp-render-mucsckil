@@ -1,0 +1,24 @@
+{
+  "schema": "jh.personal-dialogue-source.v1",
+  "repository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "branch": "jh-fix3-secure-server",
+  "directory": "host-personal-dialogue",
+  "remoteAvailability": "Coordinates identify intended source. Bundled hashes do not attest remote publication.",
+  "files": {
+    "runtime.js": "366a0be98cb8560aaf75359dcf466047a0b58d1bc5e989bf79a783c58a770d3e",
+    "cli.mjs": "f377bc111f5348748dec4a2e9bd2f3844c3be3c7d6fc498f19f9f13becec2709",
+    "context-adapter.js": "82d3d0de9f66a848df8cd38f0e4e04d9cbc376ba18493ab5d632f57f2fe313bd",
+    "runtime-contract.md": "aa54d3a93d2b4ff91ef5a2d3fbba76b35fde86dae9ee3b95a984afb3253a63cc",
+    "SOURCES.md": "06d8e728a587e09d90287ed6184973ea4ab9c75302ee3205c9ddf474ee08db85"
+  },
+  "externalDependencies": [],
+  "optionalBridge": {
+    "global": "JHDecisionLearning",
+    "apiVersion": "1.0.0",
+    "runtimePath": "../../jh-decision-learning/scripts/runtime.js",
+    "sha256": "8bdd50f5925fe01fdece92c1bf23ed8b9b92bd5a04f0f80126b95f630233f5e0",
+    "behavior": "Read exact-scope goal outcomes with dialogue evidence; no state changes."
+  },
+  "sourceCopyPolicy": "Byte-identical copies; rerun sync-overlay.mjs after source changes.",
+  "privateStateIncluded": false
+}
