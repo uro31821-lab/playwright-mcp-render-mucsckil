@@ -28,7 +28,7 @@ jobs:
       - name: Freeze original owner, signing, command, Android and split evidence source
         run: |
           set -euo pipefail
-          test "$(git rev-parse origin/jh-fix3-secure-server)" = "d0772eed4965eb4cee724ea5cf3b19a1a29deac2"
+          test "$(git rev-parse origin/jh-fix3-secure-server)" = "4f12af39623b6e542fd346157b269139eb356e69"
           git diff --exit-code origin/jh-fix3-secure-server HEAD -- \
             jh-server/server.mjs \
             jh-server/owner-setup/deployment \
