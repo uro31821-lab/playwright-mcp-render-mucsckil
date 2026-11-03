@@ -30,8 +30,14 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '24'
-      - name: Worldview source, boundary and fixed-form tests
+      - name: Reconstruct exact basic and deep sources
         run: |
           node host-newbiseo-worldview/sync-overlay.mjs
+          test -f host-newbiseo-worldview/worldview.mjs
+          test -f host-newbiseo-worldview/deep-worldview.mjs
+          test -f host-newbiseo-worldview/deep-worldview.test.mjs
+          echo '0dc9dad58c5e50aec33dd6e8cbc0bb846b5f66cc530f224789304d2445aefffb  host-newbiseo-worldview/worldview.mjs' | sha256sum -c -
+          echo 'd63ded87aeb74e4190c50ddf8ece7ad93e215584ae82eee73f97548f5ba56475  host-newbiseo-worldview/deep-worldview.mjs' | sha256sum -c -
           git diff --exit-code -- host-newbiseo-worldview/plugin-overlay/skills/jh-newbiseo-worldview/references/runtime-source.json
-          node --test host-newbiseo-worldview/*.test.mjs
+      - name: Worldview boundaries, fixed forms and deep regression tests
+        run: node --test host-newbiseo-worldview/*.test.mjs
