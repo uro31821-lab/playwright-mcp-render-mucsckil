@@ -58,3 +58,29 @@ test('patch connects mobile web and computer use to Stage61',()=>{
 });
 test('second patch is rejected',()=>assert.throws(()=>patchStage61MobileRuntime56(patchStage61MobileRuntime56(fixture))));
 test('missing real mobile anchors is rejected',()=>assert.throws(()=>patchStage61MobileRuntime56('function secureCall56(){}')));
+
+const pendingFixture=fixture
+  .replace('function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(secureResult56);\n  }',
+`function active56(){}
+const devices=new Map();
+const pendingApprovalReceipts56={issue(){return {receiptToken:"r"}}};
+function safeJobView56(){return {}}
+function secureCall56(mcpToolName,jobType,effect,args,extra={}){
+  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));
+  return waitJob(x.job,15000).then(j=>{
+    if(!["queued","in_progress"].includes(j.status))return secureResult56(j);
+    const active=active56(x.deviceId),meta=devices.get(x.deviceId);
+    const receipt=pendingApprovalReceipts56.issue({job:j,deviceId:x.deviceId,deviceDigest:meta?.deviceDigest,
+      sessionId:active?.sessionId,taskDigest:String(args.task_digest||""),runDigest:String(args.run_digest||""),
+      commandId:j.commandId});
+    return textResult({...safeJobView56(j),...(receipt||{})});
+  });
+}`);
+
+test('patch preserves pending approval queued receipt secureCall and reverses exactly',()=>{
+ const out=patchStage61MobileRuntime56(pendingFixture);
+ assert.match(out,/pendingApprovalReceipts56\.issue/);
+ assert.match(out,/jhStage61FinishComputer56\(j,stage61\)/);
+ assert.match(out,/stage61RouteToken/);
+ assert.equal(reverseStage61MobileRuntime56(out),pendingFixture);
+});
