@@ -38,23 +38,24 @@ test('current reviewed JH release builder composes the signed Android RIGHT mobi
   ]) assert.ok(current.includes(marker),marker);
 });
 
-test('Stage61 applies to current generated runtime and reverses byte-for-byte',()=>{
-  const patched=patchStage61MobileRuntime56(current);
-  assert.notEqual(patched,current);
-  assert.equal(reverseStage61MobileRuntime56(patched),current);
-  assert.equal((patched.match(/stage61_route_token/g)||[]).length>=2,true);
-  assert.equal((patched.match(/createStage61HostAdapter/g)||[]).length,2);
-  assert.ok(patched.includes('stage61NextProvider'));
-  assert.ok(patched.includes('PREVIOUS_EFFECT_UNCERTAIN')||patched.includes('automaticReplay:false'));
+test('Stage61 is already composed by the reviewed runtime and reverses/reapplies byte-for-byte',()=>{
+  const base=reverseStage61MobileRuntime56(current);
+  assert.notEqual(base,current);
+  assert.equal(patchStage61MobileRuntime56(base),current);
+  assert.equal((current.match(/stage61_route_token/g)||[]).length>=2,true);
+  assert.equal((current.match(/createStage61HostAdapter/g)||[]).length,2);
+  assert.ok(current.includes('stage61NextProvider'));
+  assert.ok(current.includes('ACTION_APPROVAL_REQUEST'));
+  assert.ok(current.includes('SCREEN_CONSENT_STATUS'));
 });
 
-test('Stage61 changes only bounded mobile and Computer Use routing anchors',()=>{
-  const patched=patchStage61MobileRuntime56(current);
-  assert.ok(patched.startsWith('import {createStage61HostAdapter}'));
-  assert.equal((patched.match(/registerOAuthTool\("life_web_navigate"/g)||[]).length,1);
-  assert.equal((patched.match(/registerOAuthTool\("life_android_execute_computer_action"/g)||[]).length,1);
-  assert.equal((patched.match(/jhStage61BeforeWeb56/g)||[]).length,2);
-  assert.equal((patched.match(/jhStage61PrepareComputer56/g)||[]).length,2);
+test('Stage61 deployed composition changes only bounded mobile and Computer Use routing anchors',()=>{
+  assert.ok(current.startsWith('import {createStage61HostAdapter}'));
+  assert.equal((current.match(/registerOAuthTool\\("life_web_navigate"/g)||[]).length,1);
+  assert.equal((current.match(/registerOAuthTool\\("life_android_execute_computer_action"/g)||[]).length,1);
+  assert.equal((current.match(/jhStage61BeforeWeb56/g)||[]).length,2);
+  assert.equal((current.match(/jhStage61PrepareComputer56/g)||[]).length,2);
+  assert.throws(()=>patchStage61MobileRuntime56(current));
 });
 
 test('Stage61 refuses raw server before reviewed mobile composition',()=>{
