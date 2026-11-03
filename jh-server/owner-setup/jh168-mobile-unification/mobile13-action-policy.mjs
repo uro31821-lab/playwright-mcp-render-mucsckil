@@ -45,11 +45,12 @@ function exactStage61Scope(payload, action) {
   if (!present) return {present: false, valid: true};
   if (!STAGE61_FIELDS.every((name) => !!ownData(payload, name)))
     return {present: true, valid: false};
-  const expectedAction = action === 'SET_TEXT' ? 'TYPE' : action;
+  const expectedActions = action === 'SET_TEXT' ? new Set(['TYPE']) :
+    action === 'CLICK' ? new Set(['CLICK','SELECT_OPEN']) : new Set([action]);
   return {
     present: true,
     valid: payload.stage61RouteSchema === STAGE61_ROUTE_SCHEMA &&
-      payload.stage61Action === expectedAction &&
+      expectedActions.has(payload.stage61Action) &&
       STAGE61_OUTCOMES.has(payload.stage61WebOutcome) &&
       STAGE61_OUTCOMES.has(payload.stage61ComputerOutcome) &&
       payload.stage61PlaywrightMobileAvailable === false
@@ -89,15 +90,20 @@ function exactSignedScope(job, payload, preflight, fields) {
 }
 
 /** Called only by the host configured with MOBILE13_ACTION_POLICY_MODE56.
- * All unrelated routes, including CLICK, delegate to the untouched old policy.
+ * Unwrapped CLICK and unrelated routes still delegate to the untouched old policy.
+ * Exact Stage61-wrapped CLICK / SELECT_OPEN reuse that existing click authority
+ * only after the five signed Stage61 phone fields are validated here.
  */
 export function mobile13DurableJobPolicy(job, payload) {
   const preflight = job?.type === PREFLIGHT;
   const action = payload?.action;
-  if (!preflight && !(job?.type === FOLLOWUP && (action === 'SET_TEXT' || action === 'BACK')))
-    return durableNativeJobPolicy(job, payload);
   const stage61 = preflight ? {present: false, valid: true} : exactStage61Scope(payload, action);
   if (!stage61.valid) return denied();
+  const stage61Click = job?.type === FOLLOWUP && action === 'CLICK' && stage61.present &&
+    (payload.stage61Action === 'CLICK' || payload.stage61Action === 'SELECT_OPEN');
+  if (!preflight && !(job?.type === FOLLOWUP &&
+      (action === 'SET_TEXT' || action === 'BACK' || stage61Click)))
+    return durableNativeJobPolicy(job, payload);
   const fields = [...BASE_FIELDS, ...(preflight ? [] : ['requestId']),
     ...(!preflight && action === 'SET_TEXT' ? ['value', 'inputGrantToken'] : []),
     ...(stage61.present ? STAGE61_FIELDS : [])];
@@ -113,15 +119,19 @@ export function mobile13DurableJobPolicy(job, payload) {
   if (action === 'SET_TEXT') {
     if (!matches(ITEM, payload.targetItemRef) || !matches(GRANT, payload.inputGrantToken) ||
         !text(payload.value) || localOnly(payload.value)) return denied();
+  } else if (action === 'CLICK') {
+    if (!stage61Click || !matches(ITEM, payload.targetItemRef)) return denied();
   } else if (payload.targetItemRef !== '') return denied();
 
   // Conservative uncertainty identity: changing request/command/session, input
   // value, or a freshly issued token cannot bypass an unresolved action on this
-  // context/target. The original journal also keys device + job type. No raw
-  // command, value, grant, or authorization material enters the durable store.
+  // context/target. SELECT_OPEN remains a click at the phone, but gets its own
+  // semantic identity so it cannot be confused with ordinary CLICK or SELECT_PICK.
+  // No raw command, value, grant, or authorization material enters the durable store.
+  const journalAction = stage61Click ? payload.stage61Action : action;
   const identityPayload = Object.freeze({
-    contract: 'MOBILE13_ACTION_V1', contextId: payload.contextId, action,
-    ...(action === 'SET_TEXT' ? {targetItemRef: payload.targetItemRef} : {})
+    contract: 'MOBILE13_ACTION_V1', contextId: payload.contextId, action: journalAction,
+    ...((action === 'SET_TEXT' || stage61Click) ? {targetItemRef: payload.targetItemRef} : {})
   });
   return answer('JOURNAL', {identityPayload, approvalGranted: false, screenConsentGranted: false});
 }
