@@ -149,7 +149,7 @@ export function patchStage61MobileRuntime56(source){
     !source.includes('const cuSchema56={'))fail('STAGE61_MOBILE_RUNTIME_PREREQUISITES_MISSING');
  let out=source;
  if(!out.startsWith(IMPORT))out=IMPORT+out;
- out=once(out,'  let jhMobileWebCapture56=null;','  let jhMobileWebCapture56=null;'+HELPER,'STAGE61_HELPER_ANCHOR');
+ out=once(out,'function secureCall56(',HELPER+'\nfunction secureCall56(','STAGE61_HELPER_ANCHOR');
  out=once(out,
   '    const payload={contextId:bound.contextId,requestId,command,targetItemRef:bound.itemRef,action};',
   '    const payload={contextId:bound.contextId,requestId,command,targetItemRef:bound.itemRef,action};\n    const stage61=await jhStage61BeforeWeb56(args,payload,action,command);\n    if(stage61.ok!==true)return textResult({route:"android_right",...stage61});',
@@ -223,7 +223,7 @@ export function reverseStage61MobileRuntime56(source){
   .replace('      return textResult({route:"android_right",automaticReplay:false,...await jhStage61ReadStatus56(result,args.context_id)});','      return textResult({route:"android_right",automaticReplay:false,...result});')
   .replace('    const routed=await jhStage61AfterAction56(result,stage61.routeToken,"ANDROID_WEB",stage61.stageAction,true);\n    return textResult({route:"android_right",automaticReplay:false,...routed,','    return textResult({route:"android_right",automaticReplay:false,...result,')
   .replace('    const payload={contextId:bound.contextId,requestId,command,targetItemRef:bound.itemRef,action};\n    const stage61=await jhStage61BeforeWeb56(args,payload,action,command);\n    if(stage61.ok!==true)return textResult({route:"android_right",...stage61});','    const payload={contextId:bound.contextId,requestId,command,targetItemRef:bound.itemRef,action};')
-  .replace('  let jhMobileWebCapture56=null;'+HELPER,'  let jhMobileWebCapture56=null;');
+  .replace(HELPER+'\nfunction secureCall56(','function secureCall56(');
  if(out.startsWith(IMPORT))out=out.slice(IMPORT.length);
  return out;
 }

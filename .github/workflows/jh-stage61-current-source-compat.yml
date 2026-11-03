@@ -2,7 +2,7 @@ name: JH Stage61 current server compatibility
 
 on:
   push:
-    branches: [fix/stage61-task-route-bind-20261103]
+    branches: [fix/stage61-computer-helper-scope-20261103]
   workflow_dispatch:
 
 permissions:
