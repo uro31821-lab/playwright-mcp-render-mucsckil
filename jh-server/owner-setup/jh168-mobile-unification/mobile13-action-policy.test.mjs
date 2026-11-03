@@ -14,7 +14,7 @@ import {
 } from './mobile13-action-policy-patch.mjs';
 
 const sha = (value) => createHash('sha256').update(value).digest('hex');
-function request(action = 'SET_TEXT', {preflight = false, changes = {}, jobChanges = {}} = {}) {
+function request(action = 'SET_TEXT', {preflight = false, stage61 = false, changes = {}, jobChanges = {}} = {}) {
   const payload = {
     contextId: 'ssc_' + 'a'.repeat(32), command: action === 'BACK' ? '오른쪽 작업 창 뒤로' : '연습 입력란 채우기',
     targetItemRef: action === 'BACK' ? '' : 'item_' + 'b'.repeat(16), action,
@@ -26,7 +26,15 @@ function request(action = 'SET_TEXT', {preflight = false, changes = {}, jobChang
     ...(!preflight ? {requestId: 'd'.repeat(32)} : {}),
     ...(!preflight && action === 'SET_TEXT' ? {
       value: 'SYNTHETIC_PRIVATE_INPUT_VALUE', inputGrantToken: 'ipg_' + 'e'.repeat(32)
-    } : {}), ...changes
+    } : {}),
+    ...(!preflight && stage61 ? {
+      stage61RouteSchema: 'JH168_STAGE61_ROUTE_REQUEST_V1',
+      stage61Action: action === 'SET_TEXT' ? 'TYPE' : action,
+      stage61WebOutcome: 'NOT_RUN',
+      stage61ComputerOutcome: 'NOT_RUN',
+      stage61PlaywrightMobileAvailable: false
+    } : {}),
+    ...changes
   };
   const job = {id: 'job_synthetic', type: preflight ? 'split_screen_session_input_preflight' : 'split_screen_session_followup',
     status: 'queued', targetDeviceId: 'synthetic-device', secureSessionId: 'synthetic-session',
@@ -71,6 +79,55 @@ test('SET_TEXT requires original phone input grant; BACK has no target or input 
     {inputGrantToken: 'ipg_' + 'e'.repeat(32)}]) {
     const x = request('BACK', {changes}); assert.equal(policy(x.job, x.payload).kind, 'DENY');
   }
+});
+
+test('exact Stage61 Android-used fields are admitted for SET_TEXT and BACK only', () => {
+  for (const action of ['SET_TEXT', 'BACK']) {
+    const {job, payload} = request(action, {stage61: true});
+    const result = policy(job, payload);
+    assert.equal(result.kind, 'JOURNAL', action);
+    assert.equal(result.approvalGranted, false);
+    assert.equal(result.screenConsentGranted, false);
+  }
+  const invalid = [
+    {stage61RouteSchema: 'wrong'},
+    {stage61Action: 'CLICK'},
+    {stage61WebOutcome: 'INVALID'},
+    {stage61ComputerOutcome: 'INVALID'},
+    {stage61PlaywrightMobileAvailable: true}
+  ];
+  for (const changes of invalid) {
+    const x = request('BACK', {stage61: true, changes});
+    assert.equal(policy(x.job, x.payload).kind, 'DENY', JSON.stringify(changes));
+  }
+});
+
+test('Stage61 server-only fields remain outside the Mobile13 signed phone payload', () => {
+  for (const extra of [
+    {routeToken: 's61_server_only'},
+    {replayAllowed: false},
+    {automaticReplay: false},
+    {ok: true},
+    {stage61_route_token: 's61_server_only'}
+  ]) {
+    const x = request('BACK', {stage61: true, changes: extra});
+    assert.equal(policy(x.job, x.payload).kind, 'DENY', Object.keys(extra)[0]);
+  }
+});
+
+test('partial or hidden Stage61 scope is rejected', () => {
+  const names = ['stage61RouteSchema','stage61Action','stage61WebOutcome',
+    'stage61ComputerOutcome','stage61PlaywrightMobileAvailable'];
+  for (const name of names) {
+    const x = request('BACK', {stage61: true});
+    delete x.payload[name];
+    assert.equal(policy(x.job, x.payload).kind, 'DENY', 'missing '+name);
+  }
+  const x = request('BACK', {stage61: true});
+  const value=x.payload.stage61Action;
+  delete x.payload.stage61Action;
+  Object.setPrototypeOf(x.payload,{stage61Action:value});
+  assert.equal(policy(x.job,x.payload).kind,'DENY');
 });
 
 test('mobile admission rejects missing, extra, inherited, accessor and signed-job mismatched fields', () => {
