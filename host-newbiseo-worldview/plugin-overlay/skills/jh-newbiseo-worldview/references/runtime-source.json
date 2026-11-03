@@ -1,0 +1,20 @@
+{
+  "schema": "jh.newbiseo-source.v1",
+  "repository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "branch": "jh-fix3-secure-server",
+  "directory": "host-newbiseo-worldview",
+  "apiVersion": "1.0.0",
+  "privateStateIncluded": false,
+  "createsState": false,
+  "searchesTheWeb": false,
+  "monitoringEnabled": false,
+  "autoSaveEnabled": false,
+  "authorizesExecution": false,
+  "purpose": "source-backed story, recurring pattern, structural analogy, and personal inspiration validation",
+  "files": {
+    "worldview.mjs": "0dc9dad58c5e50aec33dd6e8cbc0bb846b5f66cc530f224789304d2445aefffb"
+  },
+  "bundledFiles": {
+    "scripts/worldview.mjs": "0dc9dad58c5e50aec33dd6e8cbc0bb846b5f66cc530f224789304d2445aefffb"
+  }
+}
