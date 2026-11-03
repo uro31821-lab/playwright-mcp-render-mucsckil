@@ -2,7 +2,7 @@ name: JH Stage61 current server compatibility
 
 on:
   push:
-    branches: [fix/stage61-computer-helper-scope-20261103]
+    branches: [fix/stage61-v10-snapshot-readback-registry-20261103]
   workflow_dispatch:
 
 permissions:
@@ -35,7 +35,14 @@ jobs:
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/snapshot-digest-readback.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/snapshot-digest-readback-patch.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs
           node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/snapshot-digest-readback.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/snapshot-digest-readback-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
@@ -45,6 +52,11 @@ jobs:
           NODE_ENV: test
           JH_OWNER_DEFER_LISTEN: '1'
           JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+          JH_STAGE26_SIGNED_COMPLETION_ACK: EXPLICIT_IDENTICAL_SIGNED_RESULT_V1
+          JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS: EXPLICIT_ORIGINAL_OWNER_REASON_V1
+          JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS: EXPLICIT_SIGNED_COMMAND_CAUSE_V1
+          JH_STAGE44_DEVICE_FOCUS: EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1
+          JH_MOBILE13_COMMAND_DIAGNOSTICS: EXPLICIT_OWNER_DEVICE_READ_ONLY_V1
         run: |
           set -euo pipefail
           node --test --test-concurrency=1 --test-reporter=spec \
