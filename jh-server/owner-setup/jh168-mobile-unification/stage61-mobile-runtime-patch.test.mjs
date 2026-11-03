@@ -49,6 +49,8 @@ test('patch connects mobile web and computer use to Stage61',()=>{
  assert.match(out,/createStage61HostAdapter/);
  assert.match(out,/jhStage61BeforeWeb56/);
  assert.match(out,/stage61_route_token/);
+ assert.match(out,/jhStage61TaskRoute56/);
+ assert.match(out,/STAGE61_ROUTE_TASK_BINDING_MISMATCH/);
  assert.match(out,/jhStage61FinishComputer56/);
  assert.match(out,/ACTION_APPROVAL_REQUEST/);
  assert.match(out,/recordControl/);
