@@ -15,9 +15,6 @@ async function buildCurrentMobileRuntime(){
   process.env.JH_OWNER_DEFER_LISTEN='1';
   process.env.JH_MOBILE_WEB_13_MODE='EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1';
   try{
-    // Do not re-apply the historical durable patches directly to jh-server/server.mjs.
-    // Reuse the reviewed current release builder, exactly as the existing real-boot
-    // tests do, then inspect the generated runtime selected by the owner host.
     const generated=buildCleanRestartRelease56();
     const release=await import(pathToFileURL(generated.file).href+'?stage61='+generated.sha256);
     const built=release.buildDurableRoutedOperationalEntrypoint(ROOT);
@@ -29,6 +26,8 @@ async function buildCurrentMobileRuntime(){
 }
 
 const current=await buildCurrentMobileRuntime();
+const secureCallAt=current.indexOf('function secureCall56(');
+console.log('STAGE61_SECURE_CALL_SOURCE '+JSON.stringify(current.slice(secureCallAt,secureCallAt+1800)));
 
 test('current reviewed JH release builder composes the signed Android RIGHT mobile runtime',()=>{
   for(const marker of [
