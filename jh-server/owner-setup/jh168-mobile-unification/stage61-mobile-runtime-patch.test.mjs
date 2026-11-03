@@ -41,6 +41,7 @@ function secureCall56(device,mcpToolName,args={}){
     return textResult({route:"android_right",automaticReplay:false,...result});
   }
 
+  registerOAuthTool("life_web_navigate",{});
   registerOAuthTool("life_web_press_key",{
     title:"Supported RIGHT-pane navigation key",
     description:"Only explicit Android BACK is currently bridged. Enter, Tab, Escape, Arrow keys require verified native action contracts and never silently use server Playwright.",
@@ -51,7 +52,6 @@ function secureCall56(device,mcpToolName,args={}){
     return jhMobileWebFollow56(args,"BACK","오른쪽 화면에서 Android 뒤로 가기 1회");
   });
 
-  registerOAuthTool("life_web_navigate",{});
 `;
 
 test('patch connects mobile web and computer use to Stage61',()=>{
