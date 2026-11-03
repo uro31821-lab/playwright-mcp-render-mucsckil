@@ -1,8 +1,10 @@
-/** Reversible source patch: durable readback for life_android_snapshot using its existing idDigest.
- * The digest lookup is same-device + same Secure56 session + same command only.
- * No new tool, no Android dispatch, no retry, no approval change.
+/** Reversible source patch: readback for life_android_snapshot using existing idDigest.
+ * Snapshot payload sent to Android is unchanged. Server registry binds digest to the current
+ * device/session/command and life_job_status only reads the ORIGINAL job.
  */
-const IMPORT='import {resolveSnapshotDigestReadback56} from "../jh168-mobile-unification/snapshot-digest-readback.mjs";\n';
+const IMPORT='import {createSnapshotDigestReadbackRegistry56} from "../jh168-mobile-unification/snapshot-digest-readback.mjs";\n';
+const STATE_OLD='const computerExecutionReceipts56=createComputerExecutionReceiptRegistry56();';
+const STATE_NEW=STATE_OLD+'\nconst snapshotDigestReadbacks56=createSnapshotDigestReadbackRegistry56();';
 const SNAP_OLD=`  registerOAuthTool("life_android_snapshot",{
     title:"Read Android UI",
     description:"Read Android accessibility UI for native-app-only workflows.",
@@ -20,8 +22,10 @@ const SNAP_NEW=`  registerOAuthTool("life_android_snapshot",{
     if(!device||!auth||!meta||meta.secureBridgeVersion!==56)
       return textResult({ok:false,code:"secure_bridge_device_not_active",automaticReplay:false});
     const commandId=jhRequireCommand56(device);
-    const j=mk("agent_snapshot",{mcpToolName:"life_android_snapshot",
-      secureRequestedEffect:"READ_ONLY",commandId,targetDeviceDigest:meta.deviceDigest},device);
+    recentJobs.delete(device+"|agent_snapshot|{}");
+    const j=mk("agent_snapshot",{},device);
+    snapshotDigestReadbacks56.issue({job:j,deviceId:device,deviceDigest:meta.deviceDigest,
+      sessionId:auth.sessionId,commandId});
     return jobResult(await waitJob(j));
   });`;
 const STATUS_OLD=`  registerOAuthTool("life_job_status",{
@@ -45,8 +49,8 @@ const STATUS_NEW=`  registerOAuthTool("life_job_status",{
       if(!device||!auth||!meta||meta.secureBridgeVersion!==56)
         return textResult({ok:false,code:"secure_bridge_device_not_active",automaticReplay:false});
       const commandId=jhRequireCommand56(device);
-      const read=resolveSnapshotDigestReadback56({jobDigest:digest,deviceId:device,
-        deviceDigest:meta.deviceDigest,sessionId:auth.sessionId,commandId},jobs.values());
+      const read=snapshotDigestReadbacks56.read({jobDigest:digest,deviceId:device,
+        deviceDigest:meta.deviceDigest,sessionId:auth.sessionId,commandId},id=>jobs.get(id));
       if(read.ok!==true)return textResult(read);
       return textResult({...safeJobView56(read.job),lookupOnly:true,readOnly:true,
         newJobCreated:false,automaticReplay:false});
@@ -56,11 +60,11 @@ const STATUS_NEW=`  registerOAuthTool("life_job_status",{
     const completion=await jhOpenCompletion56(job,jhOpenStatusWait56);
     return textResult({jobId:job_id,...completion});
   });`;
-const PAIRS=[[SNAP_OLD,SNAP_NEW],[STATUS_OLD,STATUS_NEW]];
+const PAIRS=[[STATE_OLD,STATE_NEW],[SNAP_OLD,SNAP_NEW],[STATUS_OLD,STATUS_NEW]];
 export function applySnapshotDigestReadbackPatch56(source){
   if(typeof source!=='string'||source.startsWith(IMPORT)||
      !source.includes('jhRequireCommand56(')||!source.includes('safeJobView56(')||
-     !source.includes('function signJob56('))
+     !source.includes('function signJob56(')||!source.includes(STATE_OLD))
     throw Error('SNAPSHOT_READBACK_ORIGINAL_SECURE56_REQUIRED');
   let out=source;
   for(const [before,after] of PAIRS){
