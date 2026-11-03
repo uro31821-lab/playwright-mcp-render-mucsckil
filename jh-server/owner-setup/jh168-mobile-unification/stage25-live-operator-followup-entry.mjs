@@ -23,6 +23,8 @@ import {
 } from './stage26-completion-delivery-patch.mjs';
 import {applyComputerExecutionReceiptPatch,reverseComputerExecutionReceiptPatch}
  from './computer-execution-receipt-patch.mjs';
+import {applySnapshotDigestReadbackPatch56,reverseSnapshotDigestReadbackPatch56}
+ from './snapshot-digest-readback-patch.mjs';
 import {applyStage40OwnerAdmissionDiagnostics,reverseStage40OwnerAdmissionDiagnostics}
  from './stage40-owner-admission-diagnostics-patch.mjs';
 import {applyStage41CommandLifecyclePatch,reverseStage41CommandLifecyclePatch}
@@ -132,6 +134,17 @@ const selectors={
  oldImport:'import {selectPendingApprovalOperatorRuntime56} from "../server-integration/pending-approval-operator-entry.mjs";',
  newImport:'import {selectStage25PendingOperatorRuntime56} from "../jh168-mobile-unification/stage25-live-operator-followup-entry.mjs";'
 };
+function reverseStage25RuntimeLayers56(runtime,{stage26Ack,stage40,stage41,stage44,commandDiagnostics}){
+ let out=reverseStage61MobileRuntime56(runtime);
+ if(commandDiagnostics)out=reverseMobile13CommandDiagnosticsPatch56(out);
+ if(stage44)out=reverseStage44DeviceFocusPatch(out);
+ if(stage41)out=reverseStage41CommandLifecyclePatch(out);
+ if(stage40)out=reverseStage40OwnerAdmissionDiagnostics(out);
+ out=reverseSnapshotDigestReadbackPatch56(out);
+ out=reverseComputerExecutionReceiptPatch(out);
+ if(stage26Ack)out=reverseStage26CompletionAckPatch56(out);
+ return reverseJH168SplitFollowupReceiptPatch(out);
+}
 export function selectStage25PendingOperatorRuntime56(root,env=process.env){
  gate(env);
  const old=selectPendingApprovalOperatorRuntime56(root,env); // complete existing attestation
@@ -143,6 +156,7 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     !/^[a-f0-9]{64}$/.test(stamp.parentSha256||'')||
     !/^[a-f0-9]{64}$/.test(stamp.runtimeSha256||'')||
     stamp.computerExecutionReceiptStage38!==true||
+    stamp.snapshotDigestReadback!==true||
     stamp.stage40OwnerAdmissionDiagnostics!==selectStage40OwnerAdmissionDiagnostics56(env)||
     stamp.stage41CommandLifecycleDiagnostics!==selectStage41CommandLifecycle56(env)||
     stamp.stage44DeviceFocus!==selectStage44Focus56(env)||
@@ -159,16 +173,12 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
  const commandDiagnostics=selectMobile13CommandDiagnostics56(env);
  const original=readFileSync(old.file,'utf8');
  const runtime=readFileSync(p.runtime,'utf8');
- const preStage61=reverseStage61MobileRuntime56(runtime);
- const priorRuntime=commandDiagnostics?reverseMobile13CommandDiagnosticsPatch56(preStage61):preStage61;
  if(sha(original)!==stamp.parentSha256||
     sha(runtime)!==stamp.runtimeSha256||
     sha(readFileSync(p.owner,'utf8'))!==stamp.ownerSha256||
     sha(readFileSync(p.unified,'utf8'))!==stamp.unifiedSha256||
     sha(readFileSync(p.entry,'utf8'))!==stamp.operationalSha256||
-    reverseJH168SplitFollowupReceiptPatch(stage26Ack?
-      reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)))):
-      reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime))))!==original)
+    reverseStage25RuntimeLayers56(runtime,{stage26Ack,stage40,stage41,stage44,commandDiagnostics})!==original)
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_SCOPE_CHANGED');
  return Object.freeze({file:p.runtime,sha256:stamp.runtimeSha256,
   noNewExecutor:true,automaticReplayAllowed:false,originalOperatorVerified:true});
@@ -199,20 +209,18 @@ export async function buildStage25PendingOperatorEntrypoint56(
  const withFollowup=applyJH168SplitFollowupReceiptPatch(original);
  const stage26Runtime=stage26Ack?applyStage26CompletionAckPatch56(withFollowup):withFollowup;
  const afterReceipt=applyComputerExecutionReceiptPatch(stage26Runtime);
- const afterStage40=stage40?applyStage40OwnerAdmissionDiagnostics(afterReceipt):afterReceipt;
+ const afterSnapshot=applySnapshotDigestReadbackPatch56(afterReceipt);
+ const afterStage40=stage40?applyStage40OwnerAdmissionDiagnostics(afterSnapshot):afterSnapshot;
  const afterStage41=stage41?applyStage41CommandLifecyclePatch(afterStage40):afterStage40;
  const afterStage44=stage44?applyStage44DeviceFocusPatch(afterStage41):afterStage41;
  const beforeStage61=commandDiagnostics?applyMobile13CommandDiagnosticsPatch56(afterStage44):afterStage44;
  const runtime=patchStage61MobileRuntime56(beforeStage61);
- const preStage61=reverseStage61MobileRuntime56(runtime);
- const priorRuntime=commandDiagnostics?reverseMobile13CommandDiagnosticsPatch56(preStage61):preStage61;
- if(reverseJH168SplitFollowupReceiptPatch(stage26Ack?
-       reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)))):
-       reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime))))!==original||
+ if(reverseStage25RuntimeLayers56(runtime,{stage26Ack,stage40,stage41,stage44,commandDiagnostics})!==original||
     runtime.split('jhSplitFollowupReceipts56.issue(').length!==2||
     runtime.split('jhSplitFollowupReceipts56.read(').length!==2||
     runtime.split('computerExecutionReceipts56.issue(').length!==2||
     runtime.split('computerExecutionReceipts56.read(').length!==2||
+    runtime.split('resolveSnapshotDigestReadback56({').length!==2||
     (stage40 && (runtime.split('jhOwnerAdmissionNote40(').length!==3||
       runtime.split('jhOwnerAdmissionTake40(').length!==3))||
     (stage41&&(runtime.split('const jhCommandCauses41=new Map();').length!==2||
@@ -255,6 +263,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
    originalSplitRead:true,originalComputerInspect:true,
    originalOperationalLearning:true,
    computerExecutionReceiptStage38:true,
+   snapshotDigestReadback:true,
    stage40OwnerAdmissionDiagnostics:stage40,
    stage41CommandLifecycleDiagnostics:stage41,
    stage44DeviceFocus:stage44,
@@ -287,6 +296,10 @@ export async function main(env=process.env){
  console.log('JH_SPLIT_FOLLOWUP_READBACK_ACTIVE '+JSON.stringify({
   schema:built.stamp.schema,sha256:built.stamp.runtimeSha256,
   existingPendingApprovalPreserved:true,existingLearningPreserved:true,
+  automaticReplayAllowed:false,apkChanged:false
+ }));
+ console.log('JH_SNAPSHOT_DIGEST_READBACK_ACTIVE '+JSON.stringify({
+  sameDeviceSessionCommandOnly:true,lookupOnly:true,newJobCreated:false,
   automaticReplayAllowed:false,apkChanged:false
  }));
  if(stage26EnabledAtBootstrap){
