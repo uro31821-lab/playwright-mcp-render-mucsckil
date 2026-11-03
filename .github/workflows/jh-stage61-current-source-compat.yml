@@ -2,7 +2,7 @@ name: JH Stage61 current server compatibility
 
 on:
   push:
-    branches: [fix/stage61-v10-batch-receipt-target-20261103]
+    branches: [fix/stage61-computer-helper-scope-20261103]
   workflow_dispatch:
 
 permissions:
@@ -26,28 +26,6 @@ jobs:
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
-      - name: Diagnose exact pre-Stage61 runtime anchors
-        env:
-          CI: 'true'
-          NODE_ENV: test
-          JH_OWNER_DEFER_LISTEN: '1'
-          JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
-        run: |
-          set -euo pipefail
-          node --input-type=module <<'EOF'
-          import path from 'node:path';
-          import {readFileSync} from 'node:fs';
-          import {buildPendingApprovalOperatorEntrypoint56} from './jh-server/owner-setup/server-integration/pending-approval-operator-entry.mjs';
-          import {applyJH168SplitFollowupReceiptPatch} from './jh-server/owner-setup/jh168-mobile-unification/split-followup-receipt-patch.mjs';
-          import {applyComputerExecutionReceiptPatch} from './jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipt-patch.mjs';
-          const root=path.resolve('jh-server/owner-setup');
-          const base=await buildPendingApprovalOperatorEntrypoint56(root,process.env);
-          const original=readFileSync(base.runtimeFile,'utf8');
-          const pre=applyComputerExecutionReceiptPatch(applyJH168SplitFollowupReceiptPatch(original));
-          const markers=['async function jhMobileWebFollow56(','async function jhMobileWebRead56(','function secureCall56(','const cuSchema56={'];
-          console.log(JSON.stringify(Object.fromEntries(markers.map(m=>[m,pre.includes(m)]))));
-          console.log('PRE_STAGE61_SHA_LEN',pre.length);
-          EOF
       - name: Verify Stage61 server source and focused tests
         run: |
           set -euo pipefail
@@ -57,18 +35,10 @@ jobs:
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
-          node --check jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipts.mjs
-          node --check jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipt-patch.mjs
-          node --check jh-server/owner-setup/server-integration/pending-approval-receipt-patch.mjs
           node --test --test-concurrency=1 --test-reporter=spec \
-            jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipts.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/computer-execution-receipt-patch.test.mjs \
-            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
       - name: Verify Stage61 against current reviewed JH runtime
         env:
           CI: 'true'
