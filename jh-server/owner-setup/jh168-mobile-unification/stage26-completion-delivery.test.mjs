@@ -9,6 +9,8 @@ import {applyStage26CompletionAckPatch56,reverseStage26CompletionAckPatch56}
  from './stage26-completion-delivery-patch.mjs';
 import {applyComputerExecutionReceiptPatch,reverseComputerExecutionReceiptPatch}
  from './computer-execution-receipt-patch.mjs';
+import {reverseSnapshotDigestReadbackPatch56}
+ from './snapshot-digest-readback-patch.mjs';
 import {reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 import {buildStage25PendingOperatorEntrypoint56,selectStage25PendingOperatorRuntime56,
  selectStage26CompletionAck56}
@@ -48,7 +50,7 @@ test('only a FIRST completion continues to original durable acceptedCompletion',
 test('post-auth source patch is exact reversible and only changes signed completion ACK',async()=>{
  const base=await buildStage25PendingOperatorEntrypoint56(root,env);
  const stage61Runtime=readFileSync(base.runtimeFile,'utf8');
- const original=reverseStage61MobileRuntime56(stage61Runtime);
+ const original=reverseSnapshotDigestReadbackPatch56(reverseStage61MobileRuntime56(stage61Runtime));
  const candidate=applyStage26CompletionAckPatch56(original);
  assert.equal(reverseStage26CompletionAckPatch56(candidate),original);
  assert.ok(candidate.includes('jhSplitFollowupReceipts56.read('));
@@ -87,7 +89,7 @@ test('exact original Stage25 operator remains untouched if Stage26 flag absent, 
  const stable=await buildStage25PendingOperatorEntrypoint56(root,env);
  assert.equal(stable.stamp.signedCompletionAckStage26,undefined);
  const pristine=readFileSync(stable.runtimeFile,'utf8');
- const pristinePreStage61=reverseStage61MobileRuntime56(pristine);
+ const pristinePreStage61=reverseSnapshotDigestReadbackPatch56(reverseStage61MobileRuntime56(pristine));
  assert.ok(!pristine.includes('stage26RawDigest56'));
  assert.equal(selectStage25PendingOperatorRuntime56(root,env).sha256,stable.stamp.runtimeSha256);
  assert.equal(selectStage26CompletionAck56(env),false);
@@ -100,7 +102,7 @@ test('exact original Stage25 operator remains untouched if Stage26 flag absent, 
  assert.equal(added.stamp.originalComputerInspect,true);
  assert.equal(added.stamp.originalOperationalLearning,true);
  const signed=readFileSync(added.runtimeFile,'utf8');
- const signedPreStage61=reverseStage61MobileRuntime56(signed);
+ const signedPreStage61=reverseSnapshotDigestReadbackPatch56(reverseStage61MobileRuntime56(signed));
  // Remove the outer Computer Use receipt, remove Stage26 ACK, then restore the same receipt layer.
  // Stage61 remains the final outer layer in both full runtimes.
  assert.equal(
