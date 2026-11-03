@@ -9,7 +9,7 @@ const readJson = async path => JSON.parse(await readFile(new URL(path, overlay),
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
 const EXPECTED = Object.freeze({
-  'worldview.mjs': '0dc9dad58c5e50aec33dd6e8cbc0bb846b5f66cc530f224789304d2445aefffb',
+  'worldview.mjs': '6b62d08c6dffa00d798cf89750e80aee0078aaefff712aa5812cad0a3e42d304',
   'deep-worldview.mjs': 'd63ded87aeb74e4190c50ddf8ece7ad93e215584ae82eee73f97548f5ba56475',
 });
 
@@ -42,9 +42,24 @@ test('basic and deep runtimes are byte-identical to packaged scripts and source 
     assert.equal(sourceInfo.files[name], expectedHash);
     assert.equal(sourceInfo.bundledFiles[`scripts/${name}`], expectedHash);
   }
+  assert.match(sourceInfo.purpose, /mandatory basic analogy section/);
+  assert.match(sourceInfo.purpose, /personal ideas/);
   assert.equal(sourceInfo.monitoringEnabled, false);
   assert.equal(sourceInfo.autoSaveEnabled, false);
   assert.equal(sourceInfo.authorizesExecution, false);
+});
+
+test('basic skill and contract require past-case and personal-idea sections', async () => {
+  const [skill, contract, runtime] = await Promise.all([
+    readFile(new URL('plugin-overlay/skills/jh-newbiseo-worldview/SKILL.md', root), 'utf8'),
+    readFile(new URL('plugin-overlay/skills/jh-newbiseo-worldview/references/output-contract.md', root), 'utf8'),
+    readFile(new URL('plugin-overlay/skills/jh-newbiseo-worldview/scripts/worldview.mjs', root), 'utf8'),
+  ]);
+  assert.match(skill, /과거 유사사례.*나에게 건질 아이디어.*기본형의 고정 항목/s);
+  assert.match(skill, /최소 1개, 최대 3개/);
+  assert.match(contract, /과거 유사사례.*나에게 건질 것.*기본형의 필수 항목/s);
+  assert.match(contract, /유사사례가 없더라도 항목을 삭제하지 않는다/);
+  assert.match(runtime, /직접 비교할 만한 과거 유사사례는 찾지 못했다/);
 });
 
 test('deep skill and contract preserve worldview, evidence, and execution boundaries', async () => {
