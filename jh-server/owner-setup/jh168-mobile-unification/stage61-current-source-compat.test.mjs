@@ -26,8 +26,6 @@ async function buildCurrentMobileRuntime(){
 }
 
 const current=await buildCurrentMobileRuntime();
-const secureCallAt=current.indexOf('function secureCall56(');
-console.log('STAGE61_SECURE_CALL_SOURCE '+JSON.stringify(current.slice(secureCallAt,secureCallAt+1800)));
 
 test('current reviewed JH release builder composes the signed Android RIGHT mobile runtime',()=>{
   for(const marker of [
