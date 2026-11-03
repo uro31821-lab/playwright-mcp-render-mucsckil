@@ -6,14 +6,15 @@ const OLD_STATE='const computerInspectReceipt56=createComputerInspectReceiptRegi
 const NEW_STATE=OLD_STATE+'\nconst computerExecutionReceipts56=createComputerExecutionReceiptRegistry56();';
 const OLD_OUT='    return textResult({...safeJobView56(j),...(receipt||inspectReceipt||{})});';
 const NEW_OUT=[
- '    const executeReceipt=jobType==="computer_use_action_execute"&&',
- '      mcpToolName==="life_android_execute_computer_action"&&',
- '      effect==="MUTATION"?computerExecutionReceipts56.issue({',
+ '    const computerReceipt=((jobType==="computer_use_action_execute"&&',
+ '      mcpToolName==="life_android_execute_computer_action"&&effect==="MUTATION")||',
+ '      (jobType==="computer_use_action_prepare"&&mcpToolName==="life_android_computer_prepare"&&effect==="READ_ONLY"))?',
+ '      computerExecutionReceipts56.issue({',
  '        job:j,deviceId:x.deviceId,deviceDigest:meta?.deviceDigest,',
  '        sessionId:active?.sessionId,commandId:j.commandId,',
  '        taskDigest:String(args.task_digest||""),runDigest:String(args.run_digest||"")',
  '      }):null;',
- '    return textResult({...safeJobView56(j),...(receipt||inspectReceipt||executeReceipt||{})});'
+ '    return textResult({...safeJobView56(j),...(receipt||inspectReceipt||computerReceipt||{})});'
 ].join('\n');
 const OLD_READ='  if(/^cir_[A-Za-z0-9_-]{43}$/.test(String(args.receipt_token||""))){';
 const NEW_READ=[
@@ -28,7 +29,7 @@ const NEW_READ=[
  OLD_READ
 ].join('\n');
 const OLD_DESC='description:"READ ONLY: use the returned receipt token to look up only the ORIGINAL queued approval or Computer Use inspect. Never request, execute, approve, or replay an Android action.",';
-const NEW_DESC='description:"READ ONLY: recover only the ORIGINAL queued approval, Computer Use inspect, or in-progress signed EXECUTE result by scoped receipt token. Never dispatch, execute, approve, or replay Android actions.",';
+const NEW_DESC='description:"READ ONLY: recover only the ORIGINAL queued approval, Computer Use inspect, or in-progress signed PREPARE/EXECUTE result by scoped receipt token. Never dispatch, execute, approve, or replay Android actions.",';
 const PAIRS=[[OLD_STATE,NEW_STATE],[OLD_OUT,NEW_OUT],[OLD_READ,NEW_READ],[OLD_DESC,NEW_DESC]];
 export function applyComputerExecutionReceiptPatch(source){
  if(typeof source!=='string'||source.startsWith(IMPORT)||!source.includes('durableNativeHooks56?.acceptedCompletion(')||!source.includes('jhRequireCommand56(deviceId)')||!source.includes('computerInspectReceipt56.issue(')||!source.includes('pendingApprovalReceiptStatus56(args)'))
