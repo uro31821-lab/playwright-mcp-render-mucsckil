@@ -168,6 +168,18 @@ function setup(source,options={}){
   const waitJob=syntheticWait;
   const awaitFrame56=async waiter=>{frameWaiters56.delete(waiter.lease);return null;};
   const jhRightWebOpen56=()=>{throw Error("UNEXPECTED_URL_EFFECT_IN_CONTRACT_FIXTURE");};
+  async function jhStage61BeforeWeb56(args,payload,action,command){
+   const stageAction=action==="SET_TEXT"?"TYPE":action==="BACK"?"BACK":"CLICK";
+   Object.assign(payload,{
+    stage61RouteSchema:"JH168_STAGE61_ROUTE_REQUEST_V1",
+    stage61Action:stageAction,
+    stage61WebOutcome:"NOT_RUN",
+    stage61ComputerOutcome:"NOT_RUN",
+    stage61PlaywrightMobileAvailable:false
+   });
+   return {ok:true,routeToken:"s61_synthetic_contract",stageAction};
+  }
+  async function jhStage61AfterAction56(result){return result;}
   function registerOAuthTool(name,config,handler){
    const wrapped=jhCommandTool56(name,config,handler);
    registrations.set(name,wrapped);
@@ -251,6 +263,13 @@ async function runFixture(){
   assert.equal(write.payload.commandId,COMMAND);assert.equal(write.payload.requestId,REQUEST);
   assert.equal(write.payload.mcpToolName,'life_android_execute_computer_action');
   assert.equal(write.payload.secureRequestedEffect,'REVERSIBLE_WRITE');
+  assert.equal(write.payload.stage61RouteSchema,'JH168_STAGE61_ROUTE_REQUEST_V1');
+  assert.equal(write.payload.stage61Action,'TYPE');
+  assert.equal(write.payload.stage61WebOutcome,'NOT_RUN');
+  assert.equal(write.payload.stage61ComputerOutcome,'NOT_RUN');
+  assert.equal(write.payload.stage61PlaywrightMobileAvailable,false);
+  for(const serverOnly of ['routeToken','replayAllowed','automaticReplay','ok','stage61_route_token'])
+   assert.equal(Object.hasOwn(write.payload,serverOnly),false,'server-only Stage61 field '+serverOnly);
   for(const {job,payload} of f.captures){
    assert.equal(job.securePayloadDigest,sha(stableStringify(payload,{ignoreVolatileKeys:false})));
    const expected=createHmac('sha256',Buffer.alloc(32,83)).update(
@@ -315,6 +334,11 @@ async function runFixture(){
    assert.equal(f.admissions.filter(v=>v.type==='split_screen_session_followup'&&v.allowed).length,1);
    const p=f.captures.find(v=>v.job.type==='split_screen_session_followup').payload;
    assert.equal(p.action,'BACK');assert.equal(p.targetItemRef,'');
+   assert.equal(p.stage61RouteSchema,'JH168_STAGE61_ROUTE_REQUEST_V1');
+   assert.equal(p.stage61Action,'BACK');
+   assert.equal(p.stage61WebOutcome,'NOT_RUN');
+   assert.equal(p.stage61ComputerOutcome,'NOT_RUN');
+   assert.equal(p.stage61PlaywrightMobileAvailable,false);
    assert.equal('inputGrantToken' in p,false);assert.equal('value' in p,false);
    assert.equal(f.host.uncertainEffectsForMaintenance(),1);
   },{pendingAction:true});
