@@ -1,26 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {patchJH167OperationalArticleReview56} from '../deployment/jh167-article-operational-review-composition.mjs';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {buildCleanRestartRelease56} from '../deployment/durable-clean-restart-news-review-entry.mjs';
 import {patchStage61MobileRuntime56,reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 
+const ROOT=path.resolve(import.meta.dirname,'..');
 const raw=readFileSync(new URL('../../server.mjs',import.meta.url),'utf8');
 const oldEnv={...process.env};
-function buildCurrentMobileRuntime(){
+async function buildCurrentMobileRuntime(){
   process.env.CI='true';
   process.env.NODE_ENV='test';
   process.env.JH_OWNER_DEFER_LISTEN='1';
   process.env.JH_MOBILE_WEB_13_MODE='EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1';
-  try{return patchJH167OperationalArticleReview56(raw);}
-  finally{
+  try{
+    // Do not re-apply the historical durable patches directly to jh-server/server.mjs.
+    // Reuse the reviewed current release builder, exactly as the existing real-boot
+    // tests do, then inspect the generated runtime selected by the owner host.
+    const generated=buildCleanRestartRelease56();
+    const release=await import(pathToFileURL(generated.file).href+'?stage61='+generated.sha256);
+    const built=release.buildDurableRoutedOperationalEntrypoint(ROOT);
+    return readFileSync(built.runtimeFile,'utf8');
+  }finally{
     for(const key of Object.keys(process.env))if(!(key in oldEnv))delete process.env[key];
     for(const [key,value] of Object.entries(oldEnv))process.env[key]=value;
   }
 }
 
-const current=buildCurrentMobileRuntime();
+const current=await buildCurrentMobileRuntime();
 
-test('current reviewed JH server actually composes the signed Android RIGHT mobile runtime',()=>{
+test('current reviewed JH release builder composes the signed Android RIGHT mobile runtime',()=>{
   for(const marker of [
     'async function jhMobileWebFollow56(',
     'async function jhMobileWebRead56(',
