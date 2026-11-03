@@ -169,7 +169,10 @@ function setup(source,options={}){
   const awaitFrame56=async waiter=>{frameWaiters56.delete(waiter.lease);return null;};
   const jhRightWebOpen56=()=>{throw Error("UNEXPECTED_URL_EFFECT_IN_CONTRACT_FIXTURE");};
   async function jhStage61BeforeWeb56(args,payload,action,command){
-   const stageAction=action==="SET_TEXT"?"TYPE":action==="BACK"?"BACK":"CLICK";
+   const s=String(command||"");
+   const stageAction=action==="SET_TEXT"?"TYPE":action==="BACK"?"BACK":
+    /선택 메뉴 열기|select menu open/i.test(s)?"SELECT_OPEN":
+    /옵션 선택|select option/i.test(s)?"SELECT_PICK":"CLICK";
    Object.assign(payload,{
     stage61RouteSchema:"JH168_STAGE61_ROUTE_REQUEST_V1",
     stage61Action:stageAction,
@@ -251,6 +254,22 @@ async function runFixture(){
   }
   await assert.rejects(f.call('select',{context_id:CONTEXT,target_item_ref:ITEM,request_id:REQUEST}));
   assert.equal(f.captures.length,0,'schema rejection precedes signed job creation');
+ });
+ await check('SELECT OPEN uses one exact Stage61-wrapped journaled CLICK',async f=>{
+  const r=await f.call('select',{context_id:CONTEXT,target_item_ref:ITEM,request_id:REQUEST,phase:'OPEN'});
+  assert.equal(r.automaticReplay,false);
+  const writes=f.captures.filter(v=>v.job.type==='split_screen_session_followup');
+  assert.equal(writes.length,1,JSON.stringify({reply:r,captures:f.captures,admissions:f.admissions}));
+  const write=writes[0];
+  assert.equal(write.payload.action,'CLICK');
+  assert.equal(write.payload.targetItemRef,ITEM);
+  assert.equal(write.payload.stage61RouteSchema,'JH168_STAGE61_ROUTE_REQUEST_V1');
+  assert.equal(write.payload.stage61Action,'SELECT_OPEN');
+  assert.equal(write.payload.stage61WebOutcome,'NOT_RUN');
+  assert.equal(write.payload.stage61ComputerOutcome,'NOT_RUN');
+  assert.equal(write.payload.stage61PlaywrightMobileAvailable,false);
+  assert.ok(f.admissions.every(v=>v.allowed),JSON.stringify(f.admissions));
+  assert.equal(f.host.uncertainEffectsForMaintenance(),0);
  });
  await check('SET_TEXT uses original preflight, original signed mk and real journal',async f=>{
   const r=await f.call('type',typeArgs);
