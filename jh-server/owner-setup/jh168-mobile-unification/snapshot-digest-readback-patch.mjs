@@ -4,7 +4,7 @@
  */
 const IMPORT='import {createSnapshotDigestReadbackRegistry56} from "../jh168-mobile-unification/snapshot-digest-readback.mjs";\n';
 const STATE_OLD='const computerExecutionReceipts56=createComputerExecutionReceiptRegistry56();';
-const STATE_NEW=STATE_OLD+'\nconst snapshotDigestReadbacks56=createSnapshotDigestReadbackRegistry56();';
+const STATE_NEW=STATE_OLD+'\nconst snapshotDigestReadbacks56=createSnapshotDigestReadbackRegistry56();\nconst resolveSnapshotDigestReadback56=args=>snapshotDigestReadbacks56.read(args,id=>jobs.get(id));';
 const SNAP_OLD=`  registerOAuthTool("life_android_snapshot",{
     title:"Read Android UI",
     description:"Read Android accessibility UI for native-app-only workflows.",
@@ -49,8 +49,8 @@ const STATUS_NEW=`  registerOAuthTool("life_job_status",{
       if(!device||!auth||!meta||meta.secureBridgeVersion!==56)
         return textResult({ok:false,code:"secure_bridge_device_not_active",automaticReplay:false});
       const commandId=jhRequireCommand56(device);
-      const read=snapshotDigestReadbacks56.read({jobDigest:digest,deviceId:device,
-        deviceDigest:meta.deviceDigest,sessionId:auth.sessionId,commandId},id=>jobs.get(id));
+      const read=resolveSnapshotDigestReadback56({jobDigest:digest,deviceId:device,
+        deviceDigest:meta.deviceDigest,sessionId:auth.sessionId,commandId});
       if(read.ok!==true)return textResult(read);
       return textResult({...safeJobView56(read.job),lookupOnly:true,readOnly:true,
         newJobCreated:false,automaticReplay:false});
