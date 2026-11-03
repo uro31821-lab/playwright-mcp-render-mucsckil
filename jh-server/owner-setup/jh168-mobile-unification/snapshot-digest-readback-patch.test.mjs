@@ -16,9 +16,14 @@ const raw=[
  '  });',
  '  registerOAuthTool("life_job_status",{',
  '    title:"Android job status",',
- '    description:"Read a queued Android job result.",',
+ '    description:"Read the existing Android job only. For an OPEN_COMPLETION_PENDING result, reuse the same job_id and command_id here; never BEGIN_COMMAND or reopen the app. Waits up to 10 seconds for that open job receipt. Missing receipt is not execution failure.",',
  '    inputSchema:{job_id:z.string()}',
- '  },async({job_id})=>jobResult(jobs.get(job_id)));'
+ '  },async({job_id})=>{',
+ '    cleanupJobs();const job=jobs.get(job_id);',
+ '    if(job?.type!=="open_url")return jobResult(job);',
+ '    const completion=await jhOpenCompletion56(job,jhOpenStatusWait56);',
+ '    return textResult({jobId:job_id,...completion});',
+ '  });'
 ].join('\n');
 test('snapshot source patch is exact and reversible',()=>{
  const out=applySnapshotDigestReadbackPatch56(raw);
@@ -26,6 +31,7 @@ test('snapshot source patch is exact and reversible',()=>{
  assert.match(out,/secureRequestedEffect:"READ_ONLY"/);
  assert.match(out,/resolveSnapshotDigestReadback56/);
  assert.match(out,/jobs\.values\(\)/);
+ assert.match(out,/jhOpenCompletion56\(job,jhOpenStatusWait56\)/);
  assert.equal(reverseSnapshotDigestReadbackPatch56(out),raw);
 });
 test('duplicate patch is rejected',()=>{
