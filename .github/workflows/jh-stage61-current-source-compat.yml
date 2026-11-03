@@ -2,7 +2,7 @@ name: JH Stage61 current server compatibility
 
 on:
   push:
-    branches: [stage61/right-pane-router-fix1-20261103]
+    branches: [stage61/approval-fix-v5-deploy-20261103]
   workflow_dispatch:
 
 permissions:
@@ -26,6 +26,19 @@ jobs:
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Verify exact Stage61 V5 server source and 39 focused tests
+        run: |
+          set -euo pipefail
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec \\
+            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \\
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \\
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
       - name: Verify Stage61 against current reviewed JH runtime
         env:
           CI: 'true'
