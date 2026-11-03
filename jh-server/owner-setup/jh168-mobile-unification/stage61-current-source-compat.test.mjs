@@ -21,6 +21,7 @@ async function buildCurrentMobileRuntime(){
     const built=release.buildDurableRoutedOperationalEntrypoint(ROOT);
     const syntax=spawnSync(process.execPath,['--check',built.runtimeFile],{encoding:'utf8'});
     assert.equal(syntax.status,0,syntax.stderr||syntax.stdout||'generated runtime syntax failed');
+    await import(pathToFileURL(built.runtimeFile).href+'?stage61runtime='+built.candidateSha256);
     return readFileSync(built.runtimeFile,'utf8');
   }finally{
     for(const key of Object.keys(process.env))if(!(key in oldEnv))delete process.env[key];
