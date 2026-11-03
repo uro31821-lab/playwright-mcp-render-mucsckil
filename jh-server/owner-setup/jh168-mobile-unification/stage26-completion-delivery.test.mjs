@@ -17,7 +17,11 @@ const digest=s=>createHash('sha256').update(s).digest('hex');
 const root=path.resolve(import.meta.dirname,'..');
 const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
  JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1'};
+process.env.CI='true';
+process.env.NODE_ENV='test';
+process.env.JH_OWNER_DEFER_LISTEN='1';
 process.env.JH_MOBILE_WEB_13_MODE=env.JH_MOBILE_WEB_13_MODE;
+for(const key of ['RENDER_SERVICE_ID','JH_DURABLE_RELEASE','JH_PENDING_APPROVAL_OPERATOR_ENABLE','JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE']) delete process.env[key];
 
 test('signed same-job same-body duplicate is an ACK only (no new job or durable hook)',()=>{
  const d=digest('{"result":{"ok":true,"action":"CLICK","resultVerified":true}}');
