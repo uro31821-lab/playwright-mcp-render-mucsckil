@@ -83,7 +83,14 @@ const HELPER=String.raw`
     if(plan.ok!==true||plan.provider!=="ANDROID_WEB"||plan.allowed!==true)
       return {ok:false,code:plan.code||"STAGE61_ANDROID_WEB_NOT_AUTHORIZED",provider:plan.provider,automaticReplay:false};
     const phone=jhStage61Host56.phonePayload({routeToken,action:stageAction,provider:"ANDROID_WEB"});
-    if(phone.ok!==true)return phone;Object.assign(payload,phone);
+    if(phone.ok!==true)return phone;
+    Object.assign(payload,{
+      stage61RouteSchema:phone.stage61RouteSchema,
+      stage61Action:phone.stage61Action,
+      stage61WebOutcome:phone.stage61WebOutcome,
+      stage61ComputerOutcome:phone.stage61ComputerOutcome,
+      stage61PlaywrightMobileAvailable:phone.stage61PlaywrightMobileAvailable
+    });
     return {ok:true,routeToken,stageAction};
   }
   async function jhStage61AfterAction56(result,routeToken,provider,action,terminal=true){
