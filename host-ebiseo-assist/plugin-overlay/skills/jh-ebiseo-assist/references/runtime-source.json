@@ -1,0 +1,42 @@
+{
+  "schema": "jh.ebiseo-source.v1",
+  "repository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "branch": "jh-fix3-secure-server",
+  "directory": "host-ebiseo-assist",
+  "apiVersion": "1.0.0",
+  "privateStateIncluded": false,
+  "createsState": false,
+  "naturalLanguageInterpreter": "current conversation host",
+  "otherConversationRemoteExecution": false,
+  "remoteAvailability": "Source coordinates and file hashes do not independently attest publication.",
+  "files": {
+    "context.mjs": "5a747f1d3c056df4b1073b587941c2798b42831df89129f78e71b43a0dd55607",
+    "installed-runtime.mjs": "cb65899b8125f90e7f4a6899e85bbaae729c0733551bde71150a746d3981423c"
+  },
+  "bundledFiles": {
+    "scripts/context.mjs": "5a747f1d3c056df4b1073b587941c2798b42831df89129f78e71b43a0dd55607",
+    "scripts/installed-runtime.mjs": "cb65899b8125f90e7f4a6899e85bbaae729c0733551bde71150a746d3981423c"
+  },
+  "installedDependencies": [
+    {
+      "skillsRelativePath": "jh-personal-dialogue/scripts/runtime.js",
+      "sha256": "366a0be98cb8560aaf75359dcf466047a0b58d1bc5e989bf79a783c58a770d3e"
+    },
+    {
+      "skillsRelativePath": "jh-personal-dialogue/scripts/context-adapter.js",
+      "sha256": "82d3d0de9f66a848df8cd38f0e4e04d9cbc376ba18493ab5d632f57f2fe313bd"
+    },
+    {
+      "skillsRelativePath": "jh-personalization/scripts/runtime.js",
+      "sha256": "ad7835ccfeca98486d8a1478e5a60996cb1d61aaebad094229e2d1538821d0b9"
+    },
+    {
+      "skillsRelativePath": "jh-decision-learning/scripts/runtime.js",
+      "sha256": "8bdd50f5925fe01fdece92c1bf23ed8b9b92bd5a04f0f80126b95f630233f5e0"
+    },
+    {
+      "skillsRelativePath": "jh-decision-learning/scripts/personalization-adapter.js",
+      "sha256": "505ee5790d89003eec671a215d30fec06313531d1fd2a51bdce529ec08c6f28a"
+    }
+  ]
+}
