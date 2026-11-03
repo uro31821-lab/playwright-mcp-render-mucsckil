@@ -51,8 +51,8 @@ test('Stage61 is already composed by the reviewed runtime and reverses/reapplies
 
 test('Stage61 deployed composition changes only bounded mobile and Computer Use routing anchors',()=>{
   assert.ok(current.startsWith('import {createStage61HostAdapter}'));
-  assert.equal((current.match(/registerOAuthTool\\("life_web_navigate"/g)||[]).length,1);
-  assert.equal((current.match(/registerOAuthTool\\("life_android_execute_computer_action"/g)||[]).length,1);
+  assert.equal((current.match(/registerOAuthTool\("life_web_navigate"/g)||[]).length,1);
+  assert.equal((current.match(/registerOAuthTool\("life_android_execute_computer_action"/g)||[]).length,1);
   assert.equal((current.match(/jhStage61BeforeWeb56/g)||[]).length,2);
   assert.equal((current.match(/jhStage61PrepareComputer56/g)||[]).length,2);
   assert.throws(()=>patchStage61MobileRuntime56(current));
