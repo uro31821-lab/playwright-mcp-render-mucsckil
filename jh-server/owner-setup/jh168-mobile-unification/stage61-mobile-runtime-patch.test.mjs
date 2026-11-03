@@ -84,3 +84,26 @@ test('patch preserves pending approval queued receipt secureCall and reverses ex
  assert.match(out,/stage61RouteToken/);
  assert.equal(reverseStage61MobileRuntime56(out),pendingFixture);
 });
+
+
+const pendingInspectFixture=pendingFixture
+  .replace('const pendingApprovalReceipts56={issue(){return {receiptToken:"r"}}};',
+    'const pendingApprovalReceipts56={issue(){return {receiptToken:"r"}}};\nconst computerInspectReceipt56={issue(){return {receiptToken:"i"}}};')
+  .replace('    return textResult({...safeJobView56(j),...(receipt||{})});',
+`    const inspectReceipt=jobType==="computer_use_inspect"&&
+      mcpToolName==="life_android_computer_inspect"&&
+      effect==="READ_ONLY"?computerInspectReceipt56.issue({
+        job:j,deviceId:x.deviceId,deviceDigest:meta?.deviceDigest,
+        sessionId:active?.sessionId,commandId:j.commandId,
+        taskDigest:String(args.task_digest||""),
+        runDigest:String(args.run_digest||"")
+      }):null;
+    return textResult({...safeJobView56(j),...(receipt||inspectReceipt||{})});`);
+
+test('patch preserves final pending plus computer inspect queued receipt secureCall and reverses exactly',()=>{
+ const out=patchStage61MobileRuntime56(pendingInspectFixture);
+ assert.match(out,/computerInspectReceipt56\.issue/);
+ assert.match(out,/jhStage61FinishComputer56\(j,stage61\)/);
+ assert.match(out,/stage61RouteToken/);
+ assert.equal(reverseStage61MobileRuntime56(out),pendingInspectFixture);
+});
