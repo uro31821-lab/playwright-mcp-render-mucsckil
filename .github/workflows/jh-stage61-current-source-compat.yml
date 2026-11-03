@@ -35,9 +35,9 @@ jobs:
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
-          node --test --test-concurrency=1 --test-reporter=spec \\
-            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \\
-            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \\
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
       - name: Verify Stage61 against current reviewed JH runtime
         env:
