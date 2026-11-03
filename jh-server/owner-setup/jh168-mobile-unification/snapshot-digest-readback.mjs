@@ -1,38 +1,61 @@
-/** Read-only recovery for an ORIGINAL signed agent_snapshot by opaque idDigest.
- * No job creation, Android dispatch, approval, retry, lease creation, or raw job id output.
+/** Process-local read-only registry for ORIGINAL signed agent_snapshot jobs.
+ * Keeps Android snapshot payload byte-compatible: command binding lives only on server.
+ * No job creation, dispatch, approval, retry, lease creation, or raw job id output.
  */
 import {createHash} from 'node:crypto';
 const H32=/^[a-f0-9]{32}$/;
 const H64=/^[a-f0-9]{64}$/;
 const JOB=/^job_[0-9]+$/;
 const sha=x=>createHash('sha256').update(String(x)).digest('hex');
-const fail=code=>Object.freeze({ok:false,code,lookupOnly:true,readOnly:true,newJobCreated:false,automaticReplay:false});
+const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
+const deny=code=>Object.freeze({ok:false,code,lookupOnly:true,readOnly:true,
+  newJobCreated:false,automaticReplay:false});
 
-export function resolveSnapshotDigestReadback56({
-  jobDigest,deviceId,deviceDigest,sessionId,commandId
-}={},jobsIterable){
-  if(!H64.test(jobDigest||'')||typeof deviceId!=='string'||!deviceId||
-     !H64.test(deviceDigest||'')||typeof sessionId!=='string'||!sessionId||
-     !H32.test(commandId||'')||!jobsIterable||typeof jobsIterable[Symbol.iterator]!=='function')
-    return fail('SNAPSHOT_READBACK_ARGUMENTS_INVALID');
-  let found=null;
-  for(const job of jobsIterable){
-    if(!job||typeof job!=='object'||!JOB.test(job.id||''))continue;
-    if(sha(job.id)!==jobDigest)continue;
-    if(found)return fail('SNAPSHOT_READBACK_DIGEST_COLLISION');
-    found=job;
-  }
-  if(!found)return fail('SNAPSHOT_READBACK_UNAVAILABLE');
-  if(found.type!=='agent_snapshot'||
-     found.mcpToolName!=='life_android_snapshot'||
-     found.secureRequestedEffect!=='READ_ONLY'||
-     found.targetDeviceId!==deviceId||
-     found.targetDeviceDigest!==deviceDigest||
-     found.secureSessionId!==sessionId||
-     found.commandId!==commandId||
-     !H64.test(found.secureMac||'')||
-     !H64.test(found.securePayloadDigest||''))
-    return fail('SNAPSHOT_READBACK_SCOPE_CHANGED');
-  return Object.freeze({ok:true,code:'SNAPSHOT_READBACK_FOUND',job:found,
-    lookupOnly:true,readOnly:true,newJobCreated:false,automaticReplay:false});
+export function createSnapshotDigestReadbackRegistry56({now=Date.now,maxEntries=96,ttlMs=60000}={}){
+ if(typeof now!=='function'||!Number.isSafeInteger(maxEntries)||maxEntries<1||maxEntries>128||
+    !Number.isSafeInteger(ttlMs)||ttlMs<3000||ttlMs>120000)
+   throw Error('SNAPSHOT_READBACK_CONFIG_INVALID');
+ const records=new Map();
+ const clean=()=>{for(const [k,v] of records)if(now()>=v.expiresAtMs)records.delete(k);};
+ function issue({job,deviceId,deviceDigest,sessionId,commandId}={}){
+   clean();
+   if(!obj(job)||job.type!=='agent_snapshot'||!['queued','in_progress'].includes(job.status)||
+      !JOB.test(job.id||'')||typeof deviceId!=='string'||!deviceId||
+      !H64.test(deviceDigest||'')||typeof sessionId!=='string'||!sessionId||
+      !H32.test(commandId||'')||job.targetDeviceId!==deviceId||
+      job.secureSessionId!==sessionId||!H64.test(job.secureMac||'')||
+      !H64.test(job.securePayloadDigest||'')||!Number.isSafeInteger(job.expiresAtMs)||
+      records.size>=maxEntries)return null;
+   const jobDigest=sha(job.id),existing=records.get(jobDigest);
+   if(existing){
+     if(existing.deviceId!==deviceId||existing.deviceDigest!==deviceDigest||
+        existing.sessionId!==sessionId||existing.commandId!==commandId)return null;
+     return Object.freeze({jobDigest,expiresAtMs:existing.expiresAtMs,readOnly:true,
+       newJobCreated:false,automaticReplay:false});
+   }
+   const expiresAtMs=Math.min(job.expiresAtMs,now()+ttlMs);
+   if(expiresAtMs-now()<3000)return null;
+   records.set(jobDigest,Object.freeze({jobId:job.id,deviceId,deviceDigest,sessionId,commandId,
+     macDigest:sha(job.secureMac),payloadDigest:job.securePayloadDigest,expiresAtMs}));
+   return Object.freeze({jobDigest,expiresAtMs,readOnly:true,newJobCreated:false,automaticReplay:false});
+ }
+ function read({jobDigest,deviceId,deviceDigest,sessionId,commandId}={},getOriginalJob){
+   clean();
+   if(!H64.test(jobDigest||'')||typeof getOriginalJob!=='function')
+     return deny('SNAPSHOT_READBACK_ARGUMENTS_INVALID');
+   const row=records.get(jobDigest);
+   if(!row)return deny('SNAPSHOT_READBACK_UNAVAILABLE');
+   if(row.deviceId!==deviceId||row.deviceDigest!==deviceDigest||
+      row.sessionId!==sessionId||row.commandId!==commandId)
+     return deny('SNAPSHOT_READBACK_SCOPE_CHANGED');
+   let job;try{job=getOriginalJob(row.jobId)}catch{return deny('SNAPSHOT_READBACK_JOB_UNAVAILABLE');}
+   if(!obj(job)||job.id!==row.jobId||job.type!=='agent_snapshot'||
+      job.targetDeviceId!==row.deviceId||job.secureSessionId!==row.sessionId||
+      !H64.test(job.secureMac||'')||!H64.test(job.securePayloadDigest||'')||
+      sha(job.secureMac)!==row.macDigest||job.securePayloadDigest!==row.payloadDigest)
+     return deny('SNAPSHOT_READBACK_ORIGINAL_JOB_CHANGED');
+   return Object.freeze({ok:true,code:'SNAPSHOT_READBACK_FOUND',job,lookupOnly:true,
+     readOnly:true,newJobCreated:false,automaticReplay:false});
+ }
+ return Object.freeze({issue,read});
 }
