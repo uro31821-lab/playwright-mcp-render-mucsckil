@@ -1,0 +1,37 @@
+name: JHAI Newbiseo Worldview
+
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'host-newbiseo-worldview/**'
+      - '.github/workflows/jhai-newbiseo-worldview.yml'
+  push:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'host-newbiseo-worldview/**'
+      - '.github/workflows/jhai-newbiseo-worldview.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jhai-newbiseo-worldview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+      - name: Worldview source, boundary and fixed-form tests
+        run: |
+          node host-newbiseo-worldview/sync-overlay.mjs
+          git diff --exit-code -- host-newbiseo-worldview/plugin-overlay/skills/jh-newbiseo-worldview/references/runtime-source.json
+          node --test host-newbiseo-worldview/*.test.mjs
