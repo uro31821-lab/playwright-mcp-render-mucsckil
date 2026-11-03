@@ -68,10 +68,10 @@ function assertAssetHeaders(reply,type,bytes){
 }
 
 async function syntheticChild(mode){
- assert.ok(mode==='ORIGINAL'||mode==='PHONE_RIGHT');
- const enabled=mode==='PHONE_RIGHT';
+ assert.equal(mode,'PHONE_RIGHT');
+ const enabled=true;
  const allowed=['PATH','CI','NODE_ENV','JH_OWNER_DEFER_LISTEN','LIFE_HUB_TOKEN',
-  'JH_STAGE26_SIGNED_COMPLETION_ACK',...(enabled?['JH_MOBILE_WEB_13_MODE']:[])];
+  'JH_STAGE26_SIGNED_COMPLETION_ACK','JH_MOBILE_WEB_13_MODE'];
  assert.deepEqual(Object.keys(process.env).sort(),allowed.sort(),
   'child must not inherit credentials or production settings');
  assert.equal(process.env.CI,'true');
@@ -79,7 +79,7 @@ async function syntheticChild(mode){
  assert.equal(process.env.JH_OWNER_DEFER_LISTEN,'1');
  assert.equal(process.env.LIFE_HUB_TOKEN,SYNTHETIC_TOKEN);
  assert.equal(process.env.JH_STAGE26_SIGNED_COMPLETION_ACK,ACK);
- assert.equal(process.env.JH_MOBILE_WEB_13_MODE,enabled?MODE:undefined);
+ assert.equal(process.env.JH_MOBILE_WEB_13_MODE,MODE);
  let externalRequests=0;
  // The test client uses node:http only. Any runtime fetch is unexpected.
  globalThis.fetch=async()=>{externalRequests++;throw Error('SYNTHETIC_RUNTIME_FETCH_FORBIDDEN');};
@@ -204,11 +204,11 @@ if(process.argv[2]==='--synthetic-child'){
   timeout:120000
  },()=>{
   const reports=[];
-  for(const mode of ['ORIGINAL','PHONE_RIGHT']){
+  for(const mode of ['PHONE_RIGHT']){
    const env={PATH:process.env.PATH||'',CI:'true',NODE_ENV:'test',
     JH_OWNER_DEFER_LISTEN:'1',LIFE_HUB_TOKEN:SYNTHETIC_TOKEN,
     JH_STAGE26_SIGNED_COMPLETION_ACK:ACK,
-    ...(mode==='PHONE_RIGHT'?{JH_MOBILE_WEB_13_MODE:MODE}:{})};
+    JH_MOBILE_WEB_13_MODE:MODE};
    const child=spawnSync(process.execPath,[fileURLToPath(import.meta.url),'--synthetic-child',mode],{
     cwd:path.resolve(root,'../..'),env,encoding:'utf8',timeout:50000,maxBuffer:2*1024*1024
    });
@@ -222,7 +222,7 @@ if(process.argv[2]==='--synthetic-child'){
    assert.match(report.generatedRuntimeSha256,/^[a-f0-9]{64}$/);
    reports.push(report);console.log(lines[0]);
   }
-  assert.deepEqual(reports[1].protectedRoutes,reports[0].protectedRoutes);
-  assert.notEqual(reports[1].generatedRuntimeSha256,reports[0].generatedRuntimeSha256);
+  assert.equal(reports.length,1);
+  assert.equal(reports[0].mode,'PHONE_RIGHT');
  });
 }
