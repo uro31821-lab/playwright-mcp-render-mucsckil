@@ -26,6 +26,10 @@ const HELPER=String.raw`
     while(jhStage61OriginalResult56.size>64)jhStage61OriginalResult56.delete(jhStage61OriginalResult56.keys().next().value);
     return ref;
   }
+  function jhStage61Arg56(args,...names){
+    for(const name of names){const value=args?.[name];if(value!==undefined&&value!==null&&String(value)!=="")return value;}
+    return null;
+  }
   function jhStage61WebAction56(action,command){
     if(action==="SET_TEXT")return "TYPE";if(action==="BACK")return "BACK";
     const s=String(command||"");
@@ -33,8 +37,17 @@ const HELPER=String.raw`
     if(/옵션 선택|select option/i.test(s))return "SELECT_PICK";
     return "CLICK";
   }
-  function jhStage61ComputerAction56(args,inspect=false){
-    if(inspect)return "READ_ONLY_INSPECT";
+  function jhStage61Control56(mcpToolName){
+    return ({
+      life_android_action_approval_request:"ACTION_APPROVAL_REQUEST",
+      life_android_action_approval_status:"ACTION_APPROVAL_STATUS",
+      life_android_screen_consent_request:"SCREEN_CONSENT_REQUEST",
+      life_android_screen_consent_status:"SCREEN_CONSENT_STATUS",
+      life_android_capture_work_window:"CAPTURE_FRAME"
+    })[mcpToolName]||null;
+  }
+  function jhStage61ComputerAction56(args,inspect=false,control=null){
+    if(inspect||["SCREEN_CONSENT_REQUEST","SCREEN_CONSENT_STATUS","CAPTURE_FRAME"].includes(control))return "READ_ONLY_INSPECT";
     const a=String(args?.action||"").toUpperCase();
     if(["SCROLL","DRAG"].includes(a))return "SCROLL";
     if(a==="TYPE")return "TYPE";if(a==="KEYPRESS")return "KEYPRESS_ENTER_TAB";
@@ -79,19 +92,41 @@ const HELPER=String.raw`
   function jhStage61PrepareComputer56(args,mcpToolName){
     const routeToken=String(args?.stage61_route_token||"");
     if(!routeToken)return {ok:true,args};
+    const control=jhStage61Control56(mcpToolName);
     const inspect=mcpToolName==="life_android_computer_inspect";
-    const stageAction=jhStage61ComputerAction56(args,inspect);
+    const stageAction=jhStage61ComputerAction56(args,inspect,control);
     const plan=jhStage61Host56.plan({routeToken,action:stageAction});
     if(plan.ok!==true||plan.provider!=="ANDROID_COMPUTER_USE"||plan.allowed!==true)
       return {ok:false,result:{ok:false,code:plan.code||"STAGE61_COMPUTER_USE_NOT_AUTHORIZED",automaticReplay:false}};
+    const taskId=String(jhStage61Arg56(args,"task_id","task_digest","taskId")||"");
+    const requestToken=String(jhStage61Arg56(args,"request_token","requestToken")||"");
+    const actionGrantToken=String(jhStage61Arg56(args,"action_approval_grant_token","actionApprovalGrantToken")||"");
+    const screenGrantToken=String(jhStage61Arg56(args,"screen_grant_token","screenGrantToken")||"");
+    if(control){
+      const gate=jhStage61Host56.controlPlan({routeToken,control,action:stageAction,taskId,
+        requestToken,grantToken:control==="CAPTURE_FRAME"?screenGrantToken:actionGrantToken});
+      if(gate.ok!==true)return {ok:false,result:gate};
+    }else if(mcpToolName==="life_android_computer_prepare"||mcpToolName==="life_android_execute_computer_action"){
+      const grantGate=jhStage61Host56.approvalUsePlan({routeToken,action:stageAction,taskId,grantToken:actionGrantToken});
+      if(grantGate.ok!==true)return {ok:false,result:grantGate};
+    }
     const phone=jhStage61Host56.phonePayload({routeToken,action:stageAction,provider:"ANDROID_COMPUTER_USE"});
     if(phone.ok!==true)return {ok:false,result:phone};
-    return {ok:true,args:{...args,...phone},routeToken,stageAction,terminal:mcpToolName==="life_android_execute_computer_action"};
+    return {ok:true,args:{...args,...phone},routeToken,stageAction,control,taskId,requestToken,
+      grantToken:control==="CAPTURE_FRAME"?screenGrantToken:actionGrantToken,
+      terminal:mcpToolName==="life_android_execute_computer_action"};
   }
   async function jhStage61FinishComputer56(job,prepared){
     if(!prepared?.routeToken)return secureResult56(job);
     const result=job?.result;
     if(!result||typeof result!=="object")return secureResult56(job);
+    if(prepared.control){
+      const controlRecord=await jhStage61Host56.recordControl({routeToken:prepared.routeToken,
+        control:prepared.control,originalReceiptRef:jhStage61SaveOriginal56(result),action:prepared.stageAction,
+        taskId:prepared.taskId,requestToken:prepared.requestToken,grantToken:prepared.grantToken});
+      return textResult({...result,stage61RouteToken:prepared.routeToken,
+        stage61ApprovalHost:controlRecord,automaticReplay:false});
+    }
     const routed=await jhStage61AfterAction56(result,prepared.routeToken,
       "ANDROID_COMPUTER_USE",prepared.stageAction,prepared.terminal);
     return textResult(routed);
@@ -122,16 +157,16 @@ export function patchStage61MobileRuntime56(source){
   '    return textResult({route:"android_right",automaticReplay:false,...await jhStage61BeginRead56(result)});\n  }\n\n  registerOAuthTool("life_web_navigate",{',
   'STAGE61_START_RESULT_ANCHOR');
  out=once(out,'const cuSchema56={','const cuSchema56={stage61_route_token:z.string().optional(),','STAGE61_CU_SCHEMA_ANCHOR');
- const oldCall='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));\n  return waitJob(x.job,15000).then(secureResult56);\n}';
- const newCall='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));\n  return waitJob(x.job,15000).then(job=>jhStage61FinishComputer56(job,stage61));\n}';
+ const oldCall='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(secureResult56);\n  }';
+ const newCall='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n    if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n    const x=exactEnvelope56(device,mcpToolName,stage61.args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(job=>jhStage61FinishComputer56(job,stage61));\n  }';
  out=once(out,oldCall,newCall,'STAGE61_SECURE_CALL_ANCHOR');
  return out;
 }
 
 export function reverseStage61MobileRuntime56(source){
  let out=source;
- const newCall='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));\n  return waitJob(x.job,15000).then(job=>jhStage61FinishComputer56(job,stage61));\n}';
- const oldCall='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));\n  return waitJob(x.job,15000).then(secureResult56);\n}';
+ const newCall='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n    if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n    const x=exactEnvelope56(device,mcpToolName,stage61.args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(job=>jhStage61FinishComputer56(job,stage61));\n  }';
+ const oldCall='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(secureResult56);\n  }';
  out=out.replace(newCall,oldCall)
   .replace('const cuSchema56={stage61_route_token:z.string().optional(),','const cuSchema56={')
   .replace('    return textResult({route:"android_right",automaticReplay:false,...await jhStage61BeginRead56(result)});','    return textResult({route:"android_right",automaticReplay:false,...result});')
