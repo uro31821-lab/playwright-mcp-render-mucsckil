@@ -6,6 +6,7 @@ const raw=[
  'function signJob56(){}',
  'function safeJobView56(){}',
  'function jhRequireCommand56(){}',
+ 'const computerExecutionReceipts56=createComputerExecutionReceiptRegistry56();',
  '  registerOAuthTool("life_android_snapshot",{',
  '    title:"Read Android UI",',
  '    description:"Read Android accessibility UI for native-app-only workflows.",',
@@ -25,16 +26,17 @@ const raw=[
  '    return textResult({jobId:job_id,...completion});',
  '  });'
 ].join('\n');
-test('snapshot source patch is exact and reversible',()=>{
+test('snapshot payload remains empty and source patch is reversible',()=>{
  const out=applySnapshotDigestReadbackPatch56(raw);
- assert.match(out,/mcpToolName:"life_android_snapshot"/);
- assert.match(out,/secureRequestedEffect:"READ_ONLY"/);
- assert.match(out,/resolveSnapshotDigestReadback56/);
- assert.match(out,/jobs\.values\(\)/);
+ assert.match(out,/const j=mk\("agent_snapshot",\{\},device\)/);
+ assert.doesNotMatch(out,/mk\("agent_snapshot",\{mcpToolName/);
+ assert.match(out,/snapshotDigestReadbacks56\.issue/);
+ assert.match(out,/snapshotDigestReadbacks56\.read/);
+ assert.match(out,/recentJobs\.delete/);
  assert.match(out,/jhOpenCompletion56\(job,jhOpenStatusWait56\)/);
  assert.equal(reverseSnapshotDigestReadbackPatch56(out),raw);
 });
-test('duplicate patch is rejected',()=>{
+test('duplicate patch rejected',()=>{
  const out=applySnapshotDigestReadbackPatch56(raw);
  assert.throws(()=>applySnapshotDigestReadbackPatch56(out));
 });
