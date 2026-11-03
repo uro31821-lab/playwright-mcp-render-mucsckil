@@ -19,6 +19,16 @@ const BASE_FIELDS = Object.freeze([
   'secureRequestedEffect', 'taskDigest', 'targetDeviceDigest',
   'secureInvocationExpiresAt', 'containsCredential', 'dataClass', 'commandId'
 ]);
+const STAGE61_ROUTE_SCHEMA = 'JH168_STAGE61_ROUTE_REQUEST_V1';
+const STAGE61_FIELDS = Object.freeze([
+  'stage61RouteSchema', 'stage61Action', 'stage61WebOutcome',
+  'stage61ComputerOutcome', 'stage61PlaywrightMobileAvailable'
+]);
+const STAGE61_OUTCOMES = new Set([
+  'NOT_RUN','READ_ONLY_VERIFIED','PREPARED','VERIFIED_PASS',
+  'VERIFIED_UNSUPPORTED_NO_EFFECT','FAILED_NO_EFFECT','FAILED_AFTER_EFFECT',
+  'UNKNOWN','PENDING','PHONE_SCOPED_SITE_DISCARD'
+]);
 const answer = (kind, extra = {}) => Object.freeze({kind, ...extra});
 const denied = () => answer('DENY', {code: 'DURABLE_EXACT_MOBILE13_ACTION_SCOPE_REQUIRED'});
 const matches = (pattern, value) => typeof value === 'string' && pattern.test(value);
@@ -30,6 +40,21 @@ const ownData = (value, name) => {
   return descriptor && Object.hasOwn(descriptor, 'value') && descriptor.enumerable
     ? descriptor : null;
 };
+function exactStage61Scope(payload, action) {
+  const present = Object.hasOwn(payload, 'stage61RouteSchema');
+  if (!present) return {present: false, valid: true};
+  if (!STAGE61_FIELDS.every((name) => !!ownData(payload, name)))
+    return {present: true, valid: false};
+  const expectedAction = action === 'SET_TEXT' ? 'TYPE' : action;
+  return {
+    present: true,
+    valid: payload.stage61RouteSchema === STAGE61_ROUTE_SCHEMA &&
+      payload.stage61Action === expectedAction &&
+      STAGE61_OUTCOMES.has(payload.stage61WebOutcome) &&
+      STAGE61_OUTCOMES.has(payload.stage61ComputerOutcome) &&
+      payload.stage61PlaywrightMobileAvailable === false
+  };
+}
 // Same text-only rejection as the original split-screen MCP producer. Device
 // target-sensitive classification and grant consumption are still mandatory.
 const localOnly = (value) => /bearer\s+[a-z0-9._~+/=-]{8,}/i.test(value) ||
@@ -71,8 +96,11 @@ export function mobile13DurableJobPolicy(job, payload) {
   const action = payload?.action;
   if (!preflight && !(job?.type === FOLLOWUP && (action === 'SET_TEXT' || action === 'BACK')))
     return durableNativeJobPolicy(job, payload);
+  const stage61 = preflight ? {present: false, valid: true} : exactStage61Scope(payload, action);
+  if (!stage61.valid) return denied();
   const fields = [...BASE_FIELDS, ...(preflight ? [] : ['requestId']),
-    ...(!preflight && action === 'SET_TEXT' ? ['value', 'inputGrantToken'] : [])];
+    ...(!preflight && action === 'SET_TEXT' ? ['value', 'inputGrantToken'] : []),
+    ...(stage61.present ? STAGE61_FIELDS : [])];
   if (!exactSignedScope(job, payload, preflight, fields)) return denied();
 
   if (preflight) {
