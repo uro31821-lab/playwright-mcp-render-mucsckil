@@ -30,6 +30,26 @@ const HELPER=String.raw`
     for(const name of names){const value=args?.[name];if(value!==undefined&&value!==null&&String(value)!=="")return value;}
     return null;
   }
+  function jhStage61SecureScope56(args={}){
+    const context=jhCommandContext56.getStore?.();
+    const requested=String(args?.device_id||"");
+    const device=String(context?.device||requested||"");
+    if(!device)return {ok:false,code:"STAGE62_SCOPE_COMMAND_CONTEXT_REQUIRED",readOnly:true,automaticReplay:false};
+    if(requested&&requested!==device)return {ok:false,code:"STAGE62_SCOPE_DEVICE_CHANGED",readOnly:true,automaticReplay:false};
+    let commandId;
+    try{commandId=jhRequireCommand56(device);}catch{
+      return {ok:false,code:"STAGE62_SCOPE_COMMAND_NOT_CURRENT",readOnly:true,automaticReplay:false};
+    }
+    if(!/^[a-f0-9]{32}$/.test(String(commandId||""))||context?.commandId!==commandId||context?.version!==commandId)
+      return {ok:false,code:"STAGE62_SCOPE_COMMAND_NOT_CURRENT",readOnly:true,automaticReplay:false};
+    const active=active56(device);
+    if(!active?.sessionId||!Number.isSafeInteger(active.expiresAt)||active.expiresAt<=Date.now())
+      return {ok:false,code:"STAGE62_SCOPE_SECURE_SESSION_REQUIRED",readOnly:true,automaticReplay:false};
+    const taskDigest=sha56("stage62-task|"+device+"|"+active.sessionId+"|"+commandId);
+    const runDigest=sha56("stage62-run|"+device+"|"+active.sessionId+"|"+commandId);
+    return {ok:true,code:"STAGE62_SECURE_SCOPE_READY",taskDigest,runDigest,
+      scopeExpiresAt:active.expiresAt,readOnly:true,automaticReplay:false};
+  }
   function jhStage61WebAction56(action,command){
     if(action==="SET_TEXT")return "TYPE";if(action==="BACK")return "BACK";
     const s=String(command||"");
@@ -136,7 +156,9 @@ const HELPER=String.raw`
 export function patchStage61MobileRuntime56(source){
  if(typeof source!=='string'||!source.includes('async function jhMobileWebFollow56(')||
     !source.includes('async function jhMobileWebRead56(')||!source.includes('function secureCall56(')||
-    !source.includes('const cuSchema56={'))fail('STAGE61_MOBILE_RUNTIME_PREREQUISITES_MISSING');
+    !source.includes('const cuSchema56={')||!source.includes('jhCommandContext56')||
+    !source.includes('jhRequireCommand56(')||!source.includes('function active56(')||
+    !source.includes('function sha56('))fail('STAGE61_MOBILE_RUNTIME_PREREQUISITES_MISSING');
  let out=source;
  if(!out.startsWith(IMPORT))out=IMPORT+out;
  out=once(out,'  let jhMobileWebCapture56=null;','  let jhMobileWebCapture56=null;'+HELPER,'STAGE61_HELPER_ANCHOR');
@@ -157,6 +179,16 @@ export function patchStage61MobileRuntime56(source){
   '    return textResult({route:"android_right",automaticReplay:false,...await jhStage61BeginRead56(result)});\n  }\n\n  registerOAuthTool("life_web_navigate",{',
   'STAGE61_START_RESULT_ANCHOR');
  out=once(out,'const cuSchema56={','const cuSchema56={stage61_route_token:z.string().optional(),','STAGE61_CU_SCHEMA_ANCHOR');
+ const scopeTool=String.raw`
+  registerOAuthTool("life_android_computer_scope",{
+    title:"Issue current Android Computer Use scope",
+    description:"Read-only. Derives task/run digests only from the current command, selected device and active Secure56 session. Creates no Android job, approval or screen capture.",
+    inputSchema:{device_id:z.string().optional()},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}
+  },async args=>textResult(jhStage61SecureScope56(args)));
+`;
+ out=once(out,'  registerOAuthTool("life_android_secure_status",{',
+   scopeTool+'  registerOAuthTool("life_android_secure_status",{','STAGE62_SCOPE_TOOL_ANCHOR');
  const currentHeadOld='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);';
  const currentHeadNew='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);';
  const deviceHeadOld='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);';
@@ -208,6 +240,16 @@ export function reverseStage61MobileRuntime56(source){
  const reverseCompletion=reverseCompletions.filter(([before])=>out.split(before).length===2);
  if(reverseCompletion.length!==1)fail('STAGE61_SECURE_CALL_COMPLETION_REVERSE_ANCHOR');
  out=out.replace(reverseCompletion[0][0],reverseCompletion[0][1]);
+ const scopeTool=String.raw`
+  registerOAuthTool("life_android_computer_scope",{
+    title:"Issue current Android Computer Use scope",
+    description:"Read-only. Derives task/run digests only from the current command, selected device and active Secure56 session. Creates no Android job, approval or screen capture.",
+    inputSchema:{device_id:z.string().optional()},
+    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}
+  },async args=>textResult(jhStage61SecureScope56(args)));
+`;
+ out=out.replace(scopeTool+'  registerOAuthTool("life_android_secure_status",{',
+   '  registerOAuthTool("life_android_secure_status",{');
  out=out.replace('const cuSchema56={stage61_route_token:z.string().optional(),','const cuSchema56={')
   .replace('    return textResult({route:"android_right",automaticReplay:false,...await jhStage61BeginRead56(result)});','    return textResult({route:"android_right",automaticReplay:false,...result});')
   .replace('      return textResult({route:"android_right",automaticReplay:false,...await jhStage61ReadStatus56(result,args.context_id)});','      return textResult({route:"android_right",automaticReplay:false,...result});')
