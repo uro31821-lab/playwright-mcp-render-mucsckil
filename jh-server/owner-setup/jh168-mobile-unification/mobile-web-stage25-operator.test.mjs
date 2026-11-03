@@ -24,6 +24,14 @@ const flags={
 const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
  JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1',
  JH_STAGE26_SIGNED_COMPLETION_ACK:'EXPLICIT_IDENTICAL_SIGNED_RESULT_V1'};
+process.env.CI='true';
+process.env.NODE_ENV='test';
+process.env.JH_OWNER_DEFER_LISTEN='1';
+process.env.JH_MOBILE_WEB_13_MODE=env.JH_MOBILE_WEB_13_MODE;
+process.env.JH_STAGE26_SIGNED_COMPLETION_ACK=env.JH_STAGE26_SIGNED_COMPLETION_ACK;
+for(const key of ['RENDER_SERVICE_ID','JH_DURABLE_RELEASE',
+  'JH_PENDING_APPROVAL_OPERATOR_ENABLE','JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE'])
+  delete process.env[key];
 let stage25Runtime;
 test('published npm start selector in original Secure56 chooses explicit FOLLOWUP operator',()=>{
  assert.equal(selectPendingApprovalStartup56(flags),'pending-approval');
