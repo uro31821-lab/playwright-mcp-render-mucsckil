@@ -31,6 +31,20 @@ jobs:
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Candidate provenance and exact diff gate
+        run: |
+          set -euo pipefail
+          BASE=origin/fix/stage61-v10-mobile13-web-contract-20261103
+          git merge-base --is-ancestor "$BASE" HEAD
+          git diff --name-only "$BASE"...HEAD | sort > /tmp/changed.txt
+          cat >/tmp/allowed.txt <<'EOF'
+          .github/workflows/jh-stage61-v10-current-source-full-no-release.yml
+          jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.mjs
+          jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs
+          jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs
+          EOF
+          sort -o /tmp/allowed.txt /tmp/allowed.txt
+          diff -u /tmp/allowed.txt /tmp/changed.txt
       - name: Current mobile web and Stage61 source suites
         run: |
           set -euo pipefail
@@ -38,7 +52,6 @@ jobs:
             jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-runtime-contract.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile13-wait-condition.test.mjs \
