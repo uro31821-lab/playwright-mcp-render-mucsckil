@@ -3,18 +3,20 @@
   "repository": "uro31821-lab/playwright-mcp-render-mucsckil",
   "branch": "jh-fix3-secure-server",
   "directory": "host-newbiseo-worldview",
-  "apiVersion": "1.0.0",
+  "apiVersion": "1.1.0",
   "privateStateIncluded": false,
   "createsState": false,
   "searchesTheWeb": false,
   "monitoringEnabled": false,
   "autoSaveEnabled": false,
   "authorizesExecution": false,
-  "purpose": "source-backed story, recurring pattern, structural analogy, and personal inspiration validation",
+  "purpose": "source-backed story, recurring pattern, structural analogy, event anatomy, alternative interpretation, judgment signposts, and personal inspiration validation",
   "files": {
-    "worldview.mjs": "0dc9dad58c5e50aec33dd6e8cbc0bb846b5f66cc530f224789304d2445aefffb"
+    "worldview.mjs": "0dc9dad58c5e50aec33dd6e8cbc0bb846b5f66cc530f224789304d2445aefffb",
+    "deep-worldview.mjs": "d63ded87aeb74e4190c50ddf8ece7ad93e215584ae82eee73f97548f5ba56475"
   },
   "bundledFiles": {
-    "scripts/worldview.mjs": "0dc9dad58c5e50aec33dd6e8cbc0bb846b5f66cc530f224789304d2445aefffb"
+    "scripts/worldview.mjs": "0dc9dad58c5e50aec33dd6e8cbc0bb846b5f66cc530f224789304d2445aefffb",
+    "scripts/deep-worldview.mjs": "d63ded87aeb74e4190c50ddf8ece7ad93e215584ae82eee73f97548f5ba56475"
   }
 }
