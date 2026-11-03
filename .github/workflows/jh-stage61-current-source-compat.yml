@@ -1,0 +1,40 @@
+name: JH Stage61 current server compatibility
+
+on:
+  push:
+    branches: [stage61/right-pane-router-fix1-20261103]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  current-server-compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Stage61 against current reviewed JH runtime
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+          JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs
+      - name: Preserve no-release boundaries
+        run: |
+          echo CURRENT_SERVER_HEAD="$(git rev-parse HEAD)"
+          echo STAGE61_CURRENT_RUNTIME_COMPAT=PASS
+          echo RENDER_DEPLOY=0
+          echo APK_BUILD=0
+          echo APK_INSTALL=0
+          echo PHONE_E2E=NOT_RUN
