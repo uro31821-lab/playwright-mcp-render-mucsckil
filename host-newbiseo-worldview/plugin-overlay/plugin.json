@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "jh-secure-live",
-  "version": "1.27.0",
+  "version": "1.28.0",
   "description": "JH167 guide-first assistant, wired to existing authenticated MCP app. Catalog refresh required for seven additional read-only tools.",
   "author": {
     "name": "JH"
@@ -21,38 +21,17 @@
     "signed-job-readback",
     "no-replay",
     "fast-release",
-    "single-device-validation",
-    "reused-apk",
-    "incremental-ci",
-    "unzip-run",
     "rea-executor",
     "operational-learning",
-    "experience-memory",
-    "regression",
-    "improvement-suggestions",
-    "shared-work-rules",
     "proactive-research",
-    "topic-memory",
-    "source-evidence",
-    "personalized-recommendations",
-    "choice-reasons",
-    "after-use-feedback",
-    "goal-context",
-    "prediction-outcome-review",
-    "proposal-value",
-    "two-way-feedback",
-    "personal-dialogue",
-    "question-context",
-    "repeated-patterns",
-    "source-bound-proposals",
-    "ebiseo",
-    "에비서",
-    "on-demand-assistance",
-    "contextual-consultation",
-    "gradle-handoff",
-    "windows-build-handoff",
-    "androidx-cache",
-    "data-preserving-update",
+    "gitbiseo",
+    "깃비서",
+    "open-source-scout",
+    "deep-open-source",
+    "evidence-ladder",
+    "research-ledger",
+    "open-source-outcome",
+    "outcome-learning",
     "newbiseo",
     "뉴비서",
     "newstory",
@@ -60,7 +39,15 @@
     "worldview",
     "news-history",
     "structural-analogy",
-    "personal-inspiration"
+    "personal-inspiration",
+    "deep-worldview",
+    "causal-map",
+    "stakeholder-map",
+    "three-clocks",
+    "alternative-hypothesis",
+    "counterfactual",
+    "judgment-signposts",
+    "inspiration-quality-gate"
   ],
   "skills": "./skills",
   "extensions": {
@@ -68,7 +55,7 @@
       "interface": {
         "displayName": "JH Secure Live",
         "shortDescription": "JH167 guide and reservation MCP catalog",
-        "longDescription": "JH167 Secure Bridge via existing Developer mode MCP App. Preserve Primary choice, existing approval, and no-replay. Split-screen START is read-only; unsupported SAVE/FINISH are not retried, with separate verified ChatGPT return where permitted.",
+        "longDescription": "JH167 Secure Bridge via existing Developer mode MCP App. Preserve Primary choice, existing approval, and no-replay.",
         "developerName": "JH",
         "category": "Productivity",
         "capabilities": [
@@ -77,9 +64,9 @@
           "Interactive"
         ],
         "defaultPrompt": [
-          "JH167 Secure Bridge 상태 및 새 가이드형 도구 목록 확인해줘. 화면 자동 클릭 금지.",
-          "life_guide13_catalog으로 실생활 13개 기능을 설명해줘. 읽기 전용으로 실행해.",
-          "오른쪽 Chrome에 열린 이 기사를 화면 도입부만 보지 말고 원문 URL을 찾아 전체 본문을 읽고 출처와 함께 요약해줘."
+          "오픈소스 후보를 심층 조사해서 실제 코드·라이선스·보안·JH 적합성까지 확인해줘.",
+          "전에 적용한 오픈소스의 실제 결과를 다음 추천에 반영해줘.",
+          "뉴비서로 이 사건을 처음부터 지금까지 정리하고, 원인·이해관계·반대 해석·과거 유사사례와 나에게 줄 아이디어까지 심층 분석해줘."
         ]
       },
       "apps": "./.app.json"
