@@ -26,6 +26,10 @@ jobs:
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Diagnose snapshot anchor text
+        run: |
+          set -euo pipefail
+          node jh-server/owner-setup/jh168-mobile-unification/snapshot-readback-anchor-diagnostic.mjs
       - name: Verify Stage61 server source and focused tests
         run: |
           set -euo pipefail
