@@ -2,7 +2,7 @@ name: JH Stage61 current server compatibility
 
 on:
   push:
-    branches: [fix/stage61-v5-final-operator-order-20261103]
+    branches: [fix/stage61-task-route-bind-20261103]
   workflow_dispatch:
 
 permissions:

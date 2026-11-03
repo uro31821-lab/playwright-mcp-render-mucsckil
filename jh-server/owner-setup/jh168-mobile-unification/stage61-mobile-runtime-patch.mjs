@@ -18,6 +18,7 @@ const HELPER=String.raw`
   // Stage61: server-owned route state over ORIGINAL Secure56 phone results.
   const jhStage61OriginalResult56=new Map();
   const jhStage61ContextRoute56=new Map();
+  const jhStage61TaskRoute56=new Map();
   const jhStage61Host56=createStage61HostAdapter({
     readOriginalSignedResult:async ref=>jhStage61OriginalResult56.get(ref)
   });
@@ -59,6 +60,11 @@ const HELPER=String.raw`
     if(state.ok!==true)return {...result,stage61RouterHost:state};
     const contextId=String(result?.contextId||result?.context_id||"");
     if(/^ssc_[a-f0-9]{32}$/.test(contextId))jhStage61ContextRoute56.set(contextId,state.routeToken);
+    const taskDigest=String(result?.taskDigest||result?.task_digest||"");
+    if(/^[a-f0-9]{64}$/.test(taskDigest)){
+      jhStage61TaskRoute56.set(taskDigest,state.routeToken);
+      while(jhStage61TaskRoute56.size>64)jhStage61TaskRoute56.delete(jhStage61TaskRoute56.keys().next().value);
+    }
     return {...result,stage61RouteToken:state.routeToken,stage61RouterHost:state,
       stage61NextProvider:"ANDROID_WEB",automaticReplay:false};
   }
@@ -90,7 +96,12 @@ const HELPER=String.raw`
       stage61NextProvider:next.provider,stage61NextCode:next.code,automaticReplay:false};
   }
   function jhStage61PrepareComputer56(args,mcpToolName){
-    const routeToken=String(args?.stage61_route_token||"");
+    const explicitRouteToken=String(args?.stage61_route_token||"");
+    const taskId=String(jhStage61Arg56(args,"task_id","task_digest","taskId")||"");
+    const taskRouteToken=/^[a-f0-9]{64}$/.test(taskId)?String(jhStage61TaskRoute56.get(taskId)||""):"";
+    if(explicitRouteToken&&taskRouteToken&&explicitRouteToken!==taskRouteToken)
+      return {ok:false,result:{ok:false,code:"STAGE61_ROUTE_TASK_BINDING_MISMATCH",automaticReplay:false}};
+    const routeToken=explicitRouteToken||taskRouteToken;
     if(!routeToken)return {ok:true,args};
     const control=jhStage61Control56(mcpToolName);
     const inspect=mcpToolName==="life_android_computer_inspect";
@@ -98,7 +109,6 @@ const HELPER=String.raw`
     const plan=jhStage61Host56.plan({routeToken,action:stageAction});
     if(plan.ok!==true||plan.provider!=="ANDROID_COMPUTER_USE"||plan.allowed!==true)
       return {ok:false,result:{ok:false,code:plan.code||"STAGE61_COMPUTER_USE_NOT_AUTHORIZED",automaticReplay:false}};
-    const taskId=String(jhStage61Arg56(args,"task_id","task_digest","taskId")||"");
     const requestToken=String(jhStage61Arg56(args,"request_token","requestToken")||"");
     const actionGrantToken=String(jhStage61Arg56(args,"action_approval_grant_token","actionApprovalGrantToken")||"");
     const screenGrantToken=String(jhStage61Arg56(args,"screen_grant_token","screenGrantToken")||"");

@@ -92,6 +92,8 @@ test('full pending-approval and Stage25 production overlay chain ends with exact
   assert.equal(built.stamp.stage61ApprovalRouting,true);
   assert.equal(runtime.split('const jhStage61Host56=createStage61HostAdapter(').length-1,1);
   assert.equal(runtime.split('stage61_route_token:z.string().optional()').length-1,1);
+  assert.equal(runtime.split('const jhStage61TaskRoute56=new Map();').length-1,1);
+  assert.ok(runtime.includes('STAGE61_ROUTE_TASK_BINDING_MISMATCH'));
   for(const marker of [
     'pendingApprovalReceipts56',
     'jhSplitFollowupReceipts56',
