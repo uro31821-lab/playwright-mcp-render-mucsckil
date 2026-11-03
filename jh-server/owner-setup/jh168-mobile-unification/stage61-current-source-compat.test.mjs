@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {spawnSync} from 'node:child_process';
 import {buildCleanRestartRelease56} from '../deployment/durable-clean-restart-news-review-entry.mjs';
 import {patchStage61MobileRuntime56,reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 
@@ -18,6 +19,8 @@ async function buildCurrentMobileRuntime(){
     const generated=buildCleanRestartRelease56();
     const release=await import(pathToFileURL(generated.file).href+'?stage61='+generated.sha256);
     const built=release.buildDurableRoutedOperationalEntrypoint(ROOT);
+    const syntax=spawnSync(process.execPath,['--check',built.runtimeFile],{encoding:'utf8'});
+    assert.equal(syntax.status,0,syntax.stderr||syntax.stdout||'generated runtime syntax failed');
     return readFileSync(built.runtimeFile,'utf8');
   }finally{
     for(const key of Object.keys(process.env))if(!(key in oldEnv))delete process.env[key];
