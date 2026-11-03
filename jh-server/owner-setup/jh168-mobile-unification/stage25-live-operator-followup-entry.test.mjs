@@ -10,9 +10,16 @@ import {
 } from './stage25-live-operator-followup-entry.mjs';
 import {reverseJH168SplitFollowupReceiptPatch} from './split-followup-receipt-patch.mjs';
 import {reverseComputerExecutionReceiptPatch} from './computer-execution-receipt-patch.mjs';
+import {reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 import {selectPendingApprovalOperatorRuntime56} from '../server-integration/pending-approval-operator-entry.mjs';
 const root=path.resolve(import.meta.dirname,'..');
-const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1'};
+const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+ JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1'};
+process.env.CI='true';
+process.env.NODE_ENV='test';
+process.env.JH_OWNER_DEFER_LISTEN='1';
+process.env.JH_MOBILE_WEB_13_MODE=env.JH_MOBILE_WEB_13_MODE;
+for(const key of ['RENDER_SERVICE_ID','JH_DURABLE_RELEASE','JH_PENDING_APPROVAL_OPERATOR_ENABLE','JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE']) delete process.env[key];
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const validate=file=>{
  const r=spawnSync(process.execPath,['--check',file],{encoding:'utf8',timeout:30000});
@@ -27,7 +34,8 @@ test('real current pending-approval operator remains intact after exact Stage25 
  const candidate=selectStage25PendingOperatorRuntime56(root,env);
  const original=readFileSync(parent.file,'utf8');
  const runtime=readFileSync(candidate.file,'utf8');
- assert.equal(reverseJH168SplitFollowupReceiptPatch(reverseComputerExecutionReceiptPatch(runtime)),original);
+ assert.equal(reverseJH168SplitFollowupReceiptPatch(
+   reverseComputerExecutionReceiptPatch(reverseStage61MobileRuntime56(runtime))),original);
  assert.equal(sha(original),base.stamp.parentSha256);
  assert.equal(sha(runtime),base.stamp.runtimeSha256);
  for(const x of ['pendingApprovalReceipts56','jhSplitReadReceipts56',

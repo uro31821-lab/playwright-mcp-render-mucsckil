@@ -59,6 +59,7 @@ test("approval receipt status host patch enforces current JH command and no re-d
   assert.match(patched,/const commandId=jhRequireCommand56\(deviceId\)/);
   assert.match(patched,/commandId:j\.commandId/);
   assert.match(patched,/runDigest:String\(args\.run_digest\|\|""\),commandId\}/);
+  assert.match(patched,/if\(!j\|\|!\["queued","in_progress"\]\.includes\(j\.status\)\)return secureResult56\(j\)/);
 });
 test("forged, expired, missing or changed-session receipt fails closed",()=>{
   let t=1000;const {store,scope,job}=setup(undefined,()=>t);const {receiptToken}=store.issue({job,...scope});

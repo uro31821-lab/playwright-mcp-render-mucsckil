@@ -178,8 +178,8 @@ export function patchStage61MobileRuntime56(source){
 
  const currentDirectOld='  return waitJob(x.job,15000).then(secureResult56);';
  const currentDirectNew='  return waitJob(x.job,15000).then(job=>jhStage61FinishComputer56(job,stage61));';
- const currentPendingOld='    if(!["queued","in_progress"].includes(j.status))return secureResult56(j);';
- const currentPendingNew='    if(!["queued","in_progress"].includes(j.status))return jhStage61FinishComputer56(j,stage61);';
+ const currentPendingOld='    if(!j||!["queued","in_progress"].includes(j.status))return secureResult56(j);';
+ const currentPendingNew='    if(!j||!["queued","in_progress"].includes(j.status))return jhStage61FinishComputer56(j,stage61);';
  const deviceDirectOld='    return waitJob(j,x.waitMs).then(secureResult56);';
  const deviceDirectNew='    return waitJob(j,x.waitMs).then(job=>jhStage61FinishComputer56(job,stage61));';
  const completions=[
@@ -206,8 +206,8 @@ export function reverseStage61MobileRuntime56(source){
 
  const currentDirectOld='  return waitJob(x.job,15000).then(secureResult56);';
  const currentDirectNew='  return waitJob(x.job,15000).then(job=>jhStage61FinishComputer56(job,stage61));';
- const currentPendingOld='    if(!["queued","in_progress"].includes(j.status))return secureResult56(j);';
- const currentPendingNew='    if(!["queued","in_progress"].includes(j.status))return jhStage61FinishComputer56(j,stage61);';
+ const currentPendingOld='    if(!j||!["queued","in_progress"].includes(j.status))return secureResult56(j);';
+ const currentPendingNew='    if(!j||!["queued","in_progress"].includes(j.status))return jhStage61FinishComputer56(j,stage61);';
  const deviceDirectOld='    return waitJob(j,x.waitMs).then(secureResult56);';
  const deviceDirectNew='    return waitJob(j,x.waitMs).then(job=>jhStage61FinishComputer56(job,stage61));';
  const reverseCompletions=[

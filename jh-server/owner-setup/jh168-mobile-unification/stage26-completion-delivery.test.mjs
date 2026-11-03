@@ -9,12 +9,19 @@ import {applyStage26CompletionAckPatch56,reverseStage26CompletionAckPatch56}
  from './stage26-completion-delivery-patch.mjs';
 import {applyComputerExecutionReceiptPatch,reverseComputerExecutionReceiptPatch}
  from './computer-execution-receipt-patch.mjs';
+import {reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 import {buildStage25PendingOperatorEntrypoint56,selectStage25PendingOperatorRuntime56,
  selectStage26CompletionAck56}
  from './stage25-live-operator-followup-entry.mjs';
 const digest=s=>createHash('sha256').update(s).digest('hex');
 const root=path.resolve(import.meta.dirname,'..');
-const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1'};
+const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+ JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1'};
+process.env.CI='true';
+process.env.NODE_ENV='test';
+process.env.JH_OWNER_DEFER_LISTEN='1';
+process.env.JH_MOBILE_WEB_13_MODE=env.JH_MOBILE_WEB_13_MODE;
+for(const key of ['RENDER_SERVICE_ID','JH_DURABLE_RELEASE','JH_PENDING_APPROVAL_OPERATOR_ENABLE','JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE']) delete process.env[key];
 
 test('signed same-job same-body duplicate is an ACK only (no new job or durable hook)',()=>{
  const d=digest('{"result":{"ok":true,"action":"CLICK","resultVerified":true}}');
@@ -40,7 +47,8 @@ test('only a FIRST completion continues to original durable acceptedCompletion',
 
 test('post-auth source patch is exact reversible and only changes signed completion ACK',async()=>{
  const base=await buildStage25PendingOperatorEntrypoint56(root,env);
- const original=readFileSync(base.runtimeFile,'utf8');
+ const stage61Runtime=readFileSync(base.runtimeFile,'utf8');
+ const original=reverseStage61MobileRuntime56(stage61Runtime);
  const candidate=applyStage26CompletionAckPatch56(original);
  assert.equal(reverseStage26CompletionAckPatch56(candidate),original);
  assert.ok(candidate.includes('jhSplitFollowupReceipts56.read('));
@@ -58,7 +66,7 @@ test('post-auth source patch is exact reversible and only changes signed complet
  assert.ok(!candidate.includes('automaticActionRetryEnabled:true'));
  assert.throws(()=>applyStage26CompletionAckPatch56(candidate),/REQUIRED|ANCHOR/);
  const before=readFileSync(base.runtimeFile,'utf8');
- assert.equal(before,original,'review build must not overwrite original');
+ assert.equal(before,stage61Runtime,'review build must not overwrite current Stage61 runtime');
  const filename=path.join(root,'server-integration/stage26-syntax-review.mjs');
  const fs=await import('node:fs');
  fs.writeFileSync(filename,candidate,{mode:0o600});
@@ -79,6 +87,7 @@ test('exact original Stage25 operator remains untouched if Stage26 flag absent, 
  const stable=await buildStage25PendingOperatorEntrypoint56(root,env);
  assert.equal(stable.stamp.signedCompletionAckStage26,undefined);
  const pristine=readFileSync(stable.runtimeFile,'utf8');
+ const pristinePreStage61=reverseStage61MobileRuntime56(pristine);
  assert.ok(!pristine.includes('stage26RawDigest56'));
  assert.equal(selectStage25PendingOperatorRuntime56(root,env).sha256,stable.stamp.runtimeSha256);
  assert.equal(selectStage26CompletionAck56(env),false);
@@ -91,9 +100,14 @@ test('exact original Stage25 operator remains untouched if Stage26 flag absent, 
  assert.equal(added.stamp.originalComputerInspect,true);
  assert.equal(added.stamp.originalOperationalLearning,true);
  const signed=readFileSync(added.runtimeFile,'utf8');
- // Remove the NEW outer read-only original-job receipt before the original Stage26 ACK;
- // restore the same outer scope afterward. Neither change can replay a job.
- assert.equal(applyComputerExecutionReceiptPatch(reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(signed))),pristine);
+ const signedPreStage61=reverseStage61MobileRuntime56(signed);
+ // Remove the outer Computer Use receipt, remove Stage26 ACK, then restore the same receipt layer.
+ // Stage61 remains the final outer layer in both full runtimes.
+ assert.equal(
+   applyComputerExecutionReceiptPatch(
+     reverseStage26CompletionAckPatch56(
+       reverseComputerExecutionReceiptPatch(signedPreStage61))),
+   pristinePreStage61);
  assert.equal(selectStage25PendingOperatorRuntime56(root,stage26Env).sha256,added.stamp.runtimeSha256);
  assert.ok(signed.includes('jhSplitFollowupReceipts56.issue('));
  assert.ok(signed.includes('pendingApprovalReceipts56'));

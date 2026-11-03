@@ -15,7 +15,7 @@ const baseline=()=>[
 test('patch is exact, reversible, read-only and retains native signature/durable hooks',()=>{
  const before=baseline(),after=applyComputerExecutionReceiptPatch(before);
  assert.equal(reverseComputerExecutionReceiptPatch(after),before);
- for(const s of ['computerExecutionReceipts56.issue(','computerExecutionReceipts56.read(','jhRequireCommand56(deviceId)','durableNativeHooks56?.acceptedCompletion(','mcpToolName==="life_android_execute_computer_action"'])
+ for(const s of ['computerExecutionReceipts56.issue(','computerExecutionReceipts56.read(','jhRequireCommand56(deviceId)','durableNativeHooks56?.acceptedCompletion(','mcpToolName==="life_android_execute_computer_action"','mcpToolName==="life_android_computer_prepare"','computerReceipt'])
   assert.ok(after.includes(s),s);
  assert.equal(after.split('computerExecutionReceipts56.issue(').length,2);
  assert.equal(after.split('computerExecutionReceipts56.read(').length,2);

@@ -70,7 +70,7 @@ function safeJobView56(){return {}}
 function secureCall56(mcpToolName,jobType,effect,args,extra={}){
   const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));
   return waitJob(x.job,15000).then(j=>{
-    if(!["queued","in_progress"].includes(j.status))return secureResult56(j);
+    if(!j||!["queued","in_progress"].includes(j.status))return secureResult56(j);
     const active=active56(x.deviceId),meta=devices.get(x.deviceId);
     const receipt=pendingApprovalReceipts56.issue({job:j,deviceId:x.deviceId,deviceDigest:meta?.deviceDigest,
       sessionId:active?.sessionId,taskDigest:String(args.task_digest||""),runDigest:String(args.run_digest||""),
