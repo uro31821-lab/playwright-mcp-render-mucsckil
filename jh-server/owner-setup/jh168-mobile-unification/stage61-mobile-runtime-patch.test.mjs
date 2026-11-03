@@ -4,6 +4,10 @@ import {patchStage61MobileRuntime56,reverseStage61MobileRuntime56} from './stage
 
 const fixture=`import x from "x";
 function token56(){}
+function sha56(v){return v}
+function active56(){}
+function jhRequireCommand56(){}
+const jhCommandContext56={getStore(){return null}};
 function secureResult56(){}
 function textResult(){}
 function mk(){}
@@ -41,6 +45,7 @@ function secureCall56(device,mcpToolName,args={}){
     return textResult({route:"android_right",automaticReplay:false,...result});
   }
 
+  registerOAuthTool("life_android_secure_status",{});
   registerOAuthTool("life_web_navigate",{});
 `;
 
@@ -54,6 +59,11 @@ test('patch connects mobile web and computer use to Stage61',()=>{
  assert.match(out,/recordControl/);
  assert.match(out,/approvalUsePlan/);
  assert.match(out,/SCREEN_CONSENT_STATUS/);
+ assert.match(out,/life_android_computer_scope/);
+ assert.match(out,/STAGE62_SECURE_SCOPE_READY/);
+ assert.match(out,/stage62-task\|/);
+ assert.match(out,/stage62-run\|/);
+ assert.match(out,/Creates no Android job, approval or screen capture/);
  assert.equal(reverseStage61MobileRuntime56(out),fixture);
 });
 test('second patch is rejected',()=>assert.throws(()=>patchStage61MobileRuntime56(patchStage61MobileRuntime56(fixture))));
@@ -61,8 +71,7 @@ test('missing real mobile anchors is rejected',()=>assert.throws(()=>patchStage6
 
 const pendingFixture=fixture
   .replace('function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(secureResult56);\n  }',
-`function active56(){}
-const devices=new Map();
+`const devices=new Map();
 const pendingApprovalReceipts56={issue(){return {receiptToken:"r"}}};
 function safeJobView56(){return {}}
 function secureCall56(mcpToolName,jobType,effect,args,extra={}){
