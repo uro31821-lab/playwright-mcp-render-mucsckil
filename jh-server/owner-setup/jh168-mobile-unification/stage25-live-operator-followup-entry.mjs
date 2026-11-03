@@ -31,6 +31,8 @@ import {applyStage44DeviceFocusPatch,reverseStage44DeviceFocusPatch}
  from './stage44-device-focus-patch.mjs';
 import {applyMobile13CommandDiagnosticsPatch56,reverseMobile13CommandDiagnosticsPatch56}
  from './mobile13-command-diagnostics.mjs';
+import {patchStage61MobileRuntime56,reverseStage61MobileRuntime56}
+ from './stage61-mobile-runtime-patch.mjs';
 
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const SERVICE='srv-db0fjl2d0e5s73be114g';
@@ -145,6 +147,7 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     stamp.stage41CommandLifecycleDiagnostics!==selectStage41CommandLifecycle56(env)||
     stamp.stage44DeviceFocus!==selectStage44Focus56(env)||
     stamp.mobile13CommandDiagnostics!==selectMobile13CommandDiagnostics56(env)||
+    stamp.stage61ApprovalRouting!==true||
     ![stamp.ownerSha256,stamp.unifiedSha256,stamp.operationalSha256]
       .every(s=>/^[a-f0-9]{64}$/.test(s||'')))
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_INVALID');
@@ -156,7 +159,8 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
  const commandDiagnostics=selectMobile13CommandDiagnostics56(env);
  const original=readFileSync(old.file,'utf8');
  const runtime=readFileSync(p.runtime,'utf8');
- const priorRuntime=commandDiagnostics?reverseMobile13CommandDiagnosticsPatch56(runtime):runtime;
+ const preStage61=reverseStage61MobileRuntime56(runtime);
+ const priorRuntime=commandDiagnostics?reverseMobile13CommandDiagnosticsPatch56(preStage61):preStage61;
  if(sha(original)!==stamp.parentSha256||
     sha(runtime)!==stamp.runtimeSha256||
     sha(readFileSync(p.owner,'utf8'))!==stamp.ownerSha256||
@@ -198,8 +202,10 @@ export async function buildStage25PendingOperatorEntrypoint56(
  const afterStage40=stage40?applyStage40OwnerAdmissionDiagnostics(afterReceipt):afterReceipt;
  const afterStage41=stage41?applyStage41CommandLifecyclePatch(afterStage40):afterStage40;
  const afterStage44=stage44?applyStage44DeviceFocusPatch(afterStage41):afterStage41;
- const runtime=commandDiagnostics?applyMobile13CommandDiagnosticsPatch56(afterStage44):afterStage44;
- const priorRuntime=commandDiagnostics?reverseMobile13CommandDiagnosticsPatch56(runtime):runtime;
+ const beforeStage61=commandDiagnostics?applyMobile13CommandDiagnosticsPatch56(afterStage44):afterStage44;
+ const runtime=patchStage61MobileRuntime56(beforeStage61);
+ const preStage61=reverseStage61MobileRuntime56(runtime);
+ const priorRuntime=commandDiagnostics?reverseMobile13CommandDiagnosticsPatch56(preStage61):preStage61;
  if(reverseJH168SplitFollowupReceiptPatch(stage26Ack?
        reverseStage26CompletionAckPatch56(reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)))):
        reverseComputerExecutionReceiptPatch(stage40?reverseStage40OwnerAdmissionDiagnostics(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime)):(stage41?reverseStage41CommandLifecyclePatch(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime):(stage44?reverseStage44DeviceFocusPatch(priorRuntime):priorRuntime))))!==original||
@@ -213,7 +219,9 @@ export async function buildStage25PendingOperatorEntrypoint56(
       runtime.split('function jhCommandCause41(').length!==2))||
     (stage44&&(runtime.split('const jhFocus44=createStage44DeviceFocus(').length!==2||
       runtime.split('DEVICE_FOCUS_PROTECTED_OTHER_BEGIN').length!==2))||
-    (commandDiagnostics&&runtime.split('secureBridgeVersion:56,mobileRightStatus56,commandDiagnostics').length!==2))
+    (commandDiagnostics&&runtime.split('secureBridgeVersion:56,mobileRightStatus56,commandDiagnostics').length!==2)||
+    runtime.split('const jhStage61Host56=createStage61HostAdapter(').length!==2||
+    runtime.split('stage61_route_token:z.string().optional()').length!==2)
   fail('JH_STAGE25_FOLLOWUP_PATCH_NOT_EXACT');
  emit(p.runtime,runtime);
 
@@ -251,6 +259,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
    stage41CommandLifecycleDiagnostics:stage41,
    stage44DeviceFocus:stage44,
    mobile13CommandDiagnostics:commandDiagnostics,
+   stage61ApprovalRouting:true,
    ...(stage26Ack?{signedCompletionAckStage26:true}:{}),
    productionEnabled:false,automaticReplayAllowed:false
  });
@@ -313,6 +322,10 @@ export async function main(env=process.env){
    trustRevalidated:false,phoneJobsCreated:false,apkChanged:false
   }));
  }
+ console.log('JH_STAGE61_APPROVAL_ROUTER_ACTIVE '+JSON.stringify({
+   schema:'JH168_STAGE61_FINAL_OPERATOR_V1',sha256:built.stamp.runtimeSha256,
+   appliedAfterPendingApproval:true,automaticReplayAllowed:false,apkChanged:false
+ }));
  return running;
 }
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
