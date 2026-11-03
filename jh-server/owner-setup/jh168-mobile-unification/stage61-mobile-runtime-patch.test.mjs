@@ -41,6 +41,16 @@ function secureCall56(device,mcpToolName,args={}){
     return textResult({route:"android_right",automaticReplay:false,...result});
   }
 
+  registerOAuthTool("life_web_press_key",{
+    title:"Supported RIGHT-pane navigation key",
+    description:"Only explicit Android BACK is currently bridged. Enter, Tab, Escape, Arrow keys require verified native action contracts and never silently use server Playwright.",
+    inputSchema:{key:z.string(),context_id:z.string().optional(),request_id:z.string().optional()}
+  },async(args)=>{
+    if(!["BACK","AndroidBack"].includes(args.key))
+      return jhMobileWebReject56("MOBILE_KEY_NOT_VERIFIED",{requestedKey:args.key});
+    return jhMobileWebFollow56(args,"BACK","오른쪽 화면에서 Android 뒤로 가기 1회");
+  });
+
   registerOAuthTool("life_web_navigate",{});
 `;
 
@@ -50,6 +60,11 @@ test('patch connects mobile web and computer use to Stage61',()=>{
  assert.match(out,/jhStage61BeforeWeb56/);
  assert.match(out,/stage61_route_token/);
  assert.match(out,/jhStage61TaskRoute56/);
+ assert.match(out,/jhStage61ContextTask56/);
+ assert.match(out,/jhStage61Keypress56/);
+ assert.match(out,/STAGE61_KEYPRESS_CONTEXT_TASK_REQUIRED/);
+ assert.match(out,/MOBILE_KEYPRESS_APPROVAL_REQUIRED_OR_UNCONFIRMED/);
+ assert.match(out,/\["ENTER","TAB"\]/);
  assert.match(out,/STAGE61_ROUTE_TASK_BINDING_MISMATCH/);
  assert.match(out,/jhStage61FinishComputer56/);
  assert.match(out,/ACTION_APPROVAL_REQUEST/);
