@@ -36,7 +36,7 @@ jobs:
           test -f host-newbiseo-worldview/worldview.mjs
           test -f host-newbiseo-worldview/deep-worldview.mjs
           test -f host-newbiseo-worldview/deep-worldview.test.mjs
-          echo '0dc9dad58c5e50aec33dd6e8cbc0bb846b5f66cc530f224789304d2445aefffb  host-newbiseo-worldview/worldview.mjs' | sha256sum -c -
+          echo '6b62d08c6dffa00d798cf89750e80aee0078aaefff712aa5812cad0a3e42d304  host-newbiseo-worldview/worldview.mjs' | sha256sum -c -
           echo 'd63ded87aeb74e4190c50ddf8ece7ad93e215584ae82eee73f97548f5ba56475  host-newbiseo-worldview/deep-worldview.mjs' | sha256sum -c -
           git diff --exit-code -- host-newbiseo-worldview/plugin-overlay/skills/jh-newbiseo-worldview/references/runtime-source.json
       - name: Worldview boundaries, fixed forms and deep regression tests
