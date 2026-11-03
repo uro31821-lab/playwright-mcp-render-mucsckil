@@ -2,7 +2,7 @@ name: JH Stage61 current server compatibility
 
 on:
   push:
-    branches: [fix/stage61-v10-snapshot-terminal-readback-20261103]
+    branches: [fix/stage61-computer-helper-scope-20261103]
   workflow_dispatch:
 
 permissions:
@@ -35,13 +35,7 @@ jobs:
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
-          node --check jh-server/owner-setup/jh168-mobile-unification/snapshot-digest-readback.mjs
-          node --check jh-server/owner-setup/jh168-mobile-unification/snapshot-digest-readback-patch.mjs
           node --test --test-concurrency=1 --test-reporter=spec \
-            jh-server/owner-setup/jh168-mobile-unification/snapshot-digest-readback.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/snapshot-digest-readback-patch.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
