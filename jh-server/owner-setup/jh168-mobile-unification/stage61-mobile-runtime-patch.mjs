@@ -157,34 +157,58 @@ export function patchStage61MobileRuntime56(source){
   '    return textResult({route:"android_right",automaticReplay:false,...await jhStage61BeginRead56(result)});\n  }\n\n  registerOAuthTool("life_web_navigate",{',
   'STAGE61_START_RESULT_ANCHOR');
  out=once(out,'const cuSchema56={','const cuSchema56={stage61_route_token:z.string().optional(),','STAGE61_CU_SCHEMA_ANCHOR');
- const oldCallDevice='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(secureResult56);\n  }';
- const newCallDevice='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n    if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n    const x=exactEnvelope56(device,mcpToolName,stage61.args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(job=>jhStage61FinishComputer56(job,stage61));\n  }';
- const oldCallCurrent='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));\n  return waitJob(x.job,15000).then(secureResult56);\n}';
- const newCallCurrent='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));\n  return waitJob(x.job,15000).then(job=>jhStage61FinishComputer56(job,stage61));\n}';
- const callVariants=[
-  [oldCallDevice,newCallDevice],
-  [oldCallCurrent,newCallCurrent]
+ const currentHeadOld='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);';
+ const currentHeadNew='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);';
+ const deviceHeadOld='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);';
+ const deviceHeadNew='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n    if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n    const x=exactEnvelope56(device,mcpToolName,stage61.args);';
+ const heads=[[currentHeadOld,currentHeadNew],[deviceHeadOld,deviceHeadNew]];
+ const headMatch=heads.filter(([before,after])=>out.split(before).length===2&&!out.includes(after));
+ if(headMatch.length!==1)fail('STAGE61_SECURE_CALL_HEAD_ANCHOR');
+ out=once(out,headMatch[0][0],headMatch[0][1],'STAGE61_SECURE_CALL_HEAD_ANCHOR');
+
+ const currentDirectOld='  return waitJob(x.job,15000).then(secureResult56);';
+ const currentDirectNew='  return waitJob(x.job,15000).then(job=>jhStage61FinishComputer56(job,stage61));';
+ const currentPendingOld='    if(!["queued","in_progress"].includes(j.status))return secureResult56(j);';
+ const currentPendingNew='    if(!["queued","in_progress"].includes(j.status))return jhStage61FinishComputer56(j,stage61);';
+ const deviceDirectOld='    return waitJob(j,x.waitMs).then(secureResult56);';
+ const deviceDirectNew='    return waitJob(j,x.waitMs).then(job=>jhStage61FinishComputer56(job,stage61));';
+ const completions=[
+  [currentDirectOld,currentDirectNew],
+  [currentPendingOld,currentPendingNew],
+  [deviceDirectOld,deviceDirectNew]
  ];
- const callMatch=callVariants.filter(([before,after])=>out.split(before).length===2&&!out.includes(after));
- if(callMatch.length!==1)fail('STAGE61_SECURE_CALL_ANCHOR');
- out=once(out,callMatch[0][0],callMatch[0][1],'STAGE61_SECURE_CALL_ANCHOR');
+ const completionMatch=completions.filter(([before,after])=>out.split(before).length===2&&!out.includes(after));
+ if(completionMatch.length!==1)fail('STAGE61_SECURE_CALL_COMPLETION_ANCHOR');
+ out=once(out,completionMatch[0][0],completionMatch[0][1],'STAGE61_SECURE_CALL_COMPLETION_ANCHOR');
  return out;
 }
 
 export function reverseStage61MobileRuntime56(source){
  let out=source;
- const oldCallDevice='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(secureResult56);\n  }';
- const newCallDevice='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n    if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n    const x=exactEnvelope56(device,mcpToolName,stage61.args);\n    if(x.error)return Promise.resolve(textResult(x));\n    const j=mk(x.type,x.payload,device.deviceId);\n    return waitJob(j,x.waitMs).then(job=>jhStage61FinishComputer56(job,stage61));\n  }';
- const oldCallCurrent='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));\n  return waitJob(x.job,15000).then(secureResult56);\n}';
- const newCallCurrent='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));\n  return waitJob(x.job,15000).then(job=>jhStage61FinishComputer56(job,stage61));\n}';
- const reverseVariants=[
-  [newCallDevice,oldCallDevice],
-  [newCallCurrent,oldCallCurrent]
+ const currentHeadOld='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);';
+ const currentHeadNew='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);';
+ const deviceHeadOld='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);';
+ const deviceHeadNew='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n    if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n    const x=exactEnvelope56(device,mcpToolName,stage61.args);';
+ const reverseHeads=[[currentHeadNew,currentHeadOld],[deviceHeadNew,deviceHeadOld]];
+ const reverseHead=reverseHeads.filter(([before])=>out.split(before).length===2);
+ if(reverseHead.length!==1)fail('STAGE61_SECURE_CALL_HEAD_REVERSE_ANCHOR');
+ out=out.replace(reverseHead[0][0],reverseHead[0][1]);
+
+ const currentDirectOld='  return waitJob(x.job,15000).then(secureResult56);';
+ const currentDirectNew='  return waitJob(x.job,15000).then(job=>jhStage61FinishComputer56(job,stage61));';
+ const currentPendingOld='    if(!["queued","in_progress"].includes(j.status))return secureResult56(j);';
+ const currentPendingNew='    if(!["queued","in_progress"].includes(j.status))return jhStage61FinishComputer56(j,stage61);';
+ const deviceDirectOld='    return waitJob(j,x.waitMs).then(secureResult56);';
+ const deviceDirectNew='    return waitJob(j,x.waitMs).then(job=>jhStage61FinishComputer56(job,stage61));';
+ const reverseCompletions=[
+  [currentDirectNew,currentDirectOld],
+  [currentPendingNew,currentPendingOld],
+  [deviceDirectNew,deviceDirectOld]
  ];
- const reverseMatch=reverseVariants.filter(([before])=>out.split(before).length===2);
- if(reverseMatch.length!==1)fail('STAGE61_SECURE_CALL_REVERSE_ANCHOR');
- out=out.replace(reverseMatch[0][0],reverseMatch[0][1])
-  .replace('const cuSchema56={stage61_route_token:z.string().optional(),','const cuSchema56={')
+ const reverseCompletion=reverseCompletions.filter(([before])=>out.split(before).length===2);
+ if(reverseCompletion.length!==1)fail('STAGE61_SECURE_CALL_COMPLETION_REVERSE_ANCHOR');
+ out=out.replace(reverseCompletion[0][0],reverseCompletion[0][1]);
+ out=out.replace('const cuSchema56={stage61_route_token:z.string().optional(),','const cuSchema56={')
   .replace('    return textResult({route:"android_right",automaticReplay:false,...await jhStage61BeginRead56(result)});','    return textResult({route:"android_right",automaticReplay:false,...result});')
   .replace('      return textResult({route:"android_right",automaticReplay:false,...await jhStage61ReadStatus56(result,args.context_id)});','      return textResult({route:"android_right",automaticReplay:false,...result});')
   .replace('    const routed=await jhStage61AfterAction56(result,stage61.routeToken,"ANDROID_WEB",stage61.stageAction,true);\n    return textResult({route:"android_right",automaticReplay:false,...routed,','    return textResult({route:"android_right",automaticReplay:false,...result,')
