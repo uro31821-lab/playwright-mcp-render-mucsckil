@@ -56,6 +56,12 @@ test('patch connects mobile web and computer use to Stage61',()=>{
  assert.match(out,/recordControl/);
  assert.match(out,/approvalUsePlan/);
  assert.match(out,/SCREEN_CONSENT_STATUS/);
+ assert.match(out,/stage61RouteSchema:phone\.stage61RouteSchema/);
+ assert.match(out,/stage61Action:phone\.stage61Action/);
+ assert.match(out,/stage61WebOutcome:phone\.stage61WebOutcome/);
+ assert.match(out,/stage61ComputerOutcome:phone\.stage61ComputerOutcome/);
+ assert.match(out,/stage61PlaywrightMobileAvailable:phone\.stage61PlaywrightMobileAvailable/);
+ assert.doesNotMatch(out,/if\(phone\.ok!==true\)return phone;Object\.assign\(payload,phone\)/);
  assert.equal(reverseStage61MobileRuntime56(out),fixture);
 });
 test('second patch is rejected',()=>assert.throws(()=>patchStage61MobileRuntime56(patchStage61MobileRuntime56(fixture))));
