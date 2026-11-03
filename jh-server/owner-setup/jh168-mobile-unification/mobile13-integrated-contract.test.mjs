@@ -461,7 +461,7 @@ if(process.argv[2]==='--synthetic-child'){
   const lines=child.stdout.split('\n').filter(line=>line.startsWith(REPORT));
   assert.equal(lines.length,1,'one complete integration proof');
   const report=JSON.parse(lines[0].slice(REPORT.length));
-  assert.equal(report.casesPassed,21);assert.equal(report.networkCalls,0);
+  assert.equal(report.casesPassed,22);assert.equal(report.networkCalls,0);
   assert.equal(report.phoneActions,0);assert.equal(report.phoneE2E,'NOT_RUN');
   console.log(lines[0]);
  });
