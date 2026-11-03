@@ -24,8 +24,9 @@ export function createSnapshotDigestReadbackRegistry56({now=Date.now,maxEntries=
       !H64.test(deviceDigest||'')||typeof sessionId!=='string'||!sessionId||
       !H32.test(commandId||'')||job.targetDeviceId!==deviceId||
       job.secureSessionId!==sessionId||!H64.test(job.secureMac||'')||
-      !H64.test(job.securePayloadDigest||'')||!Number.isSafeInteger(job.expiresAtMs)||
-      records.size>=maxEntries)return null;
+      !H64.test(job.securePayloadDigest||'')||
+      !Number.isSafeInteger(job.createdAtMs)||!Number.isSafeInteger(job.expiresAtMs)||
+      !Number.isSafeInteger(job.secureExpiresAt)||records.size>=maxEntries)return null;
    const jobDigest=sha(job.id),existing=records.get(jobDigest);
    if(existing){
      if(existing.deviceId!==deviceId||existing.deviceDigest!==deviceDigest||
@@ -36,6 +37,7 @@ export function createSnapshotDigestReadbackRegistry56({now=Date.now,maxEntries=
    const expiresAtMs=Math.min(job.expiresAtMs,now()+ttlMs);
    if(expiresAtMs-now()<3000)return null;
    records.set(jobDigest,Object.freeze({jobId:job.id,deviceId,deviceDigest,sessionId,commandId,
+     createdAtMs:job.createdAtMs,jobExpiresAtMs:job.expiresAtMs,secureExpiresAt:job.secureExpiresAt,
      macDigest:sha(job.secureMac),payloadDigest:job.securePayloadDigest,expiresAtMs}));
    return Object.freeze({jobDigest,expiresAtMs,readOnly:true,newJobCreated:false,automaticReplay:false});
  }
@@ -49,10 +51,17 @@ export function createSnapshotDigestReadbackRegistry56({now=Date.now,maxEntries=
       row.sessionId!==sessionId||row.commandId!==commandId)
      return deny('SNAPSHOT_READBACK_SCOPE_CHANGED');
    let job;try{job=getOriginalJob(row.jobId)}catch{return deny('SNAPSHOT_READBACK_JOB_UNAVAILABLE');}
-   if(!obj(job)||job.id!==row.jobId||job.type!=='agent_snapshot'||
-      job.targetDeviceId!==row.deviceId||job.secureSessionId!==row.sessionId||
-      !H64.test(job.secureMac||'')||!H64.test(job.securePayloadDigest||'')||
-      sha(job.secureMac)!==row.macDigest||job.securePayloadDigest!==row.payloadDigest)
+   const identityOk=obj(job)&&job.id===row.jobId&&job.type==='agent_snapshot'&&
+      job.targetDeviceId===row.deviceId&&job.secureSessionId===row.sessionId&&
+      job.createdAtMs===row.createdAtMs&&job.expiresAtMs===row.jobExpiresAtMs&&
+      job.secureExpiresAt===row.secureExpiresAt;
+   const signedStillPresent=identityOk&&H64.test(job.secureMac||'')&&
+      H64.test(job.securePayloadDigest||'')&&sha(job.secureMac)===row.macDigest&&
+      job.securePayloadDigest===row.payloadDigest;
+   const completedRedacted=identityOk&&job.status==='complete'&&
+      typeof job.completedAt==='string'&&!Number.isNaN(Date.parse(job.completedAt))&&
+      !Object.hasOwn(job,'secureMac')&&!Object.hasOwn(job,'securePayloadDigest');
+   if(!identityOk||(!signedStillPresent&&!completedRedacted))
      return deny('SNAPSHOT_READBACK_ORIGINAL_JOB_CHANGED');
    return Object.freeze({ok:true,code:'SNAPSHOT_READBACK_FOUND',job,lookupOnly:true,
      readOnly:true,newJobCreated:false,automaticReplay:false});
