@@ -64,10 +64,10 @@ test('Stage61 final overlay applies and reverses byte-for-byte on current review
 test('Stage61 final overlay changes only bounded mobile and Computer Use routing anchors',()=>{
   const patched=patchStage61MobileRuntime56(current);
   assert.ok(patched.startsWith('import {createStage61HostAdapter}'));
-  assert.equal((patched.match(/registerOAuthTool\\("life_web_navigate"/g)||[]).length,1);
-  assert.equal((patched.match(/registerOAuthTool\\("life_android_execute_computer_action"/g)||[]).length,1);
-  assert.equal((patched.match(/jhStage61BeforeWeb56/g)||[]).length,2);
-  assert.equal((patched.match(/jhStage61PrepareComputer56/g)||[]).length,2);
+  assert.equal(patched.split('registerOAuthTool("life_web_navigate"').length-1,1);
+  assert.equal(patched.split('registerOAuthTool("life_android_execute_computer_action"').length-1,1);
+  assert.equal(patched.split('jhStage61BeforeWeb56').length-1,2);
+  assert.equal(patched.split('jhStage61PrepareComputer56').length-1,2);
   assert.throws(()=>patchStage61MobileRuntime56(patched));
 });
 
@@ -90,8 +90,8 @@ test('full pending-approval and Stage25 production overlay chain ends with exact
   const built=await buildStage25PendingOperatorEntrypoint56(ROOT,env);
   const runtime=readFileSync(built.runtimeFile,'utf8');
   assert.equal(built.stamp.stage61ApprovalRouting,true);
-  assert.equal((runtime.match(/const jhStage61Host56=createStage61HostAdapter\\(/g)||[]).length,1);
-  assert.equal((runtime.match(/stage61_route_token:z.string\\(\\)\\.optional\\(\\)/g)||[]).length,1);
+  assert.equal(runtime.split('const jhStage61Host56=createStage61HostAdapter(').length-1,1);
+  assert.equal(runtime.split('stage61_route_token:z.string().optional()').length-1,1);
   for(const marker of [
     'pendingApprovalReceipts56',
     'jhSplitFollowupReceipts56',
