@@ -26,12 +26,17 @@ const SNAP_NEW=`  registerOAuthTool("life_android_snapshot",{
   });`;
 const STATUS_OLD=`  registerOAuthTool("life_job_status",{
     title:"Android job status",
-    description:"Read a queued Android job result.",
+    description:"Read the existing Android job only. For an OPEN_COMPLETION_PENDING result, reuse the same job_id and command_id here; never BEGIN_COMMAND or reopen the app. Waits up to 10 seconds for that open job receipt. Missing receipt is not execution failure.",
     inputSchema:{job_id:z.string()}
-  },async({job_id})=>jobResult(jobs.get(job_id)));`;
+  },async({job_id})=>{
+    cleanupJobs();const job=jobs.get(job_id);
+    if(job?.type!=="open_url")return jobResult(job);
+    const completion=await jhOpenCompletion56(job,jhOpenStatusWait56);
+    return textResult({jobId:job_id,...completion});
+  });`;
 const STATUS_NEW=`  registerOAuthTool("life_job_status",{
     title:"Android job status",
-    description:"Read a queued Android job result.",
+    description:"Read the existing Android job only. For an OPEN_COMPLETION_PENDING result, reuse the same job_id and command_id here; never BEGIN_COMMAND or reopen the app. Waits up to 10 seconds for that open job receipt. Missing receipt is not execution failure.",
     inputSchema:{job_id:z.string()}
   },async({job_id})=>{
     const digest=String(job_id||"");
@@ -46,7 +51,10 @@ const STATUS_NEW=`  registerOAuthTool("life_job_status",{
       return textResult({...safeJobView56(read.job),lookupOnly:true,readOnly:true,
         newJobCreated:false,automaticReplay:false});
     }
-    return jobResult(jobs.get(job_id));
+    cleanupJobs();const job=jobs.get(job_id);
+    if(job?.type!=="open_url")return jobResult(job);
+    const completion=await jhOpenCompletion56(job,jhOpenStatusWait56);
+    return textResult({jobId:job_id,...completion});
   });`;
 const PAIRS=[[SNAP_OLD,SNAP_NEW],[STATUS_OLD,STATUS_NEW]];
 export function applySnapshotDigestReadbackPatch56(source){
