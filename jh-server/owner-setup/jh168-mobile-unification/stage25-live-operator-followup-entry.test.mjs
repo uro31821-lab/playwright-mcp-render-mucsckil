@@ -15,6 +15,7 @@ import {selectPendingApprovalOperatorRuntime56} from '../server-integration/pend
 const root=path.resolve(import.meta.dirname,'..');
 const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
  JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1'};
+process.env.JH_MOBILE_WEB_13_MODE=env.JH_MOBILE_WEB_13_MODE;
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const validate=file=>{
  const r=spawnSync(process.execPath,['--check',file],{encoding:'utf8',timeout:30000});
