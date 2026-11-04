@@ -82,6 +82,7 @@ test('renders fixed News Story form', () => {
     assert.match(markdown, new RegExp(heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
   assert.match(markdown, /🏴‍☠️ 뉴비서 \| 제주 제2공항/);
+  assert.match(markdown, /🏴‍☠️ 뉴비서 \| 제주 제2공항/);
   assert.match(markdown, /〔S1〕/);
   assert.match(markdown, /보도상/);
 });
