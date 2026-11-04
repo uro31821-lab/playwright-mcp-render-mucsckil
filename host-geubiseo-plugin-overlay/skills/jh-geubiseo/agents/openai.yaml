@@ -1,0 +1,4 @@
+interface:
+  display_name: "그비서 — 그림·예술 감상"
+  short_description: "작품 사진에서 무엇을 볼지 짚어 주는 쉬운 예술 감상 비서"
+  default_prompt: "$jh-geubiseo 이 작품 사진을 보고 어디부터 무엇을 보면 좋을지 쉽게 알려줘."

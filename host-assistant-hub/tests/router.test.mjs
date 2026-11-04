@@ -21,3 +21,43 @@ test('host semantic interpretation is explicit and not regex guessed',()=>assert
 test('routine save never attaches an unselected foreign task',()=>{assert.equal(planRoute({...base,activeTask:{...task,threadId:'another-thread'},intent:{kind:'save_routine'}}).reason,'CURRENT_TASK_REQUIRED');assert.equal(planRoute({...base,activeTask:task,intent:{kind:'save_routine'}}).taskId,task.id);});
 test('feedback needs its actual existing memory skill and stop outranks exclusions',()=>{assert.equal(planRoute({...base,intent:{kind:'feedback'}}).ready,false);assert.equal(planRoute({...base,available:{skills:['jh-personal-dialogue'],capabilities:[]},intent:{kind:'feedback'}}).ready,true);assert.equal(planRoute({...base,activeTask:task,intent:{kind:'stop',excluded:['guide']}}).action,'pause');});
 test('a current task can add a requested collaborator without dropping its existing goal',()=>{const current={...task,lead:'travel',helpers:['personal']};const r=planRoute({...base,activeTask:current,intent:{kind:'change',helpers:['food'],excluded:['personal']}});assert.equal(r.lead,'travel');assert.equal(r.taskId,current.id);assert.deepEqual(r.helpers,['food']);assert.deepEqual(r.requiredSkills,['jh-yeobiseo','jh-meokbiseo']);});
+
+test('interpreted art appreciation uses the current art skill without a camera capability or side effects',()=>{
+  const r=planRoute({...base,intent:{kind:'task',topics:['art']}});
+  assert.equal(r.ready,true);assert.equal(r.lead,'art');assert.equal(r.badge,'🏴‍☠️ 그비서');
+  assert.deepEqual(r.requiredSkills,['jh-geubiseo']);assert.deepEqual(r.unavailableCapabilities,[]);
+  assert.equal(r.authorizesExecution,false);assert.equal(r.dispatchesTools,false);assert.equal(r.changesPersistentState,false);
+});
+
+test('available photo editing never masks an unavailable art guide',()=>{
+  const r=planRoute({...base,available:{skills:['jh-pyeonbiseo'],capabilities:[]},intent:{kind:'task',primary:'art'}});
+  assert.equal(r.ready,false);assert.equal(r.lead,'art');assert.equal(r.badge,null);
+  assert.deepEqual(r.requiredSkills,[]);assert.deepEqual(r.unavailableCapabilities,['art']);
+});
+
+test('art development and usage explanation do not invoke art appreciation or change the photo route',()=>{
+  const development=planRoute({...base,intent:{kind:'develop',topics:['art'],helpers:['open_source','personal']}});
+  assert.equal(development.lead,'development');assert.deepEqual(development.helpers,['open_source','personal']);
+  assert.equal(development.requiredSkills.includes('jh-geubiseo'),false);
+  const explanation=planRoute({...base,intent:{kind:'explain_feature',topics:['art']}});
+  assert.equal(explanation.action,'explain');assert.deepEqual(explanation.requiredSkills,[]);
+  const edit=planRoute({...base,intent:{kind:'task',primary:'photo',topics:['art','photo']}});
+  assert.equal(edit.lead,'photo');assert.deepEqual(edit.requiredSkills,['jh-pyeonbiseo']);
+});
+
+test('art follow-up keeps the current menu and unresolved-result boundary',()=>{
+  const current={...task,lead:'art',menu:{id:'art-menu',threadId:base.threadId},effects:{existing:{status:'unknown'}}};
+  const r=planRoute({...base,activeTask:current,intent:{kind:'select',menuId:'art-menu'}});
+  assert.equal(r.action,'select');assert.equal(r.taskId,current.id);assert.equal(r.lead,'art');
+  assert.equal(r.requiresResultInspection,true);assert.equal(r.authorizesExecution,false);
+  assert.equal(r.changesPersistentState,false);assert.deepEqual(r.requiredSkills,['jh-geubiseo']);
+  assert.equal(planRoute({...base,activeTask:current,intent:{kind:'select',menuId:'old-art-menu'}}).reason,'CURRENT_MENU_REQUIRED');
+});
+
+test('a museum itinerary can add art while retaining its travel task and current mode',()=>{
+  const current={...task,lead:'travel',helpers:[],mode:'assist'};
+  const r=planRoute({...base,activeTask:current,intent:{kind:'change',helpers:['art']}});
+  assert.equal(r.lead,'travel');assert.equal(r.taskId,current.id);assert.equal(r.mode,'assist');
+  assert.deepEqual(r.helpers,['art']);assert.deepEqual(r.requiredSkills,['jh-yeobiseo','jh-geubiseo']);
+  assert.equal(r.authorizesExecution,false);assert.equal(r.dispatchesTools,false);
+});

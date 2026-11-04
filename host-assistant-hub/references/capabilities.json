@@ -6,6 +6,7 @@
     {"id":"guide","label":"설비서","skill":"jh-seolbiseo","description":"설정·등록·취소 등 쉬운 절차 안내, 현재 단계에서 막힌 위치 확인"},
     {"id":"food","label":"먹비서","skill":"jh-meokbiseo","description":"식사·간식·메뉴·식당과 음식 사진 분석"},
     {"id":"photo","label":"편비서","skill":"jh-pyeonbiseo","description":"사진 편집, 스타일 추천과 원픽, 번호 선택과 부분 수정"},
+    {"id":"art","label":"그비서","skill":"jh-geubiseo","description":"그림·도자기·동상·조각·설치미술 사진과 스크린샷 감상, 먼저 볼 곳과 설명판을 쉬운 말로 안내"},
     {"id":"book","label":"책비서","skill":"jh-chaekbiseo","description":"독서 안내·책 스캔·만화 요약·실제 책 페이지 이어보기"},
     {"id":"travel","label":"여비서","skill":"jh-yeobiseo","description":"여행 준비·현장 일정·이동·여유 시간·여행 기록"},
     {"id":"news","label":"뉴비서","skill":"jh-newbiseo-worldview","description":"뉴스와 사건의 배경·이해관계·세상을 보는 관점"},
