@@ -46,7 +46,7 @@ function exactStage61Scope(payload, action) {
   if (!STAGE61_FIELDS.every((name) => !!ownData(payload, name)))
     return {present: true, valid: false};
   const expectedActions = action === 'SET_TEXT' ? new Set(['TYPE']) :
-    action === 'CLICK' ? new Set(['CLICK','SELECT_OPEN']) : new Set([action]);
+    action === 'CLICK' ? new Set(['CLICK','SELECT_OPEN','SELECT_PICK']) : new Set([action]);
   return {
     present: true,
     valid: payload.stage61RouteSchema === STAGE61_ROUTE_SCHEMA &&
@@ -91,7 +91,7 @@ function exactSignedScope(job, payload, preflight, fields) {
 
 /** Called only by the host configured with MOBILE13_ACTION_POLICY_MODE56.
  * Unwrapped CLICK and unrelated routes still delegate to the untouched old policy.
- * Exact Stage61-wrapped CLICK / SELECT_OPEN reuse that existing click authority
+ * Exact Stage61-wrapped CLICK / SELECT_OPEN / SELECT_PICK reuse that existing click authority
  * only after the five signed Stage61 phone fields are validated here.
  */
 export function mobile13DurableJobPolicy(job, payload) {
@@ -100,7 +100,7 @@ export function mobile13DurableJobPolicy(job, payload) {
   const stage61 = preflight ? {present: false, valid: true} : exactStage61Scope(payload, action);
   if (!stage61.valid) return denied();
   const stage61Click = job?.type === FOLLOWUP && action === 'CLICK' && stage61.present &&
-    (payload.stage61Action === 'CLICK' || payload.stage61Action === 'SELECT_OPEN');
+    ['CLICK','SELECT_OPEN','SELECT_PICK'].includes(payload.stage61Action);
   if (!preflight && !(job?.type === FOLLOWUP &&
       (action === 'SET_TEXT' || action === 'BACK' || stage61Click)))
     return durableNativeJobPolicy(job, payload);
@@ -125,8 +125,8 @@ export function mobile13DurableJobPolicy(job, payload) {
 
   // Conservative uncertainty identity: changing request/command/session, input
   // value, or a freshly issued token cannot bypass an unresolved action on this
-  // context/target. SELECT_OPEN remains a click at the phone, but gets its own
-  // semantic identity so it cannot be confused with ordinary CLICK or SELECT_PICK.
+  // context/target. SELECT OPEN/PICK remain clicks at the phone, but each gets its own
+  // semantic identity so OPEN, PICK and ordinary CLICK cannot be confused.
   // No raw command, value, grant, or authorization material enters the durable store.
   const journalAction = stage61Click ? payload.stage61Action : action;
   const identityPayload = Object.freeze({
