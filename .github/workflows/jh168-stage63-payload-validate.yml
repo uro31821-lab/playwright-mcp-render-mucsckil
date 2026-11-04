@@ -89,20 +89,28 @@ jobs:
           path.write_text(source.replace(before, after), encoding='utf-8')
           PY
 
-      - name: Add diagnostic detail to Mobile13 anchor failure
+      - name: Add diagnostic detail and capture pre-Mobile13 runtime
         shell: bash
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
 
-          path = Path('jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.mjs')
-          source = path.read_text(encoding='utf-8')
+          diag = Path('jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.mjs')
+          source = diag.read_text(encoding='utf-8')
           before = " if(source.split(anchor).length!==2)throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ANCHOR_DRIFT');"
           after = " const count=source.split(anchor).length-1;if(count!==1)throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ANCHOR_DRIFT|'+count+'|'+anchor);"
           if source.count(before) != 1:
               raise SystemExit('MOBILE13_DIAGNOSTIC_HOOK_MISMATCH')
-          path.write_text(source.replace(before, after), encoding='utf-8')
+          diag.write_text(source.replace(before, after), encoding='utf-8')
+
+          stage25 = Path('jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs')
+          source = stage25.read_text(encoding='utf-8')
+          before = " const beforeStage61=commandDiagnostics?applyMobile13CommandDiagnosticsPatch56(afterStage44):afterStage44;"
+          after = " writeFileSync('/tmp/stage63-before-mobile13.mjs',afterStage44,'utf8');\n const beforeStage61=commandDiagnostics?applyMobile13CommandDiagnosticsPatch56(afterStage44):afterStage44;"
+          if source.count(before) != 1:
+              raise SystemExit('STAGE25_CAPTURE_HOOK_MISMATCH')
+          stage25.write_text(source.replace(before, after), encoding='utf-8')
           PY
           git diff --check
           git diff --stat | tee /tmp/stage63-diff-stat.txt
@@ -126,5 +134,6 @@ jobs:
           path: |
             /tmp/stage63-diff-stat.txt
             /tmp/stage63-targeted-test.log
+            /tmp/stage63-before-mobile13.mjs
           if-no-files-found: warn
           retention-days: 7
