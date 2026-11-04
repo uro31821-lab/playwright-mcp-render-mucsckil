@@ -62,6 +62,10 @@ test('a completed task becomes a reusable routine whose one-off override never c
   assert.equal(makePlan({imageRef:'integration:new-image'}).parameters.tone,'soft');
   assert.equal(makePlan({imageRef:'integration:new-image'}).verification,'not_run');
   assert.equal(dispatch({op:'routines.apply',state:routines,event,sourceTask}).result.duplicate,true);
+  const format={...event,eventId:'routine-event:3',expectedRevision:2,type:'UPDATE_FORMAT',payload:{persistenceIntent:'explicit_ongoing',expectedRoutineVersion:2,scope,outputFormat:'Image with a compact numbered caption'}};
+  routines=dispatch({op:'routines.apply',state:routines,event:format}).state;
+  assert.equal(makePlan({imageRef:'integration:new-image'}).outputFormat,'Image with a compact numbered caption');
+  assert.equal(makePlan({imageRef:'integration:new-image'}).parameters.tone,'soft');
 });
 
 test('user feedback cannot turn an unresolved operation into a verified reusable procedure',()=>{
@@ -79,4 +83,14 @@ test('stopping retains unresolved effects without immediately scheduling a resul
     assert.equal(changed.result.nextAction,'none');assert.equal(changed.result.requiresResultInspection,true);
     assert.deepEqual(changed.result.pendingEffectIds,['effect:stop']);
   }
+});
+
+test('compatible current-menu choices combine into one condition change without consuming the menu early',()=>{
+  let state=active();state=update(state,'MENU',{menuId:'menu:combined',choices:[{id:'2',label:'Clean background',value:{background:'clean'}},{id:'3',label:'Natural skin',value:{skin:'natural'}}]});
+  const resolved=['2','3'].map(choiceId=>dispatch({op:'tasks.select',state,input:{threadId,taskId,menuId:'menu:combined',choiceId}}));
+  assert.equal(state.tasks[taskId].menu.id,'menu:combined');assert.equal(resolved.every(r=>!r.authorizesExecution),true);
+  const appearance=Object.assign({},...resolved.map(r=>r.value));const before=state.revision;
+  state=update(state,'CHANGE_CONDITIONS',{changes:{appearance},affectedStepIds:[]});
+  assert.equal(state.revision,before+1);assert.deepEqual(state.tasks[taskId].conditions.appearance,{background:'clean',skin:'natural'});
+  assert.equal(state.tasks[taskId].menu,null);
 });

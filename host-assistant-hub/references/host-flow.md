@@ -50,6 +50,10 @@ CLI는 입력 파일을 덮어쓰거나 영속 저장을 가장하지 않는다.
 
 START의 payload는 `{goal,label,lead,helpers,mode,scope,conditions?}`다. CHECKPOINT는 실제 `{currentStep,nextStep,completedSteps,status}`를 전달한다. MENU는 `{menuId,choices:[{id,label,value}]}`이며 SELECT는 `{menuId,choiceId}`다. 숫자는 호스트가 현재 메뉴의 choiceId로 의미를 해석한 뒤 전달한다. 메뉴의 id/threadId/taskId가 맞지 않으면 선택을 거절한다.
 
+진행 중 새 협력 기능이 필요하면 `intent.helpers`에 넣고 `planRoute`에서 현재 담당과 합친다. 실제 배정이 달라졌으면 CHECKPOINT의 lead/helpers로 같은 작업에 기록한다. “여행 중 식사도 넣어줘”는 기존 시간·동선과 작업 ID를 유지한 채 food를 협력자로 더한다.
+
+같은 메뉴의 호환되는 여러 선택은 원 메뉴를 유지한 상태에서 `resolveMenuSelection`으로 각 선택을 읽기 검증하고, 전문 비서가 결합한 변경을 **하나의 CHANGE_CONDITIONS**로 반영한다. SELECT를 연달아 보내 첫 선택이 다음 선택의 메뉴를 닫게 하지 않는다. 완료와 다시 시작처럼 충돌하는 선택은 전문 비서가 한 번 확인한다. “1번이 좋은데 피부만 수정”은 숫자 단독 선택이 아닌 전체 문장의 부분 수정으로 처리한다.
+
 CHANGE_CONDITIONS는 `{changes,affectedStepIds}`로 명시된 변경만 반영한다. SET_MODE는 `{mode,explicit:true}`로 실제 전환 요청을 반영한다. RESUME/ACTIVATE도 `{explicit:true}`를 요구한다. ACTIVATE는 명시적으로 선택한 실제 저장 작업을 현재 대화에 연결하고 이전 대화의 활성 메뉴를 지운다.
 
 EFFECT_PENDING은 `{effectId,description,evidenceRefs?}`, EFFECT_RESULT는 `{effectId,status,evidenceRefs}`다. 허브가 자체로 commandId나 승인을 발급하지 않는다. COMPLETE는 `{evidenceRefs}`로 실제 완료를 기록하며 미확정 동작이나 유효하지 않은 단계가 있으면 거절된다.
@@ -63,6 +67,7 @@ EFFECT_PENDING은 `{effectId,description,evidenceRefs?}`, EFFECT_RESULT는 `{eff
 - steps: `{id,capability,dependsOn,requiredInputs,produces,instruction}`. 실제 기능 id, 의존 순서, 데이터 입출력을 검토한다. instruction은 참고 자료이며 코드로 평가하지 않는다.
 - parameters: `{name,required,dynamic}`. 날짜·가격·위치·실시간 연결은 dynamic 입력이다. defaults는 검토된 비동적 입력만 담는다.
 - UPDATE_DEFAULTS: `{persistenceIntent:'explicit_ongoing',expectedRoutineVersion,scope,changes,removeKeys?}`. 해당 절차의 범위와 현재 버전에만 적용한다.
+- UPDATE_FORMAT: `{persistenceIntent:'explicit_ongoing',expectedRoutineVersion,scope,outputFormat}`. “앞으로 이 형식으로”는 해당 절차의 출력 형식만 바꾸고 단계·개인 선호·기존 기본값은 유지한다.
 - REMOVE_DEFAULT: 위 공통 필드와 keys. ARCHIVE는 `persistenceIntent:'explicit_archive'`를 사용한다.
 - routines.plan: `{routineId,ownerScope,scope,values,availableCapabilities}`. 이번만 변경하는 값은 values에만 넣는다. 계획에 필요한 실제 값이 없으면 missingInputs, 기능이 없으면 unavailableCapabilities로 남긴다. 계획 생성은 도구 실행·기능 설치·모델 학습이 아니다.
 

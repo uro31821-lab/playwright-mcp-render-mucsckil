@@ -47,7 +47,7 @@ export function planRoute(input) {
     check(entries.has(activeTask.lead) && modes.has(activeTask.mode), 'INVALID_ACTIVE_TASK');
     result.taskId = activeTask.id;
     result.lead = activeTask.lead;
-    result.helpers = ids(activeTask.helpers ?? []).filter(x => x !== result.lead && !excluded.includes(x));
+    result.helpers = ids([...new Set([...(activeTask.helpers ?? []),...helpersRequested])]).filter(x => x !== result.lead && !excluded.includes(x));
     result.mode = intent.mode ?? activeTask.mode;
     if (['canceled','completed'].includes(activeTask.status)) return { ...result, action:'clarify', reason:'TASK_CLOSED' };
     const effects = Object.values(activeTask.effects ?? {});

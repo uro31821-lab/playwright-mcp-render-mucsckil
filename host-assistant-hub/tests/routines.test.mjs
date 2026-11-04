@@ -42,6 +42,9 @@ function code(expected) { return error => error?.code === expected; }
 function defaultsEvent(state, changes, extra = {}) {
   return event(state, 'UPDATE_DEFAULTS', { persistenceIntent: 'explicit_ongoing', expectedRoutineVersion: getRoutine(state, 'routine:meal').version, scope: SCOPE, changes, ...extra });
 }
+function formatEvent(state, outputFormat, extra = {}) {
+  return event(state, 'UPDATE_FORMAT', { persistenceIntent: 'explicit_ongoing', expectedRoutineVersion: getRoutine(state, 'routine:meal').version, scope: SCOPE, outputFormat, ...extra });
+}
 
 test('save a completed procedure as a separate immutable definition, with evidence and no inherited task data', () => {
   const { state, result, before } = saved();
@@ -174,6 +177,51 @@ test('permanent changes require both store revision and routine version and pres
   assert.deepEqual(getRoutine(next, 'routine:meal').source, getRoutine(state, 'routine:meal').source);
   assert.throws(() => applyRoutineEvent(next, { ...e, eventId: 'event:stale' }), code('REVISION_CONFLICT'));
   assert.throws(() => applyRoutineEvent(next, { ...defaultsEvent(next, { guestCount: 2 }), payload: { ...defaultsEvent(next, { guestCount: 2 }).payload, expectedRoutineVersion: 1 } }), code('ROUTINE_VERSION_CONFLICT'));
+});
+
+test('an ongoing format edit needs no format parameter and preserves the procedure and original evidence', () => {
+  const base = initial(); const d = definition();
+  d.parameters = d.parameters.filter(p => p.name !== 'displayStyle'); delete d.defaults.displayStyle;
+  d.steps[1].requiredInputs = ['candidates'];
+  const state = applyRoutineEvent(base, event(base, 'SAVE', d), { catalogIds: CATALOG, sourceTask: SOURCE }).state;
+  const before = structuredClone(state); const outputFormat = '추천 하나와 이유 세 문장';
+  const { state: next, result } = applyRoutineEvent(state, formatEvent(state, outputFormat));
+  const original = getRoutine(state, 'routine:meal'); const updated = getRoutine(next, 'routine:meal');
+  assert.deepEqual(state, before); assert.equal(next.revision, 2); assert.equal(updated.version, 2);
+  assert.equal(updated.outputFormat, outputFormat); assert.equal(updated.verification, 'not_run');
+  for (const key of ['source', 'steps', 'defaults', 'parameters', 'scope', 'origin', 'lead', 'helpers']) assert.deepEqual(updated[key], original[key]);
+  assert.equal(plan(next).outputFormat, outputFormat); assert.equal(plan(next).ready, true);
+  assert.equal(result.storeWriteRequired, true); assert.equal(result.authorizesExecution, false);
+  assert.equal(validateRoutineStore(next).receipts['event:2'].type, 'UPDATE_FORMAT');
+});
+
+test('format edits require ongoing intent, exact scope, current version and a changed bounded format', () => {
+  const state = saved().state; const before = structuredClone(state);
+  const attempts = [
+    [{ persistenceIntent: 'this_task' }, 'PERSISTENCE_INTENT_REQUIRED'],
+    [{ scope: { ...SCOPE, aspect: 'other' } }, 'SCOPE_MISMATCH'],
+    [{ expectedRoutineVersion: 2 }, 'ROUTINE_VERSION_CONFLICT'],
+    [{ outputFormat: '' }, 'INVALID_TEXT'],
+    [{ outputFormat: '   ' }, 'INVALID_TEXT'],
+    [{ outputFormat: 'x'.repeat(2_049) }, 'INVALID_TEXT'],
+    [{ outputFormat: getRoutine(state, 'routine:meal').outputFormat }, 'EMPTY_CHANGE']
+  ];
+  for (const [change, expected] of attempts) assert.throws(() => applyRoutineEvent(state, formatEvent(state, '세 문장', change)), code(expected));
+  assert.deepEqual(state, before);
+  const archived = applyRoutineEvent(state, event(state, 'ARCHIVE', { persistenceIntent: 'explicit_archive', expectedRoutineVersion: 1, scope: SCOPE })).state;
+  assert.throws(() => applyRoutineEvent(archived, formatEvent(archived, '세 문장')), code('ROUTINE_ARCHIVED'));
+});
+
+test('format retry is idempotent after a later edit, while stale or conflicting format changes fail', () => {
+  const state = saved().state; const first = formatEvent(state, '추천 하나와 이유 세 문장');
+  const changed = applyRoutineEvent(state, first).state;
+  const latest = applyRoutineEvent(changed, formatEvent(changed, '후보 세 개와 각 장단점')).state;
+  const replay = applyRoutineEvent(latest, { ...first, expectedRevision: 999 });
+  assert.equal(replay.result.duplicate, true); assert.equal(replay.result.storeWriteRequired, false);
+  assert.equal(replay.result.appliedRevision, 2); assert.equal(replay.result.routineVersion, 3);
+  assert.deepEqual(replay.state, latest); assert.equal(plan(replay.state).outputFormat, '후보 세 개와 각 장단점');
+  assert.throws(() => applyRoutineEvent(latest, { ...first, eventId: 'event:stale-format' }), code('REVISION_CONFLICT'));
+  assert.throws(() => applyRoutineEvent(latest, { ...first, payload: { ...first.payload, outputFormat: '서로 다른 요청' } }), code('EVENT_CONFLICT'));
 });
 
 test('exact idempotent retry ignores expectedRevision without rewinding later changes', () => {

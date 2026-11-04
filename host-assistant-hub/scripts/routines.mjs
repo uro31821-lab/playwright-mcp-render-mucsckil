@@ -228,7 +228,7 @@ function validateStore(state, expectedOwner) {
     integer(receipt.revision, 'receipt revision', 1); integer(receipt.routineVersion, 'receipt routineVersion', 1);
     if (receipt.revision > state.revision || revisions.has(receipt.revision) || !has(state.routines, receipt.routineId) || receipt.routineVersion > state.routines[receipt.routineId].version) fail('INVALID_RECEIPT', 'Receipt references inconsistent state');
     revisions.add(receipt.revision);
-    if (!['SAVE', 'COMPOSE', 'UPDATE_DEFAULTS', 'REMOVE_DEFAULT', 'ARCHIVE'].includes(receipt.type)) fail('INVALID_RECEIPT', 'Unsupported receipt type');
+    if (!['SAVE', 'COMPOSE', 'UPDATE_DEFAULTS', 'UPDATE_FORMAT', 'REMOVE_DEFAULT', 'ARCHIVE'].includes(receipt.type)) fail('INVALID_RECEIPT', 'Unsupported receipt type');
     timestamp(receipt.at, 'receipt at'); text(receipt.sourceRef, 'receipt sourceRef');
   }
   return state;
@@ -319,6 +319,12 @@ export function applyRoutineEvent(state, event, { catalogIds, sourceTask } = {})
         delete routine.defaults[key];
       }
       Object.assign(routine.defaults, clone(changes)); routine.verification = 'not_run';
+    } else if (event.type === 'UPDATE_FORMAT') {
+      keys(p, ['persistenceIntent', 'expectedRoutineVersion', 'scope', 'outputFormat'], 'format edit');
+      if (p.persistenceIntent !== 'explicit_ongoing') fail('PERSISTENCE_INTENT_REQUIRED', 'A one-off change must not modify the saved output format');
+      requireEdit(routine, p); text(p.outputFormat, 'outputFormat', 2_048);
+      if (p.outputFormat === routine.outputFormat) fail('EMPTY_CHANGE', 'The output format has not changed');
+      routine.outputFormat = p.outputFormat; routine.verification = 'not_run';
     } else if (event.type === 'ARCHIVE') {
       keys(p, ['persistenceIntent', 'expectedRoutineVersion', 'scope'], 'archive');
       if (p.persistenceIntent !== 'explicit_archive') fail('PERSISTENCE_INTENT_REQUIRED', 'Archiving requires an explicit archive request');
