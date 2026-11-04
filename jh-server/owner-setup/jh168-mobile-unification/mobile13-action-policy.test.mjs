@@ -102,10 +102,11 @@ test('exact Stage61 Android-used fields are admitted for SET_TEXT and BACK only'
   }
 });
 
-test('exact Stage61 CLICK and SELECT_OPEN reuse click authority; SELECT_PICK stays denied', () => {
-  for (const stage61Action of ['CLICK', 'SELECT_OPEN']) {
+test('exact Stage61 CLICK, SELECT_OPEN and SELECT_PICK reuse only the reviewed click authority', () => {
+  for (const stage61Action of ['CLICK', 'SELECT_OPEN', 'SELECT_PICK']) {
     const {job, payload} = request('CLICK', {stage61: true, changes: {
-      stage61Action, command: stage61Action === 'SELECT_OPEN' ? '선택 메뉴 열기' : '일반 버튼 클릭'
+      stage61Action, command: stage61Action === 'SELECT_OPEN' ? '선택 메뉴 열기' :
+        stage61Action === 'SELECT_PICK' ? '옵션 선택' : '일반 버튼 클릭'
     }});
     const result = policy(job, payload);
     assert.equal(result.kind, 'JOURNAL', stage61Action);
@@ -116,12 +117,30 @@ test('exact Stage61 CLICK and SELECT_OPEN reuse click authority; SELECT_PICK sta
     assert.equal(result.approvalGranted, false);
     assert.equal(result.screenConsentGranted, false);
   }
-  const pick = request('CLICK', {stage61: true, changes: {
-    stage61Action: 'SELECT_PICK', command: '옵션 선택'
-  }});
-  assert.equal(policy(pick.job, pick.payload).kind, 'DENY');
   const legacy = request('CLICK');
   assert.deepEqual(policy(legacy.job, legacy.payload), originalPolicy(legacy.job, legacy.payload));
+});
+
+test('unresolved Stage61 SELECT_PICK cannot be replayed with a fresh request or command', () => {
+  temporaryJournal((state) => {
+    const first = request('CLICK', {stage61: true, changes: {
+      stage61Action: 'SELECT_PICK', command: '옵션 선택'
+    }});
+    state.hooks.capture(first.job, first.payload);
+    assert.equal(state.hooks.beforeDispatch(first.job).allowed, true);
+    first.job.status = 'in_progress';
+    state.hooks.close();
+    state.hooks = createDurableNativeHooks(state.options);
+    const second = request('CLICK', {stage61: true, changes: {
+      stage61Action: 'SELECT_PICK', requestId: 'e'.repeat(32),
+      commandId: '2'.repeat(32), taskDigest: sha('new-select-pick-task'),
+      command: '옵션 선택 다시'
+    }, jobChanges: {id: 'job_select_pick_after_restart', secureSessionId: 'new-select-pick-session'}});
+    state.hooks.capture(second.job, second.payload);
+    const result = state.hooks.beforeDispatch(second.job);
+    assert.equal(result.allowed, false);
+    assert.equal(result.code, 'DURABLE_PREVIOUS_OUTCOME_UNKNOWN');
+  });
 });
 
 test('unresolved Stage61 SELECT_OPEN cannot be replayed with a fresh request or command', () => {
