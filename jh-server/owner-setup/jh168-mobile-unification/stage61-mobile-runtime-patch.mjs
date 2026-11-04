@@ -14,11 +14,14 @@ const once=(source,before,after,code)=>{
 };
 
 const IMPORT='import {createStage61HostAdapter} from "../jh168-mobile-unification/stage61-right-pane-host-adapter.mjs";\n';
+const OWNER_PICK_BEFORE='      beforeDispatch:({record,firstAttempt})=>jhOwnerAdmission155(device,commandId,record,firstAttempt),';
+const OWNER_PICK_AFTER='      beforeDispatch:({record,firstAttempt})=>jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload),';
 const HELPER=String.raw`
   // Stage61: server-owned route state over ORIGINAL Secure56 phone results.
   const jhStage61OriginalResult56=new Map();
   const jhStage61ContextRoute56=new Map();
   const jhStage61TaskRoute56=new Map();
+  const jhStage61PreparedPick56=new Map();
   const jhStage61Host56=createStage61HostAdapter({
     readOriginalSignedResult:async ref=>jhStage61OriginalResult56.get(ref)
   });
@@ -37,6 +40,133 @@ const HELPER=String.raw`
     if(/선택 메뉴 열기|select menu open/i.test(s))return "SELECT_OPEN";
     if(/옵션 선택|select option/i.test(s))return "SELECT_PICK";
     return "CLICK";
+  }
+  function jhStage61OwnerNote56(record,code){
+    if(typeof jhOwnerAdmissionNote40==="function")return jhOwnerAdmissionNote40(record,code);
+    return false;
+  }
+  function jhStage61PreparedResult56(result){
+    const candidate=result?.schema==="JH168_NATIVE_SELECT_OPTION_REFS_V1"?result:
+      result?.nativeSelectOptions?.schema==="JH168_NATIVE_SELECT_OPTION_REFS_V1"?result.nativeSelectOptions:
+      result?.nativeSelectOptionRefs?.schema==="JH168_NATIVE_SELECT_OPTION_REFS_V1"?result.nativeSelectOptionRefs:null;
+    const items=candidate?.optionItems;
+    const expiresAt=candidate?.expiresAt;
+    if(!candidate||candidate.code!=="NATIVE_SELECT_OPTION_REFS_READY"||candidate.readOnly!==true||
+      candidate.pickReady!==true||candidate.authorizedToPick!==false||
+      candidate.phoneActionDispatched!==false||candidate.resultVerified!==false||
+      candidate.automaticReplay!==false||!Number.isSafeInteger(candidate.popupWindowId)||candidate.popupWindowId<0||
+      !Array.isArray(items)||items.length<1||items.length>32||candidate.optionCount!==items.length||
+      !Number.isSafeInteger(expiresAt)||expiresAt<=Date.now()||expiresAt>Date.now()+60000)
+      return {ok:false,code:"STAGE61_SELECT_PREPARED_RESULT_INVALID"};
+    const refs=[];
+    for(const item of items){
+      if(!item||typeof item!=="object"||!/^item_[a-f0-9]{16}$/.test(item.itemRef)||
+        typeof item.label!=="string"||!item.label.trim()||item.label.length>160||item.label.includes("\u0000")||
+        item.role!=="nativeSelectOption"||item.clickable!==true)
+        return {ok:false,code:"STAGE61_SELECT_PREPARED_RESULT_INVALID"};
+      refs.push(item.itemRef);
+    }
+    if(new Set(refs).size!==refs.length)return {ok:false,code:"STAGE61_SELECT_PREPARED_RESULT_INVALID"};
+    return {ok:true,refs:new Set(refs),expiresAt,optionCount:refs.length};
+  }
+  function jhStage61RememberPreparedPick56(result,routeToken){
+    const prepared=jhStage61PreparedResult56(result);
+    if(prepared.ok!==true){jhStage61PreparedPick56.delete(routeToken);return prepared;}
+    jhStage61PreparedPick56.set(routeToken,prepared);
+    while(jhStage61PreparedPick56.size>32)
+      jhStage61PreparedPick56.delete(jhStage61PreparedPick56.keys().next().value);
+    return {ok:true,code:"STAGE61_SELECT_PICK_PREPARED",expiresAt:prepared.expiresAt,
+      optionCount:prepared.optionCount,replayAllowed:false,automaticReplay:false};
+  }
+  function jhStage61ExactSelectPick56(payload){
+    const p=payload&&typeof payload==="object"?payload:null;
+    const intended=p?.stage61Action==="SELECT_PICK"||
+      p?.command==="오른쪽 화면에서 새로 확인한 옵션 선택";
+    if(!intended)return {intended:false,ok:false,code:null};
+    try{
+      const keys=Reflect.ownKeys(p);
+      const expected=["action","command","contextId","requestId","stage61Action",
+        "stage61ComputerOutcome","stage61PlaywrightMobileAvailable","stage61RouteSchema",
+        "stage61WebOutcome","targetItemRef"];
+      const names=keys.every(value=>typeof value==="string")?keys.slice().sort():[];
+      const plain=names.every(name=>{const d=Object.getOwnPropertyDescriptor(p,name);
+        return !!d&&Object.hasOwn(d,"value")&&d.enumerable===true;});
+      if(names.length!==expected.length||names.some((value,index)=>value!==expected[index])||!plain||
+        !/^ssc_[a-f0-9]{32}$/.test(p.contextId)||!/^[a-f0-9]{32}$/.test(p.requestId)||
+        !/^item_[a-f0-9]{16}$/.test(p.targetItemRef)||p.action!=="CLICK"||
+        p.command!=="오른쪽 화면에서 새로 확인한 옵션 선택"||
+        p.stage61RouteSchema!=="JH168_STAGE61_ROUTE_REQUEST_V1"||p.stage61Action!=="SELECT_PICK"||
+        typeof p.stage61WebOutcome!=="string"||p.stage61ComputerOutcome!=="NOT_RUN"||
+        p.stage61PlaywrightMobileAvailable!==false)
+        return {intended:true,ok:false,code:"OWNER_SELECT_PICK_SCOPE_INVALID"};
+      const routeToken=jhStage61ContextRoute56.get(p.contextId);
+      if(typeof routeToken!=="string"||!routeToken)
+        return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY"};
+      const prepared=jhStage61PreparedPick56.get(routeToken);
+      if(!prepared||prepared.ok!==true||Date.now()>=prepared.expiresAt||
+        !prepared.refs.has(p.targetItemRef)){
+        jhStage61PreparedPick56.delete(routeToken);
+        return {intended:true,ok:false,code:"OWNER_SELECT_PICK_PREPARED_REF_REQUIRED",routeToken};
+      }
+      const plan=jhStage61Host56.plan({routeToken,action:"SELECT_PICK",playwrightMobileAvailable:false});
+      if(plan.ok!==true||plan.provider!=="ANDROID_WEB"||plan.allowed!==true||
+        plan.routeToken!==routeToken||plan.replayAllowed!==false||plan.automaticReplay!==false)
+        return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY",routeToken};
+      const phone=jhStage61Host56.phonePayload({routeToken,action:"SELECT_PICK",provider:"ANDROID_WEB"});
+      if(phone.ok!==true||phone.routeToken!==routeToken||phone.replayAllowed!==false||
+        phone.automaticReplay!==false||phone.stage61RouteSchema!==p.stage61RouteSchema||
+        phone.stage61Action!==p.stage61Action||phone.stage61WebOutcome!==p.stage61WebOutcome||
+        phone.stage61ComputerOutcome!==p.stage61ComputerOutcome||
+        phone.stage61PlaywrightMobileAvailable!==p.stage61PlaywrightMobileAvailable)
+        return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY",routeToken};
+      return {intended:true,ok:true,code:"OWNER_SELECT_PICK_ROUTE_VERIFIED",routeToken};
+    }catch{return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY"};}
+  }
+  async function jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload){
+    const exact=jhStage61ExactSelectPick56(payload);
+    if(!exact.intended)return jhOwnerAdmission155(device,commandId,record,firstAttempt);
+    const fail=code=>jhStage61OwnerNote56(record,code);
+    try{if(jhRequireCommand56(device)!==commandId)return fail("COMMAND_BINDING_CHANGED");}
+    catch{return fail("COMMAND_BINDING_UNVERIFIED");}
+    let binding;
+    try{binding=jhPaymentLifecycle.captureBinding({device_id:device});}
+    catch(e){
+      const code=e?.code==="PAYMENT_TRUSTED_PHONE_UNAVAILABLE"?"OWNER_TRUST_UNVERIFIED":
+        e?.code==="PAYMENT_PROCESS_EPOCH_REQUIRED"?"OWNER_PROCESS_EPOCH_UNVERIFIED":
+        e?.code==="PAYMENT_EXACT_DEVICE_REQUIRED"?"OWNER_EXACT_DEVICE_REQUIRED":
+        "OWNER_BINDING_CAPTURE_REJECTED";
+      return fail(code);
+    }
+    const auth=active56(device);
+    try{jhPaymentLifecycle.assertBinding({command_binding:binding});}
+    catch(e){return fail(e?.code==="PAYMENT_COMMAND_DISCARDED"?
+      "OWNER_COMMAND_DISCARDED":e?.code==="PAYMENT_DEVICE_OR_PROCESS_CHANGED"?
+      "OWNER_DEVICE_OR_PROCESS_CHANGED":"OWNER_BINDING_ASSERT_REJECTED");}
+    try{if(jhRequireCommand56(device)!==commandId)return fail("COMMAND_CHANGED_DURING_READ");}
+    catch{return fail("COMMAND_DISCARDED_DURING_READ");}
+    if(exact.routeToken)jhStage61PreparedPick56.delete(exact.routeToken);
+    if(exact.ok!==true)return fail(exact.code||"OWNER_SELECT_PICK_ROUTE_NOT_READY");
+    // The server admits only its exact signed OPEN receipt and one-shot option ref. Android still
+    // rechecks the current popup, option lease and exact node, then consumes the
+    // lease before the only ACTION_CLICK. No raw popup snapshot or replay exists.
+    const gate=jhGateRecoveredDispatch155({
+      commandState:"ACTIVE",commandEpochCurrent:true,pendingDiscard:jhBlockedCommands56.has(device),
+      bridgeAuthenticated:typeof auth?.sessionId==="string"&&auth.sessionId.length>0,trustedScopeValid:true,
+      ledgerStatus:record?.state==="PREPARING"&&firstAttempt&&record.attemptCount===1?"RESERVED":"BLOCKED",
+      effect:record?.dispatchStartedAt?"UNKNOWN":"NOT_DISPATCHED",actionKind:"UI_ACTION",
+      explicitUserCommand:true,isFreshScreen:true,
+      serverRequestIdValid:typeof record?.executionId==="string"&&typeof record?.dedupeKey==="string"&&
+        /^[a-f0-9]{32}$/.test(payload.requestId),sourceIsAuthoritative:true
+    });
+    if(gate.allowDispatch===true)return true;
+    if(typeof auth?.sessionId!=="string"||!auth.sessionId)return fail("OWNER_SECURE_SESSION_UNVERIFIED");
+    const allowed=new Set(["authenticated_owner_and_id_required",
+      "old_work_discarded_no_auto_resume","secure_bridge_not_ready",
+      "idempotency_existing_operation_no_retry","uncertain_effect_read_only_reconcile",
+      "command_not_active","bridge_reconnected_old_work_not_replayed",
+      "user_command_required","fresh_target_screen_required",
+      "durable_reservation_not_available_no_write_retry"]);
+    return fail(allowed.has(gate.code)?"FENCE_"+gate.code:"OWNER_ADMISSION_POLICY_DENIED");
   }
   function jhStage61Control56(mcpToolName){
     return ({
@@ -94,13 +224,24 @@ const HELPER=String.raw`
     return {ok:true,routeToken,stageAction};
   }
   async function jhStage61AfterAction56(result,routeToken,provider,action,terminal=true){
+    // A second OPEN attempt invalidates every previously prepared ref before
+    // its new receipt is inspected; a failed re-open can never leave stale refs.
+    if(action==="SELECT_OPEN")jhStage61PreparedPick56.delete(routeToken);
     const record=await jhStage61Host56.record({routeToken,originalReceiptRef:jhStage61SaveOriginal56(result),
       expectedProvider:provider,expectedAction:action,terminal});
+    let selectPrepared=null;
+    if(action==="SELECT_OPEN"&&record.ok===true&&record.recordedOutcome==="PREPARED")
+      selectPrepared=jhStage61RememberPreparedPick56(result,routeToken);
+    if(action==="SELECT_PICK")jhStage61PreparedPick56.delete(routeToken);
+    if(selectPrepared?.ok===false)jhStage61Host56.discard({routeToken});
     const nextAction=action==="SELECT_OPEN"&&record.recordedOutcome==="PREPARED"?"SELECT_PICK":action;
-    const next=record.ok===true&&!record.stopped
+    const next=selectPrepared?.ok===false
+      ?{provider:"STOP_NO_REPLAY",code:selectPrepared.code,allowed:false}
+      :record.ok===true&&!record.stopped
       ?jhStage61Host56.plan({routeToken,action:nextAction,playwrightMobileAvailable:false})
       :{provider:"STOP_NO_REPLAY",code:record.code||"STAGE61_ROUTE_STATE_STOPPED",allowed:false};
     return {...result,stage61RouteToken:routeToken,stage61RouterHost:record,
+      ...(selectPrepared?{stage61SelectPreparedHost:selectPrepared}:{}),
       stage61NextProvider:next.provider,stage61NextCode:next.code,automaticReplay:false};
   }
   function jhStage61PrepareComputer56(args,mcpToolName){
@@ -158,6 +299,9 @@ export function patchStage61MobileRuntime56(source){
  let out=source;
  if(!out.startsWith(IMPORT))out=IMPORT+out;
  out=once(out,'function secureCall56(',HELPER+'\nfunction secureCall56(','STAGE61_HELPER_ANCHOR');
+ const ownerPickCount=out.split(OWNER_PICK_BEFORE).length-1;
+ if(ownerPickCount>1||out.includes(OWNER_PICK_AFTER))fail('STAGE61_OWNER_PICK_ADMISSION_ANCHOR');
+ if(ownerPickCount===1)out=once(out,OWNER_PICK_BEFORE,OWNER_PICK_AFTER,'STAGE61_OWNER_PICK_ADMISSION_ANCHOR');
  out=once(out,
   '    const payload={contextId:bound.contextId,requestId,command,targetItemRef:bound.itemRef,action};',
   '    const payload={contextId:bound.contextId,requestId,command,targetItemRef:bound.itemRef,action};\n    const stage61=await jhStage61BeforeWeb56(args,payload,action,command);\n    if(stage61.ok!==true)return textResult({route:"android_right",...stage61});',
@@ -203,6 +347,7 @@ export function patchStage61MobileRuntime56(source){
 
 export function reverseStage61MobileRuntime56(source){
  let out=source;
+ if(out.includes(OWNER_PICK_AFTER))out=out.replace(OWNER_PICK_AFTER,OWNER_PICK_BEFORE);
  const currentHeadOld='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);';
  const currentHeadNew='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);';
  const deviceHeadOld='function secureCall56(device,mcpToolName,args={}){\n    if(device?.error)return Promise.resolve(textResult(device));\n    const x=exactEnvelope56(device,mcpToolName,args);';
