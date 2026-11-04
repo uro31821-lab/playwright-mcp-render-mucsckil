@@ -65,7 +65,10 @@ jobs:
                   if p.is_absolute() or '..' in p.parts or member.issym() or member.islnk() or member.isdev():
                       raise SystemExit(f'unsafe member: {member.name}')
                   if member.isfile():
-                      files.add(member.name)
+                      normalized = str(p)
+                      if normalized.startswith('./'):
+                          normalized = normalized[2:]
+                      files.add(normalized)
               if files != expected:
                   raise SystemExit(f'unexpected payload paths: {sorted(files)}')
               out.mkdir(parents=True, exist_ok=True)
