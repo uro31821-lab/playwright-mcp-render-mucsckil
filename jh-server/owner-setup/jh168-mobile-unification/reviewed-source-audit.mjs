@@ -18,6 +18,8 @@ const REVIEWED_TRANSITIONS=Object.freeze([
   protectedObjects:Object.freeze({
    'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs':
     'b381e0325c1ec300f80828b798ad8310d0bf69de',
+   'jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs':
+    '10618a7d0167523bfe6834ea56383c525213d7df',
    'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
     '6c3fc142e60624c5af6f7b46aef32a4dbbd17fe1',
    'jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs':
