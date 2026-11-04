@@ -38,10 +38,8 @@ jobs:
           test "$(sha256sum /tmp/stage63.gz | cut -d' ' -f1)" = a2cd7beeaab74c72e2f9f7049dd56d7c36d4ea04f15faaaf820757eb52af66ab
           mkdir -p /tmp/stage63
           gzip -dc /tmp/stage63.gz | tar -x -C /tmp/stage63 --no-same-owner --no-same-permissions
-          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
-          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
+          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
+          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
           python - <<'PY'
           from pathlib import Path
           import re
@@ -52,11 +50,11 @@ jobs:
           start=s.find(start_marker);end=s.find(end_marker,start)
           if start<0 or end<0: raise SystemExit('STAGE63_ORDER_ASSERT_ANCHOR_MISSING')
           end+=len(end_marker)
-          replacement="""const afterAction=helper.slice(helper.indexOf('async function jhStage61AfterAction56'));
-           const staleClear=afterAction.indexOf('if(action===\"SELECT_OPEN\")jhStage61PreparedPick56.delete(routeToken);');
-           const receiptRead=afterAction.indexOf('const record=await jhStage61Host56.record({routeToken');
-           assert.ok(staleClear>=0&&receiptRead>staleClear,
-            'every re-open clears stale prepared refs before receipt inspection');"""
+          replacement=("const afterAction=helper.slice(helper.indexOf('async function jhStage61AfterAction56'));\n"
+                       " const staleClear=afterAction.indexOf('if(action===\"SELECT_OPEN\")jhStage61PreparedPick56.delete(routeToken);');\n"
+                       " const receiptRead=afterAction.indexOf('const record=await jhStage61Host56.record({routeToken');\n"
+                       " assert.ok(staleClear>=0&&receiptRead>staleClear,\n"
+                       "  'every re-open clears stale prepared refs before receipt inspection');")
           s=s[:start]+replacement+s[end:]
           pattern=r"(\s*JH_STAGE44_DEVICE_FOCUS:'EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1'),\s*\n\s*JH_MOBILE13_COMMAND_DIAGNOSTICS:'EXPLICIT_OWNER_DEVICE_READ_ONLY_V1'};"
           s,n=re.subn(pattern,r"\1};",s,count=1)
@@ -64,20 +62,16 @@ jobs:
           test.write_text(s)
           patch=Path('jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs')
           p=patch.read_text()
-          old="""    !source.includes('const cuSchema56={'))fail('STAGE61_MOBILE_RUNTIME_PREREQUISITES_MISSING');"""
-          new="""    !source.includes('const cuSchema56={')){console.error('STAGE61_PREREQ_FLAGS '+JSON.stringify({
-      isString:typeof source==='string',follow:source.includes('async function jhMobileWebFollow56('),
-      read:source.includes('async function jhMobileWebRead56('),secure:source.includes('function secureCall56('),
-      schema:source.includes('const cuSchema56={'),already:source.includes('const jhStage61Host56=createStage61HostAdapter('),
-      length:source.length}));fail('STAGE61_MOBILE_RUNTIME_PREREQUISITES_MISSING');}"""
+          old="    !source.includes('const cuSchema56={'))fail('STAGE61_MOBILE_RUNTIME_PREREQUISITES_MISSING');"
+          flags="JSON.stringify({isString:typeof source==='string',follow:source.includes('async function jhMobileWebFollow56('),read:source.includes('async function jhMobileWebRead56('),secure:source.includes('function secureCall56('),schema:source.includes('const cuSchema56={'),already:source.includes('const jhStage61Host56=createStage61HostAdapter('),length:source.length})"
+          new="    !source.includes('const cuSchema56={')){console.error('STAGE61_PREREQ_FLAGS '+"+flags+");fail('STAGE61_MOBILE_RUNTIME_PREREQUISITES_MISSING');}"
           if old not in p: raise SystemExit('STAGE61_PREREQ_DIAGNOSTIC_ANCHOR_MISSING')
           patch.write_text(p.replace(old,new,1))
           PY
       - name: Run focused generated-runtime diagnostic
         run: |
           set -euo pipefail
-          node --test --test-concurrency=1 --test-reporter=spec \
-            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
       - name: No release boundary
         if: always()
         run: |
