@@ -13,12 +13,19 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
-      - name: Checkout exact branch
+      - name: Checkout exact branch with reviewed history
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+
+      - name: Fetch protected comparison branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin \
+            jh-fix3-secure-server:refs/remotes/origin/jh-fix3-secure-server
 
       - name: Use Node 22
         uses: actions/setup-node@v4
@@ -116,16 +123,40 @@ jobs:
           git diff --check
           git diff --stat | tee /tmp/stage63-diff-stat.txt
 
-      - name: Run targeted Stage63 test
-        id: target
+      - name: Syntax-check changed sources
         shell: bash
         run: |
-          set +e
-          node --test jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
+          set -euo pipefail
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
+
+      - name: Run targeted Stage63 test
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test \
+            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
             2>&1 | tee /tmp/stage63-targeted-test.log
-          code=${PIPESTATUS[0]}
-          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
-          exit "$code"
+
+      - name: Run related mobile and owner-admission regressions
+        shell: bash
+        run: |
+          set -o pipefail
+          node --test --test-concurrency=1 \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage41-command-lifecycle.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage44-device-focus.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.test.mjs \
+            2>&1 | tee /tmp/stage63-regression-test.log
 
       - name: Upload validation evidence
         if: always()
@@ -135,5 +166,6 @@ jobs:
           path: |
             /tmp/stage63-diff-stat.txt
             /tmp/stage63-targeted-test.log
+            /tmp/stage63-regression-test.log
           if-no-files-found: warn
           retention-days: 7
