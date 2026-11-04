@@ -392,7 +392,7 @@ function claimText(claim) {
 /** Render a deterministic Korean draft. The host should replace source IDs with live citations. */
 export function renderKorean(report) {
   check(report?.schema === SCHEMA && report?.apiVersion === VERSION, 'NEWBISEO_REPORT_INVALID');
-  const lines = [`## 📰 뉴비서 | ${report.story.title}`, '', '### 🔥 그때 무슨 일이?', ''];
+  const lines = [`## 🏴‍☠️ 뉴비서 | ${report.story.title}`, '', '### 🔥 그때 무슨 일이?', ''];
   for (const claim of report.story.opening) lines.push(claimText(claim));
   lines.push('', '### ⏳ 그 후 어떻게 됐나?', '');
   for (const item of report.story.timeline) {
