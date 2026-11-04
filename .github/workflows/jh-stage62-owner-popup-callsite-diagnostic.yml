@@ -1,4 +1,4 @@
-name: JH Stage62 owner popup evidence review
+name: JH Stage63 native-select owner evidence review
 
 on:
   push:
@@ -11,31 +11,49 @@ permissions:
 jobs:
   inspect-stage63-review-payload:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Decode existing Stage63 review payload without execution
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install reviewed dependencies
+        run: |
+          set -euo pipefail
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Decode, inspect and test existing Stage63 candidate in an isolated worktree
         run: |
           set -euo pipefail
           ref=origin/fix/stage63-native-select-owner-admission-20261104
           for n in 00 01 02; do git show "$ref:.stage63-payload/part-$n"; done > /tmp/stage63.b64
           base64 --decode /tmp/stage63.b64 > /tmp/stage63.gz
-          echo '=== PAYLOAD FILE TYPE ==='
-          file /tmp/stage63.gz
-          echo '=== PAYLOAD SHA256 ==='
-          sha256sum /tmp/stage63.gz
-          echo '=== GZIP CONTENT TYPE ==='
-          gzip -dc /tmp/stage63.gz > /tmp/stage63.payload
-          file /tmp/stage63.payload
-          echo '=== SAFE ARCHIVE LIST OR TEXT HEAD ==='
-          if tar -tf /tmp/stage63.payload >/tmp/stage63.list 2>/dev/null; then
-            cat /tmp/stage63.list
-          else
-            sed -n '1,240p' /tmp/stage63.payload
-          fi
+          test "$(sha256sum /tmp/stage63.gz | cut -d' ' -f1)" = a2cd7beeaab74c72e2f9f7049dd56d7c36d4ea04f15faaaf820757eb52af66ab
+          mkdir /tmp/stage63
+          gzip -dc /tmp/stage63.gz | tar -x -C /tmp/stage63 --no-same-owner --no-same-permissions
+          test -f /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
+          test -f /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
+          echo '=== CANDIDATE DIFF ==='
+          diff -u jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs \
+            /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs || test $? = 1
+          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
+          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs
       - name: No release boundary
         if: always()
         run: |
