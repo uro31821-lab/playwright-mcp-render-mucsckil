@@ -4,13 +4,18 @@ import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {buildStage25PendingOperatorEntrypoint56} from './stage25-live-operator-followup-entry.mjs';
 import {reverseComputerExecutionReceiptPatch} from './computer-execution-receipt-patch.mjs';
+import {reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 const root=path.resolve('jh-server/owner-setup');
 const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',JH_STAGE26_SIGNED_COMPLETION_ACK:'EXPLICIT_IDENTICAL_SIGNED_RESULT_V1'};
 test('actual generated Stage25/26 Secure56 operator contains exact read-only Computer Use execute receipt',async()=>{
  const built=await buildStage25PendingOperatorEntrypoint56(root,env);
  assert.equal(built.productionEnabled,false);assert.equal(built.listenerStarted,false);
  assert.equal(built.stamp.computerExecutionReceiptStage38,true);
- const source=readFileSync(built.runtimeFile,'utf8'),parent=reverseComputerExecutionReceiptPatch(source);
+ const source=readFileSync(built.runtimeFile,'utf8');
+ // Stage61 is the outermost generated wrapper. Reverse in the exact opposite
+ // construction order before checking the older Stage38 receipt boundary.
+ const beforeStage61=reverseStage61MobileRuntime56(source);
+ const parent=reverseComputerExecutionReceiptPatch(beforeStage61);
  assert.ok(parent.includes('durableNativeHooks56?.acceptedCompletion('));
  assert.ok(source.includes('jhRequireCommand56(deviceId)'));
  assert.ok(source.includes('computerExecutionReceipts56.issue('));
