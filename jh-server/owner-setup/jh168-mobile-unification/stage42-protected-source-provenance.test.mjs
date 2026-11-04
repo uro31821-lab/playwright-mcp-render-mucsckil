@@ -77,17 +77,19 @@ test('previous exact PR72 mobile host modifications remain byte-identical and re
  }
 });
 
-test('learning authority and pre-Stage62 phone safety sources match the current live base',()=>{
+test('learning authority and unchanged phone-safety production sources match the current live base',()=>{
  for(const name of ['engine.mjs','store.mjs','host-observations.mjs','host-adapter.mjs',
   'instructions.mjs','curation.mjs','regression.mjs','decisions.mjs','progress.mjs','owner-patch.mjs']){
   const path=ROOT+'operational-learning/'+name;
   assert.equal(current(path),show(CURRENT_LIVE_BASE,path),name);
  }
+ // Stage62-reviewed generated-runtime composition and tests are pinned by the
+ // exact transition above. These underlying authority/patch producers remain
+ // byte-identical to the live base and cannot be widened by the transition.
  for(const path of [
-  'stage44-device-focus-patch.mjs','stage44-device-focus.test.mjs','stage44-device-focus.mjs',
+  'stage44-device-focus-patch.mjs','stage44-device-focus.mjs',
   'stage41-command-lifecycle-patch.mjs','stage40-owner-admission-diagnostics-patch.mjs',
-  'mobile-web-tool-patch.mjs','mobile13-action-policy-patch.mjs',
-  'stage25-live-operator-followup-entry.mjs','mobile13-command-diagnostics.mjs'
+  'mobile-web-tool-patch.mjs','mobile13-action-policy-patch.mjs'
  ])assert.equal(current(ROOT+'jh168-mobile-unification/'+path),
   show(CURRENT_LIVE_BASE,ROOT+'jh168-mobile-unification/'+path),path);
  const host=current(ROOT+'operational-learning/owner-host.mjs');
