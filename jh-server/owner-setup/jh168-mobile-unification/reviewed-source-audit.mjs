@@ -14,7 +14,7 @@ const REVIEWED_TRANSITIONS=Object.freeze([
  Object.freeze({
   historicalBaseline:'8596f5ef299d27fa7064ee40a64a99030196774a',
   preBase:'d4afec4a657d4ad928560624536c01e2df6df1c7',
-  reviewedHead:'d547c0c439501cf26978bde0739cf413f13c25a4',
+  reviewedHead:'079f3997758577654b933c9cede12138fea1381f',
   protectedObjects:Object.freeze({
    'jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.mjs':
     '0bf1ac0e09380aabf3fb2fefeabc15d905d34417',
@@ -23,7 +23,7 @@ const REVIEWED_TRANSITIONS=Object.freeze([
    'jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs':
     '22db043c104333e588aaae3d5f7a68cd10431d80',
    'jh-server/owner-setup/jh168-mobile-unification/stage38-generated-operator.test.mjs':
-    '38c7dead2b8907480d8c09e1c5670e41ce5112bb',
+    'b2442986cb2309569a1423ea3f1f49af5400db7b',
    'jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs':
     'b16c5013454ae40a3a7ca00036507ecedfe6388c',
    'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
