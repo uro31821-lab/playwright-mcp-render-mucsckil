@@ -96,8 +96,9 @@ const HELPER=String.raw`
   async function jhStage61AfterAction56(result,routeToken,provider,action,terminal=true){
     const record=await jhStage61Host56.record({routeToken,originalReceiptRef:jhStage61SaveOriginal56(result),
       expectedProvider:provider,expectedAction:action,terminal});
+    const nextAction=action==="SELECT_OPEN"&&record.recordedOutcome==="PREPARED"?"SELECT_PICK":action;
     const next=record.ok===true&&!record.stopped
-      ?jhStage61Host56.plan({routeToken,action,playwrightMobileAvailable:false})
+      ?jhStage61Host56.plan({routeToken,action:nextAction,playwrightMobileAvailable:false})
       :{provider:"STOP_NO_REPLAY",code:record.code||"STAGE61_ROUTE_STATE_STOPPED",allowed:false};
     return {...result,stage61RouteToken:routeToken,stage61RouterHost:record,
       stage61NextProvider:next.provider,stage61NextCode:next.code,automaticReplay:false};
