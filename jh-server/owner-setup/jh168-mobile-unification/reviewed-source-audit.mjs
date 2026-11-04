@@ -14,18 +14,28 @@ const REVIEWED_TRANSITIONS=Object.freeze([
  Object.freeze({
   historicalBaseline:'8596f5ef299d27fa7064ee40a64a99030196774a',
   preBase:'d4afec4a657d4ad928560624536c01e2df6df1c7',
-  reviewedHead:'8dec8893534b2c16b56b54db444eb5aad7fed640',
+  reviewedHead:'eab1c89cbe45ac97e04f4196778270e546bf7023',
   protectedObjects:Object.freeze({
    'jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.mjs':
     '0bf1ac0e09380aabf3fb2fefeabc15d905d34417',
    'jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs':
     '69325dca75c15ebf99fba7d3494bc8467e7508c6',
+   'jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.mjs':
+    '91b1926a4e1f173d22ac8e3f233245849a12061a',
    'jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs':
     '22db043c104333e588aaae3d5f7a68cd10431d80',
+   'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs':
+    'b12e000a1ace7e9c2745a2ad7ce17d1b61e4a161',
    'jh-server/owner-setup/jh168-mobile-unification/stage38-generated-operator.test.mjs':
     '711bcd6b92bb3d04cd41b93bb5b7bac94b40bd2c',
+   'jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs':
+    'e862388a9f78b1ac16a1d2d1c5856b65b64b184c',
+   'jh-server/owner-setup/jh168-mobile-unification/stage41-command-lifecycle.test.mjs':
+    '1575f588e7976e60558ef290c85d91f238d5c5e9',
    'jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs':
     'b16c5013454ae40a3a7ca00036507ecedfe6388c',
+   'jh-server/owner-setup/jh168-mobile-unification/stage44-device-focus.test.mjs':
+    '039ff80238de62a5e9592509e35d182d630180c9',
    'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
     '501bf71e67d5ea77e696559118f06f7c7150205f',
    'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs':
