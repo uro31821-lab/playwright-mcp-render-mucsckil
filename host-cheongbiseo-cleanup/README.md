@@ -1,6 +1,6 @@
 # 청비서 — JH Space cleanup
 
-청비서는 JH 내부의 수명주기 정리 기능이다.
+청비서는 **JH Host/Plugin 내부의 수명주기 정리 기능**이다. 기존 Android/MCP/Bridge 실행체계의 보호된 서버 코드는 변경하지 않는다.
 
 ## 확정 규칙
 
@@ -18,6 +18,12 @@
 
 ## 실행 구조
 
-사용자 → ChatGPT/JH → `life_cheongbiseo_policy` → Host Files → 삭제 → 재조회 검증 → 결과
+사용자 → JH 청비서 Skill → ChatGPT Host Files → 삭제 → 재조회 검증 → 결과
 
-JH 서버는 ChatGPT Project 파일 저장소를 직접 삭제하지 않는다. JH는 정책을 제공하고, 실제 삭제는 현재 대화 호스트가 가진 Files 권한으로 수행한다.
+실제 Space 파일 변경 권한은 ChatGPT Host의 Files 계층에 있다. 청비서는 JH Plugin 안에서 정책과 실행 절차를 고정하고, Host Files가 실제 삭제를 수행한다. Project mutation이 지원되지 않는 항목은 우회하거나 성공으로 위장하지 않는다.
+
+## 보호 원칙
+
+- `jh-server/server.mjs` 같은 기존 Secure56 실행 표면은 청비서 때문에 변경하지 않는다.
+- Android Device/Bridge가 연결되지 않아도 Space 정리 기능 자체는 동작할 수 있다.
+- 청비서 오류가 Android/Bridge/Playwright 기능으로 전파되지 않도록 독립 모듈로 유지한다.
