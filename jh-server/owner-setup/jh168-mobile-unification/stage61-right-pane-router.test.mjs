@@ -11,6 +11,10 @@ test('reversed layout is rejected',()=>assert.equal(fixedLayoutStage61({...layou
 test('other display is rejected',()=>assert.equal(fixedLayoutStage61({...layout,workDisplayId:1}).code,'CHAT_AND_WORK_DISPLAY_CHANGED'));
 test('web is first for click',()=>assert.equal(routeStage61({action:'CLICK',layout}).provider,'ANDROID_WEB'));
 test('computer use is first for scroll',()=>assert.equal(routeStage61({action:'SCROLL',layout}).provider,'ANDROID_COMPUTER_USE'));
+test('computer use is first for Enter/Tab keypress',()=>{
+ const r=routeStage61({action:'KEYPRESS_ENTER_TAB',layout});
+ assert.equal(r.provider,'ANDROID_COMPUTER_USE');assert.equal(r.code,'TRY_EXISTING_ANDROID_COMPUTER_USE');assert.equal(r.allowed,true);
+});
 test('computer use follows exact web unsupported',()=>assert.equal(routeStage61({action:'CLICK',layout,webOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT'}).provider,'ANDROID_COMPUTER_USE'));
 test('playwright mobile follows both exact unsupported only',()=>assert.equal(routeStage61({action:'SELECT_PICK',layout,webOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT',computerOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT',playwrightMobileAvailable:true}).provider,'PLAYWRIGHT_MOBILE'));
 test('no connected mobile provider stops',()=>assert.equal(routeStage61({action:'SELECT_PICK',layout,webOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT',computerOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT'}).code,'PLAYWRIGHT_MOBILE_NOT_CONNECTED'));
