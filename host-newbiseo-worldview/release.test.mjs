@@ -9,7 +9,7 @@ const readJson = async path => JSON.parse(await readFile(new URL(path, overlay),
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
 const EXPECTED = Object.freeze({
-  'worldview.mjs': '6b62d08c6dffa00d798cf89750e80aee0078aaefff712aa5812cad0a3e42d304',
+  'worldview.mjs': '1b17598e43f09923b6ea84e8520449a657e77ea4c6adbe690268ef9efd2d0036',
   'deep-worldview.mjs': 'd63ded87aeb74e4190c50ddf8ece7ad93e215584ae82eee73f97548f5ba56475',
 });
 
@@ -56,6 +56,8 @@ test('basic skill and contract require past-case and personal-idea sections', as
     readFile(new URL('plugin-overlay/skills/jh-newbiseo-worldview/scripts/worldview.mjs', root), 'utf8'),
   ]);
   assert.match(skill, /과거 유사사례.*나에게 건질 아이디어.*기본형의 고정 항목/s);
+  assert.match(skill, /🏴‍☠️ 해골기/);
+  assert.match(runtime, /🏴‍☠️ 뉴비서/);
   assert.match(skill, /최소 1개, 최대 3개/);
   assert.match(contract, /과거 유사사례.*나에게 건질 것.*기본형의 필수 항목/s);
   assert.match(contract, /유사사례가 없더라도 항목을 삭제하지 않는다/);
