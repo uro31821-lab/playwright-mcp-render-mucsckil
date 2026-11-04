@@ -1,4 +1,4 @@
-name: JH Stage63 native-select owner evidence review
+name: JH Stage63 native-select owner evidence source review
 
 on:
   push:
@@ -9,51 +9,24 @@ permissions:
   contents: read
 
 jobs:
-  inspect-stage63-review-payload:
+  inspect-stage63-source:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    env:
-      CI: 'true'
-      NODE_ENV: test
-      JH_OWNER_DEFER_LISTEN: '1'
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install reviewed dependencies
-        run: |
-          set -euo pipefail
-          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
-          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
-          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
-      - name: Decode, inspect and test existing Stage63 candidate in an isolated worktree
+      - name: Decode and print bounded reviewed source
         run: |
           set -euo pipefail
           ref=origin/fix/stage63-native-select-owner-admission-20261104
-          for n in 00 01 02; do git show "$ref:.stage63-payload/part-$n"; done > /tmp/stage63.b64
-          base64 --decode /tmp/stage63.b64 > /tmp/stage63.gz
-          test "$(sha256sum /tmp/stage63.gz | cut -d' ' -f1)" = a2cd7beeaab74c72e2f9f7049dd56d7c36d4ea04f15faaaf820757eb52af66ab
-          mkdir /tmp/stage63
-          gzip -dc /tmp/stage63.gz | tar -x -C /tmp/stage63 --no-same-owner --no-same-permissions
-          test -f /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
-          test -f /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
-          echo '=== CANDIDATE DIFF ==='
-          diff -u jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs \
-            /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs || test $? = 1
-          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
-          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
-          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
-          node --check jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
-          node --test --test-concurrency=1 --test-reporter=spec \
-            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs
+          for n in 00 01 02; do git show "$ref:.stage63-payload/part-$n"; done | base64 --decode | gzip -dc > /tmp/stage63.tar
+          mkdir /tmp/stage63 && tar -xf /tmp/stage63.tar -C /tmp/stage63 --no-same-owner --no-same-permissions
+          echo '=== TEST SOURCE ==='
+          nl -ba /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs | sed -n '1,280p'
+          echo '=== PATCH FUNCTION TAIL ==='
+          nl -ba /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs | sed -n '285,390p'
       - name: No release boundary
         if: always()
         run: |
