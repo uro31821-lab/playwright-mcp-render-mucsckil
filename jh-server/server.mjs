@@ -4,7 +4,6 @@ import { randomBytes, createHash, createHmac, timingSafeEqual } from "node:crypt
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
-import { cheongbiseoPolicy } from "./cheongbiseo-policy.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
 const BROWSER_MCP = "http://life-browser-agent.railway.internal:8931/mcp";
@@ -280,13 +279,6 @@ function createMcp(){
   const server=new McpServer({name:"JH",version:"1.5.0-fix5-local-prompts"});
   const oauthSchemes56=[{type:"oauth2",scopes:[OAUTH_SCOPE56]}];
   const registerOAuthTool=(name,config,handler)=>server.registerTool(name,{...config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},handler);
-
-  registerOAuthTool("life_cheongbiseo_policy",{
-    title:"청비서 Space cleanup policy",
-    description:"Read-only JH cleanup contract. Use when the user explicitly runs 청비서. The host with Files access performs deletion; JH itself never bypasses Project or connector mutation boundaries.",
-    inputSchema:{space_path:z.string().optional()},
-    annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}
-  },async({space_path})=>textResult({ok:true,policy:cheongbiseoPolicy(space_path||"/나의개인비서")}));
 
   registerOAuthTool("life_status",{
     title:"JH status",
