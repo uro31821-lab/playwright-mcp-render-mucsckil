@@ -11,6 +11,7 @@ const consentGrant='consent_grant_token_123456789012';
 const store=new Map([
  ['receipt-snapshot-01',{stage61Router:receipt('ANDROID_WEB','READ_ONLY_VERIFIED','SNAPSHOT')}],
  ['receipt-web-unsupported-01',{stage61Router:receipt('ANDROID_WEB','VERIFIED_UNSUPPORTED_NO_EFFECT','CLICK')}],
+ ['receipt-web-select-open-prepared-01',{stage61Router:receipt('ANDROID_WEB','PREPARED','SELECT_OPEN')}],
  ['receipt-cu-unsupported-01',{stage61Router:receipt('ANDROID_COMPUTER_USE','VERIFIED_UNSUPPORTED_NO_EFFECT','CLICK')}],
  ['receipt-cu-pass-01',{stage61Router:receipt('ANDROID_COMPUTER_USE','VERIFIED_PASS','SCROLL')}],
  ['receipt-cu-pass-approved-01',{approvalConsumed:true,stage61Router:receipt('ANDROID_COMPUTER_USE','VERIFIED_PASS','CLICK')}],
@@ -36,6 +37,19 @@ test('initial signed snapshot fixes left GPT right Chrome scope',async()=>{const
 test('reversed signed layout is rejected',async()=>assert.equal((await make().begin({originalReceiptRef:'receipt-reversed-layout-01'})).ok,false));
 test('web unsupported routes next action to computer use',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-unsupported-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});assert.equal(h.plan({routeToken:b.routeToken,action:'CLICK'}).provider,'ANDROID_COMPUTER_USE');});
 test('both unsupported expose targeted mobile gap only',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-unsupported-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-cu-unsupported-01',expectedProvider:'ANDROID_COMPUTER_USE',expectedAction:'CLICK'});const p=h.plan({routeToken:b.routeToken,action:'CLICK',playwrightMobileAvailable:true});assert.equal(p.provider,'PLAYWRIGHT_MOBILE');assert.equal(p.fallbackEligible,true);});
+test('verified SELECT_OPEN PREPARED keeps route open for one explicit PICK',async()=>{
+ const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});
+ const r=await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-select-open-prepared-01',
+  expectedProvider:'ANDROID_WEB',expectedAction:'SELECT_OPEN'});
+ assert.equal(r.stopped,false);
+ assert.equal(r.webOutcome,'NOT_RUN');
+ const p=h.plan({routeToken:b.routeToken,action:'SELECT_PICK'});
+ assert.equal(p.provider,'ANDROID_WEB');assert.equal(p.allowed,true);
+ const phone=h.phonePayload({routeToken:b.routeToken,action:'SELECT_PICK',provider:'ANDROID_WEB'});
+ assert.equal(phone.stage61Action,'SELECT_PICK');
+ assert.equal(phone.stage61WebOutcome,'NOT_RUN');
+ assert.equal(phone.automaticReplay,false);
+});
 test('unknown result permanently stops route state',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});const r=await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-unknown-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});assert.equal(r.stopped,true);assert.equal(h.plan({routeToken:b.routeToken,action:'CLICK'}).code,'STAGE61_ROUTE_STATE_STOPPED');});
 test('verified pass stores one final success digest and stops repeat',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});const r=await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-cu-pass-01',expectedProvider:'ANDROID_COMPUTER_USE',expectedAction:'SCROLL'});assert.match(r.successReceiptDigest,/^[0-9a-f]{64}$/);assert.equal(h.plan({routeToken:b.routeToken,action:'SCROLL'}).code,'STAGE61_ROUTE_STATE_STOPPED');});
 test('phone payload carries exact prior outcomes and no replay',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-unsupported-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});const p=h.phonePayload({routeToken:b.routeToken,action:'CLICK',provider:'ANDROID_COMPUTER_USE'});assert.equal(p.stage61WebOutcome,'VERIFIED_UNSUPPORTED_NO_EFFECT');assert.equal(p.stage61ComputerOutcome,'NOT_RUN');assert.equal(p.automaticReplay,false);});
