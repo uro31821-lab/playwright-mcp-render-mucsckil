@@ -13,7 +13,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout exact branch
         uses: actions/checkout@v4
@@ -24,6 +24,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Install existing locked test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --prefix jh-server/owner-setup
+          npm ci --ignore-scripts --prefix jh-server/owner-setup/owner-enrollment
 
       - name: Safely apply Stage63 payload in ephemeral workspace
         shell: bash
@@ -51,6 +58,32 @@ jobs:
             jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
           cp -a /tmp/stage63-extracted/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
+
+      - name: Correct the test scope to the exact after-action function
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs')
+          source = path.read_text(encoding='utf-8')
+          before = ''' const helper=helperFromPatched(patched);
+ assert.ok(helper.indexOf('if(action==="SELECT_OPEN")jhStage61PreparedPick56.delete(routeToken);')<
+   helper.indexOf('const record=await jhStage61Host56.record({routeToken'),
+   'every re-open clears stale prepared refs before receipt inspection');'''
+          after = ''' const helper=helperFromPatched(patched);
+ const afterBegin=helper.indexOf('async function jhStage61AfterAction56');
+ const afterEnd=helper.indexOf('function jhStage61PrepareComputer56',afterBegin);
+ const afterAction=helper.slice(afterBegin,afterEnd);
+ assert.ok(afterBegin>=0&&afterEnd>afterBegin,'after-action helper must be bounded');
+ assert.ok(afterAction.indexOf('if(action==="SELECT_OPEN")jhStage61PreparedPick56.delete(routeToken);')<
+   afterAction.indexOf('const record=await jhStage61Host56.record({routeToken'),
+   'every re-open clears stale prepared refs before its receipt inspection');'''
+          if source.count(before) != 1:
+              raise SystemExit('STAGE63_TEST_SCOPE_ANCHOR_MISMATCH')
+          path.write_text(source.replace(before, after), encoding='utf-8')
+          PY
           git diff --check
           git diff --stat | tee /tmp/stage63-diff-stat.txt
 
