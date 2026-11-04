@@ -1,0 +1,21 @@
+{
+  "schema": "jh.assistant-capabilities.v1",
+  "entries": [
+    {"id":"general","label":"JH","skill":null,"description":"일반 답변·기능 설명·요청 목적 확인"},
+    {"id":"development","label":"개발","skill":"jh-dev-toolkit","description":"프로그램·비서 제작, 통합, 오류 수정, 검증"},
+    {"id":"guide","label":"설비서","skill":"jh-seolbiseo","description":"설정·등록·취소 등 쉬운 절차 안내, 현재 단계에서 막힌 위치 확인"},
+    {"id":"food","label":"먹비서","skill":"jh-meokbiseo","description":"식사·간식·메뉴·식당과 음식 사진 분석"},
+    {"id":"photo","label":"편비서","skill":"jh-pyeonbiseo","description":"사진 편집, 스타일 추천과 원픽, 번호 선택과 부분 수정"},
+    {"id":"book","label":"책비서","skill":"jh-chaekbiseo","description":"독서 안내·책 스캔·만화 요약·실제 책 페이지 이어보기"},
+    {"id":"travel","label":"여비서","skill":"jh-yeobiseo","description":"여행 준비·현장 일정·이동·여유 시간·여행 기록"},
+    {"id":"news","label":"뉴비서","skill":"jh-newbiseo-worldview","description":"뉴스와 사건의 배경·이해관계·세상을 보는 관점"},
+    {"id":"reflection","label":"쇼비서","skill":"jh-sangbiseo","description":"직접 요청한 속마음·대나무숲·쇼펜하우어 관점의 조언"},
+    {"id":"cleanup","label":"청비서","skill":"jh-cheongbiseo","description":"사용자가 요청한 자료 정리·보존기준 적용"},
+    {"id":"personal","label":"에비서","skill":"jh-ebiseo-assist","description":"현재 문제에 필요한 개인 기준·경험·판단 보완"},
+    {"id":"open_source","label":"깃비서","skill":"jh-open-source-scout","description":"개발 자료·공개 구현 조사와 기존 실패 해결 인계"},
+    {"id":"memory","label":"메모리야","skill":null,"requiresCapability":"memoria","description":"현재 제공된 실제 메모리아 연결을 통한 개인 기록 조회·요청한 저장"},
+    {"id":"evidence","label":"근거 조사","skill":null,"requiresCapability":"evidence-research","description":"현재 사용 가능한 검색·원문 확인 경로. Perplexity 명시 요청은 해당 실제 연결 필요"},
+    {"id":"camera","label":"카비서","skill":null,"requiresCapability":"camera-assistance","description":"현재 호스트에 실제 제공된 카메라 보조 경로만 사용"},
+    {"id":"audio","label":"이비서","skill":null,"requiresCapability":"audio-assistance","description":"현재 호스트에 실제 제공된 오디오 보조 경로만 사용"}
+  ]
+}
