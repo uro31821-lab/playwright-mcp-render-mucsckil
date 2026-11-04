@@ -7,15 +7,17 @@ import {reverseComputerExecutionReceiptPatch} from './computer-execution-receipt
 import {reverseSnapshotDigestReadbackPatch56} from './snapshot-digest-readback-patch.mjs';
 import {reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 const root=path.resolve('jh-server/owner-setup');
-const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',JH_STAGE26_SIGNED_COMPLETION_ACK:'EXPLICIT_IDENTICAL_SIGNED_RESULT_V1'};
+const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+ JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1',
+ JH_STAGE26_SIGNED_COMPLETION_ACK:'EXPLICIT_IDENTICAL_SIGNED_RESULT_V1'};
 test('actual generated Stage25/26 Secure56 operator contains exact read-only Computer Use execute receipt',async()=>{
  const built=await buildStage25PendingOperatorEntrypoint56(root,env);
  assert.equal(built.productionEnabled,false);assert.equal(built.listenerStarted,false);
  assert.equal(built.stamp.computerExecutionReceiptStage38,true);
  const source=readFileSync(built.runtimeFile,'utf8');
- // This fixture enables Stage26 only. The exact generated outer order is
- // Computer receipt -> Snapshot readback -> Stage61. Reverse that order before
- // checking the original Stage38 receipt boundary.
+ // This fixture enables mobile RIGHT plus Stage26. The exact generated outer
+ // order is Computer receipt -> Snapshot readback -> Stage61. Reverse that
+ // order before checking the original Stage38 receipt boundary.
  const beforeStage61=reverseStage61MobileRuntime56(source);
  const beforeSnapshot=reverseSnapshotDigestReadbackPatch56(beforeStage61);
  const parent=reverseComputerExecutionReceiptPatch(beforeSnapshot);
