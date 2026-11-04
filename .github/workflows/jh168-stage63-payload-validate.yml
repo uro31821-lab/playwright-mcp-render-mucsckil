@@ -98,26 +98,27 @@ jobs:
           stage25 = Path('jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs')
           source = stage25.read_text(encoding='utf-8')
           anchor = "const fail=code=>{throw Object.assign(Error(code),{code});};\n"
-          helper = '''const fail=code=>{throw Object.assign(Error(code),{code});};
-const stage25BuildEnvKey56=key=>key==='CI'||key==='NODE_ENV'||
-  key.startsWith('JH_')||key.startsWith('RENDER_');
-async function withStage25BuildEnv56(env,fn){
- const keys=new Set(Object.keys(process.env).filter(stage25BuildEnvKey56));
- for(const key of Object.keys(env||{}))if(stage25BuildEnvKey56(key))keys.add(key);
- const previous=new Map([...keys].map(key=>[key,process.env[key]]));
- try{
-  for(const key of keys){
-   const value=env?.[key];
-   if(value===undefined)delete process.env[key];else process.env[key]=String(value);
-  }
-  return await fn();
- }finally{
-  for(const [key,value] of previous){
-   if(value===undefined)delete process.env[key];else process.env[key]=value;
-  }
- }
-}
-'''
+          helper = (
+              "const fail=code=>{throw Object.assign(Error(code),{code});};\n"
+              "const stage25BuildEnvKey56=key=>key==='CI'||key==='NODE_ENV'||\n"
+              "  key.startsWith('JH_')||key.startsWith('RENDER_');\n"
+              "async function withStage25BuildEnv56(env,fn){\n"
+              " const keys=new Set(Object.keys(process.env).filter(stage25BuildEnvKey56));\n"
+              " for(const key of Object.keys(env||{}))if(stage25BuildEnvKey56(key))keys.add(key);\n"
+              " const previous=new Map([...keys].map(key=>[key,process.env[key]]));\n"
+              " try{\n"
+              "  for(const key of keys){\n"
+              "   const value=env?.[key];\n"
+              "   if(value===undefined)delete process.env[key];else process.env[key]=String(value);\n"
+              "  }\n"
+              "  return await fn();\n"
+              " }finally{\n"
+              "  for(const [key,value] of previous){\n"
+              "   if(value===undefined)delete process.env[key];else process.env[key]=value;\n"
+              "  }\n"
+              " }\n"
+              "}\n"
+          )
           if source.count(anchor) != 1 or 'withStage25BuildEnv56' in source:
               raise SystemExit('STAGE25_BUILD_ENV_HELPER_ANCHOR_MISMATCH')
           source = source.replace(anchor, helper)
