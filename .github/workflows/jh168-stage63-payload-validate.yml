@@ -132,6 +132,26 @@ jobs:
           if source.count(before) != 1:
               raise SystemExit('STAGE25_STAGE63_COUNT_ANCHOR_MISMATCH')
           stage25.write_text(source.replace(before, after), encoding='utf-8')
+
+          compat = Path('jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs')
+          source = compat.read_text(encoding='utf-8')
+          before = (
+              "test('full pending-approval and Stage25 production overlay chain ends with exactly one Stage61 layer',async()=>{\n"
+              "  const env={"
+          )
+          after = (
+              "test('full pending-approval and Stage25 production overlay chain ends with exactly one Stage61 layer',async()=>{\n"
+              "  await withSyntheticEnv(async()=>{\n"
+              "  const env={"
+          )
+          if source.count(before) != 1:
+              raise SystemExit('STAGE61_COMPAT_ENV_OPEN_ANCHOR_MISMATCH')
+          source = source.replace(before, after)
+          before = "  await import(pathToFileURL(built.runtimeFile).href+'?stage61final='+built.stamp.runtimeSha256);\n});"
+          after = "  await import(pathToFileURL(built.runtimeFile).href+'?stage61final='+built.stamp.runtimeSha256);\n  });\n});"
+          if source.count(before) != 1:
+              raise SystemExit('STAGE61_COMPAT_ENV_CLOSE_ANCHOR_MISMATCH')
+          compat.write_text(source.replace(before, after), encoding='utf-8')
           PY
           git diff --check
           git diff --stat | tee /tmp/stage63-diff-stat.txt
@@ -143,6 +163,7 @@ jobs:
           node --check jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs
 
       - name: Run targeted Stage63 test
         shell: bash
