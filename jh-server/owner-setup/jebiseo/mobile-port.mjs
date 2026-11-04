@@ -7,7 +7,11 @@
 import {createHash} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
 
+// This destination is implementation-owned. Page text or a generated link must
+// never turn a Gemini launch into navigation to a different service/account.
+export const JEBISEO_GEMINI_WEB_URL = 'https://gemini.google.com/app';
 const ROUTES = Object.freeze({
+  OPEN: 'life_web_navigate',
   SNAPSHOT: 'life_web_snapshot',
   TYPE: 'life_web_type',
   INSPECT_SUBMIT: 'life_android_computer_inspect',
@@ -19,7 +23,7 @@ const ROUTES = Object.freeze({
   JOB_STATUS: 'life_job_status'
 });
 export const JEBISEO_ORIGINAL_MOBILE_TOOLS = Object.freeze(Object.values(ROUTES));
-const EFFECTS = new Set(['TYPE', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
+const EFFECTS = new Set(['OPEN', 'TYPE', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const SUBMIT = new Set(['INSPECT_SUBMIT', 'PREPARE_SUBMIT', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const HEX32 = /^[a-f0-9]{32}$/, HEX64 = /^[a-f0-9]{64}$/;
 const CONTEXT = /^ssc_[a-f0-9]{32}$/, ITEM = /^item_[a-f0-9]{16}$/;
@@ -36,6 +40,7 @@ const CU_FIELDS = Object.freeze([
   'action_approval_grant_token', 'local_action_approval_digest', 'max_actions_in_call'
 ]);
 const FIELDS = Object.freeze({
+  OPEN: [],
   SNAPSHOT: ['context_id', 'goal'],
   TYPE: ['context_id', 'request_id', 'target_item_ref', 'text', 'submit'],
   APPROVAL_STATUS: ['device_id', 'task_digest', 'request_token'],
@@ -63,7 +68,8 @@ const learningAside = value => value.type === 'jh_operational_learning' &&
  */
 export function unwrapJebiseoMobileReply(raw) {
   if (!plain(raw)) return null;
-  const structured = raw.structuredContent;
+  // MCP text-only results may explicitly serialize structuredContent:null.
+  const structured = raw.structuredContent ?? undefined;
   if (structured !== undefined && (!plain(structured) || structured.type === 'jh_operational_learning')) return null;
   if (Array.isArray(raw.content)) {
     let primary = null;
@@ -98,7 +104,9 @@ function validateArgs(operation, args, commandId) {
   const value = {...args, command_id: commandId};
   if (args.device_id !== undefined && !text(args.device_id, 200))
     return {error: 'JEBISEO_DEVICE_ID_INVALID'};
-  if (operation === 'SNAPSHOT') {
+  if (operation === 'OPEN') {
+    value.url = JEBISEO_GEMINI_WEB_URL;
+  } else if (operation === 'SNAPSHOT') {
     if (args.context_id !== undefined && !matches(CONTEXT, args.context_id))
       return {error: 'MOBILE_CONTEXT_ID_INVALID'};
     if (args.goal !== undefined && !text(args.goal)) return {error: 'MOBILE_READ_GOAL_INVALID'};
@@ -176,7 +184,9 @@ export function createJebiseoMobilePort({callOriginalTool, runtimeMode = null, m
       const checked = validateArgs(operation, args, commandId);
       if (checked.error) return reject(operation, checked.error);
       if (EFFECTS.has(operation)) {
-        const identity = operation === 'TYPE'
+        const identity = operation === 'OPEN'
+          ? [operation, commandId, JEBISEO_GEMINI_WEB_URL]
+          : operation === 'TYPE'
           ? [operation, commandId, args.context_id, args.target_item_ref]
           : [operation, commandId, args.device_id ?? null, args.task_digest];
         const key = hash(identity);

@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {createJebiseoMobilePort, JEBISEO_ORIGINAL_MOBILE_TOOLS, unwrapJebiseoMobileReply} from './mobile-port.mjs';
+import {createJebiseoMobilePort, JEBISEO_ORIGINAL_MOBILE_TOOLS, JEBISEO_GEMINI_WEB_URL,
+  unwrapJebiseoMobileReply} from './mobile-port.mjs';
 import {patchJH168MobileWebCommands56} from '../jh168-mobile-unification/mobile-web-tool-patch.mjs';
 
 const command = 'a'.repeat(32), context = `ssc_${'b'.repeat(32)}`, item = `item_${'c'.repeat(16)}`;
@@ -182,7 +183,7 @@ test('in-memory reservation capacity fails closed instead of evicting unknown ac
   assert.equal(calls, 1);
 });
 
-test('adapter uses real generated Mobile13 read/input handlers and their original preflight', async () => {
+test('adapter uses real generated Mobile13 open/read/input handlers and their original preflight', async () => {
   const source = readFileSync(new URL('../../server.mjs', import.meta.url), 'utf8');
   const start = '  registerOAuthTool("life_web_navigate",{';
   const prerequisites = [
@@ -193,14 +194,14 @@ test('adapter uses real generated Mobile13 read/input handlers and their origina
   const patched = patchJH168MobileWebCommands56(source.replace(start, prerequisites + start));
   const a = patched.indexOf('  // JH168: all nine historical web commands');
   const b = patched.indexOf('  registerOAuthTool("life_android_devices",{', a);
-  const handlers = new Map(), jobs = [];
+  const handlers = new Map(), jobs = [], opens = [];
   const z = new Proxy(() => z, {get: () => z, apply: () => z});
   vm.runInNewContext(patched.slice(a, b), {
     URL, z, textResult: envelope, randomBytes: n => Buffer.alloc(n, 1),
     registerOAuthTool: (name, config, handler) => handlers.set(name, handler),
     jhSplitScreenContextId56: value => /^ssc_[a-f0-9]{32}$/.test(value),
     jhSplitScreenPayloadHasLocalOnly56: () => false,
-    jhRightWebOpen56: () => { throw Error('unexpected-navigation'); },
+    jhRightWebOpen56: async args => {opens.push(args); return envelope({code: 'OPEN_COMPLETION_PENDING'});},
     jhSplitScreenJob56: async (type, payload, effect, tool) => {
       jobs.push({type, payload, effect, tool});
       return type === 'split_screen_session_input_preflight'
@@ -210,6 +211,9 @@ test('adapter uses real generated Mobile13 read/input handlers and their origina
   }, {timeout: 2000});
   const port = createJebiseoMobilePort({runtimeMode: 'PHONE_RIGHT',
     callOriginalTool: (name, args) => handlers.get(name)(args)});
+  const opened = await port.run({visibility: 'VISIBLE', operation: 'OPEN', command_id: command});
+  assert.equal(opened.code, 'OPEN_COMPLETION_PENDING');
+  assert.deepEqual(JSON.parse(JSON.stringify(opens)), [{service: JEBISEO_GEMINI_WEB_URL}]);
   await port.run({visibility: 'VISIBLE', operation: 'SNAPSHOT', command_id: command, args: {context_id: context}});
   await port.run({visibility: 'VISIBLE', operation: 'TYPE', command_id: command, args: typeArgs()});
   assert.deepEqual(jobs.map(j => j.type), [

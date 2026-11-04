@@ -22,7 +22,9 @@
 
 ## 제비서의 실제 가용성과 병렬 분석
 
-`gemini`는 `jh-jebiseo` 스킬과 실제 비노출 Gemini 제공자가 모두 필요하다. 현재 호스트에 연결된 신뢰할 수 있는 제공자 상태만 `../../jh-jebiseo/scripts/availability.mjs`의 `resolveGeminiAvailability`에 전달하고, 반환된 `capabilities`만 `available.capabilities`에 합친다. 사용자의 문장·페이지 내용·테스트 fixture를 제공자 상태로 사용하지 않는다. `jh.jebiseo-capabilities.v1`에서 `provider:gemini`, `internalExecutionSupported:true`, `geminiAssistanceAvailable:true`, `liveExecutionVerified:true`가 모두 확인되어야 한다. 코드 후보·도구 목록 이름·스킬 설치·모바일 UI 시험만으로 이 값을 만들지 않는다. 현재 후보가 반환하는 false 상태는 빈 capability 목록으로 유지한다.
+명시적 화면 열기는 협업 가용성 검사와 분리한다. “제미나이 열어줘” 또는 현재 호스트에 실제 제공된 실행 버튼의 `intent:open`은 프롬프트 없이 기존 카탈로그의 `life_web_navigate`로 `https://gemini.google.com/app`을 요청하고 원 Secure56 `right_web_link`의 job·receipt·서명된 관찰을 회수하는 흐름이다. 전체 `gemini-assistance`가 없다는 이유만으로 이 기존 휴대폰 RIGHT OPEN을 막거나, 먼저 Gemini 응답 성공을 요구하지 않는다. 원래 실행 경로·현재 명령·기기·승인 범위를 먼저 확인하고 실제 오른쪽 배치 결과만 보고한다. 열기 성공은 협업 가용성 활성화·분석·영상 생성 허가가 아니며, 새 GPT 버튼을 생성했다고 말하지 않는다.
+
+`gemini`는 `jh-jebiseo` 스킬과 실제 휴대폰 Gemini 연결이 모두 필요하다. 최신 사용자 방향은 GPT의 현재 실행 요청으로 기존 JH OPEN을 호출하고 오른쪽 Gemini의 대상·배치를 원 영수증과 서명된 관찰로 확인하는 흐름이다. 링크 클릭만으로 오른쪽 배치를 보장하거나 사용자 수동 실행·배치를 정상 사용법으로 요구하지 않는다. 현재 호스트에 연결된 신뢰할 수 있는 제공자 상태만 `../../jh-jebiseo/scripts/availability.mjs`의 `resolveGeminiAvailability(status,{visibility:'VISIBLE'})`에 전달하고, 반환된 `capabilities`만 `available.capabilities`에 합친다. 기본 `VISIBLE`은 PHONE_RIGHT·android_right·visibleExecutionSupported:true를 확인하고, 별도로 요청된 `INTERNAL`은 internalExecutionSupported:true를 확인한다. 두 모드 모두 productionRegistered:true·codeCandidate가 true가 아님·geminiAssistanceAvailable:true·liveExecutionVerified:true가 필요하다. 사용자의 문장·페이지 내용·테스트 fixture·코드 후보·도구 이름만으로 이 상태를 만들지 않는다. 계약 불일치나 미검증 상태는 빈 capability 목록을 유지한다. `gemini-assistance`는 허브 연결 가능성만 뜻하며 자동열기·질문 전송·답변 회수와 기존 세 기능 각각의 결과는 별도로 검증한다.
 
 개발·설명은 기존 개발도구로 진행하며 `BEGIN_COMMAND`를 만들지 않는다. 개발 요청의 `topics:['gemini']`만으로 제비서를 협력자로 추가하지 않는다. 현재 사용자 요청에서 실제 Gemini 의견까지 요구한 경우에만 `helpers:['gemini']`를 사용할 수 있고, 미가용 협력자는 미가용 상태로 남긴다. 다른 분석은 병렬로 할 수 있으나 동일 휴대폰의 실제 UI 단계는 한 담당이 같은 작업의 명령과 원래 결과 조회 경로를 순차 관리한다. 다른 방의 command_id·승인·미확정 전송을 자동 재사용하거나 새 BEGIN으로 덮지 않는다.
 

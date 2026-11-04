@@ -1,7 +1,9 @@
 # 제비서: 기존 제미나이 3기능과 모바일 전환 범위
 
 원본 확인 기준: **PR #63, `67c69428f27030237f417753c717ab758faaa855`**.
-현재 사용자 조건은 **휴대폰만 사용**과 **제미나이 화면을 드러내지 않는 내부 연결**이다.
+현재 사용자 조건은 **휴대폰만 사용**과 **GPT 요청 시 오른쪽 Gemini 자동 열기**다.
+사용자가 Google/Gemini를 직접 열고 배치하는 절차를 없애라는 후속 명시 지시가
+이전 화면 비노출 조건을 대체했다. 기본 경로는 휴대폰 오른쪽 Chrome의 Gemini 웹이다.
 원래 기능은 `YOUTUBE / VIDEO / ANDROID`이며, 일반 질문·다른 의견·검토라는 세 가지 상담 기능으로 대체하지 않는다. [원본 요청 계약][contract]
 
 ## 1. 유지할 세 가지 기능
@@ -29,7 +31,7 @@
 
 **원본에는 세 기능의 요청 계약·상태 전이·검사 코드가 있다. 운영 연결이나 휴대폰에서의 전체 성공을 뜻하지 않는다.** 원본 통합 코드의 상태는 `productionRegistered: false`, `chatGptDeliveryConnected: false`, `androidApkBuilt: false`, `physicalPhoneTested: false`다. [원본 통합 상태][composition] · [원본 기능 검사][tests]
 
-현재 새 후보의 `host-runtime.mjs`, `mobile-port.mjs`, `reply-proof.mjs`는 공통 모바일 연결·중복 실행 방지·결과 연결 검증을 준비한 기반이다. 세 가지 제품 기능의 완성된 실행 흐름은 아직 포함하지 않는다.
+현재 새 후보의 `host-runtime.mjs`, `mobile-port.mjs`, `reply-proof.mjs`는 공통 모바일 연결·중복 실행 방지·결과 연결 검증을 준비한 기반이다. 명시적 요청에서 `start()`가 고정 Gemini 웹 주소의 기존 Mobile13 OPEN을 호출하도록 연결했다. 세 가지 제품 기능의 완성된 실행 흐름은 아직 포함하지 않는다.
 
 | 기능 | 현재 새 후보에 빠진 연결 | 필요한 최소 후속 개발 |
 | --- | --- | --- |
@@ -39,15 +41,18 @@
 
 새 후보의 대상·결과 검증 계약만으로 실제 증거 생산기가 생기지는 않는다. 원본 관찰은 제공자의 메시지·대화 식별자를 입증하지 못하는 경우 `SIGNED_GEMINI_VISIBLE_SEQUENCE_CANDIDATE_UNVERIFIED`와 `sentMessageIdProven: false`를 반환한다. 이 후보를 현재 질문의 검증된 최종 답변으로 바꾸지 않는다. [원본 답변 관찰자][visible]
 
-## 4. 휴대폰만 사용·제미나이 비노출 요구
+## 4. 휴대폰만 사용·오른쪽 자동 열기
 
 | 요구 | 현재 구현과의 관계 | 완료 조건 |
 | --- | --- | --- |
 | **사용자는 휴대폰만 사용** | 사용자에게 PC 실행·수동 빌드 절차를 요구하지 않는 방향을 유지한다. 원본의 영상 파일 검증은 기존 호스트에서 실행하는 코드이며, 이것만으로 휴대폰 영상 회수 경로가 연결됐다고 보지는 않는다. [파일 검증][artifact] | 휴대폰에서 요청·필요한 사용자 조치·결과 확인까지 이어지는 실제 경로를 확인한다. |
-| **제미나이 화면 비노출** | 원본 실행 흐름은 화면에 보이는 오른쪽 Gemini와 왼쪽 GPT를 전제로 한다. 새 모바일 후보도 내부 실행을 지원한다고 표시하지 않으며 `HIDDEN_EXECUTION_UNAVAILABLE`로 차단한다. 화면 조건을 삭제하거나 표시만 숨겨 해결된 것으로 처리할 수 없다. [원본 실행 흐름][workflow] | 실제 지원되는 비노출 제공자와 각 기능의 입력·결과·사용량 조건을 확인하고 연결한다. 현재 그런 제공자 연결은 미확인이다. |
+| **GPT에서 요청하면 오른쪽 Gemini 자동 열기** | 고정 `https://gemini.google.com/app`을 기존 `life_web_navigate` → `right_web_link`로 연다. 보존된 Android 소스의 `LinkSplitController`·`SamsungSplitSetup`이 필요시 분할 배치를 수행하도록 작성돼 있다. Gemini 서비스 이름 매핑도 같은 URL로 연결한다. | 현재 설치된 휴대폰에서 왼쪽 GPT 보존, 오른쪽 Chrome 배치, 요청 주소와 Gemini 실제 페이지를 확인한다. 링크 클릭·OPEN 접수·주소 확인을 전체 기능 완료로 보지 않는다. |
+| **열기와 실제 작업 구분** | `intent: open`은 질문 없이 OPEN만 가능하다. 분석·영상 요청은 OPEN 원 결과와 새 Gemini 입력창을 확인한 다음 단계로 이어진다. pending/unknown에서 원 job만 조회하며 재OPEN·새 BEGIN을 자동 생성하지 않는다. | 현재 요청과 같은 작업의 전송·답변 또는 영상 파일까지 독립 확인한다. 전체 Gemini 도움 가용성이 false여도 기존 도구의 명시적 화면 열기 자체와 혼동하지 않는다. |
 | **비서 병렬 연결** | 분석·검토는 병렬로 할 수 있지만 같은 휴대폰의 효과는 기존 명령과 결과를 유지하며 순서대로 처리한다. 새 후보는 다른 작업 선점과 미확정 결과 후 다음 효과를 차단하는 기반을 둔다. | 세 기능을 공통 모바일 경로에 연결한 뒤 기존 명령 유지, 원본 승인·결과 조회, 다른 작업과의 충돌 방지를 실제로 확인한다. |
 
-이 문서는 기존 세 기능을 정확히 이어가기 위한 범위 확인이다. **세 기능 실사용 완료, 비노출 실행 완료, 새 API 연결·추가 결제 승인으로 해석하지 않는다.**
+명시적으로 `INTERNAL`을 요청한 경우에는 여전히 비노출 제공자가 없어 실행 전에 차단한다.
+이 문서는 기존 세 기능을 정확히 이어가기 위한 범위 확인이다. **세 기능 실사용 완료,
+새 API 연결·추가 결제 승인으로 해석하지 않는다.**
 
 [contract]: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/gemini-native/src/contract.mjs
 [workflow]: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/gemini-native/src/native-workflow.mjs

@@ -6,12 +6,20 @@ on:
     paths:
       - 'jh-server/owner-setup/jebiseo/**'
       - 'host-jebiseo/**'
+      - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-open-completion*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs'
       - '.github/workflows/jh-jebiseo-mobile-candidate.yml'
   push:
     branches: [jh-fix3-secure-server]
     paths:
       - 'jh-server/owner-setup/jebiseo/**'
       - 'host-jebiseo/**'
+      - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs'
+      - 'jh-server/owner-setup/deployment/jh167-open-completion*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs'
       - '.github/workflows/jh-jebiseo-mobile-candidate.yml'
 
 permissions:
@@ -32,10 +40,23 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '24'
-      - name: Gemini candidate, existing mobile handlers and assistant hub
+      - name: Install locked dependencies for original generated handlers
         run: |
-          node --test --test-reporter=spec \
+          npm ci --ignore-scripts --no-audit --no-fund --prefix jh-server/owner-setup
+          npm ci --ignore-scripts --no-audit --no-fund --prefix jh-server/owner-setup/owner-enrollment
+      - name: Gemini candidate, existing mobile handlers and assistant hub
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+          JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
             jh-server/owner-setup/jebiseo/*.test.mjs \
+            jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs \
+            jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs \
+            jh-server/owner-setup/deployment/jh167-open-completion.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-runtime-contract.test.mjs \
             host-jebiseo/plugin-overlay/skills/jh-assistant-hub/tests/*.test.mjs \
             host-jebiseo/plugin-overlay/skills/jh-jebiseo/tests/*.test.mjs

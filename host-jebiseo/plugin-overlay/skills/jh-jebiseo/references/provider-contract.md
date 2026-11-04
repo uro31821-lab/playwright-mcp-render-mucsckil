@@ -2,19 +2,25 @@
 
 ## 가용성 입력
 
-`resolveGeminiAvailability(status)`는 신뢰할 수 있는 현재 호스트 제공자가 반환한 상태를 확인하는 순수 함수다. 네트워크·기기·외부 모델·영속 상태를 호출하지 않는다. 웹페이지·사용자 문장·테스트 fixture를 실제 연결 상태로 넣지 않는다.
+`resolveGeminiAvailability(status,{visibility:'VISIBLE'|'INTERNAL'}={})`는 신뢰할 수 있는 현재 호스트 제공자가 반환한 상태를 확인하는 순수 함수다. 기본 모드는 `VISIBLE`이다. 네트워크·기기·외부 모델·영속 상태를 호출하지 않는다. 웹페이지·사용자 문장·테스트 fixture를 실제 연결 상태로 넣지 않는다.
 
-필수 상태 필드는 다음과 같다.
+새 기본 흐름은 **GPT의 현재 실행 요청 → 기존 JH OPEN → 오른쪽 Gemini 배치 확인 → 해당 요청의 결과 회수**다. 비노출 지원 여부는 이 흐름의 가용성 전제가 아니다. 상태와 검사는 같은 실행 모드 계약을 사용해야 하며, 이전 숨김 기준을 통과하려고 `internalExecutionSupported`를 true로 꾸미지 않는다.
 
-| 필드 | 가용성에 필요한 값 |
+| 필드 | 새 방향에서 확인할 의미 |
 | --- | --- |
 | schema | jh.jebiseo-capabilities.v1 |
 | provider | gemini |
-| internalExecutionSupported | true |
-| geminiAssistanceAvailable | true |
-| liveExecutionVerified | true |
+| productionRegistered | 실제 운영 경로에 등록된 true |
+| codeCandidate | true인 개발 후보는 가용 상태로 올리지 않음 |
+| geminiAssistanceAvailable | 해당 실행 경로가 실제 결합되고 검증된 경우에만 true |
+| liveExecutionVerified | 오른쪽 열기·배치·이번 요청 결과가 실제로 검증된 경우에만 true |
+| runtimeMode / mobileRoute | `VISIBLE`에서는 PHONE_RIGHT / android_right |
+| visibleExecutionSupported | `VISIBLE`에서는 실제 지원이 확인된 true |
+| internalExecutionSupported | `INTERNAL`에서만 true 필요. 오른쪽 가시 실행을 위해 바꾸지 않음 |
 
-`mobileRoute:android_right`나 등록된 도구 이름만으로 조건을 충족하지 않는다. 문자열 "true", 미확인 필드, 다른 제공자·스키마는 가용성 증거가 아니다. 반환된 `capabilities`만 공통 허브에 전달하고, 원래 상태·출처·현재 작업 범위는 호스트가 유지한다.
+`mobileRoute:android_right`나 등록된 도구 이름만으로 조건을 충족하지 않는다. 문자열 "true", 미확인 필드, 다른 제공자·스키마는 가용성 증거가 아니다. 호스트와 가용성 함수의 실행 모드 계약이 아직 일치하지 않거나 실제 연결이 검증되지 않았다면 `capabilities:[]`를 유지한다. 반환된 `capabilities`만 공통 허브에 전달하고, 원래 상태·출처·현재 작업 범위는 호스트가 유지한다. `gemini-assistance`는 기존 허브의 연결 가능성 표시이며 `YOUTUBE`·`VIDEO`·`ANDROID` 각각의 실행·회수·전달 완료 증거가 아니다.
+
+명시적인 화면 열기 `intent:open`에는 전체 `gemini-assistance`를 선행 조건으로 걸지 않는다. 현재 실제 카탈로그에서 원래 휴대폰 RIGHT OPEN 경로와 유효한 실행 범위를 확인하고 사용할 수 있다. 이 경로의 열기 결과는 별도로 검증하며, 성공해도 협업 가용성·세 기능 전체·Gemini 응답 완료를 활성화하지 않는다. OPEN은 기존 열기 경로의 승인 규칙을 그대로 따르며, 질문 전송용 추가 승인을 화면 열기의 새 선행 조건으로 만들지 않는다.
 
 ## 기존 세 기능의 범위
 
@@ -28,7 +34,15 @@
 
 `VIDEO`의 생성 완료, 기존 영상 내보내기, 파일 검증, GPT 재생 전달은 별도 단계다. [원본 영상 검증](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/gemini-native/src/video-artifact.mjs)에 따라 현재 작업·전송 메시지·계정과 연결된 MP4/WebM 바이트·크기·SHA-256·영상 스트림·재생 시간을 확인한다. 원본에 없는 생성 모델 버전·해상도·길이를 보장하지 않는다. 결과가 불명확하면 기존 결과부터 조회하고 질문 재전송·영상 재생성·재내보내기를 자동 반복하지 않는다.
 
-사용자 확정 조건은 **휴대폰만 사용·Gemini 화면 비노출 유지**다. 기존 JH 중계·서명·승인 경로를 유지하며 별도 PC 조작, Gemini의 서버/클라우드 브라우저 실행, 새 API·새 제공자·추가 결제로 대체하지 않는다. 기존 Gemini 앱 구독의 포함 사용량을 별도 API 사용량·요금으로 옮겨 적용하지 않는다.
+사용자 확정 조건은 **휴대폰의 GPT에서 요청하면 Gemini가 오른쪽에 자동으로 열리는 흐름**이다. 이 명시 지시는 이전 화면 비노출 기본 조건을 대체한다. 기존 JH 중계·서명·승인 경로를 유지하며 별도 PC 조작, Gemini의 서버/클라우드 브라우저 실행, 새 API·새 제공자·추가 결제로 대체하지 않는다. 기존 Gemini 앱 구독의 포함 사용량을 별도 API 사용량·요금으로 옮겨 적용하지 않는다.
+
+## 기존 OPEN과 오른쪽 배치 확인
+
+- 대상 URL은 **`https://gemini.google.com/app`**이며 선택 경로는 실제 등록된 **`life_web_navigate` → 원 Secure56 `right_web_link` → 휴대폰 오른쪽 웹 작업창**이다. 별도 Gemini API·서버 브라우저·새 실행기로 바꾸지 않는다.
+- “제미나이 열어줘” 또는 현재 호스트에 실제 제공된 실행 버튼의 `intent:open`은 프롬프트 없이 OPEN과 그 원 결과 확인만 수행한다. 분석·질문 전송·영상 생성을 자동 시작하지 않으며, 존재하지 않는 GPT 버튼을 만들었다고 안내하지 않는다. 사용자가 Google/Gemini를 수동으로 열고 배치하는 절차를 정상 사용법으로 요구하지 않는다.
+- 링크 클릭은 실행 의사를 전달할 수 있지만 Android의 오른쪽 배치를 보장하지 않는다. 같은 기기·명령에 연결된 원 job·receipt를 회수하고 실제 Gemini 대상, 작업창, 오른쪽 배치와 현재 문맥을 기존 서명된 관찰로 확인해야 한다.
+- 이미 올바른 대상·배치가 확인됐다면 다시 열지 않는다. OPEN 접수나 앱 표시만으로 질문 전송·답변·영상 생성 완료를 주장하지 않는다.
+- pending/unknown은 원 결과 조회로 해결한다. 새 BEGIN·다른 방·반복 OPEN·재전송으로 우회하지 않는다. 실제 배치 지원이나 대상 증거가 없으면 미완료로 보고하고 기존 개발을 이어간다.
 
 ## 현재 개발 후보와의 연결
 
@@ -36,6 +50,6 @@
 
 후보의 `createJebiseoRuntime({callOriginalTool,readCurrentBinding,verifyGeminiTarget,verifyObservation,runtimeMode})`는 기존 경로를 받는 호스트 어댑터 계약이며, 새 MCP 도구나 Gemini 서비스가 생겼다는 뜻이 아니다. 호스트가 실제로 연결한 상태만 사용하고 함수 이름으로 외부 도구를 추측해 호출하지 않는다. 전송 예약·중복 방지는 기존 Secure56 beforeDispatch 경로를 사용하며 새 장부를 만들지 않는다.
 
-현재 후보는 `codeCandidate:true`, `productionRegistered:false`를 유지한다. `capabilities()`의 `internalExecutionSupported`, `geminiAssistanceAvailable`, `liveExecutionVerified`는 모두 false다. 이 상태는 이 스킬의 검사에서 `capabilities:[]`가 되어야 한다. 기본 `INTERNAL` 요청은 휴대폰·바인딩 콜백 전에 차단되며, 별도로 요청한 `VISIBLE` 개발 진단은 비노출 요구의 완료가 아니다.
+현재 후보는 `codeCandidate:true`, `productionRegistered:false`, `visibleExecutionSupported:false`를 유지한다. `geminiAssistanceAvailable`과 `liveExecutionVerified`는 실제 연결·종단 검증 전까지 false이며, 이 상태는 `capabilities:[]`로 유지한다. 새 사용자 지시의 오른쪽 자동열기는 가시 실행 요청으로 해석하고, `internalExecutionSupported:false`를 숨김 지원으로 바꾸지 않는다. 모듈·도구 연결 후보만으로 OPEN부터 오른쪽 배치·결과 회수까지 운영에 결합됐다고 보지 않는다.
 
-새 API, 클라우드 대체 실행, 별도 인증·승인 경로를 추가하지 않는다. 확정된 휴대폰·비노출·기능별 사용량 조건을 충족하는 실제 경로가 기존 실행기에 연결되고 검증된 후에만 가용성을 다시 판단한다. `ANDROID`의 기존 앱 실행 경로는 Gemini 응답 가용성과 구분하되, 이 후보에 실제 결합되지 않은 상태를 완료로 표시하지 않는다.
+새 API, 클라우드 대체 실행, 별도 인증·승인 경로를 추가하지 않는다. 확정된 휴대폰·오른쪽 자동열기·기능별 사용량 조건을 충족하는 실제 경로가 기존 실행기에 연결되고 검증된 후에만 가용성을 다시 판단한다. `ANDROID`의 기존 앱 실행 경로는 Gemini 응답 가용성과 구분하되, 이 후보에 실제 결합되지 않은 상태를 완료로 표시하지 않는다.

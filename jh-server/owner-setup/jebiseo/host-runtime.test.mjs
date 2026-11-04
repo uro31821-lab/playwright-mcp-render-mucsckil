@@ -44,10 +44,10 @@ function setup(options = {}) {
     verifyGeminiTarget: async request => {targets.push(request); return targetProof(request);}, ...options});
   return {runtime, calls, reads, targets, binding};
 }
-test('default internal consultation performs no phone read, target verification or invocation', async () => {
+test('explicit internal consultation performs no phone read, target verification or invocation', async () => {
   const f = setup();
   const hidden = createJebiseoTask({taskRef: 'task-internal-01', threadRef: 'thread-current-01',
-    intent: 'consult', basis: 'direct', prompt});
+    intent: 'consult', basis: 'direct', visibility: 'INTERNAL', prompt});
   const r = await f.runtime.runStep({task: hidden, operation: 'SNAPSHOT'});
   assert.equal(r.code, 'HIDDEN_EXECUTION_UNAVAILABLE');
   assert.deepEqual([f.calls.length, f.targets.length, f.reads.length], [0, 0, 0]);
