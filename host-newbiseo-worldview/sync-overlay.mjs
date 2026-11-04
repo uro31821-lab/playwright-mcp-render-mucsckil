@@ -6,7 +6,7 @@ const partsDir = new URL('source-parts/', root);
 const skill = new URL('plugin-overlay/skills/jh-newbiseo-worldview/', root);
 
 const EXPECTED_RUNTIME_SHA256 = Object.freeze({
-  'worldview.mjs': '6b62d08c6dffa00d798cf89750e80aee0078aaefff712aa5812cad0a3e42d304',
+  'worldview.mjs': '1b17598e43f09923b6ea84e8520449a657e77ea4c6adbe690268ef9efd2d0036',
   'deep-worldview.mjs': 'd63ded87aeb74e4190c50ddf8ece7ad93e215584ae82eee73f97548f5ba56475',
 });
 

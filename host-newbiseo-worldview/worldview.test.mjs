@@ -81,6 +81,8 @@ test('renders fixed News Story form', () => {
   for (const heading of ['🔥 그때 무슨 일이?', '⏳ 그 후 어떻게 됐나?', '📍 그래서 지금은?', '🧭 세상을 보는 관점', '🕰️ 과거에도 비슷한 일이?', '💡 이 뉴스에서 건질 것', '🎯 나에게 한 문장']) {
     assert.match(markdown, new RegExp(heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
+  assert.match(markdown, /🏴‍☠️ 뉴비서 \| 제주 제2공항/);
+  assert.match(markdown, /🏴‍☠️ 뉴비서 \| 제주 제2공항/);
   assert.match(markdown, /〔S1〕/);
   assert.match(markdown, /보도상/);
 });
