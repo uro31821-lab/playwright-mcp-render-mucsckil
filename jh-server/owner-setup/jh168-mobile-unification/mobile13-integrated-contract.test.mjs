@@ -271,6 +271,24 @@ async function runFixture(){
   assert.ok(f.admissions.every(v=>v.allowed),JSON.stringify(f.admissions));
   assert.equal(f.host.uncertainEffectsForMaintenance(),0);
  });
+ await check('SELECT PICK uses one exact Stage61-wrapped journaled CLICK',async f=>{
+  const target='item_'+'3'.repeat(16),request='e'.repeat(32);
+  const r=await f.call('select',{context_id:CONTEXT,target_item_ref:target,request_id:request,phase:'PICK'});
+  assert.equal(r.automaticReplay,false);
+  const writes=f.captures.filter(v=>v.job.type==='split_screen_session_followup');
+  assert.equal(writes.length,1,JSON.stringify({reply:r,captures:f.captures,admissions:f.admissions}));
+  const write=writes[0];
+  assert.equal(write.payload.action,'CLICK');
+  assert.equal(write.payload.targetItemRef,target);
+  assert.equal(write.payload.requestId,request);
+  assert.equal(write.payload.stage61RouteSchema,'JH168_STAGE61_ROUTE_REQUEST_V1');
+  assert.equal(write.payload.stage61Action,'SELECT_PICK');
+  assert.equal(write.payload.stage61WebOutcome,'NOT_RUN');
+  assert.equal(write.payload.stage61ComputerOutcome,'NOT_RUN');
+  assert.equal(write.payload.stage61PlaywrightMobileAvailable,false);
+  assert.ok(f.admissions.every(v=>v.allowed),JSON.stringify(f.admissions));
+  assert.equal(f.host.uncertainEffectsForMaintenance(),0);
+ });
  await check('SET_TEXT uses original preflight, original signed mk and real journal',async f=>{
   const r=await f.call('type',typeArgs);
   assert.equal(r.action,'SET_TEXT',JSON.stringify({reply:r,admissions:f.admissions}));assert.equal(r.automaticReplay,false);
@@ -461,7 +479,7 @@ if(process.argv[2]==='--synthetic-child'){
   const lines=child.stdout.split('\n').filter(line=>line.startsWith(REPORT));
   assert.equal(lines.length,1,'one complete integration proof');
   const report=JSON.parse(lines[0].slice(REPORT.length));
-  assert.equal(report.casesPassed,22);assert.equal(report.networkCalls,0);
+  assert.equal(report.casesPassed,23);assert.equal(report.networkCalls,0);
   assert.equal(report.phoneActions,0);assert.equal(report.phoneE2E,'NOT_RUN');
   console.log(lines[0]);
  });
