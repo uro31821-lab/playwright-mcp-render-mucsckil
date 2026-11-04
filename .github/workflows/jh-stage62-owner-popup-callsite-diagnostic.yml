@@ -1,0 +1,43 @@
+name: JH Stage62 owner popup callsite diagnostic
+
+on:
+  push:
+    branches:
+      - fix/stage62-select-pick-owner-popup-evidence-20261104
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-generated-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install reviewed dependencies
+        run: |
+          set -euo pipefail
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Print exact generated call sites only
+        run: |
+          set -euo pipefail
+          node jh-server/owner-setup/jh168-mobile-unification/stage62-owner-popup-callsite-diagnostic.mjs
+      - name: No release boundary
+        if: always()
+        run: |
+          echo RENDER_DEPLOY=0
+          echo APK_BUILD=0
+          echo APK_INSTALL=0
+          echo PHONE_ACTION=0
