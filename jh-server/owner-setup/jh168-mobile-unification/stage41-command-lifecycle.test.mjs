@@ -9,6 +9,7 @@ import {buildStage25PendingOperatorEntrypoint56,selectStage41CommandLifecycle56,
  from './stage25-live-operator-followup-entry.mjs';
 import {applyStage41CommandLifecyclePatch,reverseStage41CommandLifecyclePatch}
  from './stage41-command-lifecycle-patch.mjs';
+import {reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 
 const root=path.resolve(import.meta.dirname,'..');
 const base={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
@@ -32,8 +33,10 @@ test('real Stage25+26 signed generated server has exact reversible read-only com
  const candidate=await buildStage25PendingOperatorEntrypoint56(root,enabled);
  const after=readFileSync(candidate.runtimeFile,'utf8');
  assert.equal(candidate.stamp.stage41CommandLifecycleDiagnostics,true);
- assert.equal(reverseStage41CommandLifecyclePatch(after),before);
- assert.equal(applyStage41CommandLifecyclePatch(before),after);
+ const beforeInner=reverseStage61MobileRuntime56(before);
+ const afterInner=reverseStage61MobileRuntime56(after);
+ assert.equal(reverseStage41CommandLifecyclePatch(afterInner),beforeInner);
+ assert.equal(applyStage41CommandLifecyclePatch(beforeInner),afterInner);
  for(const originalGuard of ['jhRequireCommand56(device)','jhDiscardDeviceWork56(device,eventId)',
   'jhDiscardDeviceWork56(body.deviceId,body.eventId,body.previousCommandId)',
   "!eqHex56(mac,hmac56(a.secret,'discard|'",
