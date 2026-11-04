@@ -6,6 +6,10 @@
 
 현재 요청이 단순한 답변이면 관련 스킬로 바로 답한다. 다단계/중단/작업함/저장된 절차가 필요할 때만 파일 상태를 사용한다. 이미 읽은 동일 작업 상태는 그 작업에서 재사용하고 실제 변화·저장 충돌·명시적 다른 작업 선택 때 갱신한다.
 
+## 모든 비서의 구간 표시
+
+[공통 표시](assistant-attribution.md)에 따라 실제로 관여한 각 비서의 설명·의견·분석·실행·진행·완료 구간을 `🏴‍☠️ 비서이름:`으로 시작한다. `planRoute.participantBadges`는 분리된 표시 후보이며 배정 계획만으로 실제 참여를 주장하지 않는다. `badge`는 주 담당의 단일 접두어다. 새 조합 비서는 실제 저장된 사용자 지정 이름을 같은 형식에 넣는다. 이름을 한 깃발 아래 합치지 않고 콜론 뒤에 해당 비서의 내용을 쓴다.
+
 ## 정확한 실행 순서
 
 1. 현재 요청과 실제 직전 메뉴를 해석한다. `intent.kind`는 `task/develop/explain_feature/continue/select/change/mode/stop/inbox/save_routine/use_routine/feedback` 중 하나다. 예문·개발 대상과 실제 호출을 구분한다. `topics/primary/helpers/excluded`에는 기능 목록의 실제 id만 쓴다.

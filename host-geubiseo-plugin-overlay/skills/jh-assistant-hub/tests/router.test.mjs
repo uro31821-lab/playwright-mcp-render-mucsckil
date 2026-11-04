@@ -7,7 +7,7 @@ const task = {id:'test-task',threadId:'test-thread',lead:'guide',helpers:[],mode
 test('direct task uses one specialty and returns no execution authority',()=>{ const r=planRoute({...base,intent:{kind:'task',topics:['food']}});assert.equal(r.lead,'food');assert.equal(r.authorizesExecution,false);assert.equal(r.dispatchesTools,false);assert.deepEqual(r.requiredSkills,['jh-meokbiseo']);});
 test('development target is not the assistant invocation',()=>{ const r=planRoute({...base,intent:{kind:'develop',topics:['food'],helpers:['open_source','personal']}});assert.equal(r.lead,'development');assert.deepEqual(r.helpers,['open_source','personal']);});
 test('quoted usage explanation creates no specialty work',()=>{ const r=planRoute({...base,intent:{kind:'explain_feature',topics:['reflection']}});assert.equal(r.action,'explain');assert.deepEqual(r.requiredSkills,[]);});
-test('mixed purpose preserves lead and bounded collaborators',()=>{ const r=planRoute({...base,intent:{kind:'task',primary:'travel',topics:['travel','food'],helpers:['food','food','personal'],excluded:['personal']}});assert.equal(r.lead,'travel');assert.deepEqual(r.helpers,['food']);assert.equal(r.badge,'🏴‍☠️ 여비서 · 먹비서');});
+test('mixed purpose preserves lead and bounded collaborators',()=>{ const r=planRoute({...base,intent:{kind:'task',primary:'travel',topics:['travel','food'],helpers:['food','food','personal'],excluded:['personal']}});assert.equal(r.lead,'travel');assert.deepEqual(r.helpers,['food']);assert.equal(r.badge,'🏴‍☠️ 여비서:');assert.deepEqual(r.participantBadges,[{id:'travel',prefix:'🏴‍☠️ 여비서:'},{id:'food',prefix:'🏴‍☠️ 먹비서:'}]);});
 test('unresolved primary purpose asks only goal choice',()=>assert.equal(planRoute({...base,intent:{kind:'task',topics:['photo','food']}}).reason,'PRIMARY_GOAL_REQUIRED'));
 test('explicit assistant and exclusion are respected',()=>{ assert.equal(planRoute({...base,intent:{kind:'task',explicitAssistant:'photo',topics:['food']}}).lead,'photo');assert.equal(planRoute({...base,intent:{kind:'task',explicitAssistant:'personal',excluded:['personal']}}).reason,'ASSISTANT_EXCLUDED');});
 test('continuation carries mode and task without restart',()=>{ const r=planRoute({...base,activeTask:task,intent:{kind:'continue'}});assert.equal(r.taskId,task.id);assert.equal(r.mode,'explain');assert.equal(r.action,'continue');});
@@ -24,7 +24,7 @@ test('a current task can add a requested collaborator without dropping its exist
 
 test('interpreted art appreciation uses the current art skill without a camera capability or side effects',()=>{
   const r=planRoute({...base,intent:{kind:'task',topics:['art']}});
-  assert.equal(r.ready,true);assert.equal(r.lead,'art');assert.equal(r.badge,'🏴‍☠️ 그비서');
+  assert.equal(r.ready,true);assert.equal(r.lead,'art');assert.equal(r.badge,'🏴‍☠️ 그비서:');
   assert.deepEqual(r.requiredSkills,['jh-geubiseo']);assert.deepEqual(r.unavailableCapabilities,[]);
   assert.equal(r.authorizesExecution,false);assert.equal(r.dispatchesTools,false);assert.equal(r.changesPersistentState,false);
 });

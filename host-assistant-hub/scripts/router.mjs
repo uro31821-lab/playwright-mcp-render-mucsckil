@@ -27,7 +27,7 @@ export function planRoute(input) {
   const result = {
     schema:'jh.assistant-route.v1', sourceRef, action:'route', lead:'general', helpers:[],
     mode:intent.mode ?? 'explain', taskId:null, requiredSkills:[], unavailableCapabilities:[],
-    badge:null, authorizesExecution:false, dispatchesTools:false, requiresResultInspection:false,
+    badge:null, participantBadges:[], authorizesExecution:false, dispatchesTools:false, requiresResultInspection:false,
     changesPersistentState:false, semanticInterpreter:'current_conversation_host'
   };
   if (intent.kind === 'explain_feature') return { ...result, action:'explain' };
@@ -39,7 +39,9 @@ export function planRoute(input) {
   if (intent.kind === 'use_routine') return { ...result, action:'plan_routine' };
   if (intent.kind === 'feedback') {
     const ready = available.skills.includes('jh-personal-dialogue');
+    const prefix = `🏴‍☠️ ${entries.get('personal').label}:`;
     return { ...result, action:'route_feedback', lead:'personal', ready,
+      badge:ready ? prefix : null, participantBadges:ready ? [{id:'personal',prefix}] : [],
       requiredSkills:ready ? ['jh-personal-dialogue'] : [], unavailableCapabilities:ready ? [] : ['personal'] };
   }
   if (continuations.has(intent.kind)) {
@@ -79,7 +81,10 @@ export function planRoute(input) {
   result.requiredSkills = [...new Set(result.requiredSkills)];
   result.unavailableCapabilities = [...new Set(result.unavailableCapabilities)];
   result.ready = !result.unavailableCapabilities.includes(result.lead);
-  result.badge = result.lead === 'general' ? null : `🏴‍☠️ ${[result.lead,...result.helpers].filter(id => !result.unavailableCapabilities.includes(id)).map(id => entries.get(id).label).join(' · ')}`;
-  if (result.unavailableCapabilities.includes(result.lead)) result.badge = null;
+  // Prefix candidates only: the host displays each prefix when that assistant actually contributes.
+  result.participantBadges = [result.lead,...result.helpers]
+    .filter(id => id !== 'general' && !result.unavailableCapabilities.includes(id))
+    .map(id => ({id,prefix:`🏴‍☠️ ${entries.get(id).label}:`}));
+  result.badge = result.participantBadges.find(item => item.id === result.lead)?.prefix ?? null;
   return result;
 }
