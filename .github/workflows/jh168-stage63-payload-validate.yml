@@ -88,6 +88,22 @@ jobs:
               raise SystemExit('STAGE63_TEST_SCOPE_ANCHOR_MISMATCH')
           path.write_text(source.replace(before, after), encoding='utf-8')
           PY
+
+      - name: Add diagnostic detail to Mobile13 anchor failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.mjs')
+          source = path.read_text(encoding='utf-8')
+          before = " if(source.split(anchor).length!==2)throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ANCHOR_DRIFT');"
+          after = " const count=source.split(anchor).length-1;if(count!==1)throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ANCHOR_DRIFT|'+count+'|'+anchor);"
+          if source.count(before) != 1:
+              raise SystemExit('MOBILE13_DIAGNOSTIC_HOOK_MISMATCH')
+          path.write_text(source.replace(before, after), encoding='utf-8')
+          PY
           git diff --check
           git diff --stat | tee /tmp/stage63-diff-stat.txt
 
