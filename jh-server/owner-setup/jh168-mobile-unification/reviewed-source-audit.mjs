@@ -13,35 +13,15 @@ import {execFileSync, spawnSync} from 'node:child_process';
 const REVIEWED_TRANSITIONS=Object.freeze([
  Object.freeze({
   historicalBaseline:'8596f5ef299d27fa7064ee40a64a99030196774a',
-  preBase:'d4afec4a657d4ad928560624536c01e2df6df1c7',
-  reviewedHead:'ff362d19498583c0c7b581e146e20a4946ad183e',
+  preBase:'bdd5feb862102857f70133e1da87679fcd393b8d',
+  reviewedHead:'96c307c2057d5cee1560684b3f52ce41d3a76378',
   protectedObjects:Object.freeze({
-   'jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.mjs':
-    '0bf1ac0e09380aabf3fb2fefeabc15d905d34417',
-   'jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs':
-    '69325dca75c15ebf99fba7d3494bc8467e7508c6',
-   'jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.mjs':
-    '91b1926a4e1f173d22ac8e3f233245849a12061a',
-   'jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs':
-    '22db043c104333e588aaae3d5f7a68cd10431d80',
    'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs':
-    'b12e000a1ace7e9c2745a2ad7ce17d1b61e4a161',
-   'jh-server/owner-setup/jh168-mobile-unification/stage38-generated-operator.test.mjs':
-    '711bcd6b92bb3d04cd41b93bb5b7bac94b40bd2c',
-   'jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs':
-    'e862388a9f78b1ac16a1d2d1c5856b65b64b184c',
-   'jh-server/owner-setup/jh168-mobile-unification/stage41-command-lifecycle.test.mjs':
-    '1575f588e7976e60558ef290c85d91f238d5c5e9',
-   'jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs':
-    'b3f394e4e37a1ef761dadc730c9edace6fbbe1b7',
-   'jh-server/owner-setup/jh168-mobile-unification/stage44-device-focus.test.mjs':
-    '039ff80238de62a5e9592509e35d182d630180c9',
+    'b381e0325c1ec300f80828b798ad8310d0bf69de',
    'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
-    '501bf71e67d5ea77e696559118f06f7c7150205f',
-   'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs':
-    'dea8274e84bed5828da798f85e22e0c01af0ddc2',
-   'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs':
-    'c026d1aa0351516b48464411083ff4fb4c09fad2'
+    '6c3fc142e60624c5af6f7b46aef32a4dbbd17fe1',
+   'jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs':
+    '473c07d027e45ae1e9f5b472e4cd4040488b1d9e'
   })
  })
 ]);
