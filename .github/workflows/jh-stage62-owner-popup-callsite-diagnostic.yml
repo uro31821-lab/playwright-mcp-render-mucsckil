@@ -41,25 +41,27 @@ jobs:
           gzip -dc /tmp/stage63.gz | tar -x -C /tmp/stage63 --no-same-owner --no-same-permissions
           python - <<'PY'
           from pathlib import Path
+          import re
           p=Path('/tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs')
           s=p.read_text()
-          old=''' assert.ok(helper.indexOf('if(action==="SELECT_OPEN")jhStage61PreparedPick56.delete(routeToken);')<
-           helper.indexOf('const record=await jhStage61Host56.record({routeToken'),
-           'every re-open clears stale prepared refs before receipt inspection');'''
-          new=''' const afterAction=helper.slice(helper.indexOf('async function jhStage61AfterAction56'));
-           const staleClear=afterAction.indexOf('if(action==="SELECT_OPEN")jhStage61PreparedPick56.delete(routeToken);');
+          start_marker="assert.ok(helper.indexOf('if(action===\"SELECT_OPEN\")jhStage61PreparedPick56.delete(routeToken);')<"
+          end_marker="'every re-open clears stale prepared refs before receipt inspection');"
+          start=s.find(start_marker)
+          end=s.find(end_marker,start)
+          if start<0 or end<0:
+              raise SystemExit('STAGE63_ORDER_ASSERT_ANCHOR_MISSING')
+          end+=len(end_marker)
+          replacement="""const afterAction=helper.slice(helper.indexOf('async function jhStage61AfterAction56'));
+           const staleClear=afterAction.indexOf('if(action===\"SELECT_OPEN\")jhStage61PreparedPick56.delete(routeToken);');
            const receiptRead=afterAction.indexOf('const record=await jhStage61Host56.record({routeToken');
            assert.ok(staleClear>=0&&receiptRead>staleClear,
-            'every re-open clears stale prepared refs before receipt inspection');'''
-          if old not in s:
-              raise SystemExit('STAGE63_ORDER_ASSERT_ANCHOR_MISSING')
-          s=s.replace(old,new,1)
-          old_env="""  JH_STAGE44_DEVICE_FOCUS:'EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1',
-           JH_MOBILE13_COMMAND_DIAGNOSTICS:'EXPLICIT_OWNER_DEVICE_READ_ONLY_V1'};"""
-          new_env="""  JH_STAGE44_DEVICE_FOCUS:'EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1'};"""
-          if old_env not in s:
+            'every re-open clears stale prepared refs before receipt inspection');"""
+          s=s[:start]+replacement+s[end:]
+          pattern=r"(\s*JH_STAGE44_DEVICE_FOCUS:'EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1'),\s*\n\s*JH_MOBILE13_COMMAND_DIAGNOSTICS:'EXPLICIT_OWNER_DEVICE_READ_ONLY_V1'};"
+          s,n=re.subn(pattern,r"\1};",s,count=1)
+          if n!=1:
               raise SystemExit('STAGE63_OPTIONAL_DIAGNOSTIC_ANCHOR_MISSING')
-          p.write_text(s.replace(old_env,new_env,1))
+          p.write_text(s)
           PY
           node --check /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
           node --check /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
