@@ -1,0 +1,77 @@
+name: JH168 Stage63 Payload Validate
+
+on:
+  push:
+    branches:
+      - fix/stage63-native-select-owner-admission-20261104
+    paths:
+      - .github/workflows/jh168-stage63-payload-validate.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Safely apply Stage63 payload in ephemeral workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .stage63-payload/part-* | tr -d '\r\n' | base64 --decode > /tmp/stage63.payload.gz
+          gzip -t /tmp/stage63.payload.gz
+          gzip -dc /tmp/stage63.payload.gz > /tmp/stage63.payload.tar
+          python - <<'PY'
+          import pathlib
+          import tarfile
+
+          archive = pathlib.Path('/tmp/stage63.payload.tar')
+          out = pathlib.Path('/tmp/stage63-extracted')
+          out.mkdir(parents=True, exist_ok=True)
+          with tarfile.open(archive, 'r:') as tf:
+              members = tf.getmembers()
+              for member in members:
+                  p = pathlib.PurePosixPath(member.name)
+                  if p.is_absolute() or '..' in p.parts or member.issym() or member.islnk() or member.isdev():
+                      raise SystemExit(f'unsafe member: {member.name}')
+              tf.extractall(out)
+          PY
+          cp -a /tmp/stage63-extracted/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
+          cp -a /tmp/stage63-extracted/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
+          git diff --check
+          git diff --stat | tee /tmp/stage63-diff-stat.txt
+
+      - name: Run targeted Stage63 test
+        id: target
+        shell: bash
+        run: |
+          set +e
+          node --test jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
+            2>&1 | tee /tmp/stage63-targeted-test.log
+          code=${PIPESTATUS[0]}
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          exit "$code"
+
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jh168-stage63-validation-evidence
+          path: |
+            /tmp/stage63-diff-stat.txt
+            /tmp/stage63-targeted-test.log
+          if-no-files-found: warn
+          retention-days: 7
