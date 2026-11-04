@@ -10,8 +10,6 @@ import vm from 'node:vm';
 import {pathToFileURL} from 'node:url';
 import {buildCleanRestartRelease56}
  from '../deployment/durable-clean-restart-news-review-entry.mjs';
-import {awaitOpenCompletion,OPEN_COMPLETION_WAIT_MS}
- from '../deployment/jh167-open-completion.mjs';
 
 let fullSource;
 before(async()=>{
@@ -28,7 +26,7 @@ function section(start,end){
  assert.ok(i>=0&&j>i,'original generated entry boundaries '+start+' -> '+end);
  return fullSource.slice(i,j);
 }
-function harness({pending=false,queueError=null}={}){
+function harness(){
  const chunks=[
   section(reg('life_route'),reg('life_open_service')),
   section(reg('life_open_service'),reg('life_naver_mail')),
@@ -37,45 +35,29 @@ function harness({pending=false,queueError=null}={}){
  ];
  for(let i=0;i<chunks.length;i++)assert.ok(!chunks[i].includes('browserTool('),
    'unexpected cloud Playwright fallback for '+names[i]);
- const tools=new Map(),jobs=[],remote=[],notices=[],waits=[],commandReads=[];
- const commandId='1'.repeat(32),sessionId='synthetic-current-session';
+ const tools=new Map(),jobs=[],remote=[],notices=[];
  const z=new Proxy(()=>z,{get:()=>z,apply:()=>z});
  const context={
   z,URL,
   textResult:v=>({content:[{type:'text',text:JSON.stringify(v)}]}),
-  jhOpenWait56:OPEN_COMPLETION_WAIT_MS,
-  jhAwaitOpenCompletion56:awaitOpenCompletion,
+  jhOpenWait56:22000,
+  jhAwaitOpenCompletion56:async(job)=>({job,summary:{
+    code:'RIGHT_ADDRESS_CONFIRMED',rightAddressConfirmed:true,
+    executionStatus:'EFFECT_CONFIRMED',actionSucceeded:true
+  }}),
   jobResult:job=>({content:[{type:'text',text:JSON.stringify({
     ok:true,id:job?.id,jobId:job?.id
   })}]}),
-  jhRequireCommand56:device=>{commandReads.push(device);return commandId;},
+  jhRequireCommand56:()=>('1'.repeat(32)),
   chooseDevice:()=>('mock-phone'),
-  active56:()=>({sessionId}),
-  waitJob:async(job,budgetMs)=>{
-   waits.push({jobId:job.id,commandId:job.commandId,budgetMs});
-   if(pending)return job;
-   const now=Date.now();
-   return {...job,status:'complete',completedAt:new Date(now).toISOString(),result:{
-    ok:true,url:job.url,rightAddressConfirmed:true,pageContentVerified:false,
-    splitScreenRequired:true,splitScreen:{
-     kind:'split_screen_evidence',version:'1',verified:'true',layout:'LEFT_RIGHT',
-     chatPackage:'com.openai.chatgpt',chatKind:'NATIVE',chatWindowId:'10',chatBounds:'0,0,500,1000',
-     workPackage:'com.android.chrome',workWindowId:'11',workBounds:'500,0,1000,1000',
-     observedAtMs:String(now)
-    }
-   }};
-  },
+  active56:()=>({sessionId:'synthetic-current-session'}),
+  waitJob:async job=>job,
   registerOAuthTool:(n,c,h)=>tools.set(n,h),
   browserTool:async(...args)=>{remote.push(args);throw Error('UNEXPECTED_REMOTE_PLAYWRIGHT')},
   jhNativeReturnTarget56:s=>s==='last_work_screen'?'last_work_screen':null,
   mk:(type,payload)=>{
-   assert.equal(type,'open_url','entrypoints must not create a new command or another job type');
-   const job={id:'job_'+(jobs.length+1),type,...payload,
-    status:queueError?'rejected':'queued',targetDeviceId:'mock-phone',
-    commandId,secureSessionId:sessionId,startedAtMs:Date.now(),
-    ...(queueError?{error:queueError}:{})};
-   jobs.push({type,payload,job});
-   return job;
+   jobs.push({type,payload});
+   return {id:'job_'+jobs.length,status:'queued',targetDeviceId:'mock-phone'};
   },
   devices:new Map([['mock-phone',{secureBridgeVersion:56,secureActive:true,lastSeen:Date.now()}]]),
   notifications:notices
@@ -83,7 +65,7 @@ function harness({pending=false,queueError=null}={}){
  vm.runInNewContext(chunks.join('\n'),context,
   {timeout:3000,filename:'JH168-four-original-generated-entrypoints.mjs'});
  for(const n of names)assert.equal(typeof tools.get(n),'function','missing '+n);
- return {tools,jobs,remote,waits,commandReads,commandId,call:(n,args)=>tools.get(n)(args),
+ return {tools,jobs,remote,call:(n,args)=>tools.get(n)(args),
   parse:x=>JSON.parse(x.content[0].text)};
 }
 test('life_route directs ordinary website workflow to signed RIGHT screen, not Playwright',async()=>{
@@ -137,70 +119,6 @@ test('life_open_service calls the original signed Android RIGHT URL opener once'
  assert.equal(h.jobs[0].payload.target,'right_web_link');
  assert.equal(h.jobs[0].payload.url,'https://www.youtube.com');
  assert.equal(r.rightAddressConfirmed,true);
-});
-test('Gemini names in service and compatible Android entry reuse one fixed RIGHT URL job',async()=>{
- for(const name of ['제미나이','제미니','Gemini','제비서']){
-  for(const tool of ['life_open_service','life_android_open']){
-   const h=harness();
-   const r=h.parse(await h.call(tool,tool==='life_open_service'?{service:name}:{target:name}));
-   assert.equal(h.jobs.length,1,tool+' '+name);
-   assert.equal(h.jobs[0].payload.target,'right_web_link');
-   assert.equal(h.jobs[0].payload.url,'https://gemini.google.com/app');
-   assert.equal(h.jobs[0].job.commandId,h.commandId);
-   assert.equal(r.route,'android_right');
-   assert.equal(r.url,'https://gemini.google.com/app');
-   assert.equal(r.code,'RIGHT_ADDRESS_CONFIRMED');
-   assert.equal(r.rightAddressConfirmed,true);
-   assert.equal(r.pageContentVerified,false,'OPEN does not prove Gemini contents or a sent message');
-   assert.equal(h.waits.length,1);
-   assert.equal(h.remote.length,0);
-  }
- }
-});
-test('Gemini OPEN preserves original pending receipt and current command without reopening',async()=>{
- const h=harness({pending:true});
- const r=h.parse(await h.call('life_open_service',{service:'제미나이'}));
- assert.equal(r.code,'OPEN_COMPLETION_PENDING');
- assert.equal(r.completionReceived,false);
- assert.equal(r.executionStatus,'PENDING');
- assert.equal(r.deliveryStatus,'PENDING');
- assert.equal(r.actionSucceeded,null);
- assert.equal(r.rightAddressConfirmed,false);
- assert.equal(r.automaticReplayAllowed,false);
- assert.deepEqual(r.followUp.arguments,{job_id:'job_1',command_id:h.commandId});
- assert.equal(r.followUp.tool,'life_job_status');
- assert.equal(r.followUp.readOnly,true);
- assert.equal(h.jobs.length,1);
- assert.deepEqual(h.waits,[{jobId:'job_1',commandId:h.commandId,budgetMs:OPEN_COMPLETION_WAIT_MS}]);
- assert.deepEqual(h.commandReads,['mock-phone','mock-phone']);
- assert.equal(h.remote.length,0);
-});
-test('Gemini OPEN preserves original queue rejection without a replacement command or fallback',async()=>{
- const h=harness({queueError:'SYNTHETIC_ORIGINAL_COMMAND_BLOCKED'});
- const r=h.parse(await h.call('life_android_open',{target:'Gemini'}));
- assert.equal(r.code,'SYNTHETIC_ORIGINAL_COMMAND_BLOCKED');
- assert.equal(r.queued,false);
- assert.equal(r.route,'android_right');
- assert.equal(h.jobs.length,1);
- assert.equal(h.waits.length,0);
- assert.equal(h.remote.length,0);
-});
-test('unmapped service names retain MANUAL without opening Google, Gemini or another provider',async()=>{
- for(const name of ['Google','구글','알 수 없는 서비스']){
-  for(const tool of ['life_open_service','life_android_open']){
-   const h=harness();
-   const r=h.parse(await h.call(tool,tool==='life_open_service'?{service:name}:{target:name}));
-   assert.equal(r.route,'manual');
-   assert.equal(r.code,'RIGHT_WEB_URL_NOT_MAPPED');
-   assert.equal(r.opened,false);
-   assert.equal(r.automaticAppFallback,false);
-   assert.equal(r.automaticPlaywrightFallback,false);
-   assert.equal(h.jobs.length,0);
-   assert.equal(h.waits.length,0);
-   assert.equal(h.commandReads.length,0);
-   assert.equal(h.remote.length,0);
-  }
- }
 });
 test('life_naver_mail shares exactly the same RIGHT opener rather than a new remote browser',async()=>{
  const h=harness();

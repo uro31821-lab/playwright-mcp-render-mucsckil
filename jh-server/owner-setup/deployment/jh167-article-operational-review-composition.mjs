@@ -79,7 +79,6 @@ export function patchJH167OfficialWebServiceNames56(source){
  const original=source.slice(begin,finish);
  const oldMap='      [["라프텔","laftel"],"https://laftel.net"],';
  const newMap=[
-  '      [["제미나이","제미니","gemini","제비서"],"https://gemini.google.com/app"],',
   '      [["카카오톡","카톡","kakaotalk"],"https://www.kakaocorp.com/page/service/service/KakaoTalk"],',
   '      [["카카오t","카카오티","카카오 티","kakao t"],"https://www.kakaocorp.com/page/service/service/KakaoT"],',
   '      [["유튜브 뮤직","유튜브뮤직","youtube music","yt music","ytmusic"],"https://music.youtube.com/"],',

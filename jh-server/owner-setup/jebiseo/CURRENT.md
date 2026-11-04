@@ -44,7 +44,7 @@ GPT 전달, ANDROID의 명시적 OPEN_APP·독립 상태 확인을 유지한다.
 
 | 변경 | 실제 동작과 경계 |
 | --- | --- |
-| 공통 Gemini 이름 매핑 | 제미나이·제미니·gemini·제비서를 같은 고정 Gemini HTTPS 주소로 연결. 기존 `jhRightWebOpen56` → `right_web_link` → OPEN completion 재사용 |
+| 고정 Gemini 진입과 명칭 후보 | 실제 host OPEN은 고정 HTTPS 주소로 기존 `life_web_navigate`를 호출. 제미나이·제미니·gemini·제비서 명칭의 추가 매핑은 별도 후보 overlay로 분리하며 운영 startup에 자동 적용하지 않음 |
 | `mobile-port.mjs` OPEN | 기존 `life_web_navigate` 한 번 호출. 호출자 URL·native target·임의 승인값 변경을 허용하지 않음. 다른 브라우저 또는 새 기기로 전환하지 않음 |
 | `host-runtime.mjs` 시작 | 실제 현재 사용자 요청의 기본을 VISIBLE로 변경. `start()`가 OPEN 실행. `intent: open`은 질문을 만들지 않고 화면만 열며 TYPE/SUBMIT 불가 |
 | 원본 결과 회수 | OPEN도 다른 쓰기와 같은 pending 장벽을 사용. 원래 `job_숫자` 형식의 jobId와 명령으로 조회하고, 정확한 job·URL·effect·기기·명령 증거가 없으면 다음 효과 차단 |
@@ -95,8 +95,13 @@ MCP 응답·휴대폰 결과 수신은 확인됐지만 **Gemini가 오른쪽에 
 
 과거 head a1e5469의 150개 통과와 7개 CI 성공은 당시 기록으로 유지한다.
 이번 변경은 자동 열기·실제 생성된 기존 핸들러·공통 URL/완료 계약까지 검사한다.
-최종 로컬 통합 결과는 **207 passed / 0 failed / 0 skipped**(약 3.6초)다.
-실제 원 jobId 형식과 같은 명령의 taskRef 재생성 거부까지 수정한 뒤 확인했다.
+첫 변경 묶음은 로컬·제비서 CI에서 **207 passed / 0 failed / 0 skipped**였지만,
+기존 보호 원본 검사에서 공통 composition·기존 검사 파일의 변경이 차단됐다.
+보호 검사나 pin은 수정하지 않고 그 원본을 정확히 복구했으며, 추가 이름 매핑과
+그 검사는 제비서 후보 모듈로 이동했다. 기존 고정 URL OPEN은 이 추가 매핑 없이
+동작하는 원 경로다. 실제 원 jobId와 같은 명령의 taskRef 고정 수정도 유지한다.
+이 분리까지 반영한 최종 로컬 통합 결과도 **207 passed / 0 failed / 0 skipped**
+(약 6.4초)다. 신규 overlay 5개 검사를 포함하며 원본 핸들러·완료 검사를 함께 실행했다.
 
 ```bash
 env -u RENDER_SERVICE_ID -u JH_DURABLE_RELEASE \
@@ -114,6 +119,8 @@ env -u RENDER_SERVICE_ID -u JH_DURABLE_RELEASE \
 ```
 
 CI의 `.github/workflows/jh-jebiseo-mobile-candidate.yml`도 같은 범위를 검사한다.
+기존 `mobile-web-current-main-compat.test.mjs`를 별도 선행 게이트로 실행해
+보호 원본·모바일 통합·인증·실행 정책이 검토된 기준과 같은지 확인한다.
 실제 생성기 import를 위해 owner-setup과 owner-enrollment의 기존 lockfile
 의존성을 `npm ci --ignore-scripts --no-audit --no-fund`로 준비한다. 합성 검사
 selector는 검사 단계에만 적용하며 운영 설정·서명·source pin을 변경하지 않는다.

@@ -37,9 +37,12 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '24'
+      - name: Preserve the reviewed original mobile composition and protected source
+        run: node --test --test-reporter=spec jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
       - name: Install locked dependencies for original generated handlers
         run: |
           npm ci --ignore-scripts --no-audit --no-fund --prefix jh-server/owner-setup
