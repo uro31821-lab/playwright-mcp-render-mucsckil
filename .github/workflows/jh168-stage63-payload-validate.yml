@@ -59,7 +59,7 @@ jobs:
           cp -a /tmp/stage63-extracted/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
 
-      - name: Correct the test scope to the exact after-action function
+      - name: Correct test scope and reproduce the production environment contract
         shell: bash
         run: |
           set -euo pipefail
@@ -86,31 +86,24 @@ jobs:
           )
           if source.count(before) != 1:
               raise SystemExit('STAGE63_TEST_SCOPE_ANCHOR_MISMATCH')
+          source = source.replace(before, after)
+
+          before = " const built=await buildStage25PendingOperatorEntrypoint56(ROOT,env);"
+          after = (
+              " const previous=new Map(Object.keys(env).map(key=>[key,process.env[key]]));\n"
+              " let built;\n"
+              " try{\n"
+              "  for(const [key,value] of Object.entries(env))process.env[key]=value;\n"
+              "  built=await buildStage25PendingOperatorEntrypoint56(ROOT,env);\n"
+              " }finally{\n"
+              "  for(const [key,value] of previous){\n"
+              "   if(value===undefined)delete process.env[key];else process.env[key]=value;\n"
+              "  }\n"
+              " }"
+          )
+          if source.count(before) != 1:
+              raise SystemExit('STAGE63_ENVIRONMENT_ANCHOR_MISMATCH')
           path.write_text(source.replace(before, after), encoding='utf-8')
-          PY
-
-      - name: Add diagnostic detail and capture pre-Mobile13 runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          python - <<'PY'
-          from pathlib import Path
-
-          diag = Path('jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.mjs')
-          source = diag.read_text(encoding='utf-8')
-          before = " if(source.split(anchor).length!==2)throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ANCHOR_DRIFT');"
-          after = " const count=source.split(anchor).length-1;if(count!==1)throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ANCHOR_DRIFT|'+count+'|'+anchor);"
-          if source.count(before) != 1:
-              raise SystemExit('MOBILE13_DIAGNOSTIC_HOOK_MISMATCH')
-          diag.write_text(source.replace(before, after), encoding='utf-8')
-
-          stage25 = Path('jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs')
-          source = stage25.read_text(encoding='utf-8')
-          before = " const beforeStage61=commandDiagnostics?applyMobile13CommandDiagnosticsPatch56(afterStage44):afterStage44;"
-          after = " writeFileSync('/tmp/stage63-before-mobile13.mjs',afterStage44,'utf8');\n const beforeStage61=commandDiagnostics?applyMobile13CommandDiagnosticsPatch56(afterStage44):afterStage44;"
-          if source.count(before) != 1:
-              raise SystemExit('STAGE25_CAPTURE_HOOK_MISMATCH')
-          stage25.write_text(source.replace(before, after), encoding='utf-8')
           PY
           git diff --check
           git diff --stat | tee /tmp/stage63-diff-stat.txt
@@ -134,6 +127,5 @@ jobs:
           path: |
             /tmp/stage63-diff-stat.txt
             /tmp/stage63-targeted-test.log
-            /tmp/stage63-before-mobile13.mjs
           if-no-files-found: warn
           retention-days: 7
