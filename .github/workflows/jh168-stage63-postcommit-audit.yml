@@ -54,12 +54,15 @@ jobs:
             96c307c2057d5cee1560684b3f52ce41d3a76378 HEAD
           test "$(git ls-tree 96c307c2057d5cee1560684b3f52ce41d3a76378 -- jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs)" = \
             $'100644 blob b381e0325c1ec300f80828b798ad8310d0bf69de\tjh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'
+          test "$(git ls-tree 96c307c2057d5cee1560684b3f52ce41d3a76378 -- jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs)" = \
+            $'100644 blob 10618a7d0167523bfe6834ea56383c525213d7df\tjh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs'
           test "$(git ls-tree 96c307c2057d5cee1560684b3f52ce41d3a76378 -- jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs)" = \
             $'100644 blob 6c3fc142e60624c5af6f7b46aef32a4dbbd17fe1\tjh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs'
           test "$(git ls-tree 96c307c2057d5cee1560684b3f52ce41d3a76378 -- jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs)" = \
             $'100644 blob 473c07d027e45ae1e9f5b472e4cd4040488b1d9e\tjh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs'
           test -z "$(git diff --name-only 96c307c2057d5cee1560684b3f52ce41d3a76378 HEAD -- \
             jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs)"
 
