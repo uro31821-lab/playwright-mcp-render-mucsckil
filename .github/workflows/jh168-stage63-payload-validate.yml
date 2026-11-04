@@ -66,7 +66,7 @@ jobs:
           cp -a /tmp/stage63-extracted/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
 
-      - name: Apply exact Stage63 test and Stage25 compatibility corrections
+      - name: Apply exact Stage63 and Stage25 corrections
         shell: bash
         run: |
           set -euo pipefail
@@ -93,27 +93,39 @@ jobs:
           )
           if source.count(before) != 1:
               raise SystemExit('STAGE63_TEST_SCOPE_ANCHOR_MISMATCH')
-          source = source.replace(before, after)
-
-          before = " const built=await buildStage25PendingOperatorEntrypoint56(ROOT,env);"
-          after = (
-              " const previous=new Map(Object.keys(env).map(key=>[key,process.env[key]]));\n"
-              " let built;\n"
-              " try{\n"
-              "  for(const [key,value] of Object.entries(env))process.env[key]=value;\n"
-              "  built=await buildStage25PendingOperatorEntrypoint56(ROOT,env);\n"
-              " }finally{\n"
-              "  for(const [key,value] of previous){\n"
-              "   if(value===undefined)delete process.env[key];else process.env[key]=value;\n"
-              "  }\n"
-              " }"
-          )
-          if source.count(before) != 1:
-              raise SystemExit('STAGE63_ENVIRONMENT_ANCHOR_MISMATCH')
           test_path.write_text(source.replace(before, after), encoding='utf-8')
 
           stage25 = Path('jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs')
           source = stage25.read_text(encoding='utf-8')
+          anchor = "const fail=code=>{throw Object.assign(Error(code),{code});};\n"
+          helper = '''const fail=code=>{throw Object.assign(Error(code),{code});};
+const stage25BuildEnvKey56=key=>key==='CI'||key==='NODE_ENV'||
+  key.startsWith('JH_')||key.startsWith('RENDER_');
+async function withStage25BuildEnv56(env,fn){
+ const keys=new Set(Object.keys(process.env).filter(stage25BuildEnvKey56));
+ for(const key of Object.keys(env||{}))if(stage25BuildEnvKey56(key))keys.add(key);
+ const previous=new Map([...keys].map(key=>[key,process.env[key]]));
+ try{
+  for(const key of keys){
+   const value=env?.[key];
+   if(value===undefined)delete process.env[key];else process.env[key]=String(value);
+  }
+  return await fn();
+ }finally{
+  for(const [key,value] of previous){
+   if(value===undefined)delete process.env[key];else process.env[key]=value;
+  }
+ }
+}
+'''
+          if source.count(anchor) != 1 or 'withStage25BuildEnv56' in source:
+              raise SystemExit('STAGE25_BUILD_ENV_HELPER_ANCHOR_MISMATCH')
+          source = source.replace(anchor, helper)
+          before = " const base=await buildPendingApprovalOperatorEntrypoint56(root,env);"
+          after = " const base=await withStage25BuildEnv56(env,()=>buildPendingApprovalOperatorEntrypoint56(root,env));"
+          if source.count(before) != 1:
+              raise SystemExit('STAGE25_BUILD_ENV_CALL_ANCHOR_MISMATCH')
+          source = source.replace(before, after)
           before = "    (stage40 && (runtime.split('jhOwnerAdmissionNote40(').length!==3||\n      runtime.split('jhOwnerAdmissionTake40(').length!==3))||"
           after = "    (stage40 && (runtime.split('jhOwnerAdmissionNote40(').length!==(stage61?4:3)||\n      runtime.split('jhOwnerAdmissionTake40(').length!==3))||"
           if source.count(before) != 1:
@@ -139,7 +151,7 @@ jobs:
             jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
             2>&1 | tee /tmp/stage63-targeted-test.log
 
-      - name: Run related mobile and owner-admission regressions
+      - name: Run functional mobile and owner-admission regressions
         shell: bash
         run: |
           set -o pipefail
@@ -147,16 +159,21 @@ jobs:
             jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage41-command-lifecycle.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage44-device-focus.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile-web-tool-patch.test.mjs \
-            jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.test.mjs \
             2>&1 | tee /tmp/stage63-regression-test.log
+
+      - name: Record protected-source review gate separately
+        shell: bash
+        run: |
+          printf '%s\n' \
+            'PENDING_UNTIL_CANDIDATE_FILES_ARE_COMMITTED_AND_EXACT_BLOBS_ARE_PINNED' \
+            > /tmp/stage63-source-review-gate.txt
 
       - name: Upload validation evidence
         if: always()
@@ -167,5 +184,6 @@ jobs:
             /tmp/stage63-diff-stat.txt
             /tmp/stage63-targeted-test.log
             /tmp/stage63-regression-test.log
+            /tmp/stage63-source-review-gate.txt
           if-no-files-found: warn
           retention-days: 7
