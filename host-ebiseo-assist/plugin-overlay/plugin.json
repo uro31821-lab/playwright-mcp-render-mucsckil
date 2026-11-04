@@ -1,8 +1,8 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "jh-secure-live",
-  "version": "1.25.0",
-  "description": "JH167 guide-first assistant, wired to existing authenticated MCP app. Catalog refresh required for seven additional read-only tools.",
+  "version": "1.26.0",
+  "description": "JH167 guide-first assistant with 청비서 manual Space cleanup, wired to existing authenticated MCP app.",
   "author": {
     "name": "JH"
   },
@@ -48,7 +48,11 @@
     "ebiseo",
     "에비서",
     "on-demand-assistance",
-    "contextual-consultation"
+    "contextual-consultation",
+    "청비서",
+    "space-cleanup",
+    "retention-cleanup",
+    "manual-cleanup"
   ],
   "skills": "./skills",
   "extensions": {
@@ -56,7 +60,7 @@
       "interface": {
         "displayName": "JH Secure Live",
         "shortDescription": "JH167 guide and reservation MCP catalog",
-        "longDescription": "JH167 Secure Bridge via existing Developer mode MCP App. Preserve Primary choice, existing approval, and no-replay. Split-screen START is read-only; unsupported SAVE/FINISH are not retried, with separate verified ChatGPT return where permitted.",
+        "longDescription": "JH167 Secure Bridge via existing Developer mode MCP App. Preserve Primary choice, existing approval, and no-replay. Includes 청비서 manual Space cleanup: images expire after 12 hours, non-images after 14 days, with dry-run and post-delete verification.",
         "developerName": "JH",
         "category": "Productivity",
         "capabilities": [
@@ -67,7 +71,8 @@
         "defaultPrompt": [
           "JH167 Secure Bridge 상태 및 새 가이드형 도구 목록 확인해줘. 화면 자동 클릭 금지.",
           "life_guide13_catalog으로 실생활 13개 기능을 설명해줘. 읽기 전용으로 실행해.",
-          "오른쪽 Chrome에 열린 이 기사를 화면 도입부만 보지 말고 원문 URL을 찾아 전체 본문을 읽고 출처와 함께 요약해줘."
+          "오른쪽 Chrome에 열린 이 기사를 화면 도입부만 보지 말고 원문 URL을 찾아 전체 본문을 읽고 출처와 함께 요약해줘.",
+          "청비서 실행: 현재 Space에서 12시간 지난 이미지와 2주 지난 비이미지 파일만 정리하고 결과를 검증해줘."
         ]
       },
       "apps": "./.app.json"
