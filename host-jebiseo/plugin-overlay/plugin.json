@@ -1,0 +1,66 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "author": {
+    "name": "JH"
+  },
+  "description": "JH Secure Live: 여비서의 여행 시작/종료·선제 판단과 Stage62 JH Android Foreground 위치 실행 계약을 연결합니다. 실제 기기 활성은 Stage62 설치·권한·종단 검증 상태를 구분하며, 항상 허용 위치 권한은 요구하지 않습니다.",
+  "extensions": {
+    "com.openai": {
+      "apps": "./.app.json",
+      "interface": {
+        "capabilities": [
+          "Read",
+          "Write",
+          "Interactive"
+        ],
+        "category": "Productivity",
+        "defaultPrompt": [
+          "JH 내부 비서 기능으로 현재 작업을 처리해줘.",
+          "여비서는 여행 시작부터 종료까지 활성 여행 문맥을 유지하고, 다음 일정·날씨·마감·길 이탈·생활 공백·짜투리 시간처럼 곧 행동이 필요한 것만 먼저 알려줘."
+        ],
+        "developerName": "JH",
+        "displayName": "JH Secure Live",
+        "longDescription": "JH Secure Bridge assistant. 여비서는 여행 세션 판단과 기존 JH Android 앱의 Stage62 여행 위치 실행 계약을 연결합니다. 여행 시작은 사용자 탭과 앱 사용 중 위치 권한을 거쳐 location Foreground Service로 시작하고, 다음 일정 출발시각·목적지 도착·기기 알림을 기존 Secure Bridge agent_step 통로로 연결합니다. ACCESS_BACKGROUND_LOCATION은 요구하지 않으며 실제 설치·권한·종단 검증 전에는 백그라운드 활성이라고 보고하지 않습니다.",
+        "shortDescription": "JH Secure Live + 여행 세션형 여비서"
+      }
+    }
+  },
+  "keywords": [
+    "android",
+    "secure-bridge",
+    "mcp",
+    "yeobiseo",
+    "여비서",
+    "travel-assistant",
+    "trip-mode",
+    "travel-session",
+    "trip-start",
+    "trip-end",
+    "proactive-alert",
+    "background-location",
+    "foreground-location",
+    "trip-agent-actions",
+    "trip-device-notification",
+    "seolbiseo",
+    "설비서",
+    "step-by-step-guide",
+    "pyeonbiseo",
+    "편비서",
+    "photo-editing",
+    "assistant-hub",
+    "natural-language-routing",
+    "task-continuity",
+    "reusable-routines",
+    "geubiseo",
+    "그비서",
+    "art-appreciation",
+    "artwork-photo",
+    "museum-guide",
+    "jebiseo",
+    "제비서",
+    "gemini-assistance"
+  ],
+  "name": "jh-secure-live",
+  "skills": "./skills",
+  "version": "1.32.5"
+}

@@ -1,0 +1,33 @@
+{
+  "schema": "jh.assistant-hub-source.v1",
+  "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "sourceBranch": "jh-geubiseo-20261104",
+  "sourceDirectory": "host-assistant-hub",
+  "version": "1.32.4",
+  "runtime": "node>=20, built-in modules only",
+  "dependenciesAdded": [],
+  "files": {
+    "SKILL.md": "f7745ff6dbefadba92aae77649006c896fa4cb5da7f6ad4bc1cbd7a9e4507bc3",
+    "references/assistant-attribution.md": "1c2f4eb6c3a5ac7871f674df6e163dbc04b4a767a16c94423d4de38aab31598d",
+    "references/capabilities.json": "9174e333c23eb64c221c10843838236f15f521f306024419a228d8f3f080b37a",
+    "references/host-flow.md": "aefefdd3cd69fb6f09aa130722b263811b3091f3971967bff5b7aa895e47c136",
+    "references/integration-overlay.json": "29d4baaf93e0e12cfde1e227a8d5b127b70915f73f3d451b22d9f5039ba1dadc",
+    "references/scenarios.json": "4c1d69170b8c705f6c56c9f9f98e76f3e696762302125aa5d338bb1fd936a36b",
+    "references/state-binding.json": "ee662b26ef0123587f11bd5bb8d9f5fe2879922fc1f0366987b264df39aa931d",
+    "scripts/cli.mjs": "f266d0f9c0c6c0fc4a678d2ab104d69e1762d223ab0c222ea3127d865d7251ce",
+    "scripts/router.mjs": "a84ba0cf302f7ade711d4831da5a9efb464e86495811deff00dc52f4d6b8df0d",
+    "scripts/routines.mjs": "7f8cbd445b790e7eb95cc2edd364ab537c7dcf900445e7fd344ec53616a35f4c",
+    "scripts/tasks.mjs": "b7ecf87b0cdc71e5b1d7204375266a5fb36f2a5794400b1b8c78f6d3e57a57c1",
+    "tests/integration.test.mjs": "26a6d712319be47e93fc9b4954ea197e5f46a63eabc62cf5a185f91c6455c54f",
+    "tests/router.test.mjs": "02d8a51bfe8ac393860edc1ec10e56f23c4e14ec5b0e5c0d12174a2080ac1392",
+    "tests/routines.test.mjs": "2f8bd4392b381c9e69028756b9a0deffe8752da56446a502af574725a583ba3f",
+    "tests/tasks.test.mjs": "781ddab672cc1162cda13222697a27bf6c58a4cb0d540bce33636bd9258913c3",
+    "tests/jebiseo.test.mjs": "f384630c8c73b097f9d116f68bf8cd1f6b581e88be5e8cf5b59ab6bff5c182bd"
+  },
+  "note": "Hashes identify packaged bytes. Actual remote commit and release readback are recorded separately; this file alone is not a publishing receipt.",
+  "sourceOverlay": {
+    "sourceBranch": "feat/jh-jebiseo-mobile-20261104",
+    "sourceDirectory": "host-jebiseo/plugin-overlay/skills/jh-assistant-hub",
+    "note": "Changed packaged files overlay the retained base source; the base sourceBranch and sourceDirectory remain above."
+  }
+}
