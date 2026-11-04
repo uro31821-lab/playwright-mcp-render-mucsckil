@@ -9,6 +9,7 @@ import {buildStage25PendingOperatorEntrypoint56,
  from './stage25-live-operator-followup-entry.mjs';
 import {applyStage40OwnerAdmissionDiagnostics,reverseStage40OwnerAdmissionDiagnostics}
  from './stage40-owner-admission-diagnostics-patch.mjs';
+import {reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 
 const root=path.resolve(import.meta.dirname,'..');
 const base={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
@@ -36,8 +37,10 @@ test('real generated signed Stage25+26 original operator is reversible with diag
  const candidate=await buildStage25PendingOperatorEntrypoint56(root,enabled);
  const source=readFileSync(candidate.runtimeFile,'utf8');
  assert.equal(candidate.stamp.stage40OwnerAdmissionDiagnostics,true);
- assert.equal(reverseStage40OwnerAdmissionDiagnostics(source),original);
- assert.equal(applyStage40OwnerAdmissionDiagnostics(original),source);
+ const originalInner=reverseStage61MobileRuntime56(original);
+ const sourceInner=reverseStage61MobileRuntime56(source);
+ assert.equal(reverseStage40OwnerAdmissionDiagnostics(sourceInner),originalInner);
+ assert.equal(applyStage40OwnerAdmissionDiagnostics(originalInner),sourceInner);
  for(const token of ['jhOwnerAdmissionNote40(','jhOwnerAdmissionTake40(',
    'OWNER_BINDING_CAPTURE_REJECTED','OWNER_SIGNED_SNAPSHOT_UNVERIFIED',
    'durableNativeHooks56?.acceptedCompletion(','jhRequireCommand56(device)',

@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {createStage44DeviceFocus} from './stage44-device-focus.mjs';
 import {applyStage44DeviceFocusPatch,reverseStage44DeviceFocusPatch} from './stage44-device-focus-patch.mjs';
+import {reverseStage61MobileRuntime56} from './stage61-mobile-runtime-patch.mjs';
 import {buildStage25PendingOperatorEntrypoint56,selectStage44Focus56,selectStage25PendingOperatorRuntime56}
  from './stage25-live-operator-followup-entry.mjs';
 const idA='a'.repeat(32),idB='b'.repeat(32),idC='c'.repeat(32),dev='synthetic-owner-bound-device';
@@ -71,8 +72,10 @@ test('real generated Secure56 Stage25+26+40+41 operator is unchanged with flag o
  const focused=await buildStage25PendingOperatorEntrypoint56(root,enabled);
  const runtime=readFileSync(focused.runtimeFile,'utf8');
  assert.equal(focused.stamp.stage44DeviceFocus,true);
- assert.equal(reverseStage44DeviceFocusPatch(runtime),pristine);
- assert.equal(applyStage44DeviceFocusPatch(pristine),runtime);
+ const pristineInner=reverseStage61MobileRuntime56(pristine);
+ const runtimeInner=reverseStage61MobileRuntime56(runtime);
+ assert.equal(reverseStage44DeviceFocusPatch(runtimeInner),pristineInner);
+ assert.equal(applyStage44DeviceFocusPatch(pristineInner),runtimeInner);
  const guards=['jhRequireCommand56(device)','jhDiscardDeviceWork56(device,eventId)',
  'jhDiscardDeviceWork56(body.deviceId,body.eventId,body.previousCommandId)',
  'durableNativeHooks56?.acceptedCompletion(','jhPaymentLifecycle.captureBinding',

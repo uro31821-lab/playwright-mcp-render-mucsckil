@@ -1,4 +1,6 @@
 import {createHash} from 'node:crypto';
+import {patchStage61MobileRuntime56,reverseStage61MobileRuntime56}
+ from './stage61-mobile-runtime-patch.mjs';
 
 /** Advisory projection of existing memory only. No admission, lookup token,
  * cleanup, session refresh, durable journal read, or historical reconciliation.
@@ -119,6 +121,7 @@ const MOBILE_NEW='phoneActionVerified:false,automaticReplay:false,cloudBrowserPr
 const RETURN_OLD='secureBridgeVersion:56,mobileRightStatus56';
 const RETURN_NEW=RETURN_OLD+',commandDiagnostics';
 const pairs=[[POLL_OLD,POLL_NEW],[MOBILE_OLD,MOBILE_NEW],[RETURN_OLD,RETURN_NEW]];
+const STAGE61_MARKER='const jhStage61Host56=createStage61HostAdapter(';
 function one(source,anchor){
  if(source.split(anchor).length!==2)throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ANCHOR_DRIFT');
 }
@@ -129,8 +132,15 @@ function statusBlock(source){
  return {start,end,block:source.slice(start,end)};
 }
 export function applyMobile13CommandDiagnosticsPatch56(source){
- if(typeof source!=='string'||source.includes(PREFIX))
-  throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ORIGINAL_REQUIRED');
+ if(typeof source!=='string')throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ORIGINAL_REQUIRED');
+ // Stage61 is the final outer runtime wrapper. Preserve it exactly while
+ // applying this older read-only diagnostic to its reviewed inner runtime.
+ if(source.includes(STAGE61_MARKER)){
+  const inner=reverseStage61MobileRuntime56(source);
+  const patched=applyMobile13CommandDiagnosticsPatch56(inner);
+  return patchStage61MobileRuntime56(patched);
+ }
+ if(source.includes(PREFIX))throw Error('MOBILE13_COMMAND_DIAGNOSTICS_ORIGINAL_REQUIRED');
  for(const anchor of ['const secureStates56=new Map();','const jhBlockedCommands56=new Set();',
   'const jhMcpWorkflows56=jhLoadWorkflows56();',
   "function jhCommandVersion56(device){return jhCommandVersions56.get(sha56('discard-device|'+device))||null;}",
@@ -151,8 +161,16 @@ export function applyMobile13CommandDiagnosticsPatch56(source){
  return output;
 }
 export function reverseMobile13CommandDiagnosticsPatch56(source){
- if(typeof source!=='string'||!source.startsWith(PREFIX))
-  throw Error('MOBILE13_COMMAND_DIAGNOSTICS_PREFIX_MISSING');
+ if(typeof source!=='string')throw Error('MOBILE13_COMMAND_DIAGNOSTICS_PREFIX_MISSING');
+ // Reverse Stage61, remove this diagnostic, then restore Stage61. This keeps
+ // exact old apply/reverse contracts valid after Stage61 became the outermost
+ // reviewed runtime layer, without changing any phone authority or replay rule.
+ if(source.includes(STAGE61_MARKER)){
+  const inner=reverseStage61MobileRuntime56(source);
+  const restored=reverseMobile13CommandDiagnosticsPatch56(inner);
+  return patchStage61MobileRuntime56(restored);
+ }
+ if(!source.startsWith(PREFIX))throw Error('MOBILE13_COMMAND_DIAGNOSTICS_PREFIX_MISSING');
  const original=source.slice(PREFIX.length),{start,end,block}=statusBlock(original);
  let restored=block;
  for(const [before,after] of [...pairs].reverse()){one(restored,after);restored=restored.replace(after,before);}

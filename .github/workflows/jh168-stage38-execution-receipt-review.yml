@@ -17,6 +17,7 @@ jobs:
       CI: 'true'
       NODE_ENV: test
       JH_OWNER_DEFER_LISTEN: '1'
+      JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
@@ -28,9 +29,8 @@ jobs:
       - name: Original server, approvals, signing and owner database source protected
         run: |
           set -eu
-          # The MOBILE overlay intentionally changes EXACTLY 3 reviewed host
-          # source files + one non-secret producer compatibility document.
-          # Pin those bytes to PR72 before allowing ANY receipt-only test.
+          # Preserve historical source proof and the exact reviewed Stage62
+          # transition before allowing any receipt-only test.
           node --test --test-concurrency=1 --test-reporter=spec \
             jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs
           git diff --exit-code origin/jh-fix3-secure-server HEAD -- \
@@ -39,7 +39,7 @@ jobs:
             jh-server/owner-setup/server-integration \
             jh-server/owner-setup/android-direct
           echo JH_ORIGINAL_OAUTH_HMAC_OWNER_ANDROID_UNCHANGED=YES
-          echo EXACT_REVIEWED_PR72_MOBILE_ADMISSION_SOURCE=VERIFIED
+          echo EXACT_REVIEWED_STAGE62_TRANSITION=VERIFIED
       - name: Install exact existing Node owner dependencies
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false

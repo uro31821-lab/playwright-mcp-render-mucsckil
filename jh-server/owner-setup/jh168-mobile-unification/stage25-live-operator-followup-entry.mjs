@@ -35,6 +35,7 @@ import {applyMobile13CommandDiagnosticsPatch56,reverseMobile13CommandDiagnostics
  from './mobile13-command-diagnostics.mjs';
 import {patchStage61MobileRuntime56,reverseStage61MobileRuntime56}
  from './stage61-mobile-runtime-patch.mjs';
+import {selectJH168MobileWeb13Mode56} from './mobile-web-tool-patch.mjs';
 
 const sha=s=>createHash('sha256').update(s).digest('hex');
 const SERVICE='srv-db0fjl2d0e5s73be114g';
@@ -56,6 +57,9 @@ const prod=env=>env?.CI!=='true'&&
   env.JH_DURABLE_RELEASE==='SERVE_READY_V1'&&env.RENDER_SERVICE_ID===SERVICE&&
   env.JH_OWNER_DEFER_LISTEN===undefined;
 function gate(env){if(!ci(env)&&!prod(env))fail('JH_STAGE25_FOLLOWUP_OPERATOR_NOT_AUTHORIZED');}
+export function selectStage61ApprovalRouting56(env=process.env){
+ return selectJH168MobileWeb13Mode56(env)==='PHONE_RIGHT';
+}
 const MOBILE13_COMMAND_DIAGNOSTICS_FLAG='EXPLICIT_OWNER_DEVICE_READ_ONLY_V1';
 export function selectMobile13CommandDiagnostics56(env=process.env){
  const flag=env?.JH_MOBILE13_COMMAND_DIAGNOSTICS;
@@ -134,8 +138,8 @@ const selectors={
  oldImport:'import {selectPendingApprovalOperatorRuntime56} from "../server-integration/pending-approval-operator-entry.mjs";',
  newImport:'import {selectStage25PendingOperatorRuntime56} from "../jh168-mobile-unification/stage25-live-operator-followup-entry.mjs";'
 };
-function reverseStage25RuntimeLayers56(runtime,{stage26Ack,stage40,stage41,stage44,commandDiagnostics}){
- let out=reverseStage61MobileRuntime56(runtime);
+function reverseStage25RuntimeLayers56(runtime,{stage26Ack,stage40,stage41,stage44,commandDiagnostics,stage61}){
+ let out=stage61?reverseStage61MobileRuntime56(runtime):runtime;
  if(commandDiagnostics)out=reverseMobile13CommandDiagnosticsPatch56(out);
  if(stage44)out=reverseStage44DeviceFocusPatch(out);
  if(stage41)out=reverseStage41CommandLifecyclePatch(out);
@@ -161,7 +165,7 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     stamp.stage41CommandLifecycleDiagnostics!==selectStage41CommandLifecycle56(env)||
     stamp.stage44DeviceFocus!==selectStage44Focus56(env)||
     stamp.mobile13CommandDiagnostics!==selectMobile13CommandDiagnostics56(env)||
-    stamp.stage61ApprovalRouting!==true||
+    stamp.stage61ApprovalRouting!==selectStage61ApprovalRouting56(env)||
     ![stamp.ownerSha256,stamp.unifiedSha256,stamp.operationalSha256]
       .every(s=>/^[a-f0-9]{64}$/.test(s||'')))
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_INVALID');
@@ -171,6 +175,7 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
  const stage41=selectStage41CommandLifecycle56(env);
  const stage44=selectStage44Focus56(env);
  const commandDiagnostics=selectMobile13CommandDiagnostics56(env);
+ const stage61=selectStage61ApprovalRouting56(env);
  const original=readFileSync(old.file,'utf8');
  const runtime=readFileSync(p.runtime,'utf8');
  if(sha(original)!==stamp.parentSha256||
@@ -178,7 +183,7 @@ export function selectStage25PendingOperatorRuntime56(root,env=process.env){
     sha(readFileSync(p.owner,'utf8'))!==stamp.ownerSha256||
     sha(readFileSync(p.unified,'utf8'))!==stamp.unifiedSha256||
     sha(readFileSync(p.entry,'utf8'))!==stamp.operationalSha256||
-    reverseStage25RuntimeLayers56(runtime,{stage26Ack,stage40,stage41,stage44,commandDiagnostics})!==original)
+    reverseStage25RuntimeLayers56(runtime,{stage26Ack,stage40,stage41,stage44,commandDiagnostics,stage61})!==original)
   fail('JH_STAGE25_FOLLOWUP_ATTESTATION_SCOPE_CHANGED');
  return Object.freeze({file:p.runtime,sha256:stamp.runtimeSha256,
   noNewExecutor:true,automaticReplayAllowed:false,originalOperatorVerified:true});
@@ -206,6 +211,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
  const stage41=selectStage41CommandLifecycle56(env);
  const stage44=selectStage44Focus56(env);
  const commandDiagnostics=selectMobile13CommandDiagnostics56(env);
+ const stage61=selectStage61ApprovalRouting56(env);
  const withFollowup=applyJH168SplitFollowupReceiptPatch(original);
  const stage26Runtime=stage26Ack?applyStage26CompletionAckPatch56(withFollowup):withFollowup;
  const afterReceipt=applyComputerExecutionReceiptPatch(stage26Runtime);
@@ -214,8 +220,8 @@ export async function buildStage25PendingOperatorEntrypoint56(
  const afterStage41=stage41?applyStage41CommandLifecyclePatch(afterStage40):afterStage40;
  const afterStage44=stage44?applyStage44DeviceFocusPatch(afterStage41):afterStage41;
  const beforeStage61=commandDiagnostics?applyMobile13CommandDiagnosticsPatch56(afterStage44):afterStage44;
- const runtime=patchStage61MobileRuntime56(beforeStage61);
- if(reverseStage25RuntimeLayers56(runtime,{stage26Ack,stage40,stage41,stage44,commandDiagnostics})!==original||
+ const runtime=stage61?patchStage61MobileRuntime56(beforeStage61):beforeStage61;
+ if(reverseStage25RuntimeLayers56(runtime,{stage26Ack,stage40,stage41,stage44,commandDiagnostics,stage61})!==original||
     runtime.split('jhSplitFollowupReceipts56.issue(').length!==2||
     runtime.split('jhSplitFollowupReceipts56.read(').length!==2||
     runtime.split('computerExecutionReceipts56.issue(').length!==2||
@@ -228,8 +234,10 @@ export async function buildStage25PendingOperatorEntrypoint56(
     (stage44&&(runtime.split('const jhFocus44=createStage44DeviceFocus(').length!==2||
       runtime.split('DEVICE_FOCUS_PROTECTED_OTHER_BEGIN').length!==2))||
     (commandDiagnostics&&runtime.split('secureBridgeVersion:56,mobileRightStatus56,commandDiagnostics').length!==2)||
-    runtime.split('const jhStage61Host56=createStage61HostAdapter(').length!==2||
-    runtime.split('stage61_route_token:z.string().optional()').length!==2)
+    (stage61&&(runtime.split('const jhStage61Host56=createStage61HostAdapter(').length!==2||
+      runtime.split('stage61_route_token:z.string().optional()').length!==2))||
+    (!stage61&&(runtime.includes('const jhStage61Host56=createStage61HostAdapter(')||
+      runtime.includes('stage61_route_token:z.string().optional()'))))
   fail('JH_STAGE25_FOLLOWUP_PATCH_NOT_EXACT');
  emit(p.runtime,runtime);
 
@@ -268,7 +276,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
    stage41CommandLifecycleDiagnostics:stage41,
    stage44DeviceFocus:stage44,
    mobile13CommandDiagnostics:commandDiagnostics,
-   stage61ApprovalRouting:true,
+   stage61ApprovalRouting:stage61,
    ...(stage26Ack?{signedCompletionAckStage26:true}:{}),
    productionEnabled:false,automaticReplayAllowed:false
  });
@@ -288,6 +296,7 @@ export async function main(env=process.env){
  const stage41EnabledAtBootstrap=selectStage41CommandLifecycle56(env);
  const stage44EnabledAtBootstrap=selectStage44Focus56(env);
  const commandDiagnosticsEnabledAtBootstrap=selectMobile13CommandDiagnostics56(env);
+ const stage61EnabledAtBootstrap=selectStage61ApprovalRouting56(env);
  const root=path.resolve(import.meta.dirname,'..');
  const built=await buildStage25PendingOperatorEntrypoint56(root,env);
  const module=await import(pathToFileURL(built.file).href+'?sha='+built.stamp.operationalSha256);
@@ -318,12 +327,12 @@ export async function main(env=process.env){
   }));
  }
  if(stage41EnabledAtBootstrap){
-    console.log('JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS_ACTIVE '+JSON.stringify({
-      originalCommandVersionFencePreserved:true,originalDiscardSignaturePreserved:true,
-      fullIdsLogged:false,autoReplay:false,apkChanged:false
-    }));
-  }
-  if(stage44EnabledAtBootstrap){
+  console.log('JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS_ACTIVE '+JSON.stringify({
+   originalCommandVersionFencePreserved:true,originalDiscardSignaturePreserved:true,
+   fullIdsLogged:false,autoReplay:false,apkChanged:false
+  }));
+ }
+ if(stage44EnabledAtBootstrap){
   console.log('JH_STAGE44_EXCLUSIVE_SIGNED_WORKFLOW_FOCUS_ACTIVE '+JSON.stringify({
    originalBeginAuthorityPreserved:true,phoneSignedDiscardPreserved:true,
    maxLeaseMs:120000,automaticReplay:false,ownerGrantsUnchanged:true,apkChanged:false
@@ -335,10 +344,12 @@ export async function main(env=process.env){
    trustRevalidated:false,phoneJobsCreated:false,apkChanged:false
   }));
  }
- console.log('JH_STAGE61_APPROVAL_ROUTER_ACTIVE '+JSON.stringify({
+ if(stage61EnabledAtBootstrap){
+  console.log('JH_STAGE61_APPROVAL_ROUTER_ACTIVE '+JSON.stringify({
    schema:'JH168_STAGE61_FINAL_OPERATOR_V1',sha256:built.stamp.runtimeSha256,
    appliedAfterPendingApproval:true,automaticReplayAllowed:false,apkChanged:false
- }));
+  }));
+ }
  return running;
 }
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
