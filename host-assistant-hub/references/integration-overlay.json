@@ -1,7 +1,7 @@
 {
   "schema": "jh.assistant-hub-plugin-overlay.v1",
   "baseVersion": "1.31.31",
-  "targetVersion": "1.32.1",
+  "targetVersion": "1.32.2",
   "descriptionPrefix": "JH 하나에서 비서 이름 없이 자연어로 요청하면 공통 허브가 필요한 전문 기능을 연결한다. 하던 일·계속·현재 번호·이번만·앞으로도·여기부터 네가 해줘·내 방식 저장·기능을 묶어 새 비서 만들기를 지원한다. ",
   "mainSkillSection": "## JH 하나로 자연어 요청과 작업 이어가기 — 2026-11-04\n\n비서 이름 없이 일상 말로 요청하면 [공통 비서 허브](../jh-assistant-hub/SKILL.md)를 통해 현재 목적에 맞는 기존 전문 기능을 선택한다. 주 담당 하나와 필요한 협력 기능만 사용하고 답과 번호 메뉴를 하나로 모은다. 개발·기능 설명·인용을 실제 전문 업무 호출과 구분한 뒤 아래의 전문 규칙을 적용한다.\n\n여러 단계의 실제 작업은 목표·담당·모드·현재 단계·직전 메뉴·결과 근거를 이어받는다. “하던 일 보여줘”는 실제 저장된 작업 목록, “계속/했어/번호”는 현재 작업과 메뉴, “여기부터 네가 해줘”는 같은 작업의 진행 방식 변경으로 연결한다. 사용자 보고를 외부 성공으로 바꾸지 않으며 미확정 실행은 기존 결과부터 확인한다.\n\n“이번만”은 현재 작업의 조건, “앞으로도 이 방식”은 명시한 절차의 기본값으로 구분한다. 확인된 작업의 방식을 저장하거나 기존 기능들을 묶어 새 이름의 비서 절차를 만들 수 있다. 새로 조합한 절차는 실제 사용 전 설계 상태로 표시한다. 일반 개인 취향·책·여행·메모리아의 원래 저장 경로는 허브에서 참조한다. 자동으로 모든 대화방을 읽거나 다른 방의 작업을 실행한다고 말하지 않는다.\n\n",
   "specialistAppendix": "## JH 공통 작업 이어받기 — 2026-11-04\n\n[JH 공통 비서 허브](../jh-assistant-hub/SKILL.md)가 연결한 요청은 같은 실제 목표·작업 ID·현재 메뉴·진행 방식·완료 근거를 이어받는다. 현재 전문 규칙과 전용 기록은 유지하고, 답과 사용자 선택 메뉴는 주 담당이 하나로 모은다. “이번만” 조건은 현재 작업에 한정하며, 반복 사용할 절차의 저장·명시적 새 비서 조합은 허브의 재사용 절차로 연결한다. 인용·개발 대상은 전문 업무 실행으로 오인하지 않는다. 미확정 외부 실행은 재개 전에 원 결과를 확인한다.\n",
@@ -28,5 +28,37 @@
     "App and MCP bindings",
     "all existing specialty body text",
     "all existing personal state"
-  ]
+  ],
+  "assistantAttribution": {
+    "mainRule": "\n## 모든 비서의 공통 표시 — 2026-11-04\n\n[비서 구간 표시](../jh-assistant-hub/references/assistant-attribution.md)를 모든 업무에 적용한다. 어떤 비서든 실제로 관여하면 설명·추천·의견·참고 검토·분석·개발·실행·검증·진행·완료 구간 앞에 **`🏴‍☠️ 비서이름:`**을 넣는다. 짧은 후속 답변과 앞으로 추가·조합하는 비서도 포함한다. 여러 비서가 기여하면 각 비서의 내용 앞에 각각 표시하고 이름을 한 표식으로 합치지 않는다. 상태는 콜론 뒤에 쓰며, 이름만 언급한 것을 참여로 표시하지 않는다.\n",
+    "sharedRule": "## R15. 관여한 비서를 같은 형식으로 구분한다\n\n모든 업무에서 어떤 비서든 실제로 설명·추천·의견·참고 검토·분석·개발·실행·검증·진행·완료에 관여하면 그 구간을 **`🏴‍☠️ 비서이름:`**으로 시작한다. 실제 이름 바로 뒤에 콜론을 붙이며 상태나 역할은 그 뒤에 쓴다. 짧은 후속 답변에도 적용한다. 여러 비서가 기여하면 각 비서의 내용 앞에 각각 표시하고 이름을 한 표식으로 합치지 않는다. 한 비서의 연속된 구간에는 한 번 표시하며 담당이 바뀌면 새 구간에 다시 표시한다. 기존 비서와 앞으로 추가·조합한 비서 모두 포함한다. 이름의 단순 언급·인용·호출 계획을 참여로 표시하지 않고 표식을 성공·연결·권한의 증명으로 쓰지 않는다.\n\n",
+    "sharedRuleVersion": "JH-WORK-RULES-1.2",
+    "skillNotice": "\n[모든 비서의 공통 표시](../jh-assistant-hub/references/assistant-attribution.md)를 따른다. 이 비서가 설명·추천·의견·검토·분석·개발·실행·진행·완료에 관여하면 해당 구간 맨 앞을 **`🏴‍☠️ 비서이름:`**으로 시작하며 실제 비서 이름을 넣는다. 협력 비서는 각자 기여 앞에 각각 표시한다.\n",
+    "reference": "references/assistant-attribution.md",
+    "format": "🏴‍☠️ 비서이름:",
+    "separateEachContributor": true,
+    "appliesToFutureAssistants": true,
+    "directSkillNotices": [
+      "jh-ebiseo-assist",
+      "jh-pyeonbiseo",
+      "jh-chaekbiseo",
+      "jh-yeobiseo",
+      "jh-open-source-scout",
+      "jh-gitbiseo-blocker-executor"
+    ],
+    "existingSpecificContractsUpdated": [
+      "jh-seolbiseo",
+      "jh-meokbiseo",
+      "jh-newbiseo-worldview",
+      "jh-cheongbiseo",
+      "jh-sangbiseo"
+    ],
+    "existingSpecificContractChanges": [
+      "Add colon immediately after each actual assistant name",
+      "Use a separate prefix for each continuous contribution block",
+      "Apply to explanation, review, advice, progress and completion as well as execution",
+      "Keep the existing one-menu flow and genuine-participation requirement"
+    ],
+    "sharedRulesSha256": "64e61750e9e7f5fddbeddf68062c96216cf24a922fb53e7c12316f5202cda4ab"
+  }
 }
