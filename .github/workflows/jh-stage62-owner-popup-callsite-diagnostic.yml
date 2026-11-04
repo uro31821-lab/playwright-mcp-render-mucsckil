@@ -1,4 +1,4 @@
-name: JH Stage63 native-select owner evidence isolated verification
+name: JH Stage63 generated-runtime prerequisite diagnostic
 
 on:
   push:
@@ -9,9 +9,9 @@ permissions:
   contents: read
 
 jobs:
-  verify-stage63-isolated:
+  diagnose-stage63-generated-runtime:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     env:
       CI: 'true'
       NODE_ENV: test
@@ -30,26 +30,27 @@ jobs:
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
-      - name: Prepare reviewed Stage63 candidate
+      - name: Prepare instrumented reviewed candidate
         run: |
           set -euo pipefail
           ref=origin/fix/stage63-native-select-owner-admission-20261104
-          for n in 00 01 02; do git show "$ref:.stage63-payload/part-$n"; done > /tmp/stage63.b64
-          base64 --decode /tmp/stage63.b64 > /tmp/stage63.gz
+          for n in 00 01 02; do git show "$ref:.stage63-payload/part-$n"; done | base64 --decode > /tmp/stage63.gz
           test "$(sha256sum /tmp/stage63.gz | cut -d' ' -f1)" = a2cd7beeaab74c72e2f9f7049dd56d7c36d4ea04f15faaaf820757eb52af66ab
           mkdir -p /tmp/stage63
           gzip -dc /tmp/stage63.gz | tar -x -C /tmp/stage63 --no-same-owner --no-same-permissions
+          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
+          cp /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
           python - <<'PY'
           from pathlib import Path
           import re
-          p=Path('/tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs')
-          s=p.read_text()
+          test=Path('jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs')
+          s=test.read_text()
           start_marker="assert.ok(helper.indexOf('if(action===\"SELECT_OPEN\")jhStage61PreparedPick56.delete(routeToken);')<"
           end_marker="'every re-open clears stale prepared refs before receipt inspection');"
-          start=s.find(start_marker)
-          end=s.find(end_marker,start)
-          if start<0 or end<0:
-              raise SystemExit('STAGE63_ORDER_ASSERT_ANCHOR_MISSING')
+          start=s.find(start_marker);end=s.find(end_marker,start)
+          if start<0 or end<0: raise SystemExit('STAGE63_ORDER_ASSERT_ANCHOR_MISSING')
           end+=len(end_marker)
           replacement="""const afterAction=helper.slice(helper.indexOf('async function jhStage61AfterAction56'));
            const staleClear=afterAction.indexOf('if(action===\"SELECT_OPEN\")jhStage61PreparedPick56.delete(routeToken);');
@@ -59,37 +60,24 @@ jobs:
           s=s[:start]+replacement+s[end:]
           pattern=r"(\s*JH_STAGE44_DEVICE_FOCUS:'EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1'),\s*\n\s*JH_MOBILE13_COMMAND_DIAGNOSTICS:'EXPLICIT_OWNER_DEVICE_READ_ONLY_V1'};"
           s,n=re.subn(pattern,r"\1};",s,count=1)
-          if n!=1:
-              raise SystemExit('STAGE63_OPTIONAL_DIAGNOSTIC_ANCHOR_MISSING')
-          p.write_text(s)
+          if n!=1: raise SystemExit('STAGE63_OPTIONAL_DIAGNOSTIC_ANCHOR_MISSING')
+          test.write_text(s)
+          patch=Path('jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs')
+          p=patch.read_text()
+          old="""    !source.includes('const cuSchema56={'))fail('STAGE61_MOBILE_RUNTIME_PREREQUISITES_MISSING');"""
+          new="""    !source.includes('const cuSchema56={')){console.error('STAGE61_PREREQ_FLAGS '+JSON.stringify({
+      isString:typeof source==='string',follow:source.includes('async function jhMobileWebFollow56('),
+      read:source.includes('async function jhMobileWebRead56('),secure:source.includes('function secureCall56('),
+      schema:source.includes('const cuSchema56={'),already:source.includes('const jhStage61Host56=createStage61HostAdapter('),
+      length:source.length}));fail('STAGE61_MOBILE_RUNTIME_PREREQUISITES_MISSING');}"""
+          if old not in p: raise SystemExit('STAGE61_PREREQ_DIAGNOSTIC_ANCHOR_MISSING')
+          patch.write_text(p.replace(old,new,1))
           PY
-          node --check /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
-          node --check /tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
-      - name: Run isolated source and regression tests
+      - name: Run focused generated-runtime diagnostic
         run: |
           set -euo pipefail
-          PATCH=/tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
-          TEST=/tmp/stage63/jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
-          apply_candidate() {
-            git reset --hard "$GITHUB_SHA" >/dev/null
-            cp "$PATCH" jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
-            cp "$TEST" jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
-          }
-          run_one() {
-            apply_candidate
-            echo "=== ISOLATED: $1 ==="
-            node --test --test-concurrency=1 --test-reporter=spec "$1"
-          }
-          run_one jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
-          run_one jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs
-          run_one jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs
-          run_one jh-server/owner-setup/jh168-mobile-unification/stage41-command-lifecycle.test.mjs
-          run_one jh-server/owner-setup/jh168-mobile-unification/stage44-device-focus.test.mjs
-          run_one jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.test.mjs
-          run_one jh-server/owner-setup/jh168-mobile-unification/stage38-generated-operator.test.mjs
-          run_one jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs
-          run_one jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs
-          run_one jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs
       - name: No release boundary
         if: always()
         run: |
