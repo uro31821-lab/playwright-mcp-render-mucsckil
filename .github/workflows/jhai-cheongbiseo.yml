@@ -6,9 +6,6 @@ on:
       - jh-fix3-secure-server
       - main
     paths:
-      - "jh-server/cheongbiseo-policy.mjs"
-      - "jh-server/cheongbiseo-policy.test.mjs"
-      - "jh-server/server.mjs"
       - "host-cheongbiseo-cleanup/**"
       - "host-ebiseo-assist/plugin-overlay/plugin.json"
       - "host-ebiseo-assist/plugin-overlay/skills/jh-cheongbiseo/**"
@@ -17,9 +14,6 @@ on:
     branches:
       - "feat/cheongbiseo-*"
     paths:
-      - "jh-server/cheongbiseo-policy.mjs"
-      - "jh-server/cheongbiseo-policy.test.mjs"
-      - "jh-server/server.mjs"
       - "host-cheongbiseo-cleanup/**"
       - "host-ebiseo-assist/plugin-overlay/plugin.json"
       - "host-ebiseo-assist/plugin-overlay/skills/jh-cheongbiseo/**"
@@ -35,8 +29,6 @@ jobs:
         with:
           node-version: 22
       - name: Retention policy tests
-        run: node --test jh-server/cheongbiseo-policy.test.mjs
-      - name: JH server syntax
-        run: node --check jh-server/server.mjs
+        run: node --test host-cheongbiseo-cleanup/policy.test.mjs
       - name: Plugin metadata JSON
         run: node -e "JSON.parse(require('fs').readFileSync('host-ebiseo-assist/plugin-overlay/plugin.json','utf8')); console.log('plugin.json ok')"
