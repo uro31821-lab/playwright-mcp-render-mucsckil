@@ -1,0 +1,97 @@
+name: JH Stage61 V10 SELECT OPEN no-release verification
+
+on:
+  push:
+    branches:
+      - fix/stage61-v10-native-select-open-durable-20261104
+
+permissions:
+  contents: read
+
+jobs:
+  verify-select-open-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+      JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install reviewed server dependencies
+        run: |
+          set -euo pipefail
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Syntax check changed runtime
+        run: |
+          set -euo pipefail
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs
+      - name: Focused Stage61 SELECT OPEN regression
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs
+      - name: Existing durable click and Stage61 router regression
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/verification/jh167-exact-right-click-durable.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs
+      - name: Broader receipt and security regressions
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage26-completion-delivery.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-receipts.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-read-receipts.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-receipt-patch.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-real-runtime-candidate.test.mjs \
+            jh-server/owner-setup/server-integration/pending-approval-operator-entry.test.mjs \
+            jh-server/owner-setup/deployment/published-host-router-pending-approval.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-followup-router-gate.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-receipt-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/split-followup-generated-runtime.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage22-generated-server-candidate.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/computer-inspect-receipts.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/computer-inspect-receipt-patch.test.mjs
+      - name: Connection V2 and durable execution regressions
+        run: |
+          set -euo pipefail
+          (cd jh-server && node verification/build-auth-candidate.mjs)
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/connection-v2/*.test.mjs \
+            jh-server/owner-setup/deployment/jh167-connection-v2-runtime.test.mjs \
+            jh-server/owner-setup/deployment/jh167-connection-v2-assembled-preflight.test.mjs \
+            jh-server/owner-setup/deployment/jh167-right-url-routing.test.mjs \
+            jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs \
+            jh-server/owner-setup/deployment/jh167-open-completion.test.mjs \
+            jh-server/owner-setup/deployment/readback-budget.test.mjs \
+            jh-server/verification/jh167-open-completion-http.test.mjs \
+            jh-server/verification/jh167-split-lifecycle-safe.test.mjs \
+            jh-server/verification/durable-computer-policy.test.mjs \
+            jh-server/verification/job-deadline.test.mjs \
+            jh-server/verification/right-pane-open-route.test.mjs \
+            jh-server/owner-setup/trusted-server/dispatch-receipts.test.mjs
+      - name: No release boundary
+        if: always()
+        run: |
+          echo RENDER_DEPLOY=0
+          echo APK_BUILD=0
+          echo APK_INSTALL=0
+          echo PHONE_ACTION_REPLAY=0
