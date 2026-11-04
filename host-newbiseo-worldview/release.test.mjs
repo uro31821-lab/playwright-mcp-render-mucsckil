@@ -58,6 +58,8 @@ test('basic skill and contract require past-case and personal-idea sections', as
   assert.match(skill, /과거 유사사례.*나에게 건질 아이디어.*기본형의 고정 항목/s);
   assert.match(skill, /🏴‍☠️ 해골기/);
   assert.match(runtime, /🏴‍☠️ 뉴비서/);
+  assert.match(skill, /🏴‍☠️ 해골기/);
+  assert.match(runtime, /🏴‍☠️ 뉴비서/);
   assert.match(skill, /최소 1개, 최대 3개/);
   assert.match(contract, /과거 유사사례.*나에게 건질 것.*기본형의 필수 항목/s);
   assert.match(contract, /유사사례가 없더라도 항목을 삭제하지 않는다/);
