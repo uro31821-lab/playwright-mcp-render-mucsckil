@@ -17,10 +17,21 @@ jobs:
           persist-credentials: false
           path: baseline
           ref: 0663e0c3b434f300803e5cf272609032a5e519d3
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+          path: previous
+          ref: 75c265188e1823537d224457d3ddf490bdf6e3d8
       - name: Node builtin-only producer and patch regression tests (no phone or network)
         run: |
           node --version
           node --test --test-reporter=spec candidate/host-kabiseo-assist/server/*.test.mjs
+      - name: Reproduce old failure and test original signer and completion via localhost HTTP
+        env:
+          KABISEO_BASELINE_FILE: baseline/jh-server/server.mjs
+          KABISEO_PREVIOUS_PRODUCER: previous/host-kabiseo-assist/server/metadata-producer.mjs
+          KABISEO_TRANSPORT_RESULT: ${{ runner.temp }}/kabiseo-server-review/signed-completion-result.json
+        run: node --test --test-reporter=spec candidate/host-kabiseo-assist/server/signed-completion.integration.mjs
       - name: Restore existing locked generator dependencies without install hooks
         run: |
           set -euo pipefail
@@ -32,9 +43,10 @@ jobs:
           KABISEO_BASELINE_COMMIT: 0663e0c3b434f300803e5cf272609032a5e519d3
         run: node candidate/host-kabiseo-assist/server/compose-review.mjs baseline "$RUNNER_TEMP/kabiseo-server-review"
       - name: Preserve review evidence only
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: kabiseo-server-review-${{ github.run_id }}
-          path: ${{ runner.temp }}/kabiseo-server-review/server-composition-result.json
-          if-no-files-found: error
+          path: ${{ runner.temp }}/kabiseo-server-review/*-result.json
+          if-no-files-found: warn
           retention-days: 7
