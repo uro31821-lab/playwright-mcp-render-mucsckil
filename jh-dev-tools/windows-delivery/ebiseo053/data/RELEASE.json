@@ -1,0 +1,63 @@
+{
+  "schema": "JH_EBISEO_PREBUILT_RELEASE_V1",
+  "status": "VERIFIED_PREBUILT_UNSIGNED_CANDIDATE",
+  "candidate": "JH-EBISEO053-STAGE78-PREBUILT-20261106",
+  "moduleVersion": "0.5.3",
+  "application": {
+    "id": "com.koreanlifehub.bridge",
+    "versionCode": 168,
+    "versionName": "jh168-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo053",
+    "minSdk": 26,
+    "targetSdk": 35,
+    "debuggable": false
+  },
+  "signing": {
+    "certificateSha256": "7cc577efe48e865fdbe799b92aa9edf89724631361ae97979f2b8e4a940a288b",
+    "alias": "androiddebugkey"
+  },
+  "allowedInstalledVersionNames": [
+    "jh168-stage62-trip-location-native-select-fix3-keepalive-fix1",
+    "jh168-stage77-location-once-native-select-fix3-keepalive-fix1"
+  ],
+  "payload": {
+    "path": "data/JH-Ebiseo-0.5.3-unsigned.apk",
+    "sha256": "133617bc425a314c1e1fd0984b80949b9116a9a7fd3d4eba8f391f1ad144cb27",
+    "bytes": 48984563
+  },
+  "sourceManifestSha256": "381f4186457ebde945068a9b68cd81a01755132b6eaca804ce706e783e23cbfd",
+  "evidence": [
+    {
+      "path": "data/evidence/full-build.json",
+      "sha256": "1b052f33b6da5bdb49538181c894a0380e5716f17a25585b62df06e2a8a5b6ce"
+    },
+    {
+      "path": "data/evidence/unit-results.json",
+      "sha256": "867e0f5945856d14152e0aeb96658c257f538be6ece6ac16a5b46d23886e01aa"
+    },
+    {
+      "path": "data/evidence/lint-summary.json",
+      "sha256": "da26ae62a3803a56dacb382d32e77564bfeeed4f08f93ab4765195d26f8b9026"
+    },
+    {
+      "path": "data/evidence/source-integrity.json",
+      "sha256": "3398a0fc779e565d29d3b4abd5524febebf8391a333a025623d769a8e2535e29"
+    },
+    {
+      "path": "data/evidence/apk-audit.json",
+      "sha256": "c11a687feeb7b1ff3b50a55531f5c8599bfb1afa0b8e4f87602e92caa5918f98"
+    },
+    {
+      "path": "data/evidence/independent-host-review.json",
+      "sha256": "249703c7c140bc83edb239934136c4e97996d328f61b8631afdbca352f9e90bb"
+    },
+    {
+      "path": "data/evidence/source-manifest.json",
+      "sha256": "381f4186457ebde945068a9b68cd81a01755132b6eaca804ce706e783e23cbfd"
+    }
+  ],
+  "releaseProfile": {
+    "status": "EXTERNAL_PINNED_PROFILE_REQUIRED",
+    "windows51Execution": "SEE_EXTERNAL_DELIVERY_RECEIPT",
+    "phoneInstall": "LOCAL_RESULT_REQUIRED"
+  }
+}
