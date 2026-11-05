@@ -7,6 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import {reverseJH168Mobile13ActionPolicyHost56} from './mobile13-action-policy-patch.mjs';
 import {assertReviewedSource} from './reviewed-source-audit.mjs';
 
@@ -16,6 +17,8 @@ const REVIEWED_MAIN='8596f5ef299d27fa7064ee40a64a99030196774a';
 const REVIEWED_FEDERATION='c0190f6e9649bd5c5d13b9911c4933328808bbb2';
 const MOBILE='c6142bd21ea299a4464124356e9da34b58001900';
 const ROOT='jh-server/owner-setup/';
+const REVIEWED_EVIDENCE_COMPOSITION_BLOB='b2e8c9ecc0673565744487fe0f6d4444bcb2a4b0';
+const PRE_EVIDENCE_COMPOSITION_BLOB='a5fea54d6281c89f212e5f4ec22071d8c24bf7af';
 const show=(sha,path)=>execFileSync('git',['show',sha+':'+path],{
  encoding:'utf8',maxBuffer:16*1024*1024,timeout:15000});
 const cmd=args=>execFileSync('git',args,{encoding:'utf8'}).trim();
@@ -33,6 +36,8 @@ const protectedPaths=[
  'package.json','package-lock.json','jh-server/package.json',
  ROOT+'package.json',ROOT+'package-lock.json',ROOT+'published-baseline/package.json',
  ...publishedFiles.map(p=>':(exclude)'+p),
+ // This ONE protected path gets an equally strict exact-blobs-and-reversal audit below.
+ ':(exclude)'+ROOT+'deployment/jh167-article-operational-review-composition.mjs',
  ...['mobile-web-current-main-compat.test.mjs','reviewed-source-audit.mjs',
   'reviewed-source-audit.test.mjs','CURRENT-SOURCE-AUDIT.md'].map(p=>':(exclude)'+ROOT+'jh168-mobile-unification/'+p)
 ];
@@ -102,15 +107,37 @@ test('current MAIN host contains EXACT originally reviewed PR72 mobile patches w
  assert.equal(current(host),show(MOBILE,host));
  assert.equal(reverseJH168Mobile13ActionPolicyHost56(current(host)),show(ORIGINAL,host));
 });
-test('mobile 9+4 composition is reviewed PR72 and ALREADY in MAIN, not duplicated by diagnostics',()=>{
+test('PR72 mobile 9+4 composition preserved exactly; evidence Search is one pinned server-only addition',()=>{
  const p=ROOT+'deployment/jh167-article-operational-review-composition.mjs';
- const s=current(p);
- assert.equal(s,show(MOBILE,p));
- assert.equal(s,show(REVIEWED_MAIN,p));
+ const s=current(p), original=show(MOBILE,p);
+ assert.equal(original,show(REVIEWED_MAIN,p),'JH168_REVIEWED_MAIN_COMPOSITION_CHANGED');
+ const importLine="import {patchJHEvidenceSearchRuntime56} from '../evidence/perplexity-search-composition.mjs';\n";
+ const oldLine=' return patchJH168MobileWeb13VerifiedMode56(patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate))))));';
+ const newLine=' const verified=patchJH168MobileWeb13VerifiedMode56(patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate))))));\n return patchJHEvidenceSearchRuntime56(verified);';
+ assert.equal(original.split(oldLine).length,2,'JH_EVIDENCE_OLD_REVIEWED_ANCHOR_MISSING');
+ const expected=importLine+original.replace(oldLine,newLine);
+ assert.equal(s,expected,'JH_EVIDENCE_ONLY_REVIEWED_TWO_EDIT_COMPOSITION');
+ const gitBlob=x=>createHash('sha1').update('blob '+Buffer.byteLength(x)+'\0').update(x).digest('hex');
+ assert.equal(gitBlob(original),PRE_EVIDENCE_COMPOSITION_BLOB,'JH_EVIDENCE_OLD_BLOB_MISMATCH');
+ assert.equal(gitBlob(s),REVIEWED_EVIDENCE_COMPOSITION_BLOB,'JH_EVIDENCE_NEW_BLOB_MISMATCH');
+ assert.equal(s.slice(importLine.length).replace(newLine,oldLine),original,'JH_EVIDENCE_REVERSE_SCOPE_CHANGED');
  assert.equal(s.split("import {patchJH168MobileWeb13VerifiedMode56}").length,2);
  assert.equal((s.match(/patchJH168MobileWeb13VerifiedMode56\(/g)||[]).length,1);
  const raw=show(ORIGINAL,p);
  assert.equal((raw.match(/patchJH168MobileWeb13VerifiedMode56\(/g)||[]).length,0);
+ const observed=cmd(['ls-tree','HEAD','--',p]);
+ assert.equal(observed,'100644 blob '+REVIEWED_EVIDENCE_COMPOSITION_BLOB+'\t'+p,
+   'JH_EVIDENCE_UNREVIEWED_COMMITTED_RUNTIME');
+ const base=cmd(['rev-parse','refs/remotes/origin/jh-fix3-secure-server']);
+ const baseObj=cmd(['ls-tree',base,'--',p]);
+ assert.ok([
+  '100644 blob '+PRE_EVIDENCE_COMPOSITION_BLOB+'\t'+p,
+  '100644 blob '+REVIEWED_EVIDENCE_COMPOSITION_BLOB+'\t'+p
+ ].includes(baseObj),'JH_EVIDENCE_BASELINE_UNREVIEWED_RUNTIME');
+ assert.equal(cmd(['-c','core.fileMode=true','diff','--raw','HEAD','--',p]),'',
+  'JH_EVIDENCE_UNCOMMITTED_RUNTIME_MUTATION');
+ assert.equal(cmd(['ls-files','--others','--exclude-standard','--',p]),'',
+  'JH_EVIDENCE_UNTRACKED_RUNTIME_MUTATION');
 });
 test('raw Secure56 signing engine unchanged; nine RIGHT mobile aliases remain opt-in, no remote Playwright fallback in actual mobile patch',()=>{
  const raw=current('jh-server/server.mjs');
