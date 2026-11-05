@@ -120,7 +120,7 @@ function Invoke-JhNative([string]$Exe,[string[]]$Arguments) {
             Copy-Item -LiteralPath $script:fixture.Payload -Destination $Arguments[$outPosition+1]
         } else {
             $cert=$script:fixture.Release.signing.certificateSha256
-            if ($script:mode -eq 'wrong-signed-cert' -or ($script:mode -eq 'wrong-installed-cert' -and $Arguments[-1] -match 'installed-')) { $cert='b'*64 }
+            if ($script:mode -eq 'wrong-signed-cert' -or ($script:mode -eq 'wrong-installed-cert' -and [IO.Path]::GetFileName($Arguments[-1]) -match '^installed-(before|confirmation|after)[.]apk$')) { $cert='b'*64 }
             $text='Verified using v2 scheme (APK Signature Scheme v2): true'+[Environment]::NewLine+'Verified using v3 scheme (APK Signature Scheme v3): true'+[Environment]::NewLine+'Signer #1 certificate SHA-256 digest: '+$cert
         }
     } elseif ($Exe -eq 'SYNTHETIC_ZIPALIGN') { $text='synthetic aligned'
@@ -175,11 +175,11 @@ try {
     }
     Invoke-Scenario 'wrong signed certificate blocks installation' {
         Reset-Fixture 'wrong-signed-cert';$r=Run-Fixture 'wrong-signed-cert'
-        Assert-Case ($r.reason -eq 'ORIGINAL_CERTIFICATE_MISMATCH' -and $script:installCalls -eq 0) 'signed certificate guard'
+        Assert-Case ($r.reason -eq 'ORIGINAL_CERTIFICATE_MISMATCH' -and $r.stage -eq 'SIGN_PREBUILT_WITH_ORIGINAL_KEY' -and $script:installCalls -eq 0) 'signed certificate guard at signing boundary'
     }
     Invoke-Scenario 'wrong installed certificate blocks installation' {
         Reset-Fixture 'wrong-installed-cert';$r=Run-Fixture 'wrong-installed-cert'
-        Assert-Case ($r.reason -eq 'ORIGINAL_CERTIFICATE_MISMATCH' -and $script:installCalls -eq 0) 'installed certificate guard'
+        Assert-Case ($r.reason -eq 'ORIGINAL_CERTIFICATE_MISMATCH' -and $r.stage -eq 'VERIFY_CURRENT_USB_APP_AND_CERTIFICATE' -and $r.signing -eq 'VERIFIED_ORIGINAL_SIGNATURE' -and $script:installCalls -eq 0) 'installed certificate guard after successful signing'
     }
     Invoke-Scenario 'newer installed version blocks downgrade' {
         Reset-Fixture 'unknown-current';$r=Run-Fixture 'unknown-current'
