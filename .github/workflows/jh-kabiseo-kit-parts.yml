@@ -1,0 +1,48 @@
+name: JH Kabiseo verified offline kit parts
+on:
+  pull_request:
+    paths: ['.github/workflows/jh-kabiseo-kit-parts.yml']
+permissions: {contents: read, actions: read}
+jobs:
+  split-existing-public-kit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Fetch exact previously successful public-only kit and verify archive
+        env: {GH_TOKEN: '${{ github.token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/13421056121/zip" > "$RUNNER_TEMP/kit.zip"
+          printf '%s  %s\n' 1e54325258477b42d7faefcc5ffd8de8cf4f4635d11e67c622a25e5477da526e "$RUNNER_TEMP/kit.zip" | sha256sum --check --strict
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,zipfile,hashlib,json
+          root=Path(os.environ['RUNNER_TEMP'])
+          with zipfile.ZipFile(root/'kit.zip') as z:
+              assert z.testzip() is None
+              names=z.namelist()
+              archive=next(n for n in names if n.endswith('public-offline-kit.tar.gz'))
+              checksum=next(n for n in names if n.endswith('SHA256SUMS.txt'))
+              expected=z.read(checksum).decode().split()[0]
+              total=hashlib.sha256(); parts=[]
+              with z.open(archive) as f:
+                  for index in range(3):
+                      data=f.read(250*1024*1024)
+                      assert data, 'expected three bounded parts'
+                      dest=root/('kit-part-'+str(index));dest.mkdir()
+                      filename='kit.part'+str(index)
+                      (dest/filename).write_bytes(data);total.update(data)
+                      parts.append({'filename':filename,'size':len(data),'sha256':hashlib.sha256(data).hexdigest()})
+                  assert not f.read(1), 'unexpected oversized input'
+              assert total.hexdigest()==expected
+              m={'schema':'KABISEO_SPLIT_PUBLIC_KIT_V1','original_artifact':13421056121,'archive_sha256':expected,'parts':parts}
+              for index in range(3): (root/('kit-part-'+str(index))/'PARTS.json').write_text(json.dumps(m,indent=2))
+              print(json.dumps(m))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: 'kabiseo-kit-part0-${{ github.run_id }}', path: '${{ runner.temp }}/kit-part-0/*', compression-level: 0, retention-days: 1, if-no-files-found: error}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: 'kabiseo-kit-part1-${{ github.run_id }}', path: '${{ runner.temp }}/kit-part-1/*', compression-level: 0, retention-days: 1, if-no-files-found: error}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: 'kabiseo-kit-part2-${{ github.run_id }}', path: '${{ runner.temp }}/kit-part-2/*', compression-level: 0, retention-days: 1, if-no-files-found: error}
