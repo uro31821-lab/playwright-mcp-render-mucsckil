@@ -45,7 +45,9 @@ export function applyKabiseoMetadataPatch(source){
     ||!source.includes('function exactEnvelope56(')||!source.includes('function jhRequireCommand56(')
     ||!source.includes('commandId:jhRequireCommand56(')||!source.includes('jhWorkflowRuntimeDigest56')
     ||!source.includes('jhCommandTool56(name,config,handler)'))throw Error('KABISEO_ORIGINAL_RUNTIME_REQUIRED');
-  const out=source.replace(scope,shared+scope).replace(anchor,registration+anchor);
+  // Source contains regex end anchors followed by quote. A replacement string would
+  // interpret dollar-quote as the original suffix; callbacks preserve literal code.
+  const out=source.replace(scope,()=>shared+scope).replace(anchor,()=>registration+anchor);
   if(reverseKabiseoMetadataPatch(out)!==source)throw Error('KABISEO_PATCH_NOT_REVERSIBLE');
   return out;
 }

@@ -17,10 +17,10 @@ jobs:
           persist-credentials: false
           path: baseline
           ref: 0663e0c3b434f300803e5cf272609032a5e519d3
-      - name: Node builtin-only producer regression tests (no phone or network)
+      - name: Node builtin-only producer and patch regression tests (no phone or network)
         run: |
           node --version
-          node --test --test-reporter=spec candidate/host-kabiseo-assist/server/metadata-producer.test.mjs
+          node --test --test-reporter=spec candidate/host-kabiseo-assist/server/*.test.mjs
       - name: Restore existing locked generator dependencies without install hooks
         run: |
           set -euo pipefail
