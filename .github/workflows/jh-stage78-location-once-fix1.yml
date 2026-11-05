@@ -1,0 +1,25 @@
+name: JH Stage78 location-once source-closure FIX1
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-mobile-dual-engine/stage77/current.json'
+      - 'jh-mobile-dual-engine/stage78/**'
+      - '.github/workflows/jh-stage78-location-once-fix1.yml'
+permissions: {contents: read}
+jobs:
+  source-closure-fix1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage78/stage78-fix1.test.mjs
+      - run: |
+          echo APK_BUILD=0
+          echo APK_SIGN=0
+          echo APK_INSTALL=0
+          echo PHONE_ACTION=0
+          echo RENDER_DEPLOY=0
+          echo WINDOWS_FULL_GRADLE=REQUIRED
