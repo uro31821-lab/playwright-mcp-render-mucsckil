@@ -13,7 +13,7 @@ import {createJebiseoRuntime, createJebiseoDeviceScheduler,
 import {JEBISEO_GEMINI_WEB_URL, JEBISEO_ORIGINAL_MOBILE_TOOLS,
   unwrapJebiseoMobileReply} from './mobile-port.mjs';
 import {prepareJebiseoGuidedCall} from './guided-form.mjs';
-import {inspectJebiseoNativeScreen} from './native-screen-proof.mjs';
+import {inspectJebiseoNativeScreen, inspectJebiseoPostActionObservation} from './native-screen-proof.mjs';
 import {describeOpenCompletion} from '../deployment/jh167-open-completion.mjs';
 
 const ROUTES = Object.freeze({OPEN: 'life_web_navigate', SNAPSHOT: 'life_web_snapshot',
@@ -256,6 +256,45 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
       outcome: 'VERIFIED_APPLIED', jobId: pending.record.identity.id,
       ...(pending.operation === 'OPEN' ? {url: JEBISEO_GEMINI_WEB_URL} : {})});
   }
+  // Diagnostics never reconcile an effect. Only the exact pending original
+  // completion and a separate later original snapshot may reach the inspector.
+  function postActionObservation(entry, effectKey, operation) {
+    const pending = effectKey ? entry.effects.get(effectKey) : null;
+    if (!pending || pending.operation !== operation || !['TYPE', 'DISMISS_NOTICE'].includes(operation))
+      return null;
+    const diagnostic = (code, completionReceived = false, inspected = null) => frozenCopy({
+      code, ok: false, authorityVerified: false, readbackRequired: true,
+      currentValueVerified: false, noticeDismissedVerified: false, completionReceived,
+      observationValidated: inspected?.observationValidated === true,
+      ...(inspected?.observationValidated === true ? {facts: inspected.facts} : {})
+    });
+    try {
+      currentState(entry);
+      const complete = originalCompletion(entry, pending.record);
+      currentState(entry);
+      if (!complete) return diagnostic('JEBISEO_ORIGINAL_EFFECT_COMPLETION_REQUIRED');
+      const record = entry.snapshot, snapshot = originalCompletion(entry, record);
+      currentState(entry);
+      const after = completedTime(complete.completedAt);
+      if (!snapshot || !pending.target || after === null ||
+          record.job === pending.record.job || record.identity.id === pending.record.identity.id ||
+          record.invocationOrdinal <= pending.record.invocationOrdinal ||
+          snapshot.createdAtMs < after || snapshot.startedAtMs < after)
+        return diagnostic('JEBISEO_ORIGINAL_POST_ACTION_SNAPSHOT_REQUIRED', true);
+      const inspected = inspectJebiseoPostActionObservation({
+        operation, beforeEvidence: pending.target, afterSnapshot: snapshot, now: now()});
+      currentState(entry);
+      if (!plain(inspected) || !/^[A-Z][A-Z0-9_]{1,159}$/.test(inspected.code ?? '') ||
+          (inspected.observationValidated === true && (!plain(inspected.facts) ||
+            !Object.values(inspected.facts).every(value => typeof value === 'boolean'))))
+        return diagnostic('JEBISEO_POST_ACTION_OBSERVATION_UNAVAILABLE', true);
+      return diagnostic(inspected.code, true, inspected);
+    } catch {
+      // A closed request or changed owner cannot expose a previously valid
+      // observation. The original runtime's pending result remains unchanged.
+      return diagnostic('JEBISEO_POST_ACTION_OBSERVATION_UNAVAILABLE');
+    }
+  }
   function callbacks(entry) {
     return {
       readCurrentBinding({taskRef, deviceId, commandId, pendingEffectKey}) {
@@ -401,7 +440,12 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
         invocationOrdinal: ++nextInvocationOrdinal, live: true, called: false, target: null};
       entry.busy = true;
       return steps.run(step, async () => {
-        try {return await runtime.runStep({task: bound, operation: request.operation, args});}
+        try {
+          const response = await runtime.runStep({task: bound, operation: request.operation, args});
+          if (response.code !== 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED') return response;
+          const observation = postActionObservation(entry, response.effectKey, response.pendingOperation);
+          return observation ? Object.freeze({...response, postActionObservation: observation}) : response;
+        }
         finally {step.live = false; entry.busy = false;}
       });
     }

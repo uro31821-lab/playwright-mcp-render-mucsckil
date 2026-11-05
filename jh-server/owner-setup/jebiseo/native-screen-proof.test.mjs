@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {inspectJebiseoNativeScreen as inspect} from './native-screen-proof.mjs';
+import {inspectJebiseoNativeScreen as inspect, inspectJebiseoPostActionObservation as inspectPost}
+  from './native-screen-proof.mjs';
 
 // Synthetic native-schema fixtures. A positive toolbar row tests a conditional
 // parser contract; it is NOT evidence that the current RIGHT APK emits that row.
@@ -235,4 +236,178 @@ test('malformed, duplicate and partial protocol payloads fail without exposing s
     assert.equal(result.ok, false); assert.equal(result.authorityVerified, false);
     assert.equal(Object.hasOwn(result, 'evidence'), false);
   }
+});
+
+function postFixture(operation = 'TYPE') {
+  const original = fixture(), proof = inspect({...original, operation});
+  assert.equal(proof.ok, true);
+  const after = fixture(), later = now + 1000;
+  after.snapshot.createdAtMs = later - 900;
+  after.snapshot.startedAtMs = later - 800;
+  after.snapshot.completedAt = new Date(later - 100).toISOString();
+  after.snapshot.result.splitScreen.observedAtMs = String(later - 300);
+  changeRows(after, rows => {
+    rows[3].observedAtMs = String(later - 300);
+    rows[4].observedAtMs = String(later - 400);
+  });
+  changePage(after, p => {
+    p.revision = 'e'.repeat(64);
+    if (operation === 'TYPE') p.fields[0].filled = true;
+  });
+  return {operation, beforeEvidence: proof.evidence, afterSnapshot: after.snapshot, now: later};
+}
+function assertPostUnverified(result) {
+  assert.equal(result.ok, false);
+  assert.equal(result.authorityVerified, false);
+  assert.equal(result.readbackRequired, true);
+  assert.equal(result.currentValueVerified, false);
+  assert.equal(result.noticeDismissedVerified, false);
+}
+
+test('post TYPE accepts changed revision and filled metadata as observations without verifying any value', () => {
+  const input = postFixture(), before = structuredClone(input);
+  const result = inspectPost(input);
+  assertPostUnverified(result);
+  assert.equal(result.observationValidated, true);
+  assert.equal(result.code, 'NATIVE_POST_TYPE_VALUE_UNVERIFIED');
+  assert.equal(result.facts.targetFieldMatched, true);
+  assert.equal(result.facts.targetFieldFilled, true);
+  assert.equal(result.facts.formRevisionChanged, true);
+  assert.equal(result.facts.visibleScopeOnly, true);
+  assert.ok(Object.values(result.facts).every(value => typeof value === 'boolean'));
+  assert.deepEqual(input, before);
+  for (const value of [field, session, request, 'https://gemini.google.com/app', revision])
+    assert.equal(JSON.stringify(result).includes(value), false);
+  const empty = postFixture();
+  changePage({snapshot: empty.afterSnapshot}, p => {p.fields[0].filled = false;});
+  const stillUnverified = inspectPost(empty);
+  assertPostUnverified(stillUnverified);
+  assert.equal(stillUnverified.observationValidated, true);
+  assert.equal(stillUnverified.facts.targetFieldFilled, false);
+});
+
+test('post notice visibility and absence never establish that the original notice was dismissed', () => {
+  for (const [variant, targetVisible, labelVisible] of [
+    ['same', true, true], ['absent', false, false], ['another', false, true]
+  ]) {
+    const input = postFixture('DISMISS_NOTICE');
+    changePage({snapshot: input.afterSnapshot}, p => {
+      if (variant === 'absent') p.buttons = [];
+      if (variant === 'another') {
+        const id = 'f_' + 'a'.repeat(24);
+        p.buttons[0] = {...p.buttons[0], targetId: id,
+          activateToolArguments: carrier('form_activate', id, 'visible-only')};
+      }
+    });
+    const result = inspectPost(input);
+    assertPostUnverified(result);
+    assert.equal(result.observationValidated, true);
+    assert.equal(result.code, 'NATIVE_POST_NOTICE_STATE_UNVERIFIED');
+    assert.equal(result.facts.noticeTargetVisible, targetVisible);
+    assert.equal(result.facts.noticeExplicitLabelVisible, labelVisible);
+    assert.equal(result.facts.visibleScopeOnly, true);
+    assert.equal(JSON.stringify(result).includes(notice), false);
+    assert.equal(JSON.stringify(result).includes(session), false);
+  }
+});
+
+test('post observations reject absent addresses, changed panes and invalid or sensitive native responses', () => {
+  const cases = [
+    ['PROVIDER_ADDRESS_UNVERIFIED', input => changeRows({snapshot: input.afterSnapshot}, rows => rows.splice(4, 1))],
+    ['NATIVE_POST_SCOPE_CHANGED', input => {
+      input.afterSnapshot.result.splitScreen.workWindowId = '33';
+      changeRows({snapshot: input.afterSnapshot}, rows => {
+        rows[1].windowId = '33'; rows[2].windowId = '33';
+        rows[3].workWindowId = '33'; rows[4].windowId = '33';
+      });
+    }],
+    ['NATIVE_POST_SCOPE_CHANGED', input => {
+      input.afterSnapshot.result.splitScreen.workBounds = '510,0,1000,1000';
+      changeRows({snapshot: input.afterSnapshot}, rows => {
+        rows[1].workBounds = '510 0 1000 1000'; rows[3].workBounds = '510,0,1000,1000';
+      });
+    }],
+    ['NATIVE_POST_SCOPE_CHANGED', input => {
+      const ids = {chatDisplayId: '1', workDisplayId: '1', displayId: '1'};
+      Object.assign(input.afterSnapshot.result.splitScreen, ids);
+      changeRows({snapshot: input.afterSnapshot}, rows => {
+        Object.assign(rows[3], ids); rows[2].displayId = '1'; rows[4].displayId = '1';
+      });
+    }],
+    ['NATIVE_ORIGINAL_COMPLETION_REQUIRED', input => {input.afterSnapshot.status = 'queued';}],
+    ['NATIVE_COMPLETION_TIME_UNVERIFIED', input => {input.afterSnapshot.completedAt = new Date(input.now + 1).toISOString();}],
+    ['NATIVE_PAYLOAD_INVALID', input => {input.afterSnapshot.result.url = '{broken';}],
+    ['NATIVE_POST_JOB_TIME_UNVERIFIED', input => {delete input.afterSnapshot.startedAtMs;}],
+    ['NATIVE_POST_OBSERVATION_ORDER_UNVERIFIED', input => {
+      const stale = input.afterSnapshot.startedAtMs - 5001;
+      input.afterSnapshot.result.splitScreen.observedAtMs = String(stale);
+      changeRows({snapshot: input.afterSnapshot}, rows => {
+        rows[3].observedAtMs = String(stale); rows[4].observedAtMs = String(stale - 100);
+      });
+    }],
+    ['NATIVE_POST_OBSERVATION_ORDER_UNVERIFIED', input => {
+      const start = input.afterSnapshot.startedAtMs;
+      input.afterSnapshot.result.splitScreen.observedAtMs = String(start - 1);
+      changeRows({snapshot: input.afterSnapshot}, rows => {
+        rows[3].observedAtMs = String(start - 5001); rows[4].observedAtMs = String(start - 5101);
+      });
+    }],
+    ['NATIVE_FORM_PROTOCOL_AMBIGUOUS', input => changeRows({snapshot: input.afterSnapshot}, rows => rows.push({...rows[0]}))],
+    ['NATIVE_FORM_METADATA_UNVERIFIED', input => changePage({snapshot: input.afterSnapshot}, p => {
+      p.ok = false; p.code = 'guided_form_budget_partial';
+    })],
+    ['NATIVE_FORM_METADATA_UNVERIFIED', input => changePage({snapshot: input.afterSnapshot}, p => {delete p.fields[0].filled;})],
+    ['NATIVE_SENSITIVE_SCOPE', input => changeRows({snapshot: input.afterSnapshot}, rows => {rows[2].sensitive = 'true';})],
+    ['NATIVE_GEMINI_EDITOR_UNVERIFIED', input => changePage({snapshot: input.afterSnapshot}, p => {p.fields[0].label = 'Search history';})],
+    ['NATIVE_GEMINI_EDITOR_UNVERIFIED', input => changePage({snapshot: input.afterSnapshot}, p => {p.fields[0].labelSource = 'description';})]
+  ];
+  for (const [code, mutate] of cases) {
+    const input = postFixture(); mutate(input);
+    const result = inspectPost(input);
+    assertPostUnverified(result);
+    assert.equal(result.observationValidated, false, code);
+    assert.equal(result.code, code);
+    assert.equal(Object.hasOwn(result, 'facts'), false);
+  }
+});
+
+test('post observations cannot accept a mismatched before identity, changed issuer or older snapshot', () => {
+  for (const mutate of [
+    b => {b.schema = 'caller-proof';},
+    b => {b.operation = 'DISMISS_NOTICE';},
+    b => {b.nativeTarget.fieldId = notice;},
+    b => {b.nativeTarget.label = 'Search history';},
+    b => {b.identity.session = '99999999-8888-4777-8666-555555555555';},
+    b => {b.identity.requestId = 'a-different-request';},
+    b => {b.identity.option = 'visible-only';},
+    b => {b.issuedArguments.command_id = 'a'.repeat(32);}
+  ]) {
+    const input = postFixture();
+    input.beforeEvidence = structuredClone(input.beforeEvidence); mutate(input.beforeEvidence);
+    const result = inspectPost(input);
+    assertPostUnverified(result);
+    assert.equal(result.observationValidated, false);
+    assert.equal(result.code, 'NATIVE_POST_BEFORE_EVIDENCE_INVALID');
+  }
+  const changedIssuer = postFixture();
+  changeRows({snapshot: changedIssuer.afterSnapshot}, rows => {
+    const args = JSON.parse(rows[0].inputSelection15ToolArguments);
+    args.text = args.text.replace(session, '99999999-8888-4777-8666-555555555555');
+    rows[0].inputSelection15ToolArguments = JSON.stringify(args);
+  });
+  const issuerResult = inspectPost(changedIssuer);
+  assertPostUnverified(issuerResult);
+  assert.equal(issuerResult.observationValidated, false);
+  assert.equal(issuerResult.code, 'NATIVE_ISSUER_SESSION_CHANGED');
+  const old = postFixture();
+  old.afterSnapshot.createdAtMs = old.beforeEvidence.snapshotCompletedAtMs - 600;
+  old.afterSnapshot.startedAtMs = old.beforeEvidence.snapshotCompletedAtMs - 500;
+  old.afterSnapshot.completedAt = new Date(old.beforeEvidence.snapshotCompletedAtMs - 1).toISOString();
+  const oldResult = inspectPost(old);
+  assertPostUnverified(oldResult);
+  assert.equal(oldResult.observationValidated, false);
+  assert.equal(oldResult.code, 'NATIVE_POST_OBSERVATION_ORDER_UNVERIFIED');
+  assert.equal(inspectPost({...postFixture(), fieldId: field}).code, 'NATIVE_POST_ARGUMENTS_INVALID');
+  // A perfectly consistent synthetic fixture is still not authenticated proof.
+  assert.equal(inspectPost(postFixture()).authorityVerified, false);
 });

@@ -34,8 +34,8 @@ function pair(at) {
     workBounds: '500,0,1000,1000', chatDisplayId: '0', workDisplayId: '0', displayId: '0',
     displayVerified: 'true', observedAtMs: String(at)};
 }
-function snapshotResult(at, toolbar) {
-  const rows = [{package: protocol, guidedForm: JSON.stringify(page()),
+function snapshotResult(at, toolbar, form = page()) {
+  const rows = [{package: protocol, guidedForm: JSON.stringify(form),
     inputSelection15ToolArguments: JSON.stringify(carrier('form15_discover'))},
     {kind: 'screen_scope', package: 'com.android.chrome', windowId: '22',
       workBounds: '500 0 1000 1000', chatBounds: '0 0 500 1000', placement: 'RIGHT',
@@ -64,7 +64,8 @@ function fixture() {
     runtimeId: 'e'.repeat(64), secureBridgeVersion: 56, durableHooks: hooks,
     focus: {state: 'observed', present: true, active: true, currentCommandMatches: true, remainingMs: 10000}};
   const options = {toolbar: true, beforeParse: null, beforeReturn: null, beforeState: null,
-    queueDiscover: false, marker: true, captureSnapshot: true, hold: null};
+    queueDiscover: false, queueType: false, snapshotPage: null,
+    marker: true, captureSnapshot: true, hold: null};
   const current = () => request.getStore()?.live ? request.getStore().cap : null;
   const schemas = {
     life_web_navigate: z.object({url: z.string(), command_id: z.string()}),
@@ -76,7 +77,8 @@ function fixture() {
     job.startedAtMs ??= clock;
     clock += 2;
     let result;
-    if (job.type === 'agent_snapshot') result = snapshotResult(clock - 1, options.toolbar);
+    if (job.type === 'agent_snapshot') result = snapshotResult(clock - 1, options.toolbar,
+      options.snapshotPage?.() ?? page());
     else if (job.type === 'open_url') result = {ok: true, url: job.url, rightAddressConfirmed: true,
       splitScreenRequired: true, splitScreen: pair(clock - 1), pageContentVerified: false};
     else if (job.text.includes('|form15_discover|')) result = {ok: true, url: JSON.stringify({...page(),
@@ -115,7 +117,9 @@ function fixture() {
           if (type === 'agent_snapshot' && options.captureSnapshot) scopes.set(job, Object.freeze({
             commandId: state.commandId, deviceId: state.deviceId, secureSessionId: state.secureSessionId,
             runtimeId: state.runtimeId, requestScope: cap}));
-          if (!(options.queueDiscover && job.text?.includes('|form15_discover|'))) complete(job);
+          const queued = (options.queueDiscover && job.text?.includes('|form15_discover|')) ||
+            (options.queueType && job.text?.includes('|form15_type|'));
+          if (!queued) complete(job);
         }
         let raw = reply(job ? {...safeView(job), ...(job.type === 'open_url' ? {jobId: job.id} : {})} : {error: 'not found'});
         if (options.hold) await options.hold;
@@ -319,4 +323,134 @@ test('a current command change allows only original read-only receipt recovery a
   assert.equal(f.calls.at(-1).args.command_id, commandId);
   assert.equal((await run(f, rt, 'OPEN')).toolInvoked, false);
   assert.equal(f.calls.filter(call => call.name === 'life_web_navigate').length, 1);
+});
+
+function assertPostDiagnostic(result, operation, code, completionReceived, observationValidated) {
+  assert.equal(result.code, 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED');
+  assert.equal(result.pendingOperation, operation);
+  assert.equal(result.toolInvoked, false);
+  assert.equal(result.readbackRequired, true);
+  const observed = result.postActionObservation;
+  assert.equal(observed.code, code);
+  assert.equal(observed.completionReceived, completionReceived);
+  assert.equal(observed.observationValidated, observationValidated);
+  assert.equal(observed.readbackRequired, true);
+  for (const key of ['ok', 'authorityVerified', 'currentValueVerified', 'noticeDismissedVerified'])
+    assert.equal(observed[key], false, key);
+  return observed;
+}
+
+test('post TYPE diagnostics report a filled field without settling the original pending effect', async () => {
+  const f = fixture(), rt = await make(f);
+  await discovered(f, rt);
+  await run(f, rt, 'FORM_SNAPSHOT');
+  const typed = await run(f, rt, 'TYPE', typeArgs());
+  assert.equal(typed.status, 'RETURNED');
+  const original = [...f.jobs.values()].at(-1);
+  assert.equal(JSON.parse(original.result.url).valueVerified, true);
+  f.options.snapshotPage = () => ({...page(), revision: 'f'.repeat(64),
+    fields: [{...editor(), filled: true}]});
+  await run(f, rt, 'FORM_SNAPSHOT');
+  const before = f.calls.length;
+  const first = await run(f, rt, 'TYPE', typeArgs());
+  const observed = assertPostDiagnostic(first, 'TYPE', 'NATIVE_POST_TYPE_VALUE_UNVERIFIED', true, true);
+  assert.equal(observed.facts.targetFieldFilled, true);
+  assert.equal(observed.facts.formRevisionChanged, true);
+  assert.equal(observed.facts.visibleScopeOnly, true);
+  assert.ok(Object.values(observed.facts).every(value => typeof value === 'boolean'));
+  const serialized = JSON.stringify(observed);
+  for (const privateValue of [original.id, deviceId, commandId, f.state.secureSessionId,
+    field, issuer, prompt, hash(prompt), 'gemini.google.com'])
+    assert.equal(serialized.includes(privateValue), false, privateValue);
+  assert.equal(await make(f), rt);
+  const again = await run(f, rt, 'TYPE', typeArgs());
+  assertPostDiagnostic(again, 'TYPE', 'NATIVE_POST_TYPE_VALUE_UNVERIFIED', true, true);
+  assert.equal(again.effectKey, first.effectKey);
+  assert.equal(f.calls.length, before);
+  assert.deepEqual(f.hookMutations, []);
+});
+
+test('post DISMISS diagnostics keep absent visible controls separate from verified notice dismissal', async () => {
+  const f = fixture(), rt = await make(f);
+  await run(f, rt, 'FORM_SNAPSHOT');
+  const dismissed = await run(f, rt, 'DISMISS_NOTICE', {field_id: notice});
+  assert.equal(dismissed.status, 'RETURNED');
+  f.options.snapshotPage = () => ({...page(), revision: 'f'.repeat(64), buttons: []});
+  await run(f, rt, 'FORM_SNAPSHOT');
+  const before = f.calls.length;
+  const result = await run(f, rt, 'OPEN');
+  const observed = assertPostDiagnostic(result, 'DISMISS_NOTICE',
+    'NATIVE_POST_NOTICE_STATE_UNVERIFIED', true, true);
+  assert.equal(observed.facts.noticeTargetVisible, false);
+  assert.equal(observed.facts.noticeExplicitLabelVisible, false);
+  assert.equal(observed.facts.visibleScopeOnly, true);
+  assert.equal((await run(f, rt, 'DISMISS_NOTICE', {field_id: notice})).effectKey, result.effectKey);
+  assert.equal(f.calls.length, before);
+  assert.deepEqual(f.hookMutations, []);
+});
+
+test('post diagnostics wait for the original completion and reject a snapshot made before that completion', async () => {
+  const f = fixture(), rt = await make(f);
+  await discovered(f, rt);
+  await run(f, rt, 'FORM_SNAPSHOT');
+  f.options.queueType = true;
+  assert.equal((await run(f, rt, 'TYPE', typeArgs())).status, 'PENDING');
+  const original = [...f.jobs.values()].at(-1);
+  await run(f, rt, 'FORM_SNAPSHOT');
+  const before = f.calls.length;
+  assertPostDiagnostic(await run(f, rt, 'TYPE', typeArgs()), 'TYPE',
+    'JEBISEO_ORIGINAL_EFFECT_COMPLETION_REQUIRED', false, false);
+  assert.equal(f.calls.length, before);
+  f.complete(original);
+  await run(f, rt, 'JOB_STATUS', {job_id: original.id});
+  assertPostDiagnostic(await run(f, rt, 'TYPE', typeArgs()), 'TYPE',
+    'JEBISEO_ORIGINAL_POST_ACTION_SNAPSHOT_REQUIRED', true, false);
+  // A status read must not promote the earlier snapshot's private invocation.
+  assert.equal(f.calls.length, before + 1);
+  await run(f, rt, 'FORM_SNAPSHOT');
+  assertPostDiagnostic(await run(f, rt, 'TYPE', typeArgs()), 'TYPE',
+    'NATIVE_POST_TYPE_VALUE_UNVERIFIED', true, true);
+  assert.equal(f.calls.length, before + 2);
+  assert.deepEqual(f.hookMutations, []);
+});
+
+test('post diagnostics retain original job, marker, snapshot scope and current owner checks', async () => {
+  const cases = [
+    {change(f, original) {original.stage26CompletionDigest56 = '0'.repeat(64);},
+      code: 'JEBISEO_ORIGINAL_EFFECT_COMPLETION_REQUIRED', completion: false},
+    {change(f, original) {f.jobs.set(original.id, {...original});},
+      code: 'JEBISEO_ORIGINAL_EFFECT_COMPLETION_REQUIRED', completion: false},
+    {change(f, original, after) {after.stage26CompletionDigest56 = '0'.repeat(64);},
+      code: 'JEBISEO_ORIGINAL_POST_ACTION_SNAPSHOT_REQUIRED', completion: true},
+    {change(f, original, after) {f.scopes.set(after, Object.freeze({...f.scopes.get(after)}));},
+      code: 'JEBISEO_ORIGINAL_POST_ACTION_SNAPSHOT_REQUIRED', completion: true},
+    {change(f) {f.state.secureSessionId = 'rotated-post-action-session';}, code: null},
+    {change(f) {
+      let reads = 0;
+      f.options.beforeState = () => {
+        if (++reads === 2) f.state.secureSessionId = 'rotated-during-diagnostic';
+      };
+    }, code: 'JEBISEO_POST_ACTION_OBSERVATION_UNAVAILABLE', completion: false}
+  ];
+  for (const example of cases) {
+    const f = fixture(), rt = await make(f);
+    await discovered(f, rt);
+    await run(f, rt, 'FORM_SNAPSHOT');
+    assert.equal((await run(f, rt, 'TYPE', typeArgs())).status, 'RETURNED');
+    const original = [...f.jobs.values()].at(-1);
+    await run(f, rt, 'FORM_SNAPSHOT');
+    const after = [...f.jobs.values()].at(-1);
+    example.change(f, original, after);
+    const before = f.calls.length;
+    const result = await run(f, rt, 'TYPE', typeArgs());
+    if (example.code) {
+      const observed = assertPostDiagnostic(result, 'TYPE', example.code, example.completion, false);
+      assert.equal(Object.hasOwn(observed, 'facts'), false);
+    } else {
+      assert.equal(result.toolInvoked, false);
+      assert.equal(Object.hasOwn(result, 'postActionObservation'), false);
+    }
+    assert.equal(f.calls.length, before);
+    assert.deepEqual(f.hookMutations, []);
+  }
 });

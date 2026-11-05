@@ -9,7 +9,7 @@
  * Returned evidence/issued arguments are private host data, never public logs.
  */
 import {inspectSplitEvidence} from '../deployment/split-screen-evidence.mjs';
-import {resolveJebiseoGuidedArguments} from './guided-form.mjs';
+import {resolveJebiseoGuidedArguments, prepareJebiseoGuidedCall} from './guided-form.mjs';
 
 const CHROME = 'com.android.chrome', CHAT = 'com.openai.chatgpt';
 const PROTOCOL = 'com.koreanlifehub.bridge.protocol', GEMINI = 'gemini.google.com';
@@ -256,4 +256,134 @@ export function inspectJebiseoNativeScreen(input = {}) {
       discoveryCompletedAtMs: selected.discoveryCompletedAtMs} : {})});
   return Object.freeze({ok: true, code: 'NATIVE_SCREEN_PROOF_CANDIDATE', authorityVerified: false,
     diagnostics: Object.freeze({...diagnostics}), evidence});
+}
+
+/**
+ * Structural post-action observation only. The original host authenticates the
+ * private before/after records and proves an independent job after the effect.
+ * This parser does not prove that TYPE wrote the requested value or that a
+ * notice was dismissed. Original filled metadata and a visible button list
+ * cannot settle an effect; no raw values, identifiers or addresses are returned.
+ */
+export function inspectJebiseoPostActionObservation(input = {}) {
+  const stop = (code, observationValidated = false, facts = null) => Object.freeze({
+    ok: false, code, authorityVerified: false, readbackRequired: true,
+    currentValueVerified: false, noticeDismissedVerified: false, observationValidated,
+    ...(facts === null ? {} : {facts: Object.freeze(facts)})
+  });
+  if (!plain(input) || Object.keys(input).some(key =>
+    !['operation', 'beforeEvidence', 'afterSnapshot', 'now'].includes(key)))
+    return stop('NATIVE_POST_ARGUMENTS_INVALID');
+  const {operation, beforeEvidence: before, afterSnapshot, now = Date.now()} = input;
+  if (!['TYPE', 'DISMISS_NOTICE'].includes(operation) || !finiteTime(now))
+    return stop('NATIVE_POST_ARGUMENTS_INVALID');
+
+  // Validate the existing candidate shape and its exact issued-carrier join.
+  // This is structural consistency, never proof of who supplied the candidate.
+  const numericId = value => Number.isSafeInteger(value) && value >= 0 && value <= 9999999999;
+  const bounds = value => Array.isArray(value) && value.length === 4 && value.every(Number.isSafeInteger)
+    ? rect(value.join(','), ',') : null;
+  if (!plain(before) || before.schema !== 'jh.jebiseo-native-screen-candidate.v1' ||
+      before.operation !== operation || before.provider !== 'GEMINI' || before.workPackage !== CHROME ||
+      before.origin !== GEMINI || !numericId(before.windowId) || !numericId(before.displayId) ||
+      !numericId(before.chatWindowId) || before.chatWindowId === before.windowId ||
+      !bounds(before.workBounds) || !bounds(before.chatBounds) ||
+      typeof before.formRevision !== 'string' || !HEX64.test(before.formRevision) ||
+      typeof before.observedUrl !== 'string' || before.observedUrl.length > 2048 ||
+      !finiteTime(before.snapshotCompletedAtMs) || before.snapshotCompletedAtMs > now ||
+      !finiteTime(before.observedAtMs) || !finiteTime(before.addressObservedAtMs) ||
+      before.observedAtMs > before.snapshotCompletedAtMs + PHONE_CLOCK_SKEW_MS ||
+      before.addressObservedAtMs > before.observedAtMs ||
+      !plain(before.nativeTarget) || !plain(before.identity) || !plain(before.issuedArguments))
+    return stop('NATIVE_POST_BEFORE_EVIDENCE_INVALID');
+  const target = before.nativeTarget;
+  const prepared = prepareJebiseoGuidedCall({operation, issuedArguments: before.issuedArguments,
+    // Validate TYPE's original placeholder without inventing/returning a prompt.
+    ...(operation === 'TYPE' ? {text: before.issuedArguments.value} : {})});
+  const identityKeys = ['session', 'requestId', 'operation', 'fieldId', 'option'];
+  if (!prepared.ok || Object.keys(before.identity).length !== identityKeys.length ||
+      identityKeys.some(key => before.identity[key] !== prepared.identity[key]) ||
+      typeof target.fieldId !== 'string' || !FIELD.test(target.fieldId) ||
+      target.fieldId !== prepared.identity.fieldId)
+    return stop('NATIVE_POST_BEFORE_EVIDENCE_INVALID');
+  if (operation === 'TYPE' ? target.purpose !== 'GEMINI_PROMPT' || target.kind !== 'TEXT' ||
+      !PROMPT_LABELS.has(target.label) || target.enabled !== true || target.ambiguous !== false ||
+      !LABEL_SOURCES.has(target.labelSource) :
+      target.purpose !== 'DISMISS_NOTICE' || target.label !== '주의사항 닫기' || target.approvalRequired !== false)
+    return stop('NATIVE_POST_BEFORE_EVIDENCE_INVALID');
+
+  const read = readJob(afterSnapshot, 'agent_snapshot', now);
+  if (!read.ok) return stop(read.code);
+  const startedAtMs = afterSnapshot.startedAtMs;
+  if (!finiteTime(startedAtMs) || startedAtMs > read.completedAtMs)
+    return stop('NATIVE_POST_JOB_TIME_UNVERIFIED');
+  const rows = read.payload;
+  if (!Array.isArray(rows) || rows.length < 1 || rows.length > MAX_ROWS || rows.some(row => !plain(row)))
+    return stop('NATIVE_SNAPSHOT_ROWS_INVALID');
+  const scope = inspectScope(afterSnapshot, rows, now);
+  if (!scope.ok) return stop(scope.code);
+  if (scope.observedAtMs > read.completedAtMs + PHONE_CLOCK_SKEW_MS ||
+      scope.rowObservedAtMs > read.completedAtMs + PHONE_CLOCK_SKEW_MS)
+    return stop('NATIVE_COMPLETION_ORDER_UNVERIFIED');
+  if (scope.windowId !== before.windowId || scope.displayId !== before.displayId ||
+      scope.chatWindowId !== before.chatWindowId ||
+      !sameRect(scope.workBounds, bounds(before.workBounds)) ||
+      !sameRect(scope.chatBounds, bounds(before.chatBounds)))
+    return stop('NATIVE_POST_SCOPE_CHANGED');
+  // A new server job cannot launder stale native rows. The existing five-
+  // second phone/server tolerance is the only allowance; host invocation and
+  // effect-completion ordering remain independently required by the binding.
+  if (read.completedAtMs < before.snapshotCompletedAtMs ||
+      scope.observedAtMs + PHONE_CLOCK_SKEW_MS < startedAtMs ||
+      scope.rowObservedAtMs + PHONE_CLOCK_SKEW_MS < startedAtMs ||
+      scope.observedAtMs + PHONE_CLOCK_SKEW_MS < before.observedAtMs ||
+      scope.rowObservedAtMs + PHONE_CLOCK_SKEW_MS < before.observedAtMs)
+    return stop('NATIVE_POST_OBSERVATION_ORDER_UNVERIFIED');
+  const hints = rows.filter(row => row.package === PROTOCOL && Object.hasOwn(row, 'guidedForm'));
+  if (hints.length !== 1) return stop('NATIVE_FORM_PROTOCOL_AMBIGUOUS');
+  const page = json(hints[0].guidedForm);
+  if (!formPage(page, 'VISIBLE_ACCESSIBILITY_ONLY')) return stop('NATIVE_FORM_METADATA_UNVERIFIED');
+  if (page.hasSensitiveFields !== false || page.fields.some(field => field.kind === 'SENSITIVE') ||
+      afterSnapshot.result.restricted === true || afterSnapshot.result.locked === true ||
+      afterSnapshot.result.secureContext === true ||
+      rows.some(row => [row.sensitive, row.restricted, row.locked, row.secureContext]
+        .some(value => value === true || value === 'true')))
+    return stop('NATIVE_SENSITIVE_SCOPE');
+  if (page.siteErrors.length) return stop('NATIVE_FORM_ERRORS_UNRESOLVED');
+  const address = addressEvidence(rows, scope, now);
+  if (!address.ok) return stop(address.code);
+  if (page.origin !== before.origin) return stop('NATIVE_FORM_ORIGIN_MISMATCH');
+  if (address.observedUrl !== before.observedUrl) return stop('NATIVE_POST_DOCUMENT_CHANGED');
+  if (address.observedAtMs + PHONE_CLOCK_SKEW_MS < startedAtMs ||
+      address.observedAtMs + PHONE_CLOCK_SKEW_MS < before.addressObservedAtMs)
+    return stop('NATIVE_POST_OBSERVATION_ORDER_UNVERIFIED');
+  const issuer = resolveJebiseoGuidedArguments({operation: 'DISCOVER_INPUT', snapshot: afterSnapshot});
+  if (!issuer.ok) return stop(issuer.code);
+  if (issuer.identity.session !== before.identity.session) return stop('NATIVE_ISSUER_SESSION_CHANGED');
+  const facts = {scopeMatched: true, providerAddressMatched: true, issuerSessionMatched: true,
+    originMatched: true, visibleScopeOnly: true, formRevisionChanged: page.revision !== before.formRevision};
+
+  if (operation === 'TYPE') {
+    const fields = page.fields.filter(field => field.fieldId === target.fieldId);
+    if (fields.length !== 1) return stop('NATIVE_GEMINI_EDITOR_UNVERIFIED');
+    const field = fields[0];
+    if (field.label !== target.label || field.kind !== target.kind || field.enabled !== true ||
+        field.labelSource !== target.labelSource || field.ambiguous !== false ||
+        field.error !== '' || !LABEL_SOURCES.has(field.labelSource))
+      return stop('NATIVE_GEMINI_EDITOR_UNVERIFIED');
+    // Do not call the pre-action TYPE selector: filled may now be true and the
+    // page revision may change. Neither fact establishes the requested value.
+    return stop('NATIVE_POST_TYPE_VALUE_UNVERIFIED', true,
+      {...facts, targetFieldMatched: true, targetFieldFilled: field.filled});
+  }
+  const exact = page.buttons.find(button => button.targetId === target.fieldId);
+  const labelled = page.buttons.filter(button => button.label === target.label);
+  if (labelled.length > 1) return stop('NATIVE_NOTICE_TARGET_AMBIGUOUS');
+  if (page.fields.some(field => field.fieldId === target.fieldId) ||
+      (exact && (exact.label !== target.label || exact.approvalRequired !== false ||
+        Object.hasOwn(exact, 'prepareToolArguments'))))
+    return stop('NATIVE_NOTICE_PURPOSE_UNVERIFIED');
+  // Absence is limited to this visible list. It is not a closed-dialog state.
+  return stop('NATIVE_POST_NOTICE_STATE_UNVERIFIED', true,
+    {...facts, noticeTargetVisible: exact !== undefined, noticeExplicitLabelVisible: labelled.length === 1});
 }

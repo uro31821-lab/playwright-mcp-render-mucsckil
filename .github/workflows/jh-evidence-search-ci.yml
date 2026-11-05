@@ -1,0 +1,109 @@
+name: JH Evidence Search isolated regression
+on:
+  pull_request:
+    paths:
+      - 'jh-server/owner-setup/evidence/perplexity-search*'
+      - 'jh-server/owner-setup/evidence/perplexity-search-composition*'
+      - '.github/workflows/jh-evidence-search-ci.yml'
+  workflow_dispatch:
+# Pure mocked regression only. Never copy cancellation to deployment/device jobs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated-search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        id: checkout
+      - uses: actions/setup-node@v4
+        id: runtime
+        with:
+          node-version: '22'
+      - name: Standard Search API isolated regression (mocked, no API key)
+        id: regression
+        # Both original test files run once. No npm/SDK/media setup is needed.
+        run: node --test --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search.test.mjs jh-server/owner-setup/evidence/perplexity-search-composition.test.mjs
+      - name: Check no-key smoke script syntax and safe failure
+        run: |
+          bash -n jh-server/owner-setup/evidence/smoke-search.sh
+          set +e
+          output=$(env -u PERPLEXITY_API_KEY bash jh-server/owner-setup/evidence/smoke-search.sh)
+          status=$?
+          set -e
+          test "$status" -eq 2
+          case "$output" in *PERPLEXITY_API_KEY_NOT_AVAILABLE*) ;; *) exit 1 ;; esac
+          echo SMOKE_NO_KEY_NO_REQUEST
+      - name: Summarize exact input and gate outcomes
+        if: ${{ always() }}
+        env:
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_HEAD: ${{ github.event.pull_request.base.sha || '' }}
+          CHECKOUT_RESULT: ${{ steps.checkout.outcome }}
+          RUNTIME_RESULT: ${{ steps.runtime.outcome }}
+          REGRESSION_RESULT: ${{ steps.regression.outcome }}
+        run: |
+          python3 - <<'PY_SUMMARY'
+          import json, os, subprocess
+          checkout = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True,
+                                    text=True, check=False)
+          result = {
+              'scope': 'evidence_search_isolated_mock_regression',
+              'run_id': os.environ.get('GITHUB_RUN_ID'),
+              'attempt': os.environ.get('GITHUB_RUN_ATTEMPT'),
+              'event': os.environ.get('GITHUB_EVENT_NAME'),
+              'source_head': os.environ.get('SOURCE_HEAD'),
+              'base_head': os.environ.get('BASE_HEAD') or None,
+              'checkout_sha': checkout.stdout.strip() if checkout.returncode == 0 else None,
+              'gates': {name: os.environ.get(name.upper() + '_RESULT') or 'not_run'
+                        for name in ('checkout', 'runtime', 'regression')},
+              'test_files': [
+                  'jh-server/owner-setup/evidence/perplexity-search.test.mjs',
+                  'jh-server/owner-setup/evidence/perplexity-search-composition.test.mjs',
+              ],
+          }
+          # Evidence only: failed/skipped/not_run remain distinct. This never grants a pass.
+          print('JH_CI_SUMMARY ' + json.dumps(result, sort_keys=True))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as out:
+              out.write('## JH Evidence CI checkpoint\n\n```json\n')
+              out.write(json.dumps(result, indent=2, sort_keys=True))
+              out.write('\n```\n')
+          PY_SUMMARY
+
+  pinned-source-mcp:
+    needs: isolated-search
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Existing JH dependencies only, no install scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Current Secure56 generated host + real MCP protocol + synthetic Search
+        run: |
+          node --check jh-server/owner-setup/evidence/perplexity-search-current-host.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search-current-host.test.mjs
+          node --check jh-server/owner-setup/evidence/perplexity-search-real-owner-catalog.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search-real-owner-catalog.test.mjs
+      - name: No provider secrets, live deployment or Android execution
+        run: |
+          test -z "${RENDER_SERVICE_ID:-}"
+          test -z "${PERPLEXITY_API_KEY:-}"
+          git diff --exit-code HEAD -- jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs jh-server/owner-setup/deployment/published-host-router.mjs
+          echo JH_EVIDENCE_AUTHENTICATED_HTTP_CATALOG_REVIEW_ONLY

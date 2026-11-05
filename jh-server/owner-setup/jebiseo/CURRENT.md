@@ -1,6 +1,6 @@
 # 제비서 — Stage72 기준 개발 체크포인트
 
-갱신일: 2026-11-05. 사용자 지시: Stage72 재개 이후 **다음 진행**.
+갱신일: 2026-11-05. 사용자 지시: Stage72 재개 이후 **계속 진행**.
 
 ## 현재 기준
 
@@ -17,6 +17,8 @@
 PR 반영 직전 최신 main `197319f91866351514b95f92e27973c62d46d0ff`도 소스에 보존 병합했다. Stage72 이후 추가된 파일은 Stage73/74의 별도 설치 전달물 기록·정적 검사·CI 3개뿐이며 서버 코드와 기존 보호 기준은 같았다. 이 기록의 설치 안내를 이번 제비서 작업의 설치 지시로 채택하지 않는다. 이 작업의 기기 기준은 위 Stage62 FIX3 유지 조건이다.
 
 후속 개발 중 [PR #165](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/165)가 병합되어 main이 `e7c6fc94776ebbf8392377624c41c95f0c90fb8a`로 이동했다. Stage73 실패·대체 기록과 Stage75 TripLocation FIX1 patch 기록·검사·CI, 총 6파일 변경을 그대로 보존 병합했다. 제비서 서버·원 인증 소스의 변경은 없었다. 별도 전달물의 설치 안내는 이 작업의 설치 승인이나 현재 APK 변경으로 해석하지 않는다.
+
+최종 반영 직전 main은 `1d9922d8f507522e9cba25c76e7ca85d2bd49374`로 이동했다. Stage76의 별도 TripLocation 완료 기록·검사와 evidence Search 모듈·등록·검사 등 14파일을 main의 원 blob 그대로 보존 병합했다. 기존 composition의 Search 등록과 정확한 blob·역변환 검사도 이미 main에 병합된 원문 그대로다. 제비서 검사를 통과시키려고 보호 원본·pin을 새로 수정하지 않았다. 이 별도 기능 기록을 제비서의 새 API 사용·기기 설치·운영 배포 지시로 해석하지 않는다.
 
 ## 목표와 세 기능
 
@@ -58,6 +60,18 @@ PR 반영 직전 최신 main `197319f91866351514b95f92e27973c62d46d0ff`도 소�
 - 같은 task의 facade/runtime과 pending 기록을 재사용한다. 새 객체나 다른 taskRef를 만들어 같은 원 명령의 미확정 효과를 우회하지 못한다. 요청 종료·연결 중단·명령 또는 세션 변경 후에는 이전 capability로 후속 호출하지 않는다.
 - 원 학습 wrapper의 비동기 대기 뒤에도 실행 범위가 유지돼야 한다. 원 작업을 큐에 넣기 직전 현재 요청·기기·명령·세션·focus를 다시 대조한다. 원 서명·작업 내용·durable 예약은 변경하지 않으며 candidate 호출이 아닌 기존 작업에는 이 확인을 적용하지 않는다.
 
+### 입력·닫기 이후의 별도 화면 관찰
+
+미확정 TYPE 또는 DISMISS_NOTICE 때문에 다음 효과가 `JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED`로 막힌 경우에만 `postActionObservation` 진단을 덧붙인다. 현재 요청의 private effectKey로 원 pending 작업을 찾으며 다른 작업의 완료 결과를 가져오지 않는다.
+
+원 완료는 기존 private job 객체·명령·기기·세션·Stage26 기록으로 확인한다. 후속 snapshot은 다른 원 job이며 호출 순서가 뒤에 있어야 하고, 생성·시작 시각도 원 효과 완료 이후여야 한다. 현재 인증된 요청·기기·명령·세션이 바뀌면 이전 관찰을 재사용하지 않는다.
+
+순수 `inspectJebiseoPostActionObservation`은 같은 RIGHT 창·display·GPT 창·배치 범위·현재 Gemini 주소·원 발급 세션·관찰 시각·민감 상태를 다시 검사한다. TYPE 이후에는 `filled:true`와 revision 변경이 정상적으로 생길 수 있으므로 입력 전의 빈칸·동일 revision 조건을 재사용하지 않는다. 원 대상 필드와 metadata를 대조하며 첫 번째 입력칸으로 대체하지 않는다.
+
+구조가 맞는 후속 관찰도 TYPE은 `NATIVE_POST_TYPE_VALUE_UNVERIFIED`, 안내 닫기는 `NATIVE_POST_NOTICE_STATE_UNVERIFIED`로 반환한다. 글자가 있다는 metadata는 정확한 요청 문장 일치가 아니고, visible-only 목록에서 버튼이 사라진 것은 안내창이 닫혔다는 증거가 아니다. 진단은 제한된 boolean만 반환하며 질문 원문·URL·필드·세션 식별자를 포함하지 않는다.
+
+`observationValidated:true`는 위 구조 비교를 통과했다는 진단일 뿐이다. `ok`, `authorityVerified`, `currentValueVerified`, `noticeDismissedVerified`는 항상 false이고 `readbackRequired:true`를 유지한다. 기존 `readback`·pending·예약·후속 효과 허용은 변경하지 않는다. 완료가 없거나 독립 후속 snapshot이 없거나 현재 주소가 없으면 각각 그 부족 이유만 반환한다.
+
 ### 현재 주소 및 사후 결과의 실제 한계
 
 보존 Stage62 Android 원문에서 신뢰된 `browser_address_readback / ANDROID_ACCESSIBILITY_TOOLBAR` row는 **작업창 LEFT 경로**에서만 확인됐다. 현재 요구한 GPT LEFT / Chrome RIGHT에서 이 row가 나온다는 근거는 없다. 보존 소스와 현재 설치 APK의 바이트 일치를 이번 개발에서 새로 확인한 것은 아니다.
@@ -79,8 +93,9 @@ OPEN은 기존 `describeOpenCompletion`으로 그 작업의 완료 시점 주소
 
 ## 검사
 
-보호 원본 선행 게이트: **10 passed / 0 failed / 0 skipped**.
-이번 원본 host·native 관찰 후보를 포함한 최종 로컬 통합 검사: **298 passed / 0 failed / 0 skipped**. 실제 최종 생성 서버에 overlay를 적용·원상 복원하고 구문과 catalog 보존도 확인했다. 후속 main 보존 영향 범위인 Stage73·Stage75 검사 **8개 모두 통과**했다.
+이번 사후 관찰 진단 변경은 기존 GitHub CI에서 검사하며, 최종 head·tree·실행 번호·실제 pass/fail 수는 [Draft PR #145](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/145)에 함께 기록한다. 로컬 실행 환경이 가용하지 않아 이번 추가 변경의 로컬 테스트 통과를 주장하지 않는다.
+
+직전 검증 후보 `53a52ee38136daf6a03ccd80d0f7905da0347d2f`의 GitHub CI 7개는 모두 성공했다. [원 실행 #42032979279](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42032979279) 로그에서 보호 원본 **10 passed / 0 failed / 0 skipped**, 통합 **298 passed / 0 failed / 0 skipped**를 확인했다. 이 수치는 이번 추가 변경 전의 기록이다. 실제 최종 생성 서버 overlay 적용·복원과 catalog 보존도 그 검사 범위에 포함됐다. 이전 로컬의 main 보존 영향 범위인 Stage73·Stage75 검사 **8개 통과** 기록은 별도로 유지한다.
 
 직전 후보 `e2827d2f9e4bfa5a9364873d5b8c02e0cee40bbc`의 로컬 통합 검사: **262 passed / 0 failed / 0 skipped**. 해당 후보의 GitHub CI 7개도 성공했다.
 두 의존성 경로는 package.json과 lockfile이 같은 기존 설치를 재사용했다.
