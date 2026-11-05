@@ -1,0 +1,28 @@
+name: JH Stage67 dual Android and Playwright Mobile implementations
+on:
+  push:
+    branches: [feat/stage67-dual-engine-manual-recovery-20261105]
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths: ['jh-mobile-dual-engine/stage67/**','.github/workflows/jh-stage67-dual-engine.yml']
+permissions: {contents: read}
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage67/stage67-dual-engine.test.mjs
+  playwright-dom:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: node jh-mobile-dual-engine/stage67/playwright-mobile/dom-fixture-e2e.mjs
+      - run: node jh-mobile-dual-engine/stage67/playwright-mobile/provider-probe.mjs
