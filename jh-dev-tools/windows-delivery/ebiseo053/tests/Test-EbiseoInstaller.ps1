@@ -17,6 +17,7 @@ function New-Fixture([string]$Name) {
     $release=Get-Content -LiteralPath (Join-Path $KitRoot 'data\RELEASE.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $release.status='VERIFIED_PREBUILT_UNSIGNED_CANDIDATE'
     $archive=Join-Path $root 'data\JH-Ebiseo-0.5.3-unsigned.apk'
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip=[IO.Compression.ZipFile]::Open($archive,[IO.Compression.ZipArchiveMode]::Create)
     try {
@@ -154,7 +155,9 @@ function Invoke-JhNative([string]$Exe,[string[]]$Arguments) {
 function Run-Fixture([string]$Mode,[string]$RunId=([guid]::NewGuid().ToString('N'))) {
     $script:mode=$Mode
     $handoff=Join-Path $script:fixture.Root ('handoff-'+$RunId+'.json')
-    return (Invoke-JhPrebuiltInstall -Root $script:fixture.Root -RunId $RunId -Handoff $handoff -PinnedReleaseSha $script:fixture.ManifestSha)
+    $outcome=Invoke-JhPrebuiltInstall -Root $script:fixture.Root -RunId $RunId -Handoff $handoff -PinnedReleaseSha $script:fixture.ManifestSha
+    Write-Host ('SYNTHETIC_RESULT: mode='+$Mode+' status='+$outcome.status+' stage='+$outcome.stage+' reason='+$outcome.reason)
+    return $outcome
 }
 function Reset-Fixture([string]$Name) {
     $script:fixture=New-Fixture $Name;$script:installCalls=0;$script:signCalls=0;$script:installed=$false;$script:approvalPassed=$false

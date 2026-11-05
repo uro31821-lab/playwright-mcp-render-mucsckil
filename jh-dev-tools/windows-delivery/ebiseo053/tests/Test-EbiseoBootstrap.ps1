@@ -44,7 +44,7 @@ public static class JhEbiseoBootstrapStub {
 Add-Type -TypeDefinition $stubSource -Language CSharp -OutputAssembly $stubPath -OutputType ConsoleApplication
 $original=(Get-Content -LiteralPath (Join-Path $KitRoot '실행.cmd') -Raw -Encoding ASCII)
 $needle='set "JH_PS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"'
-if (($original.Split(@($needle),[StringSplitOptions]::None)).Count -ne 2) { throw 'Expected exactly one test-copy process substitution' }
+if (($original.Split([string[]]@($needle),[StringSplitOptions]::None)).Count -ne 2) { throw 'Expected exactly one test-copy process substitution' }
 $oldScenario=$env:JH_BOOTSTRAP_SYNTHETIC_CASE
 $oldTemp=$env:TEMP
 $passed=0;$failed=0;$cases=New-Object 'System.Collections.Generic.List[object]'
