@@ -101,7 +101,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -z "$(git status --porcelain=v1)"
+          git status --porcelain=v1 | tee /tmp/stage63-worktree-status.log
+          test ! -s /tmp/stage63-worktree-status.log
 
       - name: Upload final evidence
         if: always()
@@ -111,5 +112,6 @@ jobs:
           path: |
             /tmp/stage63-source-audit.log
             /tmp/stage63-functional.log
+            /tmp/stage63-worktree-status.log
           if-no-files-found: warn
           retention-days: 7
