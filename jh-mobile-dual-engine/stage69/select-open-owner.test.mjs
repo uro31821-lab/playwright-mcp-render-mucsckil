@@ -68,7 +68,7 @@ function helper(source){
 function payload(contextId,ref,extra={}){
  return {action:'CLICK',command:'오른쪽 화면에서 지정 선택 메뉴 열기',contextId,
   requestId:'3'.repeat(32),stage61Action:'SELECT_OPEN',stage61ComputerOutcome:'NOT_RUN',
-  stage61PlaywrightMobileAvailable:false,stage61RouteSchema:'JH168_STAGE61_ROUTE_REQUEST_V1',
+  stage61RouteSchema:'JH168_STAGE61_ROUTE_REQUEST_V1',
   stage61WebOutcome:'NOT_RUN',targetItemRef:ref,...extra};
 }
 function harness(){
@@ -78,7 +78,7 @@ function harness(){
   plan:({routeToken,action})=>({ok:true,provider:'ANDROID_WEB',allowed:true,routeToken,action,replayAllowed:false,automaticReplay:false}),
   phonePayload:({routeToken,action})=>({ok:true,routeToken,replayAllowed:false,automaticReplay:false,
    stage61RouteSchema:'JH168_STAGE61_ROUTE_REQUEST_V1',stage61Action:action,
-   stage61WebOutcome:'NOT_RUN',stage61ComputerOutcome:'NOT_RUN',stage61PlaywrightMobileAvailable:false}),
+   stage61WebOutcome:'NOT_RUN',stage61ComputerOutcome:'NOT_RUN'}),
   discard:()=>({ok:true})
  };
  const env={createStage61HostAdapter:()=>host,token56:()=>'',secureResult56:()=>{},textResult:x=>x,
