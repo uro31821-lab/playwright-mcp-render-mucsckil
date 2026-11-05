@@ -9,6 +9,14 @@
 4. JH returns original source URLs, titles, date metadata and UNVERIFIED source excerpts to GPT; GPT verifies original sources where feasible, presents clickable links and labels unsupported inferences.
 5. Ordinary summaries and idea questions do not call Perplexity. No public API route, phone action or automatic retry is introduced.
 
+### User-facing activation contract (opt-in only)
+- Ordinary question or a summary: **ordinary GPT answer**; no Perplexity API call and no "🏴‍☠️ 퍼비서:" label.
+- User explicitly asks for 근거는? / 관련 자료는? / 출처는? / 관련 논문 찾아줘 / 팩트체크해줘: **call the evidence tool** and display "🏴‍☠️ 퍼비서:" once the tool actually participates.
+- Short elliptical follow-ups (e.g., "관련 자료는?") refer to the current conversation. Use the previously discussed subject to write a short de-identified provider query; pass the user's latest request verbatim as user_request. Do not send the prior conversation transcript.
+- If the intended subject is unclear, ask what material they mean before spending money. Do not search just because a question includes a term like "논문" or "자료" or asks to explain citation-writing methods.
+- Perplexity is internal to JH. GPT analyzes the original source URLs and presents the final response with citations; source snippets are not verified evidence by themselves.
+
+
 > The tool's check of the user_request string provides an additional guard but is not cryptographic proof of the origin of that string. Retrieved snippets are not themselves independently verified facts.
 
 ## Protected runtime audit and operator fence

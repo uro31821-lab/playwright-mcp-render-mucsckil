@@ -7,6 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createJebiseoTask} from './host-runtime.mjs';
+import {fixtureAndroidAppInspection} from './test-support.mjs';
 import {patchJebiseoOriginalHostComposition, reverseJebiseoOriginalHostComposition,
   JEBISEO_ORIGINAL_HOST_CANDIDATE_MODE} from './original-host-composition.mjs';
 
@@ -24,7 +25,7 @@ function fixtureKernel() {
   const fixture={currentDevice:'fixture-phone',currentCommand:'1'.repeat(32),
     sessionId:'fixture-secure-session',deviceDigest:'2'.repeat(64),counter:0,
     calls:[],events:[],requests:new Map(),requireExtra:false,onStatus:async()=>({ok:true}),
-    onTransport:null,beforeHandler:null};
+    onTransport:null,beforeHandler:null,beforeMk:null,appInspection:null,reuseInspection:null};
   const jobs=new Map(),devices=new Map(),jhMcpWorkflows56=new Map(),jhBlockedCommands56=new Set();
   const httpServer={listening:false};
   const jhCommandContext56=new JhAsyncLocalStorage56();
@@ -57,6 +58,7 @@ function fixtureKernel() {
   function mk(type,p={},deviceId=null) {
     const targetDeviceId=chooseDevice(deviceId);
     if(type!=="secure_device_status")p={...p,commandId:jhRequireCommand56(targetDeviceId,p.workflowId)};
+    fixture.beforeMk?.(type,p);
     const id='job_'+(++seq),createdAtMs=Date.now();
     const j={id,type,status:'queued',targetDeviceId,secureSessionId:fixture.sessionId,
       createdAtMs,expiresAtMs:createdAtMs+60000,...p};
@@ -80,10 +82,14 @@ function fixtureKernel() {
   async function waitJob(job){
     if(!durableNativeHooks56?.beforeDispatch(job).allowed)throw Error('fixture_dispatch_invalid');
     job.status='in_progress';job.startedAtMs=Date.now();
-    const body={result:{ok:true,url:'[]'}};
+    const body={result:job.type==='computer_use_inspect'?fixture.appInspection():
+      job.type==='open_url'&&job.url===''?{ok:true,url:'opened:'+job.target,
+        code:'RIGHT_PANE_VERIFIED',rightPaneVerified:true,launchAccepted:true,
+        pageOrScrollRestored:false,resultVerified:false}:{ok:true,url:'[]'}};
     fixtureCompletion(job,body,sha56(JSON.stringify(body)));
     return job;
   }
+  fixture.finishApp=()=>waitJob(fixture.appJob);
   class McpServer {
     constructor(){this.tools=new Map();}
     registerTool(name,config,handler){this.tools.set(name,{config,handler});return {name};}
@@ -106,6 +112,23 @@ function fixtureKernel() {
     registerOAuthTool('life_web_navigate',{inputSchema:{url:z.string()}},async({url},extra)=>{
       fixture.calls.push({instance,extra,url});
       const j=mk('open_url',{target:'right_web_link',url});
+      return jobResult(await waitJob(j));
+    });
+    registerOAuthTool('life_android_open',{inputSchema:{target:z.string(),url:z.string().optional()}},async(args,extra)=>{
+      fixture.calls.push({instance,extra,args});
+      const j=mk('open_url',{target:args.target,url:''}); fixture.appJob=j;
+      return textResult({route:'android_right',operation:'native_app_open',queued:j.status==='queued',
+        jobId:j.id,requiresFreshWindowReadback:true,screenVerified:false,automaticReplay:false});
+    });
+    registerOAuthTool('life_android_computer_inspect',{inputSchema:{action:z.string(),effect:z.string(),
+      data_class:z.string(),task_digest:z.string(),max_actions_in_call:z.number()}},async(args,extra)=>{
+      fixture.calls.push({instance,extra,args});
+      if(fixture.reuseInspection)return jobResult(fixture.reuseInspection);
+      const j=mk('computer_use_inspect',{action:args.action,effect:args.effect,dataClass:args.data_class,
+        taskId:args.task_digest,taskDigest:args.task_digest,mcpToolName:'life_android_computer_inspect',
+        secureRequestedEffect:'READ_ONLY',containsCredential:false,index:0,viewportWidth:0,
+        viewportHeight:0,scrollX:0,scrollY:0,waitMs:0,maxActionsInCall:args.max_actions_in_call});
+      fixture.inspectJob=j;
       return jobResult(await waitJob(j));
     });
     return server;
@@ -165,6 +188,63 @@ async function setup({install = true} = {}) {
 const task = (ref = 'fixture-consultation') => createJebiseoTask({taskRef:ref,
   threadRef:'fixture-thread',intent:'consult',basis:'direct',visibility:'VISIBLE',
   deviceId:'fixture-phone',commandId:'1'.repeat(32),prompt:'fixture only'});
+const appTask = () => createJebiseoTask({taskRef:'fixture-app-task',threadRef:'fixture-thread',
+  intent:'open_app',feature:'ANDROID',action:'OPEN_APP',basis:'direct',visibility:'VISIBLE',
+  deviceId:'fixture-phone',commandId:'1'.repeat(32),appPackage:'com.google.android.youtube',
+  taskDigest:'8'.repeat(64)});
+
+test('native app queue and later readonly inspection retain real command wrappers and private mk provenance', async () => {
+  const f = await setup(); f.fixture.appInspection=fixtureAndroidAppInspection;
+  let rt, step='OPEN_APP';
+  f.fixture.onStatus=async()=>{
+    rt??=f.host.createRuntime(appTask()); return rt.runStep({operation:step});
+  };
+  const open=await f.issueRequest({id:'native-open'});
+  assert.equal(open.appWindowVerified,false); assert.equal(open.payload.jobId,'job_1');
+  assert.deepEqual(f.fixture.events,['capture']);
+  assert.equal(f.fixture.appJob.commandId,'1'.repeat(32));
+  await f.fixture.finishApp();
+  step='APP_OBSERVE';
+  const observed=await f.issueRequest({id:'native-current-app'});
+  assert.equal(observed.code,'JEBISEO_ANDROID_APP_OBSERVED');
+  assert.equal(observed.appWindowVerified,true);
+  assert.equal(observed.observationScope,'RIGHT_APP_WINDOW_ONLY');
+  assert.deepEqual(f.fixture.events,['capture','dispatch','complete','capture','dispatch','complete']);
+  assert.equal(f.fixture.inspectJob.commandId,f.fixture.appJob.commandId);
+  assert.equal(f.fixture.inspectJob.taskId,'8'.repeat(64));
+  assert.notEqual(f.fixture.inspectJob,f.fixture.appJob);
+  // A cached job returned by another call is never a new observation.
+  f.fixture.reuseInspection=f.fixture.inspectJob;
+  const stale=await f.issueRequest({id:'cached-app-observation'});
+  assert.equal(stale.appWindowVerified,false);
+  assert.equal(stale.readbackRequired,true);
+  assert.equal(f.jobs.size,2);
+});
+
+test('native app async guards and changed payload stop before the original queue', async () => {
+  for (const change of ['target','focus','inspect-action','inspect-extra']) {
+    const f=await setup(); f.fixture.appInspection=fixtureAndroidAppInspection;
+    if(change==='target')f.fixture.beforeMk=(type,p)=>{if(type==='open_url')p.target='지메일 앱';};
+    if(change==='focus')f.fixture.beforeHandler=async name=>{
+      if(name==='life_android_open')f.jhFocus44.release({device:f.fixture.currentDevice,commandId:f.fixture.currentCommand});
+    };
+    f.fixture.onStatus=async()=>f.host.createRuntime(appTask()).start();
+    const opened=await f.issueRequest({id:'open-'+change});
+    if(change==='target'||change==='focus'){
+      assert.equal(opened.status,'UNKNOWN'); assert.equal(f.jobs.size,0);
+      assert.deepEqual(f.fixture.events,['capture']); continue;
+    }
+    await f.fixture.finishApp();
+    f.fixture.beforeMk=(type,p)=>{if(type==='computer_use_inspect'){
+      if(change==='inspect-action')p.action='CLICK'; else p.x=12;
+    }};
+    f.fixture.onStatus=async()=>f.host.createRuntime(appTask()).runStep({operation:'APP_OBSERVE'});
+    const observed=await f.issueRequest({id:change});
+    assert.equal(observed.status,'UNKNOWN'); assert.equal(observed.appWindowVerified,false);
+    assert.equal(f.jobs.size,1);
+    assert.deepEqual(f.fixture.events,['capture','dispatch','complete','capture']);
+  }
+});
 
 test('pure overlay preserves original source/catalog and rejects ambiguous or missing authority', () => {
   const candidate = patchJebiseoOriginalHostComposition(source);

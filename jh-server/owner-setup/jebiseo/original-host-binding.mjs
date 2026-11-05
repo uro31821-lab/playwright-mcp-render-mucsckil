@@ -15,8 +15,10 @@ import {JEBISEO_GEMINI_WEB_URL, JEBISEO_ORIGINAL_MOBILE_TOOLS,
 import {prepareJebiseoGuidedCall} from './guided-form.mjs';
 import {inspectJebiseoNativeScreen, inspectJebiseoPostActionObservation} from './native-screen-proof.mjs';
 import {describeOpenCompletion} from '../deployment/jh167-open-completion.mjs';
+import {getJebiseoAndroidTarget, inspectJebiseoAndroidAppObservation} from './android-app.mjs';
 
 const ROUTES = Object.freeze({OPEN: 'life_web_navigate', SNAPSHOT: 'life_web_snapshot',
+  OPEN_APP: 'life_android_open', APP_OBSERVE: 'life_android_computer_inspect',
   FORM_SNAPSHOT: 'life_android_snapshot', DISCOVER_INPUT: 'life_android_step',
   DISMISS_NOTICE: 'life_android_step', TYPE: 'life_android_step',
   INSPECT_SUBMIT: 'life_android_computer_inspect', PREPARE_SUBMIT: 'life_android_computer_prepare',
@@ -26,7 +28,7 @@ const ROUTES = Object.freeze({OPEN: 'life_web_navigate', SNAPSHOT: 'life_web_sna
   RECEIPT_STATUS: 'life_android_pending_approval_receipt_status', JOB_STATUS: 'life_job_status'});
 const ALLOWED = new Set(JEBISEO_ORIGINAL_MOBILE_TOOLS);
 const GUIDED = new Set(['DISCOVER_INPUT', 'DISMISS_NOTICE', 'TYPE']);
-const EFFECTS = new Set(['OPEN', ...GUIDED, 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
+const EFFECTS = new Set(['OPEN', 'OPEN_APP', ...GUIDED, 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const RECOVERY = new Set(['JOB_STATUS', 'RECEIPT_STATUS', 'APPROVAL_STATUS']);
 const H64 = /^[0-9a-f]{64}$/, H32 = /^[0-9a-f]{32}$/, JOB = /^job_[0-9]+$/;
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value) &&
@@ -35,6 +37,23 @@ const nonempty = value => typeof value === 'string' && value.length > 0 && value
 const hex64 = value => typeof value === 'string' && H64.test(value);
 const time = value => Number.isSafeInteger(value) && value > 0;
 const hash = value => createHash('sha256').update(value, 'utf8').digest('hex');
+const APP_INSPECT_FIXED = Object.freeze({action: 'WAIT', effect: 'READ_ONLY', dataClass: 'NONE',
+  mcpToolName: 'life_android_computer_inspect', secureRequestedEffect: 'READ_ONLY',
+  index: 0, viewportWidth: 0, viewportHeight: 0, scrollX: 0, scrollY: 0, waitMs: 0,
+  maxActionsInCall: 1, containsCredential: false});
+const APP_INSPECT_FORBIDDEN = ['x', 'y', 'keys', 'dragPath', 'textDigest', 'textValue',
+  'basedOnScreenshotDigest', 'currentScreenshotDigest', 'screenGrantToken',
+  'actionApprovalGrantToken', 'requestToken', 'runDigest', 'leaseToken', 'screenConsentDigest',
+  'localActionApprovalDigest'];
+const appArguments = (task, operation) => operation === 'OPEN_APP'
+  ? {target: getJebiseoAndroidTarget(task.appPackage)?.target, url: '', command_id: task.commandId}
+  : {action: 'WAIT', effect: 'READ_ONLY', data_class: 'NONE', max_actions_in_call: 1,
+    task_digest: task.taskDigest, command_id: task.commandId};
+function appInspectJob(job, task) {
+  return job.type === 'computer_use_inspect' && job.taskDigest === task.taskDigest &&
+    job.taskId === task.taskDigest && Object.entries(APP_INSPECT_FIXED).every(([key, value]) => job[key] === value) &&
+    APP_INSPECT_FORBIDDEN.every(key => !Object.hasOwn(job, key));
+}
 const fail = code => {throw Error(code);};
 const blocked = code => Object.freeze({schema: 'jh.jebiseo-host-result.v1', code,
   ok: false, status: 'BLOCKED', toolInvoked: false, phoneDispatchVerified: false,
@@ -83,7 +102,9 @@ function sameOwner(a, b) {
 function identity(job, commandId) {
   return {id: job.id, type: job.type, deviceId: job.targetDeviceId,
     secureSessionId: job.secureSessionId, commandId, createdAtMs: job.createdAtMs,
-    ...Object.fromEntries(['action', 'text', 'value', 'url', 'target']
+    ...Object.fromEntries(['action', 'text', 'value', 'url', 'target',
+      ...(job.type === 'computer_use_inspect' ? [...Object.keys(APP_INSPECT_FIXED),
+        ...APP_INSPECT_FORBIDDEN, 'taskId', 'taskDigest', 'secureInvocationExpiresAt'] : [])]
       .filter(key => Object.hasOwn(job, key)).map(key => [key, job[key]]))};
 }
 
@@ -109,6 +130,15 @@ function returnedPendingMatches(raw, job) {
   return views.some(view => plain(view) && view.type === job.type &&
     ['queued', 'in_progress'].includes(view.status) && view.idDigest === hash(job.id) &&
     view.result === null && view.error === null && view.completedAt === null);
+}
+function returnedAppQueueMatches(raw, job) {
+  if (raw?.isError === true) return false;
+  const p = unwrapJebiseoMobileReply(raw);
+  return plain(p) && p.route === 'android_right' && p.operation === 'native_app_open' &&
+    typeof p.queued === 'boolean' && p.jobId === job.id && p.requiresFreshWindowReadback === true &&
+    p.screenVerified === false && p.automaticReplay === false &&
+    Object.keys(p).every(key => ['route', 'operation', 'queued', 'jobId',
+      'requiresFreshWindowReadback', 'screenVerified', 'automaticReplay'].includes(key));
 }
 
 /**
@@ -150,9 +180,15 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     if (!plain(job) || !JOB.test(job.id ?? '') || readOriginalJob(job.id) !== job ||
         job.targetDeviceId !== entry.task.deviceId || job.secureSessionId !== entry.owner.secureSessionId ||
         !time(job.createdAtMs) || job.createdAtMs > now()) return null;
+    if (step.operation === 'JOB_STATUS') {
+      const retained = [...entry.effects.values()].find(effect => effect.operation === 'OPEN_APP' &&
+        effect.record?.job === job && effect.record.identity.id === args.job_id)?.record;
+      if (retained) return returnedPendingMatches(raw, job) ||
+        (returnedCompletionMatches(raw, job) && originalCompletion(entry, retained)) ? retained : null;
+    }
     let commandId = job.commandId;
     let snapshotScope = null;
-    if (job.type === 'agent_snapshot') {
+    if (job.type === 'agent_snapshot' || ['OPEN_APP', 'APP_OBSERVE'].includes(step.operation)) {
       snapshotScope = readOriginalJobScope(job);
       if (!snapshotScope || snapshotScope.requestScope !== step.requestScope ||
           snapshotScope.commandId !== entry.task.commandId || snapshotScope.deviceId !== entry.task.deviceId ||
@@ -165,6 +201,10 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
         (job.targetDeviceDigest !== undefined && job.targetDeviceDigest !== null &&
           job.targetDeviceDigest !== entry.owner.deviceDigest)) return null;
     if (step.operation === 'OPEN' && (job.type !== 'open_url' || job.url !== JEBISEO_GEMINI_WEB_URL)) return null;
+    if (step.operation === 'OPEN_APP' && (job.type !== 'open_url' || job.url !== '' ||
+        job.target !== getJebiseoAndroidTarget(entry.task.appPackage)?.target || !returnedAppQueueMatches(raw, job)))
+      return null;
+    if (step.operation === 'APP_OBSERVE' && !appInspectJob(job, entry.task)) return null;
     if (GUIDED.has(step.operation) && (job.type !== 'agent_step' ||
         ['action', 'text', 'value'].some(key => job[key] !== args[key]))) return null;
     const record = {job, identity: frozenCopy(identity(job, commandId)), snapshotScope,
@@ -174,7 +214,8 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     // authenticated completion mutates that same registered job. Preserve the
     // exact correlation in that race; a mismatched COMPLETE view is rejected.
     if (job.status === 'complete' &&
-        (!(returnedCompletionMatches(raw, job) || returnedPendingMatches(raw, job)) ||
+        (!(returnedCompletionMatches(raw, job) || returnedPendingMatches(raw, job) ||
+           (step.operation === 'OPEN_APP' && returnedAppQueueMatches(raw, job))) ||
           !originalCompletion(entry, record)))
       return null;
     return record;
@@ -208,7 +249,10 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     // Only the narrow original observation shape reaches the pure inspector.
     return frozenCopy({type: job.type, status: job.status, result: job.result,
       error: job.error ?? null, createdAtMs: saved.createdAtMs,
-      startedAtMs: job.startedAtMs, completedAt: job.completedAt});
+      startedAtMs: job.startedAtMs, completedAt: job.completedAt,
+      ...(record.operation === 'APP_OBSERVE' ? Object.fromEntries(
+        ['mcpToolName', 'secureRequestedEffect', 'action', 'effect', 'dataClass', 'taskDigest']
+          .map(key => [key, job[key]])) : {})});
   }
   function inspection(entry, operation) {
     const snapshot = originalCompletion(entry, entry.snapshot);
@@ -221,11 +265,35 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     if (!pending || !pending.record) return null;
     const complete = originalCompletion(entry, pending.record);
     if (!complete) return null;
-    let applied = false;
+    let applied = false, appReadback = null;
     if (pending.operation === 'OPEN' && pending.record.job.type === 'open_url' &&
         pending.record.job.url === JEBISEO_GEMINI_WEB_URL) {
       applied = describeOpenCompletion(pending.record.job, {commandId: entry.task.commandId,
         sessionId: entry.owner.secureSessionId}).executionStatus === 'EFFECT_CONFIRMED';
+    } else if (pending.operation === 'OPEN_APP') {
+      const r = complete.result, target = getJebiseoAndroidTarget(entry.task.appPackage);
+      const opened = target && pending.record.job.type === 'open_url' &&
+        pending.record.job.target === target.target && pending.record.job.url === '' &&
+        complete.error === null && r.ok === true && r.rightPaneVerified === true &&
+        r.pageOrScrollRestored === false && r.resultVerified === false &&
+        ((r.code === 'RIGHT_PANE_VERIFIED' && r.launchAccepted === true) ||
+          (r.code === 'RIGHT_PANE_ALREADY_VISIBLE' && r.launchAccepted === false));
+      const record = entry.appObservation, observation = originalCompletion(entry, record);
+      const after = completedTime(complete.completedAt);
+      if (opened && observation && after !== null && record.job !== pending.record.job &&
+          record.identity.id !== pending.record.identity.id &&
+          record.invocationOrdinal > pending.record.invocationOrdinal &&
+          observation.createdAtMs >= after && observation.startedAtMs >= after &&
+          appInspectJob(record.job, entry.task)) {
+        const inspected = inspectJebiseoAndroidAppObservation({job: observation,
+          taskDigest: entry.task.taskDigest, expectedPackage: entry.task.appPackage, now: now()});
+        if (inspected.ok === true) {
+          applied = true;
+          appReadback = {appPackage: entry.task.appPackage, appWindowVerified: true,
+            observationScope: inspected.evidence.scope,
+            alreadyVisible: r.code === 'RIGHT_PANE_ALREADY_VISIBLE'};
+        }
+      }
     } else if (pending.operation === 'DISCOVER_INPUT' && entry.discovery === pending.record) {
       // Discovery can settle only after an independent, later signed snapshot
       // joins the same original issuer/revision/empty field. Its completion
@@ -254,6 +322,7 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
       operation: pending.operation, taskRef: entry.task.taskRef, deviceId: entry.task.deviceId,
       commandId: entry.task.commandId, secureSessionId: entry.owner.secureSessionId,
       outcome: 'VERIFIED_APPLIED', jobId: pending.record.identity.id,
+      ...(appReadback ?? {}),
       ...(pending.operation === 'OPEN' ? {url: JEBISEO_GEMINI_WEB_URL} : {})});
   }
   // Diagnostics never reconcile an effect. Only the exact pending original
@@ -346,6 +415,11 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
         if (step.operation === 'OPEN' && (args.url !== JEBISEO_GEMINI_WEB_URL ||
             Object.keys(args).some(key => !['url', 'command_id'].includes(key))))
           fail('JEBISEO_FIXED_OPEN_TARGET_REQUIRED');
+        if (['OPEN_APP', 'APP_OBSERVE'].includes(step.operation) &&
+            (entry.task.feature !== 'ANDROID' || entry.task.intent !== 'open_app' ||
+              entry.task.action !== 'OPEN_APP' || !getJebiseoAndroidTarget(entry.task.appPackage) ||
+              !hex64(entry.task.taskDigest) || !isDeepStrictEqual(args, appArguments(entry.task, step.operation))))
+          fail('JEBISEO_ANDROID_APP_ARGUMENTS_FIXED');
         if (GUIDED.has(step.operation) && (!step.target || !isDeepStrictEqual(args, step.target.arguments)))
           fail('JEBISEO_ORIGINAL_ISSUED_ARGUMENTS_REQUIRED');
         const original = getOriginalTool(toolName);
@@ -354,6 +428,8 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
         const parsed = original.schema.parse(args); // Original validation, exactly once.
         if (!plain(parsed) || parsed.command_id !== entry.task.commandId ||
             (GUIDED.has(step.operation) && !isDeepStrictEqual(parsed, step.target.arguments)) ||
+            (['OPEN_APP', 'APP_OBSERVE'].includes(step.operation) &&
+              !isDeepStrictEqual(parsed, appArguments(entry.task, step.operation))) ||
             (step.operation === 'OPEN' && parsed.url !== JEBISEO_GEMINI_WEB_URL))
           fail('JEBISEO_ORIGINAL_SCHEMA_BINDING_CHANGED');
         // Check actual current metadata again after any schema/target callback.
@@ -385,6 +461,7 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
           if (effect) effect.record = record;
           if (step.operation === 'FORM_SNAPSHOT' && record.job.type === 'agent_snapshot') entry.snapshot = record;
           if (step.operation === 'DISCOVER_INPUT' && record.job.type === 'agent_step') entry.discovery = record;
+          if (step.operation === 'APP_OBSERVE' && record.job.type === 'computer_use_inspect') entry.appObservation = record;
           // A status call can refresh only the already retained original job.
           if (step.operation === 'JOB_STATUS') {
             for (const pending of entry.effects.values()) {
@@ -421,7 +498,7 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
       fail('JEBISEO_ORIGINAL_TASK_BINDING_REQUIRED');
     const entry = {task: bound, owner: frozenCopy({deviceId: state.deviceId,
       secureSessionId: state.secureSessionId, deviceDigest: state.deviceDigest, runtimeId: state.runtimeId}),
-      durableHooks: state.durableHooks, effects: new Map(), snapshot: null, discovery: null,
+      durableHooks: state.durableHooks, effects: new Map(), snapshot: null, discovery: null, appObservation: null,
       busy: false, facade: null};
     const runtime = createJebiseoRuntime({...callbacks(entry), runtimeMode: 'PHONE_RIGHT', scheduler});
     async function runStep(input = {}) {
@@ -439,6 +516,9 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
         effectKey: hash(JSON.stringify(['jh.jebiseo-effect.v1', targetDigest])),
         invocationOrdinal: ++nextInvocationOrdinal, live: true, called: false, target: null};
       entry.busy = true;
+      // Invalidate before schema/current-owner checks can throw. A failed new
+      // read must never recycle an earlier observation when focus recovers.
+      if (request.operation === 'APP_OBSERVE') entry.appObservation = null;
       return steps.run(step, async () => {
         try {
           const response = await runtime.runStep({task: bound, operation: request.operation, args});
@@ -451,7 +531,8 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     }
     entry.facade = Object.freeze({capabilities: runtime.capabilities, runStep,
       start: (input = {}) => plain(input) && Object.keys(input).length === 0
-        ? runStep({operation: 'OPEN'}) : Promise.resolve(blocked('JEBISEO_BOUND_TASK_ONLY'))});
+        ? runStep({operation: bound.feature === 'ANDROID' ? 'OPEN_APP' : 'OPEN'})
+        : Promise.resolve(blocked('JEBISEO_BOUND_TASK_ONLY'))});
     entries.set(bound.taskRef, entry); commandTasks.set(key, bound.taskRef);
     return entry.facade;
   }

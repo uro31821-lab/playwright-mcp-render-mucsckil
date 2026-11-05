@@ -11,7 +11,7 @@ import {JEBISEO_ORIGINAL_MOBILE_TOOLS, unwrapJebiseoMobileReply} from './mobile-
 
 export const JEBISEO_ORIGINAL_HOST_CANDIDATE_MODE = 'EXPLICIT_JEBISEO_HOST_CANDIDATE_V1';
 const allowed = new Set(JEBISEO_ORIGINAL_MOBILE_TOOLS);
-const effectTools = new Set(['life_web_navigate', 'life_android_step',
+const effectTools = new Set(['life_web_navigate', 'life_android_open', 'life_android_step',
   'life_android_action_approval_request', 'life_android_execute_computer_action']);
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -69,7 +69,8 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
       const originalArgs = structuredClone(args);
       const state = readCurrentState();
       const invocation = Object.freeze({requestScope: capability, toolName: name,
-        owner: ownerIdentity(state), durableHooks: state.durableHooks});
+        owner: ownerIdentity(state), durableHooks: state.durableHooks,
+        arguments: Object.freeze(structuredClone(originalArgs))});
       const raw = await invocationScope.run(invocation, () => entry.handler(args, capability.extra));
       if (requestScope() === capability) remember(raw, name, originalArgs, scope, invocation);
       return raw;
@@ -110,7 +111,7 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
     }
     // A cached old snapshot is not a new observation, even in the same HTTP
     // request or millisecond. Only this invocation's actual original mk counts.
-    if (toolName === 'life_android_snapshot' &&
+    if (['life_android_snapshot', 'life_android_open', 'life_android_computer_inspect'].includes(toolName) &&
         snapshotScopes.get(found)?.invocation !== record.invocation) return null;
     return found;
   }
@@ -224,10 +225,29 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
       try {live = state.durableHooks.uncertainEffectsForMaintenance();} catch {}
       if (!Number.isSafeInteger(live) || live < 0) fail('JEBISEO_ORIGINAL_JOB_PROTECTION_CHANGED');
     }
+    if (invocation.toolName === 'life_android_open' &&
+        (job.type !== 'open_url' || invocation.arguments.url !== '' || job.url !== '' ||
+          job.target !== invocation.arguments.target))
+      fail('JEBISEO_ORIGINAL_APP_JOB_CHANGED');
+    if (invocation.toolName === 'life_android_computer_inspect' && invocation.arguments.action === 'WAIT') {
+      const fixed = {action: 'WAIT', effect: 'READ_ONLY', dataClass: 'NONE',
+        mcpToolName: 'life_android_computer_inspect', secureRequestedEffect: 'READ_ONLY',
+        taskId: invocation.arguments.task_digest, taskDigest: invocation.arguments.task_digest,
+        index: 0, viewportWidth: 0, viewportHeight: 0, scrollX: 0, scrollY: 0, waitMs: 0,
+        maxActionsInCall: 1, containsCredential: false};
+      if (job.type !== 'computer_use_inspect' ||
+          Object.entries(fixed).some(([key, value]) => job[key] !== value) ||
+          ['x', 'y', 'keys', 'dragPath', 'textDigest', 'textValue', 'basedOnScreenshotDigest',
+            'currentScreenshotDigest', 'screenGrantToken', 'actionApprovalGrantToken',
+            'requestToken', 'runDigest', 'leaseToken', 'screenConsentDigest', 'localActionApprovalDigest']
+            .some(key => Object.hasOwn(job, key)))
+        fail('JEBISEO_ORIGINAL_APP_OBSERVATION_CHANGED');
+    }
     // This runs after original signing/capture but BEFORE jobs.set/queueing.
     // The observer never changes the signed job or reserves a journal row.
-    if (job.type !== 'agent_snapshot' || invocation.toolName !== 'life_android_snapshot' ||
-        snapshotScopes.has(job)) return;
+    const expected = {life_android_snapshot: 'agent_snapshot', life_android_open: 'open_url',
+      life_android_computer_inspect: 'computer_use_inspect'}[invocation.toolName];
+    if (job.type !== expected || snapshotScopes.has(job)) return;
     snapshotScopes.set(job, Object.freeze({commandId: state.commandId, deviceId: state.deviceId,
       secureSessionId: state.secureSessionId, runtimeId: state.runtimeId,
       requestScope: scope.capability, invocation}));

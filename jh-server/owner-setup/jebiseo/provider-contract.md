@@ -75,4 +75,10 @@ TYPE·DISMISS_NOTICE의 원 pending 때문에 다음 효과가 막히면 `postAc
 
 현재 후보는 `codeCandidate:true`, `productionRegistered:false`, `visibleExecutionSupported:false`를 유지한다. `geminiAssistanceAvailable`과 `liveExecutionVerified`는 실제 연결·종단 검증 전까지 false이며, 이 상태는 `capabilities:[]`로 유지한다. 새 사용자 지시의 오른쪽 자동열기는 가시 실행 요청으로 해석하고, `internalExecutionSupported:false`를 숨김 지원으로 바꾸지 않는다. 모듈·도구 연결 후보만으로 OPEN부터 오른쪽 배치·결과 회수까지 운영에 결합됐다고 보지 않는다.
 
-새 API, 클라우드 대체 실행, 별도 인증·승인 경로를 추가하지 않는다. 확정된 휴대폰·오른쪽 자동열기·기능별 사용량 조건을 충족하는 실제 경로가 기존 실행기에 연결되고 검증된 후에만 가용성을 다시 판단한다. `ANDROID`의 기존 앱 실행 경로는 Gemini 응답 가용성과 구분하되, 이 후보에 실제 결합되지 않은 상태를 완료로 표시하지 않는다.
+새 API, 클라우드 대체 실행, 별도 인증·승인 경로를 추가하지 않는다. 확정된 휴대폰·오른쪽 자동열기·기능별 사용량 조건을 충족하는 실제 경로가 기존 실행기에 연결되고 검증된 후에만 가용성을 다시 판단한다.
+
+`ANDROID` 후보는 명시적인 `OPEN_APP` 요청에 한해 유튜브·지메일·인스타그램의 원본 단일 패키지 별칭을 기존 `life_android_open`에 전달한다. 기존 원 명령·기기·taskDigest를 유지하며 임의 URL·앱·내부 동작으로 확대하지 않는다. 큐 응답의 정확한 원 jobId와 원본 완료를 확인한 뒤 별도 `APP_OBSERVE`를 실행한다. 이 관찰은 `life_android_computer_inspect`의 `WAIT / READ_ONLY / NONE / max_actions_in_call:1`로 고정하며 화면 복원·실제 WAIT 실행·클릭·입력·스크린샷을 포함하지 않는다.
+
+앱 열기와 관찰의 실제 mk 호출·private 반환 객체·schema·원 job·Stage26 완료·시간 순서를 같은 원 인증 범위에서 이어야 한다. Stage61 사전 범위와 실제 관찰 screen의 패키지·창·영역·알려진 display가 일치하고 잠금·민감 상태·이동 중이 아니어야 한다. 이 원본 확인에서만 `appWindowVerified:true / RIGHT_APP_WINDOW_ONLY`로 보고한다. 공개 JSON 파싱은 인증이 아니며, 앱 내부 작업·Gemini 전송·답변·영상 완료로 승격하지 않는다. `RIGHT_PANE_ALREADY_VISIBLE`를 새 실행으로 바꾸지 않고, 같은 앱 열기를 재시도하지 않는다. 후속 읽기는 매번 새 원 관찰을 요구한다.
+
+현재 `androidAppCandidateSupported:true`, `androidAppAvailable:false`, `productionRegistered:false`, `liveExecutionVerified:false`다. 코드 후보 연결과 운영·실기기 확인은 별도이며 Gemini 웹의 미제공 RIGHT 주소·현재 draft·답변 생산기 결손은 그대로 남는다.

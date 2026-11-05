@@ -7,7 +7,8 @@ import {createJebiseoTask, createJebiseoRuntime, createJebiseoDeviceScheduler,
   jebiseoCapabilities, jebiseoTargetBindingDigest} from './host-runtime.mjs';
 import {createDurableNativeHooks} from '../deployment/durable-native-host.mjs';
 import {MOBILE13_ACTION_POLICY_MODE56} from '../jh168-mobile-unification/mobile13-action-policy.mjs';
-import {fixtureFieldId, fixtureGuidedArguments, fixtureMobileReply} from './test-support.mjs';
+import {fixtureFieldId, fixtureGuidedArguments, fixtureMobileReply,
+  fixtureAndroidAppInspection} from './test-support.mjs';
 
 const secureSessionId = 'fixture-secure-session';
 const commandId = 'a'.repeat(32), taskDigest = 'b'.repeat(64), runDigest = '9'.repeat(64);
@@ -315,4 +316,212 @@ test('facade reuses the actual original durable hook once and completion reconci
     assert.equal(response.status, 'RETURNED'); assert.equal(dispatches, 1);
     assert.equal(response.readbackRequired, true, 'transport completion alone is not draft readback proof');
   } finally { hooks.close(); rmSync(directory, {recursive: true, force: true}); }
+});
+
+const androidPackage = 'com.google.android.youtube';
+const appTask = (extra = {}) => task({taskRef: 'task-android-001', intent: 'open_app', feature: 'ANDROID',
+  action: 'OPEN_APP', appPackage: androidPackage, taskDigest, ...extra});
+function appSetup(reply) {
+  const appCalls = [];
+  const f = setup({callOriginalTool: async (name, args) => {
+    appCalls.push({name, args});
+    if (reply) return reply(name, args);
+    if (name === 'life_android_open') return {route: 'android_right', operation: 'native_app_open',
+      queued: true, jobId: 'job_701', requiresFreshWindowReadback: true, screenVerified: false,
+      automaticReplay: false};
+    if (name === 'life_job_status') return {type: 'open_url', status: 'complete',
+      result: {ok: true, code: 'RIGHT_PANE_VERIFIED', rightPaneVerified: true, launchAccepted: true}};
+    return {type: 'computer_use_inspect', status: 'complete', error: null,
+      result: fixtureAndroidAppInspection()};
+  }});
+  return {...f, calls: appCalls};
+}
+// A trusted-host test double only. The original-binding tests independently
+// exercise authenticated job provenance, the native producer and later-job order.
+function appEffectProof(opened, scope = appTask(), extra = {}) {
+  return {source: 'ORIGINAL_SECURE56', effectKey: opened.effectKey, operation: 'OPEN_APP',
+    outcome: 'VERIFIED_APPLIED', taskRef: scope.taskRef, deviceId: scope.deviceId,
+    commandId: scope.commandId, secureSessionId, jobId: 'job_701', appPackage: scope.appPackage,
+    appWindowVerified: true, observationScope: 'RIGHT_APP_WINDOW_ONLY', alreadyVisible: false, ...extra};
+}
+
+test('ANDROID tasks require explicit OPEN_APP identity, a supported package and an original task digest', () => {
+  const created = appTask();
+  assert.equal(created.active, true);
+  assert.equal(created.feature, 'ANDROID');
+  assert.equal(created.action, 'OPEN_APP');
+  assert.equal(created.appPackage, androidPackage);
+  assert.equal(created.taskDigest, taskDigest);
+  assert.equal(Object.hasOwn(created, 'prompt'), false);
+  assert.equal(created.promptDigest, appTask({prompt: 'This is never sent to Gemini.'}).promptDigest);
+  assert.ok(Object.isFrozen(created));
+  for (const extra of [{feature: undefined}, {intent: 'consult'}, {action: 'CLICK'},
+    {appPackage: 'com.unknown.app'}, {appPackage: 'com.openai.chatgpt'},
+    {appPackage: 'com.koreanlifehub.bridge'}, {taskDigest: undefined}, {taskDigest: 'invalid'}])
+    assert.throws(() => appTask(extra), /JEBISEO_ANDROID_APP_TASK_REQUIRED/);
+});
+
+test('ANDROID start opens the exact app once and public completion or screen_ready cannot settle it', async () => {
+  const f = appSetup(), scope = appTask();
+  const opened = await f.runtime.start({task: scope});
+  assert.deepEqual(f.calls, [{name: 'life_android_open',
+    args: {target: '유튜브 앱', url: '', command_id: commandId}}]);
+  assert.equal(f.targets.length, 0, 'app requests never query or authenticate a Gemini target');
+  assert.equal(opened.appWindowVerified, false);
+  assert.equal(opened.readbackRequired, true);
+  assert.deepEqual(opened.followUp, {tool: 'life_job_status',
+    arguments: {job_id: 'job_701', command_id: commandId}, readOnly: true});
+  assert.equal((await f.runtime.runStep({task: scope, operation: 'JOB_STATUS',
+    args: {job_id: 'job_702'}})).code, 'JEBISEO_ORIGINAL_OPEN_JOB_REQUIRED');
+  await f.runtime.runStep({task: scope, operation: 'JOB_STATUS', args: {job_id: 'job_701'}});
+  const observed = await f.runtime.runStep({task: scope, operation: 'APP_OBSERVE'});
+  assert.equal(observed.appWindowVerified, false);
+  assert.equal(observed.readbackRequired, true);
+  assert.deepEqual(f.calls.at(-1), {name: 'life_android_computer_inspect',
+    args: {action: 'WAIT', effect: 'READ_ONLY', data_class: 'NONE', max_actions_in_call: 1,
+      task_digest: taskDigest, command_id: commandId}});
+  assert.equal((await f.runtime.start({task: scope})).code, 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED');
+  assert.deepEqual(f.calls.map(call => call.name),
+    ['life_android_open', 'life_job_status', 'life_android_computer_inspect']);
+});
+
+test('ANDROID and Gemini operations cannot be mixed or acquire caller-selected route arguments', async () => {
+  const f = appSetup(), scope = appTask();
+  for (const operation of ['OPEN', 'SNAPSHOT', 'FORM_SNAPSHOT', 'DISCOVER_INPUT', 'TYPE',
+    'DISMISS_NOTICE', 'INSPECT_SUBMIT', 'PREPARE_SUBMIT', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT'])
+    assert.equal((await f.runtime.runStep({task: scope, operation})).code,
+      'JEBISEO_FEATURE_OPERATION_MISMATCH');
+  for (const operation of ['OPEN_APP', 'APP_OBSERVE'])
+    assert.equal((await f.runtime.runStep({task: task(), operation})).code,
+      'JEBISEO_FEATURE_OPERATION_MISMATCH');
+  for (const operation of ['OPEN_APP', 'APP_OBSERVE'])
+    for (const args of [{target: '지메일 앱'}, {app_package: 'com.google.android.gm'},
+      {action: 'CLICK'}, {task_digest: taskDigest}, {url: 'https://example.test/'}, {job_id: 'job_701'}])
+      assert.equal((await f.runtime.runStep({task: scope, operation, args})).code,
+        'JEBISEO_ANDROID_APP_ARGUMENTS_FIXED');
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.targets.length, 0);
+  assert.equal((await f.runtime.start({task: scope})).toolInvoked, true);
+});
+
+test('ANDROID request package and ownership stay immutable across later reads and another task', async () => {
+  const f = appSetup(), scope = appTask();
+  await f.runtime.start({task: scope});
+  for (const extra of [{appPackage: 'com.google.android.gm'}, {taskDigest: '8'.repeat(64)},
+    {threadRef: 'thread-another-02'}, {commandId: 'f'.repeat(32)}])
+    assert.equal((await f.runtime.runStep({task: appTask(extra), operation: 'APP_OBSERVE'})).code,
+      'JEBISEO_TASK_BINDING_CHANGED');
+  assert.equal((await f.runtime.start({task: appTask({taskRef: 'task-android-002'})})).code,
+    'JEBISEO_ORIGINAL_TASK_BINDING_REQUIRED');
+  assert.equal(f.calls.length, 1);
+});
+
+test('ANDROID unknown open cannot be replayed or replaced by a new job after a read', async () => {
+  const f = appSetup(async name => {
+    if (name === 'life_android_open') throw Error('ORIGINAL_OUTCOME_UNKNOWN');
+    return {type: 'computer_use_inspect', status: 'complete', error: null,
+      result: fixtureAndroidAppInspection()};
+  }), scope = appTask();
+  const opened = await f.runtime.start({task: scope});
+  assert.equal(opened.status, 'UNKNOWN');
+  assert.equal(opened.readbackRequired, true);
+  assert.equal(opened.appWindowVerified, false);
+  assert.equal(opened.followUp, null, 'unknown job identity is never invented');
+  assert.equal((await f.runtime.runStep({task: scope, operation: 'JOB_STATUS',
+    args: {job_id: 'job_701'}})).code, 'JEBISEO_ORIGINAL_OPEN_JOB_REQUIRED');
+  const observed = await f.runtime.runStep({task: scope, operation: 'APP_OBSERVE'});
+  assert.equal(observed.appWindowVerified, false);
+  assert.equal((await f.runtime.start({task: scope})).code, 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED');
+  assert.deepEqual(f.calls.map(call => call.name), ['life_android_open', 'life_android_computer_inspect']);
+});
+
+test('ANDROID original private app readback settles only its retained app-open effect and prevents reopening', async () => {
+  for (const alreadyVisible of [false, true]) {
+    const f = appSetup(), scope = appTask();
+    const opened = await f.runtime.start({task: scope});
+    f.binding.effectReadback = appEffectProof(opened, scope, {alreadyVisible});
+    const observed = await f.runtime.runStep({task: scope, operation: 'APP_OBSERVE'});
+    assert.equal(observed.code, 'JEBISEO_ANDROID_APP_OBSERVED');
+    assert.equal(observed.status, 'VERIFIED');
+    assert.equal(observed.appPackage, androidPackage);
+    assert.equal(observed.appWindowVerified, true);
+    assert.equal(observed.appOpenReceiptVerified, true);
+    assert.equal(observed.observationScope, 'RIGHT_APP_WINDOW_ONLY');
+    assert.equal(observed.alreadyVisible, alreadyVisible);
+    assert.equal(observed.readbackRequired, false);
+    assert.equal(observed.phoneDispatchVerified, false);
+    assert.equal(observed.externalEffectVerified, false);
+    assert.equal(observed.geminiReplyVerified, false);
+    assert.equal((await f.runtime.start({task: scope})).code, 'JEBISEO_ANDROID_APP_SETTLED_READ_ONLY');
+    assert.deepEqual(f.calls.map(call => call.name), ['life_android_open', 'life_android_computer_inspect']);
+  }
+});
+
+test('ANDROID caller-shaped or mismatched app readback never clears the pending open', async () => {
+  const f = appSetup(), scope = appTask(), opened = await f.runtime.start({task: scope});
+  for (const patch of [{source: 'CALLER_JSON'}, {effectKey: 'f'.repeat(64)}, {jobId: 'job_702'},
+    {appPackage: 'com.google.android.gm'}, {taskRef: 'task-other-002'}, {deviceId: 'phone-other-02'},
+    {commandId: 'f'.repeat(32)}, {secureSessionId: 'other-session'}, {operation: 'OPEN'},
+    {outcome: 'VERIFIED_NOT_APPLIED'}, {outcome: 'UNKNOWN'}, {appWindowVerified: 'true'},
+    {observationScope: 'APP_ACTION_COMPLETED'}]) {
+    f.binding.effectReadback = appEffectProof(opened, scope, patch);
+    const observed = await f.runtime.runStep({task: scope, operation: 'APP_OBSERVE'});
+    assert.equal(observed.appWindowVerified, false);
+    assert.equal(observed.readbackRequired, true);
+    assert.equal((await f.runtime.start({task: scope})).code, 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED');
+  }
+  assert.equal(f.calls.filter(call => call.name === 'life_android_open').length, 1);
+});
+
+test('ANDROID hidden, non-invoking and changed-current-binding requests cannot report a verified app', async () => {
+  const hidden = appSetup();
+  assert.equal((await hidden.runtime.start({task: appTask({visibility: 'INTERNAL'})})).code,
+    'HIDDEN_EXECUTION_UNAVAILABLE');
+  for (const basis of ['quoted', 'negated'])
+    assert.equal((await hidden.runtime.start({task: appTask({basis})})).code,
+      'JEBISEO_NO_CURRENT_CONSULTATION');
+  assert.deepEqual([hidden.calls.length, hidden.reads.length, hidden.targets.length], [0, 0, 0]);
+  for (const change of [{commandId: 'f'.repeat(32)}, {secureSessionId: 'other-session'},
+    {focusProtected: false}, {durableDispatchProtected: false}]) {
+    const f = appSetup(async name => {
+      if (name === 'life_android_open') return {jobId: 'job_701', queued: true};
+      Object.assign(f.binding, change);
+      return {type: 'computer_use_inspect', status: 'complete', error: null,
+        result: fixtureAndroidAppInspection()};
+    }), scope = appTask();
+    const opened = await f.runtime.start({task: scope});
+    f.binding.effectReadback = appEffectProof(opened, scope);
+    const observed = await f.runtime.runStep({task: scope, operation: 'APP_OBSERVE'});
+    assert.equal(observed.appWindowVerified, false);
+    assert.equal(observed.readbackRequired, true);
+  }
+});
+
+test('ANDROID settled apps require a successful current read and private proof again without reopening', async () => {
+  let observation = {type: 'computer_use_inspect', status: 'complete', error: null,
+    result: fixtureAndroidAppInspection()};
+  const f = appSetup(async name => name === 'life_android_open'
+    ? {jobId: 'job_701', queued: true} : observation), scope = appTask();
+  const opened = await f.runtime.start({task: scope});
+  f.binding.effectReadback = appEffectProof(opened, scope);
+  assert.equal((await f.runtime.runStep({task: scope, operation: 'APP_OBSERVE'})).appWindowVerified, true);
+
+  observation = {type: 'computer_use_inspect', status: 'complete', error: null,
+    result: {ok: false, code: 'screen_unavailable'}};
+  const failedRead = await f.runtime.runStep({task: scope, operation: 'APP_OBSERVE'});
+  assert.equal(failedRead.appWindowVerified, false, 'a retained proof cannot promote a failed current read');
+  assert.equal(failedRead.readbackRequired, true);
+
+  observation = {type: 'computer_use_inspect', status: 'complete', error: null,
+    result: fixtureAndroidAppInspection()};
+  delete f.binding.effectReadback;
+  const lostProof = await f.runtime.runStep({task: scope, operation: 'APP_OBSERVE'});
+  assert.equal(lostProof.appWindowVerified, false, 'a settled effect does not make the current screen authoritative');
+  assert.equal(lostProof.readbackRequired, true);
+  assert.equal((await f.runtime.start({task: scope})).code, 'JEBISEO_ANDROID_APP_SETTLED_READ_ONLY');
+
+  f.binding.effectReadback = appEffectProof(opened, scope);
+  assert.equal((await f.runtime.runStep({task: scope, operation: 'APP_OBSERVE'})).appWindowVerified, true);
+  assert.deepEqual(f.calls.map(call => call.name), ['life_android_open',
+    ...Array(4).fill('life_android_computer_inspect')]);
 });

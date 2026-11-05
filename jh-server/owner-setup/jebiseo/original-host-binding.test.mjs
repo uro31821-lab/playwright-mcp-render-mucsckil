@@ -7,6 +7,7 @@ import {z} from 'zod';
 import {createJebiseoTask} from './host-runtime.mjs';
 import {createJebiseoOriginalHostBinding} from './original-host-binding.mjs';
 import {JEBISEO_GEMINI_WEB_URL, unwrapJebiseoMobileReply} from './mobile-port.mjs';
+import {fixtureAndroidAppInspection} from './test-support.mjs';
 
 // Synthetic, host-private unit fixtures. These readers model the composition's
 // object-capability contract, not phone authentication. The separate generated
@@ -65,11 +66,15 @@ function fixture() {
     focus: {state: 'observed', present: true, active: true, currentCommandMatches: true, remainingMs: 10000}};
   const options = {toolbar: true, beforeParse: null, beforeReturn: null, beforeState: null,
     queueDiscover: false, queueType: false, snapshotPage: null,
+    queueApp: true, appAlreadyVisible: false, appInspection: null, captureApp: true,
     marker: true, captureSnapshot: true, hold: null};
   const current = () => request.getStore()?.live ? request.getStore().cap : null;
   const schemas = {
     life_web_navigate: z.object({url: z.string(), command_id: z.string()}),
     life_android_snapshot: z.object({command_id: z.string()}),
+    life_android_open: z.object({target: z.string(), url: z.string().optional(), command_id: z.string()}),
+    life_android_computer_inspect: z.object({action: z.string(), effect: z.string(), data_class: z.string(),
+      task_digest: z.string(), max_actions_in_call: z.number(), command_id: z.string()}),
     life_android_step: z.object({action: z.string(), text: z.string().optional(), value: z.string().optional(), command_id: z.string()}),
     life_job_status: z.object({job_id: z.string(), command_id: z.string()})
   };
@@ -79,6 +84,11 @@ function fixture() {
     let result;
     if (job.type === 'agent_snapshot') result = snapshotResult(clock - 1, options.toolbar,
       options.snapshotPage?.() ?? page());
+    else if (job.type === 'computer_use_inspect') result = options.appInspection?.() ?? fixtureAndroidAppInspection();
+    else if (job.type === 'open_url' && job.url === '') result = {ok: true, url: 'opened:' + job.target,
+      code: options.appAlreadyVisible ? 'RIGHT_PANE_ALREADY_VISIBLE' : 'RIGHT_PANE_VERIFIED',
+      rightPaneVerified: true, launchAccepted: !options.appAlreadyVisible,
+      pageOrScrollRestored: false, resultVerified: false};
     else if (job.type === 'open_url') result = {ok: true, url: job.url, rightAddressConfirmed: true,
       splitScreenRequired: true, splitScreen: pair(clock - 1), pageContentVerified: false};
     else if (job.text.includes('|form15_discover|')) result = {ok: true, url: JSON.stringify({...page(),
@@ -107,21 +117,34 @@ function fixture() {
         let job;
         if (name === 'life_job_status') job = jobs.get(args.job_id);
         else {
-          const type = name === 'life_web_navigate' ? 'open_url' : name === 'life_android_snapshot' ? 'agent_snapshot' : 'agent_step';
+          const type = ['life_web_navigate', 'life_android_open'].includes(name) ? 'open_url' :
+            name === 'life_android_snapshot' ? 'agent_snapshot' :
+            name === 'life_android_computer_inspect' ? 'computer_use_inspect' : 'agent_step';
           job = {id: `job_${++counter}`, type, status: 'queued', createdAtMs: clock,
             targetDeviceId: state.deviceId, secureSessionId: state.secureSessionId,
             ...(type === 'agent_snapshot' ? {} : {commandId: args.command_id}),
-            ...(type === 'open_url' ? {url: args.url, target: 'chrome'} :
+            ...(type === 'open_url' ? {url: args.url, target: args.target ?? 'chrome'} :
+              type === 'computer_use_inspect' ? {action: args.action, effect: args.effect,
+                dataClass: args.data_class, mcpToolName: name, secureRequestedEffect: 'READ_ONLY',
+                taskId: args.task_digest, taskDigest: args.task_digest, index: 0,
+                viewportWidth: 0, viewportHeight: 0, scrollX: 0, scrollY: 0, waitMs: 0,
+                maxActionsInCall: args.max_actions_in_call, containsCredential: false} :
               type === 'agent_step' ? {action: args.action, text: args.text, value: args.value} : {})};
           jobs.set(job.id, job);
-          if (type === 'agent_snapshot' && options.captureSnapshot) scopes.set(job, Object.freeze({
+          if ((type === 'agent_snapshot' && options.captureSnapshot) ||
+              (['life_android_open', 'life_android_computer_inspect'].includes(name) && options.captureApp))
+            scopes.set(job, Object.freeze({
             commandId: state.commandId, deviceId: state.deviceId, secureSessionId: state.secureSessionId,
             runtimeId: state.runtimeId, requestScope: cap}));
-          const queued = (options.queueDiscover && job.text?.includes('|form15_discover|')) ||
+          const queued = (name === 'life_android_open' && options.queueApp) ||
+            (options.queueDiscover && job.text?.includes('|form15_discover|')) ||
             (options.queueType && job.text?.includes('|form15_type|'));
           if (!queued) complete(job);
         }
-        let raw = reply(job ? {...safeView(job), ...(job.type === 'open_url' ? {jobId: job.id} : {})} : {error: 'not found'});
+        let raw = name === 'life_android_open' ? reply({route: 'android_right', operation: 'native_app_open',
+          queued: job.status === 'queued', jobId: job.id, requiresFreshWindowReadback: true,
+          screenVerified: false, automaticReplay: false}) :
+          reply(job ? {...safeView(job), ...(job.type === 'open_url' ? {jobId: job.id} : {})} : {error: 'not found'});
         if (options.hold) await options.hold;
         raw = options.beforeReturn?.({job, raw, name, args}) ?? raw;
         returned.set(raw, {cap, name, args: structuredClone(args), raw: structuredClone(raw), job});
@@ -149,6 +172,114 @@ function fixture() {
 const run = (f, rt, operation, args = {}) => f.within(() => rt.runStep({operation, args}));
 const make = (f, value = task()) => f.within(() => f.host.createRuntime(value));
 const typeArgs = () => ({field_id: field, request_id: '2'.repeat(32), text: prompt, submit: false});
+const appTask = () => task({intent: 'open_app', feature: 'ANDROID', action: 'OPEN_APP',
+  appPackage: 'com.google.android.youtube', taskDigest: '8'.repeat(64)});
+
+test('ANDROID uses one native queue job, original status, then an independent WAIT inspection', async () => {
+  const f = fixture(), rt = await make(f, appTask());
+  const opened = await f.within(() => rt.start());
+  assert.equal(opened.toolInvoked, true); assert.equal(opened.appWindowVerified, false);
+  assert.deepEqual(opened.followUp, {tool: 'life_job_status',
+    arguments: {job_id: 'job_1', command_id: commandId}, readOnly: true});
+  assert.deepEqual(f.calls[0].args, {target: '유튜브 앱', url: '', command_id: commandId});
+  assert.equal((await run(f, rt, 'JOB_STATUS', {job_id: 'job_99'})).toolInvoked, false);
+  assert.equal((await run(f, rt, 'JOB_STATUS', {job_id: 'job_1'})).status, 'PENDING');
+  f.complete(f.jobs.get('job_1'));
+  assert.equal((await run(f, rt, 'JOB_STATUS', {job_id: 'job_1'})).status, 'RETURNED');
+  const observed = await run(f, rt, 'APP_OBSERVE');
+  assert.equal(observed.code, 'JEBISEO_ANDROID_APP_OBSERVED');
+  assert.equal(observed.appWindowVerified, true); assert.equal(observed.alreadyVisible, false);
+  assert.equal(observed.readbackRequired, false);
+  assert.equal(observed.observationScope, 'RIGHT_APP_WINDOW_ONLY');
+  assert.equal(observed.externalEffectVerified, false); assert.equal(observed.geminiReplyVerified, false);
+  assert.deepEqual(f.calls.at(-1).args, {action: 'WAIT', effect: 'READ_ONLY', data_class: 'NONE',
+    max_actions_in_call: 1, task_digest: '8'.repeat(64), command_id: commandId});
+  assert.equal((await f.within(() => rt.start())).code, 'JEBISEO_ANDROID_APP_SETTLED_READ_ONLY');
+  assert.equal((await run(f, rt, 'APP_OBSERVE')).appWindowVerified, true);
+  for (const operation of ['OPEN', 'FORM_SNAPSHOT', 'SNAPSHOT', 'TYPE', 'EXECUTE_SUBMIT'])
+    assert.equal((await run(f, rt, operation)).code, 'JEBISEO_FEATURE_OPERATION_MISMATCH');
+  assert.deepEqual(f.calls.map(x => x.name), ['life_android_open', 'life_job_status', 'life_job_status',
+    'life_android_computer_inspect', 'life_android_computer_inspect']);
+  assert.deepEqual(f.hookMutations, []);
+  assert.equal(rt.capabilities().productionRegistered, false);
+});
+
+test('native queue-only completion race and already-visible receipt remain distinct', async () => {
+  for (const alreadyVisible of [false, true]) {
+    const f = fixture(); f.options.queueApp = false; f.options.appAlreadyVisible = alreadyVisible;
+    const rt = await make(f, appTask()), opened = await f.within(() => rt.start());
+    assert.equal(opened.payload.queued, false); assert.equal(opened.appWindowVerified, false);
+    const observed = await run(f, rt, 'APP_OBSERVE');
+    assert.equal(observed.code, 'JEBISEO_ANDROID_APP_OBSERVED');
+    assert.equal(observed.alreadyVisible, alreadyVisible);
+    assert.equal(f.calls.filter(x => x.name === 'life_android_open').length, 1);
+  }
+});
+
+test('an app match without the completed original open never releases pending', async () => {
+  const f = fixture(), rt = await make(f, appTask());
+  await f.within(() => rt.start());
+  assert.equal((await run(f, rt, 'APP_OBSERVE')).appWindowVerified, false);
+  assert.equal((await f.within(() => rt.start())).code, 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED');
+  const app = f.jobs.get('job_1'); f.complete(app);
+  // The earlier observation predates completion and cannot reconcile this open.
+  assert.equal((await f.within(() => rt.start())).code, 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED');
+  assert.equal((await run(f, rt, 'APP_OBSERVE')).appWindowVerified, true);
+  assert.equal(f.calls.filter(x => x.name === 'life_android_open').length, 1);
+});
+
+test('app target, current schema and private original inspection envelope are fixed', async () => {
+  const f = fixture(), rt = await make(f, appTask());
+  f.options.beforeParse = (name, args) => {if (name === 'life_android_open') args.target = '지메일 앱';};
+  assert.equal((await f.within(() => rt.start())).toolInvoked, true);
+  assert.equal(f.calls.length, 0); // Port retains UNKNOWN reservation despite pre-handler rejection.
+  const g = fixture(); g.options.queueApp = false;
+  const good = await make(g, appTask()); await g.within(() => good.start());
+  for (const change of [j => {j.action = 'CLICK';}, j => {j.taskId = '9'.repeat(64);},
+    j => {j.maxActionsInCall = 20;}, j => {j.x = 10;}, j => {j.containsCredential = true;}]) {
+    g.options.beforeReturn = ({job, name}) => {if (name === 'life_android_computer_inspect') change(job);};
+    assert.equal((await run(g, good, 'APP_OBSERVE')).appWindowVerified, false);
+  }
+  assert.equal(g.calls.filter(x => x.name === 'life_android_open').length, 1);
+});
+
+test('app observation requires original invocation scope and authenticated completion marker', async () => {
+  for (const failure of ['missing-open-scope', 'missing-observe-scope', 'missing-marker', 'altered-open']) {
+    const f = fixture(); f.options.queueApp = false;
+    if (failure === 'missing-open-scope') f.options.captureApp = false;
+    const rt = await make(f, appTask()); await f.within(() => rt.start());
+    if (failure === 'missing-observe-scope') f.options.captureApp = false;
+    if (failure === 'missing-marker') f.options.marker = false;
+    if (failure === 'altered-open') f.jobs.get('job_1').target = '지메일 앱';
+    assert.equal((await run(f, rt, 'APP_OBSERVE')).appWindowVerified, false, failure);
+    assert.equal((await f.within(() => rt.start())).code, 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED', failure);
+  }
+});
+
+test('locked or wrong native app evidence cannot become a completed app-open feature', async () => {
+  for (const change of [r => {r.screen.locked = true;}, r => {r.screen.windowId++;},
+    r => {r.screen.packageName = 'com.google.android.gm';},
+    r => {r.stage61Router.workDisplayId = null;}]) {
+    const f = fixture(); f.options.queueApp = false;
+    const rt = await make(f, appTask()); await f.within(() => rt.start());
+    f.options.appInspection = () => {const result = fixtureAndroidAppInspection(); change(result); return result;};
+    assert.equal((await run(f, rt, 'APP_OBSERVE')).appWindowVerified, false);
+    assert.equal((await f.within(() => rt.start())).code, 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED');
+  }
+});
+
+test('failed new APP_OBSERVE cannot recycle an earlier match after focus recovers', async () => {
+  const f = fixture(); f.options.queueApp = false;
+  const rt = await make(f, appTask()); await f.within(() => rt.start());
+  f.options.beforeReturn = ({name}) => {if (name === 'life_android_computer_inspect') f.state.focus.active = false;};
+  const first = await run(f, rt, 'APP_OBSERVE');
+  assert.equal(first.appWindowVerified, false);
+  f.state.focus.active = true; f.options.beforeReturn = null;
+  f.options.beforeParse = name => {if (name === 'life_android_computer_inspect') throw Error('fixture_schema_failed');};
+  const failed = await run(f, rt, 'APP_OBSERVE');
+  assert.equal(failed.status, 'UNKNOWN'); assert.equal(failed.appWindowVerified, false);
+  assert.equal((await f.within(() => rt.start())).code, 'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED');
+});
 async function discovered(f, rt) {
   await run(f, rt, 'FORM_SNAPSHOT');
   const result = await run(f, rt, 'DISCOVER_INPUT');

@@ -5,7 +5,8 @@ import vm from 'node:vm';
 import {createJebiseoMobilePort, JEBISEO_ORIGINAL_MOBILE_TOOLS, JEBISEO_GEMINI_WEB_URL,
   unwrapJebiseoMobileReply} from './mobile-port.mjs';
 import {patchJH168MobileWebCommands56} from '../jh168-mobile-unification/mobile-web-tool-patch.mjs';
-import {fixtureFieldId, fixtureGuidedArguments, fixtureGuidedJob, fixtureMobileReply} from './test-support.mjs';
+import {fixtureFieldId, fixtureGuidedArguments, fixtureGuidedJob, fixtureMobileReply,
+  fixtureAndroidAppInspection} from './test-support.mjs';
 import {classifyJebiseoGuidedJob} from './guided-outcome.mjs';
 
 const command = 'a'.repeat(32), context = `ssc_${'b'.repeat(32)}`;
@@ -309,4 +310,83 @@ test('guided result parser reads only the exact original job slot and current ac
   assert.equal((await fixture(() => envelope(decorated)).run('TYPE', typeArgs())).status, 'RETURNED');
   const guarded = {...good, executionStatus: 'EFFECT_UNKNOWN'};
   assert.equal((await fixture(() => envelope(guarded)).run('TYPE', typeArgs())).status, 'UNKNOWN');
+});
+
+test('ANDROID OPEN_APP forwards only a source-backed canonical native alias and the existing command', async () => {
+  const f = fixture(() => envelope({route: 'android_right', operation: 'native_app_open',
+    queued: true, jobId: 'job_701', requiresFreshWindowReadback: true, screenVerified: false,
+    automaticReplay: false}));
+  for (const [app_package, target] of [
+    ['com.google.android.youtube', '유튜브 앱'],
+    ['com.google.android.gm', '지메일 앱'],
+    ['com.instagram.android', '인스타그램 앱']
+  ]) {
+    const response = await f.run('OPEN_APP', {app_package});
+    assert.deepEqual(f.calls.at(-1), {name: 'life_android_open', args: {target, url: '', command_id: command}});
+    assert.equal(response.payload.jobId, 'job_701');
+    assert.equal(response.phoneDispatchVerified, false);
+    assert.equal(response.geminiAcceptedVerified, false);
+    assert.notEqual(response.appWindowVerified, true);
+  }
+  assert.deepEqual(f.calls.map(call => call.name), Array(3).fill('life_android_open'));
+  assert.equal(JEBISEO_ORIGINAL_MOBILE_TOOLS.filter(name => name === 'life_android_open').length, 1);
+  assert.equal(JEBISEO_ORIGINAL_MOBILE_TOOLS.filter(name => name === 'life_android_computer_inspect').length, 1);
+});
+
+test('ANDROID app routes reject target substitution and arbitrary inspection arguments before invocation', async () => {
+  const f = fixture(), app_package = 'com.google.android.youtube';
+  for (const extra of [{target: '지메일 앱'}, {url: 'https://example.test/'}, {appPackage: app_package},
+    {action: 'CLICK'}, {device_id: 'other-phone'}, {request_id: request}])
+    assert.equal((await f.run('OPEN_APP', {app_package, ...extra})).code, 'JEBISEO_MOBILE_ARGUMENT_UNSUPPORTED');
+  for (const value of ['com.openai.chatgpt', 'com.koreanlifehub.bridge', 'com.android.systemui',
+    'org.telegram.messenger', 'com.unknown.app', '유튜브 앱', app_package + ' '])
+    assert.equal((await f.run('OPEN_APP', {app_package: value})).code, 'JEBISEO_ANDROID_APP_TARGET_UNAVAILABLE');
+  for (const extra of [{action: 'CLICK'}, {action: 'WAIT'}, {effect: 'REVERSIBLE_WRITE'},
+    {data_class: 'SECRET'}, {max_actions_in_call: 2}, {wait_ms: 1}, {index: 2},
+    {text_value: 'arbitrary input'}, {screen_grant_token: 'caller-token'}])
+    assert.equal((await f.run('APP_OBSERVE', {task_digest: task, ...extra})).code,
+      'JEBISEO_MOBILE_ARGUMENT_UNSUPPORTED');
+  assert.equal((await f.run('APP_OBSERVE', {task_digest: 'invalid'})).code,
+    'JEBISEO_ORIGINAL_TASK_DIGEST_REQUIRED');
+  assert.equal(f.calls.length, 0);
+  assert.equal((await f.run('OPEN_APP', {app_package})).toolInvoked, true,
+    'rejected argument shapes must not reserve an app-open effect');
+});
+
+test('ANDROID APP_OBSERVE is fixed WAIT inspection, with no approval, execution or snapshot recovery', async () => {
+  const raw = envelope({type: 'computer_use_inspect', status: 'complete', error: null,
+    result: fixtureAndroidAppInspection()});
+  const f = fixture(() => raw);
+  for (let i = 0; i < 2; i++) {
+    const response = await f.run('APP_OBSERVE', {task_digest: task});
+    assert.equal(response.raw, raw);
+    assert.equal(response.payload.result.code, 'screen_ready');
+    assert.notEqual(response.appWindowVerified, true);
+    assert.equal(response.phoneDispatchVerified, false);
+  }
+  assert.deepEqual(f.calls, Array.from({length: 2}, () => ({name: 'life_android_computer_inspect',
+    args: {action: 'WAIT', effect: 'READ_ONLY', data_class: 'NONE', max_actions_in_call: 1,
+      task_digest: task, command_id: command}})));
+});
+
+test('ANDROID uncertain app open stays reserved across concurrent retries and later read-only calls', async () => {
+  let release;
+  const gate = new Promise(resolve => {release = resolve;});
+  const f = fixture(async name => {
+    if (name === 'life_android_open') {await gate; throw Error('ORIGINAL_OUTCOME_UNKNOWN');}
+    return envelope({status: 'complete', result: {ok: true}});
+  });
+  const opening = f.run('OPEN_APP', {app_package: 'com.google.android.youtube'});
+  try {
+    assert.equal((await f.run('OPEN_APP', {app_package: 'com.google.android.youtube'})).code,
+      'JEBISEO_ACTION_ALREADY_ATTEMPTED_READ_ORIGINAL_RESULT');
+    assert.equal(f.calls.length, 1);
+  } finally {release();}
+  assert.equal((await opening).status, 'UNKNOWN');
+  await f.run('JOB_STATUS', {job_id: 'job_701'});
+  await f.run('APP_OBSERVE', {task_digest: task});
+  assert.equal((await f.run('OPEN_APP', {app_package: 'com.google.android.youtube'})).code,
+    'JEBISEO_ACTION_ALREADY_ATTEMPTED_READ_ORIGINAL_RESULT');
+  assert.deepEqual(f.calls.map(call => call.name),
+    ['life_android_open', 'life_job_status', 'life_android_computer_inspect']);
 });

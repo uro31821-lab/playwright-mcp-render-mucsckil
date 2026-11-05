@@ -32,3 +32,24 @@ export function fixtureMobileReply(name, args) {
     form_activate: 'DISMISS_NOTICE'}[args.text.split('|')[3]];
   return fixtureGuidedJob(operation);
 }
+
+// Original CU WAIT + Stage61 producer shape. Synthetic data, never a phone receipt.
+export function fixtureAndroidAppInspection(packageName = 'com.google.android.youtube') {
+  return {ok: true, code: 'screen_ready',
+    screen: {packageName, windowId: 12, left: 700, top: 0, right: 1400, bottom: 1000,
+      viewportWidth: 700, viewportHeight: 1000, structuralDigest: 'b'.repeat(64), screenshotDigest: null,
+      locked: false, secureContext: false, routingBusy: false},
+    target: {trust: 'NONE', risk: 'NONE', ambiguous: false, targetDigest: 'c'.repeat(64)},
+    stage61Router: {routerVersion: 'JH168_STAGE61_RIGHT_PANE_ROUTER_V3',
+      routeSchema: 'JH168_STAGE61_ROUTE_REQUEST_V1', schema: 'JH168_STAGE61_UNIFIED_RECEIPT_V1',
+      provider: 'ANDROID_COMPUTER_USE', action: 'READ_ONLY_INSPECT', phase: 'INSPECT',
+      routeCode: 'READ_ONLY_COMPUTER_USE_INSPECTION', allowed: true,
+      fallbackEligible: false, compatibilityDirectProvider: false, replayAllowed: false,
+      leftGptProtected: true, rightWorkVerified: true, sameDisplay: true,
+      fixedLayout: 'LEFT_GPT_RIGHT_WORK', chatPackage: 'com.openai.chatgpt',
+      chatWindowId: 11, workPackage: packageName, workWindowId: 12,
+      chatBounds: '0,0,700,1000', workBounds: '700,0,1400,1000',
+      chatDisplayId: 0, workDisplayId: 0, outcome: 'READ_ONLY_VERIFIED', originalCode: 'screen_ready',
+      actionDispatched: false, resultVerified: false, successReceipt: false,
+      verifiedUnsupportedNoEffect: false, automaticReplay: false, unifiedReceiptDigest: 'd'.repeat(64)}};
+}

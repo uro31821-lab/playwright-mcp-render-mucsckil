@@ -9,12 +9,15 @@ import {isDeepStrictEqual} from 'node:util';
 import {prepareJebiseoGuidedCall} from './guided-form.mjs';
 import {classifyJebiseoMobileOutcome} from './mobile-outcome.mjs';
 import {classifyJebiseoGuidedJob} from './guided-outcome.mjs';
+import {getJebiseoAndroidTarget} from './android-app.mjs';
 
 // This destination is implementation-owned. Page text or a generated link must
 // never turn a Gemini launch into navigation to a different service/account.
 export const JEBISEO_GEMINI_WEB_URL = 'https://gemini.google.com/app';
 const ROUTES = Object.freeze({
   OPEN: 'life_web_navigate',
+  OPEN_APP: 'life_android_open',
+  APP_OBSERVE: 'life_android_computer_inspect',
   SNAPSHOT: 'life_web_snapshot',
   FORM_SNAPSHOT: 'life_android_snapshot',
   DISCOVER_INPUT: 'life_android_step',
@@ -30,7 +33,7 @@ const ROUTES = Object.freeze({
 });
 export const JEBISEO_ORIGINAL_MOBILE_TOOLS = Object.freeze([...new Set(Object.values(ROUTES))]);
 const GUIDED = new Set(['DISCOVER_INPUT', 'DISMISS_NOTICE', 'TYPE']);
-const EFFECTS = new Set(['OPEN', ...GUIDED, 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
+const EFFECTS = new Set(['OPEN', 'OPEN_APP', ...GUIDED, 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const SUBMIT = new Set(['INSPECT_SUBMIT', 'PREPARE_SUBMIT', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const HEX32 = /^[a-f0-9]{32}$/, HEX64 = /^[a-f0-9]{64}$/;
 const CONTEXT = /^ssc_[a-f0-9]{32}$/, FIELD = /^f_[a-f0-9]{24}$/;
@@ -48,6 +51,8 @@ const CU_FIELDS = Object.freeze([
 ]);
 const FIELDS = Object.freeze({
   OPEN: [],
+  OPEN_APP: ['app_package'],
+  APP_OBSERVE: ['task_digest'],
   SNAPSHOT: ['context_id', 'goal'],
   FORM_SNAPSHOT: [],
   DISCOVER_INPUT: ['guided_arguments'],
@@ -116,6 +121,16 @@ function validateArgs(operation, args, commandId) {
     return {error: 'JEBISEO_DEVICE_ID_INVALID'};
   if (operation === 'OPEN') {
     value.url = JEBISEO_GEMINI_WEB_URL;
+  } else if (operation === 'OPEN_APP') {
+    const target = getJebiseoAndroidTarget(args.app_package);
+    if (!target) return {error: 'JEBISEO_ANDROID_APP_TARGET_UNAVAILABLE'};
+    return {value: {target: target.target, url: '', command_id: commandId}};
+  } else if (operation === 'APP_OBSERVE') {
+    if (!matches(HEX64, args.task_digest)) return {error: 'JEBISEO_ORIGINAL_TASK_DIGEST_REQUIRED'};
+    // INSPECT of WAIT is a current accessibility read, never execute WAIT,
+    // snapshot recovery, a screenshot, an approval request or a generic action.
+    return {value: {action: 'WAIT', effect: 'READ_ONLY', data_class: 'NONE',
+      max_actions_in_call: 1, task_digest: args.task_digest, command_id: commandId}};
   } else if (operation === 'FORM_SNAPSHOT') {
     // Original signed native snapshot exposes issued guided-form arguments.
     // A generic RIGHT item reference must never be converted to a native ID.
@@ -213,6 +228,8 @@ export function createJebiseoMobilePort({callOriginalTool, runtimeMode = null, m
       if (EFFECTS.has(operation)) {
         const identity = operation === 'OPEN'
           ? [operation, commandId, JEBISEO_GEMINI_WEB_URL]
+          : operation === 'OPEN_APP'
+          ? [operation, commandId, args.app_package]
           : GUIDED.has(operation)
           ? [operation, commandId, args.field_id ?? null]
           : [operation, commandId, args.device_id ?? null, args.task_digest];

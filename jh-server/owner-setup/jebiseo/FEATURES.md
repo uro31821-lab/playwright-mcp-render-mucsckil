@@ -31,7 +31,7 @@
 
 **원본에는 세 기능의 요청 계약·상태 전이·검사 코드가 있다. 운영 연결이나 휴대폰에서의 전체 성공을 뜻하지 않는다.** 원본 통합 코드의 상태는 `productionRegistered: false`, `chatGptDeliveryConnected: false`, `androidApkBuilt: false`, `physicalPhoneTested: false`다. [원본 통합 상태][composition] · [원본 기능 검사][tests]
 
-현재 새 후보의 `host-runtime.mjs`, `mobile-port.mjs`, `reply-proof.mjs`는 공통 모바일 연결·중복 실행 방지·결과 연결 검증을 준비한 기반이다. 명시적 요청에서 `start()`가 고정 Gemini 웹 주소의 기존 Mobile13 OPEN을 호출하도록 연결했다. 세 가지 제품 기능의 완성된 실행 흐름은 아직 포함하지 않는다.
+현재 새 후보의 `host-runtime.mjs`, `mobile-port.mjs`, `reply-proof.mjs`는 공통 모바일 연결·중복 실행 방지·결과 연결 검증을 준비한 기반이다. Gemini 열기 요청의 `start()`는 고정 Gemini 웹 주소의 기존 Mobile13 OPEN을 호출한다. 명시적 `ANDROID / OPEN_APP` 요청은 별도로 기존 원 앱 열기와 독립적인 현재 앱 관찰에 연결했다. 세 기능의 실사용 전체 완료를 뜻하지 않는다.
 
 2026-11-05 확정 기준은 **PR #159의 Stage72 상태, Stage62 FIX3 APK 유지, Stage71 Android → Manual**이다. 후보의 입력·안내 닫기는 현재 원 snapshot/discovery가 발급한 guided-form 인자를 기존 `life_android_step`으로 전달한다. 폐기된 모바일 제공자나 예전 입력·클릭 별칭으로 우회하지 않는다. 일반 웹 Playwright는 유지한다. 입력칸 확인과 안내 클릭 접수는 세 기능의 전송·결과 성공과 구분한다.
 
@@ -41,7 +41,19 @@
 | --- | --- | --- |
 | `YOUTUBE` | 영상 URL/ID 계약, 답변과 영상의 일치 확인, 근거 범위 표시 | 원본 URL·요청 계약을 유지해 최신 모바일 작업에 연결하고, 같은 질문·영상에 해당하는 답변만 결과로 표시한다. |
 | `VIDEO` | 포함 사용량/추가 결제 확인, 생성 결과, 기존 영상 내보내기·조회, 실제 파일 검증·GPT 재생 전달 | 원본 영상 상태 전이를 최신 호스트 포트에 연결한다. 생성 성공과 영상 회수·검증·전달을 각각 실제 결과로 확인한다. |
-| `ANDROID` | 명시적인 `OPEN_APP`과 대상 앱의 독립 상태 확인 | 기존 최신 모바일 앱 열기 포트와 결과 확인을 연결한다. 별도의 새 휴대폰 실행기를 만들지 않는다. |
+| `ANDROID` | 코드 후보는 연결됨. 운영 등록·현재 APK 동작 확인이 남음 | 유튜브·지메일·인스타그램만 원본 단일 패키지 매핑으로 전달한다. 원본 앱 열기 완료 뒤 별도 CU WAIT INSPECT에서 실제 오른쪽 패키지·창을 확인한다. |
+
+### ANDROID 코드 후보의 현재 범위
+
+`createJebiseoTask`는 명시적인 `intent:open_app`, `feature:ANDROID`, `action:OPEN_APP`, 지원하는 `appPackage`, 기존 기기·명령·taskDigest를 요구한다. 현재 지원 매핑은 `com.google.android.youtube`, `com.google.android.gm`, `com.instagram.android`다. URL이나 미확인 앱 별칭으로 바꾸지 않는다.
+
+같은 원본 `life_android_open`의 큐 응답에는 `jobId`만 반환되므로 먼저 그 원 작업의 완료를 확인한다. 이후 `APP_OBSERVE`는 기존 `life_android_computer_inspect`를 `WAIT / READ_ONLY / NONE / max_actions_in_call:1`로만 호출한다. WAIT 실행·클릭·입력·스크린샷·이전 앱 복원은 호출하지 않는다. 실제 원본 런처가 이미 같은 앱을 확인한 경우에는 재실행하지 않는다.
+
+현재 인증된 원본 host는 두 job의 기기·명령·세션·실제 호출·Stage26 완료·시간 순서를 연결하고, 후속 Stage61 범위와 실제 screen의 목표 패키지·창·영역·display를 확인한다. 잠금·민감 화면·라우팅 진행 중이거나 증거가 바뀌면 실패한다. 성공 의미는 **현재 오른쪽에 대상 앱이 보였음**이며 앱 내부 작업, Gemini 처리, 전송·결제의 성공이 아니다.
+
+한 번 열린 작업은 원 결과가 불명확해도 다시 열지 않는다. 완료 뒤에는 원 receipt를 유지하며 새 읽기 관찰만 할 수 있다. 새 관찰이 실패하면 이전 화면을 현재 결과로 재사용하지 않는다. `androidAppCandidateSupported:true`와 `androidAppAvailable:false`를 구분한다.
+
+복구 원본 기준 Gemini 웹의 현재 RIGHT 주소·정확한 현재 draft 생산기는 제공되지 않는다. native Gemini 전용 입력·클릭 receipt를 Chrome에 재사용하지 않는다. 따라서 이 ANDROID 후보 연결로 YOUTUBE·VIDEO의 완료 상태를 올리지 않는다.
 
 새 후보의 대상·결과 검증 계약만으로 실제 증거 생산기가 생기지는 않는다. 원본 관찰은 제공자의 메시지·대화 식별자를 입증하지 못하는 경우 `SIGNED_GEMINI_VISIBLE_SEQUENCE_CANDIDATE_UNVERIFIED`와 `sentMessageIdProven: false`를 반환한다. 이 후보를 현재 질문의 검증된 최종 답변으로 바꾸지 않는다. [원본 답변 관찰자][visible]
 
