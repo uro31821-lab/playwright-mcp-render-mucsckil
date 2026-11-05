@@ -1,0 +1,49 @@
+{
+  "schema":"JH168_STAGE70_LIVE_E2E_CHECKPOINT_V1",
+  "observedAt":"2026-11-05T20:04:47+09:00",
+  "status":"PARTIAL_PASS_BLOCKED_BY_CONCURRENT_DEVICE_COMMAND",
+  "targetFlow":[
+    "OPEN_RIGHT_URL",
+    "READ_RIGHT_SCREEN",
+    "VISIBLE_SAFE_BUTTON_CLICK",
+    "VISIBLE_TEXT_TYPE",
+    "WAIT_CONDITION",
+    "BACK_PAGE_NAVIGATION"
+  ],
+  "verifiedInOneCommandBeforeInterruption":[
+    {
+      "step":"OPEN_RIGHT_URL",
+      "result":"PASS",
+      "evidence":"RIGHT_ADDRESS_CONFIRMED"
+    },
+    {
+      "step":"READ_RIGHT_SCREEN",
+      "result":"PASS",
+      "evidence":"fresh Android accessibility snapshot on verified LEFT_GPT_RIGHT_CHROME split"
+    },
+    {
+      "step":"VISIBLE_SAFE_BUTTON_CLICK",
+      "result":"PASS",
+      "evidence":"guidedForm.form_activate dispatched; immediate snapshot verified click-count 0 -> 1"
+    },
+    {
+      "step":"VISIBLE_TEXT_TYPE",
+      "result":"PASS",
+      "evidence":"form15_type returned field_value_verified and valueVerified=true; immediate snapshot showed input-one-length=7"
+    }
+  ],
+  "notExecutedAfterInterruption":[
+    "WAIT_CONDITION",
+    "BACK_PAGE_NAVIGATION"
+  ],
+  "interruptionEvidence":[
+    "next low-risk delay-button action returned new_command_binding_required_or_discarded with commandLifecycleCause=NEW_BEGIN_COMMAND and verifiedPhoneEffect=false",
+    "new BEGIN_COMMAND attempt returned DEVICE_FOCUS_PROTECTED_OTHER_BEGIN",
+    "read-only split status remained LIVE_SPLIT_VERIFIED",
+    "read-only Android snapshot then showed a different live JH Form session identifier and reset input state, consistent with another command owning the same phone/browser state"
+  ],
+  "safetyDecision":"STOP_DEVICE_WRITES_NO_STEAL_NO_CANCEL",
+  "featureRegression":false,
+  "routingDecisionChanged":false,
+  "next":"When the device is no longer owned by another JH command, run only WAIT_CONDITION -> destination readback -> native BACK readback. Do not repeat already-verified click/type solely because of contention."
+}
