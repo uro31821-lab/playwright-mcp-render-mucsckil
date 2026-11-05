@@ -1,0 +1,21 @@
+name: JH168 Stage68 three-round dual-engine elimination
+on:
+  push:
+    branches: [feat/stage68-three-round-elimination-20261105]
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-mobile-dual-engine/stage68/**'
+      - '.github/workflows/jh-stage68-three-round.yml'
+permissions:
+  contents: read
+jobs:
+  policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test jh-mobile-dual-engine/stage68/stage68-policy.test.mjs
