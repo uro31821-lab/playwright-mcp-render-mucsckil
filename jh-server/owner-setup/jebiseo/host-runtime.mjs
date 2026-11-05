@@ -130,7 +130,8 @@ export function createJebiseoTask(input = {}) {
   if (!ref(input.taskRef) || !ref(input.threadRef)) throw Error('JEBISEO_TASK_SCOPE_REQUIRED');
   const invoked = ['open', 'consult', 'assist', 'open_app'].includes(input.intent) &&
     ['direct', 'contextual_user_request'].includes(input.basis);
-  // Latest explicit user choice: visible Gemini on the phone's RIGHT Chrome.
+  // Legacy automatic web path: visible Gemini on the phone's RIGHT Chrome.
+  // The latest one-way/Manual flow enters through handoff-request/runtime.
   // An explicitly requested hidden task still cannot fall back to a visible UI.
   const visibility = input.visibility ?? 'VISIBLE';
   if (!['INTERNAL', 'VISIBLE'].includes(visibility)) throw Error('JEBISEO_VISIBILITY_INVALID');

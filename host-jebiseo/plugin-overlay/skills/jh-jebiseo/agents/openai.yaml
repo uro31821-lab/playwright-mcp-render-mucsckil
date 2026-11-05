@@ -1,4 +1,4 @@
 interface:
   display_name: "제비서"
-  short_description: "현재 검증된 Gemini 연결과 실제 의견만 JH 작업에 연결"
-  default_prompt: "Use $jh-jebiseo to check the available Gemini connection and add its verified opinion to the current task."
+  short_description: "삼성 앱·기기와 유튜브·영상 요청을 Gemini로 인계"
+  default_prompt: "Use $jh-jebiseo to prepare this phone request, keep GPT left and Gemini right, use supported Android actions with the existing Manual fallback, and leave analysis and video results in Gemini."

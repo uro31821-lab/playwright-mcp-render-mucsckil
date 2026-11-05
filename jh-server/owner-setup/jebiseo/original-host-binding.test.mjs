@@ -175,6 +175,37 @@ const typeArgs = () => ({field_id: field, request_id: '2'.repeat(32), text: prom
 const appTask = () => task({intent: 'open_app', feature: 'ANDROID', action: 'OPEN_APP',
   appPackage: 'com.google.android.youtube', taskDigest: '8'.repeat(64)});
 
+test('one-way handoff reuses the original bound OPEN and same cached session across requests', async () => {
+  const f=fixture();
+  const request={taskRef:'fixture-handoff-task',threadRef:'fixture-handoff-thread',
+    sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'YOUTUBE',
+    youtubeUrl:'https://youtu.be/abcde12345_',requestText:'이 영상의 핵심을 정리해 줘'};
+  const session=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId}));
+  const opened=await f.within(()=>session.start());
+  assert.equal(opened.requestSent,false);assert.equal(opened.returnToGpt,false);
+  assert.equal(opened.nextAction,'INSPECT_EXISTING');
+  assert.equal(f.jobs.size,1);
+  const same=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId}));
+  assert.equal(same,session);await f.within(()=>same.start());assert.equal(f.jobs.size,1);
+  await f.within(()=>same.readOpenStatus());assert.equal(f.jobs.size,1);
+  assert.deepEqual(f.calls.map(x=>x.name),['life_web_navigate','life_job_status']);
+  assert.equal(session.presentation().requiresUserReply,false);
+  await assert.rejects(f.within(()=>f.host.createHandoffRuntime({
+    request:{...request,requestText:'다른 작업'},deviceId,commandId})),/HANDOFF_TASK_BINDING_CHANGED/);
+});
+
+test('Samsung handoff through the original host creates no native/web job or reply requirement', async () => {
+  const f=fixture();
+  const request={taskRef:'fixture-samsung-task',threadRef:'fixture-handoff-thread',
+    sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'ANDROID',
+    target:'삼성 노트',requestText:'선택한 내용을 노트에 저장해 줘'};
+  const session=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId}));
+  const manual=await f.within(()=>session.start());
+  assert.equal(manual.surface,'GEMINI_NATIVE');assert.equal(manual.nextAction,'OPEN');
+  assert.equal(manual.externalEffectVerified,false);assert.equal(manual.requestSent,false);
+  assert.equal(f.jobs.size,0);assert.equal(f.calls.length,0);assert.equal(f.parses.length,0);
+});
+
 test('ANDROID uses one native queue job, original status, then an independent WAIT inspection', async () => {
   const f = fixture(), rt = await make(f, appTask());
   const opened = await f.within(() => rt.start());

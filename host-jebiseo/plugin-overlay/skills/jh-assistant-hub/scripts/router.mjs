@@ -70,20 +70,36 @@ export function planRoute(input) {
     result.helpers = helpersRequested.filter(x => x !== result.lead && !excluded.includes(x));
     result.mode = intent.mode ?? (result.lead === 'guide' ? 'explain' : 'assist');
   }
+  // A one-way manual request can be prepared locally with the installed skill.
+  // This is not a relaxed Gemini provider capability or permission to dispatch.
+  const handoff = result.lead === 'gemini' && intent.kind !== 'develop' &&
+    (intent.geminiFlow === 'HANDOFF' ||
+      (continuations.has(intent.kind) && activeTask?.conditions?.geminiFlow === 'HANDOFF'));
+  if (handoff) {
+    const feature = intent.geminiFeature ?? activeTask?.conditions?.geminiFeature;
+    check(['ANDROID', 'YOUTUBE', 'VIDEO'].includes(feature), 'GEMINI_HANDOFF_FEATURE_REQUIRED');
+    result.routeScope = 'HANDOFF_PREPARATION';
+    result.geminiFeature = feature;
+    result.resultDestination = 'GEMINI';
+    result.returnToGpt = false;
+    result.manualAllowed = true;
+    result.executionReady = false;
+  }
   for (const id of [result.lead, ...result.helpers]) {
     const entry = entries.get(id);
     if (entry.skill) {
       if (!available.skills.includes(entry.skill)) result.unavailableCapabilities.push(id);
       else result.requiredSkills.push(entry.skill);
     }
-    if (entry.requiresCapability && !available.capabilities.includes(entry.requiresCapability)) result.unavailableCapabilities.push(id);
+    if (entry.requiresCapability && !(handoff && id === 'gemini') &&
+        !available.capabilities.includes(entry.requiresCapability)) result.unavailableCapabilities.push(id);
   }
   result.requiredSkills = [...new Set(result.requiredSkills)];
   result.unavailableCapabilities = [...new Set(result.unavailableCapabilities)];
   result.ready = !result.unavailableCapabilities.includes(result.lead);
   // Prefix candidates only: the host displays each prefix when that assistant actually contributes.
   result.participantBadges = [result.lead,...result.helpers]
-    .filter(id => id !== 'general' && !result.unavailableCapabilities.includes(id))
+    .filter(id => id !== 'general' && !(handoff && id === 'gemini') && !result.unavailableCapabilities.includes(id))
     .map(id => ({id,prefix:`🏴‍☠️ ${entries.get(id).label}:`}));
   result.badge = result.participantBadges.find(item => item.id === result.lead)?.prefix ?? null;
   return result;

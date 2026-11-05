@@ -1,79 +1,66 @@
-# 제비서: 기존 제미나이 3기능과 모바일 전환 범위
+# 제비서: Gemini 실행과 Manual 인계
 
-원본 확인 기준: **PR #63, `67c69428f27030237f417753c717ab758faaa855`**.
-현재 사용자 조건은 **휴대폰만 사용**과 **GPT 요청 시 오른쪽 Gemini 자동 열기**다.
-사용자가 Google/Gemini를 직접 열고 배치하는 절차를 없애라는 후속 명시 지시가
-이전 화면 비노출 조건을 대체했다. 기본 경로는 휴대폰 오른쪽 Chrome의 Gemini 웹이다.
-원래 기능은 `YOUTUBE / VIDEO / ANDROID`이며, 일반 질문·다른 의견·검토라는 세 가지 상담 기능으로 대체하지 않는다. [원본 요청 계약][contract]
+## 최신 사용자 확정 방침
 
-## 1. 유지할 세 가지 기능
+**휴대폰에서 왼쪽 GPT / 오른쪽 Gemini를 고정한다.** GPT가 현재 요청의 대상·동작·필요한 내용을 준비하고, 가능한 기존 Android 단계는 자동으로 수행하며 안 되는 단계는 **기존 Manual 방식**으로 이어간다.
 
-| 기능 | 입력과 사용 예시 | 사용자에게 돌아올 결과 | 원본의 조건·제한 |
-| --- | --- | --- | --- |
-| **유튜브 영상 내용 확인·요약** (`YOUTUBE`) | 유튜브 링크 + 요청 문장. 예: “이 링크 영상의 핵심만 알려줘.” | 같은 영상과 현재 질문에 연결된 제목·핵심 내용 또는 요청한 설명을 GPT 대화에 표시 | 일반 영상·짧은 링크·Shorts·Live의 영상 ID를 표준 URL로 정리한다. 실제 근거를 공개 설명·자막·영상·미확인으로 구분한다. 전체 영상 시청을 보장하지 않으며, 전체 답변 증거가 없으면 부분 결과로 표시한다. [계약][contract] · [실행 흐름][workflow] |
-| **영상 생성 후 GPT에서 보기** (`VIDEO`) | 만들 영상에 대한 설명. 예: “제주 해변의 아침을 영상으로 만들어줘.” | 현재 요청으로 생성된 실제 영상과 검증된 재생 결과 | 기존 포함 사용량 이용 가능, 추가 결제 불필요, 영상 모드 선택을 모두 확인한 뒤 진행한다. 생성된 기존 영상만 내보내고 실제 파일·해시·형식·재생 시간·전달 결과를 확인한다. 특정 생성 모델 버전·해상도·영상 길이는 원본 계약에 고정되어 있지 않다. [실행 흐름][workflow] · [파일 검증][artifact] |
-| **휴대폰 앱 열기·결과 확인** (`ANDROID`) | 명시한 앱과 확인된 대상 패키지. 예: “유튜브 앱 열어줘.” | 지정 앱이 실제 작업창에 열렸는지 확인한 결과를 GPT에 표시 | 실제 구현 범위는 **`OPEN_APP`만**이다. 기존 JH 앱 실행기를 사용하며, 이미 열려 있으면 다시 열지 않는다. Gemini의 “열었습니다”라는 답변은 성공 증거가 아니다. 임의 앱 내부 조작·메시지 발송·결제 기능으로 확대하지 않는다. [계약][contract] · [실행 흐름][workflow] |
+**유튜브 분석·영상 생성 결과는 오른쪽 Gemini에서 확인한다. GPT 자동 재전송은 개발 범위에서 제외한다.** 사용자가 필요할 때 GPT에 다시 질문하면 그 요청을 처리한다. Gemini 결과 복사·가져오기를 필수 사용 절차로 넣지 않는다.
 
-원본은 세 기능 모두 GPT에 결과를 돌려주는 구조다. `ANDROID` 분기는 Gemini 질의를 거치지 않고 기존 JH의 `engine.openApp`과 독립적인 앱 상태 확인을 사용한다. [실행 흐름][workflow]
+## 1. 세 가지 기능
 
-## 2. 추가 결제와 결과 확인
+| 기능 | GPT에서 준비할 내용 | Gemini에서 할 일과 확인 위치 |
+| --- | --- | --- |
+| **삼성 앱·기기 이용** (`ANDROID`, Gemini 위임) | 사용자 요청의 앱·기기, 동작, 필요한 내용. 예: 일정 저장, 삼성 노트 이용, 계산기 실행, 알람·지원되는 연결 기기 제어 | 현재 연결·지원되는 삼성 앱·기기 작업을 Gemini에 맡기고 Gemini 또는 대상 앱·기기에서 확인 |
+| **유튜브 분석** (`YOUTUBE`) | 해당 영상 링크와 분석 질문 | Gemini에서 분석하고 오른쪽에서 결과 확인. GPT 답변 회수 없음 |
+| **영상 생성** (`VIDEO`) | 사용자가 요청한 제작 프롬프트 | 기존 Gemini 이용 범위에서 영상 제작. 상태와 영상은 Gemini에서 확인하며 파일 내보내기·GPT 전달 없음 |
 
-| 항목 | 보존할 기준 |
+삼성 앱·기기는 **Gemini가 실제 지원하고 연결할 수 있는 범위 전체**를 뜻한다. 위 예시나 기존 세 앱 직접 열기 목록으로 한정하지 않는다. “계산기 열어 줘” 같은 직접 실행 요청에는 따로 추출할 일정·문서가 없어도 된다. 기기·계정별 지원을 확인하지 않고 모든 삼성 기기가 연결·제어된다고 주장하지 않는다.
+
+전달 내용은 현재 요청에 필요한 최소 문맥이다. 다른 방의 전체 대화·개인 기억·파일을 자동 전달하지 않는다. 사용법·개발·인용·부정만으로 휴대폰 실행을 시작하지 않는다.
+
+## 2. 현재 구현 경로
+
+| 단계 | 자동으로 가능한 부분 | Manual과 연결하는 부분 |
+| --- | --- | --- |
+| 요청 준비 | `handoff-request.mjs`에서 기능·대상·질문·프롬프트와 작업 참조를 준비 | 순수 준비 단계에는 휴대폰 연결·새 명령·새 승인이 필요 없음 |
+| 오른쪽 Gemini 열기 | YOUTUBE·VIDEO는 기존 `life_web_navigate` → `right_web_link`의 고정 Gemini 웹 OPEN 사용 가능 | 삼성 앱·기기 작업은 Gemini 모바일 앱 대상. 현재 네이티브 자동열기 연결이 없으면 Manual로 인계 |
+| 입력·실행 | 현재 인계 실행기는 자동 TYPE·SUBMIT을 호출하지 않음 | 준비된 요청을 이용해 Manual로 입력·실행 |
+| 결과 확인 | 확인된 요청 전달까지만 상태를 설명 | 분석·영상은 Gemini에서 사용자가 확인. GPT 자동 반환·필수 가져오기 없음 |
+
+기존 웹 OPEN의 대상은 `https://gemini.google.com/app`이다. 삼성 모바일 연동은 웹 OPEN만으로 성립하지 않는다. 기능·기기·계정 조건은 [Google 연결 앱 목록](https://support.google.com/gemini/table/17434654?hl=ko)과 [Android 기기 제어 안내](https://support.google.com/gemini/answer/15235441?hl=ko)를 기준으로 확인한다.
+
+`handoff-request.mjs`의 `prepareJebiseoHandoff`는 현재 사용자 요청을, `createJebiseoManualHandoff`는 그 요청의 현재 수동 단계를 준비한다. 둘 다 휴대폰·네트워크·Gemini를 실행하지 않는 순수 함수다. `handoff-runtime.mjs`와 bound host의 `createHandoffRuntime`은 기존 웹 OPEN을 한 번 호출하고 같은 원 job을 조회하는 단계만 연결한다. TYPE·SUBMIT·FORM_SNAPSHOT·답변 회수·영상 내보내기는 자동 호출하지 않는다. 삼성 네이티브 요청은 열기부터 Manual로 이어간다.
+
+## 3. 실행과 완료를 구분하는 기준
+
+- **준비 완료:** 요청 문장이 만들어졌음. Gemini 열기·전송·실제 작업 완료가 아님.
+- **열기 확인:** 같은 원 job·receipt로 오른쪽 대상이 확인됐음. 입력·전송까지 확인된 것은 아님.
+- **Manual 인계:** 필요한 요청과 다음 사용자 행동을 안내했음. 서버 인계 정보가 있으면 원 참조를 유지하고 없는 도구·mode·코드를 만들지 않음.
+- **사용자 완료 보고:** 사용자가 수동으로 처리했다고 알려 줌. 독립 검증된 앱 저장·분석·기기 동작과 구분.
+- **요청 전달 확인:** 실제로 확인된 전달 단계까지 보고. 분석·영상 생성 결과를 GPT가 읽었다고 말하지 않음.
+
+Manual 안내 뒤 사용자에게 완료 회신을 의무적으로 요구하지 않는다. 사용자가 결과를 Gemini에서 확인하고 필요할 때 GPT에 다시 질문하는 흐름이다.
+
+자동 단계가 아직 실행되지 않았고 미지원이면 그 단계부터 Manual로 이어간다. 이미 실행했을 수 있는 효과가 `PENDING / UNKNOWN`이면 원 결과 또는 현재 화면부터 확인하고 같은 효과를 자동·수동으로 반복하도록 지시하지 않는다. Manual 상태만으로 기존 pending·중복 방지·원 승인 검사를 해제하지 않는다.
+
+영상은 기존 Gemini 구독의 포함 사용량과 추가 결제 없음이 확인된 범위에서 진행한다. 미확인·한도 소진을 무료로 보거나 유료 API·업그레이드로 전환하지 않는다. 유튜브 분석 본문을 읽지 않은 GPT가 전체 영상 확인·분석 완료를 대신 선언하지 않는다.
+
+## 4. 보존하는 기존 코드와 기준
+
+원본은 [PR #63, `67c69428f27030237f417753c717ab758faaa855`][contract]의 `YOUTUBE / VIDEO / ANDROID` 계약과 [실행 흐름][workflow]다. 그 원본의 결과 반환·세 앱 직접 열기는 과거 구현 이력으로 보존하며, 최신 기본 방침은 위 Gemini 위임·Manual·결과 미반환이다.
+
+| 기존 구성 | 최신 기본 흐름과의 관계 |
 | --- | --- |
-| 영상 생성의 결제 조건 | `includedVideoUseAvailable === true`, `additionalPaymentRequired === false`, `videoModeSelected === true`를 모두 확인해야 한다. 미확인 상태를 무료·이용 가능으로 간주하지 않는다. [실행 흐름][workflow] |
-| Gemini API와 기존 이용권 | 원본은 별도 Gemini API 경로가 아니다. 기존 앱의 포함 사용량을 새 API의 사용량·요금 조건으로 옮겨 적용하지 않는다. [원본 설명][readme] · [실행 흐름][workflow] |
-| 유튜브 답변 | 현재 전송 메시지·질문 해시·영상 URL의 일치를 확인한다. 원본의 `fullVideoInspectionVerified`는 `false`이며, 부분 텍스트를 전체 영상 분석 완료로 올리지 않는다. [실행 흐름][workflow] |
-| 영상 파일 | 현재 작업·전송 메시지·계정에 연결된 MP4/WebM 바이트, 크기, SHA-256, 실제 영상 스트림과 재생 시간을 확인한다. 파일 검증과 GPT 재생 전달은 별도 단계다. [파일 검증][artifact] · [실행 흐름][workflow] |
-| 앱 실행 | 지정 패키지와 독립적인 실제 앱 상태가 일치해야 한다. ChatGPT·JH Bridge·Android System UI는 이 요청 계약의 실행 대상에서 제외한다. [계약][contract] · [실행 흐름][workflow] |
-| 결과가 불명확할 때 | 기존 전송·내보내기·전달 결과부터 조회한다. 같은 질문 재전송, 영상 재생성, 재내보내기를 자동으로 반복하지 않는다. [실행 흐름][workflow] |
+| `host-runtime.mjs`, `mobile-port.mjs`, 원 host binding | 실제 지원된 자동 단계의 원 명령·기기·승인·영수증·중복 방지를 재사용 |
+| 직접 `OPEN_APP`와 `APP_OBSERVE` | 유튜브·지메일·인스타그램 세 패키지의 별도 호환 기능. 삼성 위임 범위를 제한하거나 대신하지 않음 |
+| `reply-proof.mjs` | 실제 답변 반환을 별도로 다룰 때의 검증 기반. 최신 기본 흐름에서 답변 회수 선행 조건으로 사용하지 않음 |
+| 원본 영상 파일 검증 | 향후 별도 내보내기 요청의 기반. 이번 영상 생성의 필수 단계가 아님 |
 
-## 3. 코드가 있는 부분과 아직 연결되지 않은 부분
+보관 Stage62의 `FORM_SNAPSHOT`과 context 없는 `SNAPSHOT`은 화면 복원을 할 수 있다. 순수 요청 준비·Manual 안내 때문에 이 읽기를 실행하지 않는다. 현재 자동 입력 증거의 한계는 보존하되 수동 인계 전체의 차단 이유로 확대하지 않는다.
 
-**원본에는 세 기능의 요청 계약·상태 전이·검사 코드가 있다. 운영 연결이나 휴대폰에서의 전체 성공을 뜻하지 않는다.** 원본 통합 코드의 상태는 `productionRegistered: false`, `chatGptDeliveryConnected: false`, `androidApkBuilt: false`, `physicalPhoneTested: false`다. [원본 통합 상태][composition] · [원본 기능 검사][tests]
+개발 기준은 **Stage72 / PR #159 (`5d72b78fd3730111076b33e2771f5b6b70f657aa`)**, **Stage62 FIX3 APK 유지 + Stage71 Android → Manual 서버**다. InstallOnly ZIP·APK 재설치·재빌드로 이어가지 않으며, 일반 웹 Playwright는 유지한다. 새 API·계정·추가 결제·PC/서버 브라우저로 대체하지 않는다.
 
-현재 새 후보의 `host-runtime.mjs`, `mobile-port.mjs`, `reply-proof.mjs`는 공통 모바일 연결·중복 실행 방지·결과 연결 검증을 준비한 기반이다. Gemini 열기 요청의 `start()`는 고정 Gemini 웹 주소의 기존 Mobile13 OPEN을 호출한다. 명시적 `ANDROID / OPEN_APP` 요청은 별도로 기존 원 앱 열기와 독립적인 현재 앱 관찰에 연결했다. 세 기능의 실사용 전체 완료를 뜻하지 않는다.
-
-2026-11-05 확정 기준은 **PR #159의 Stage72 상태, Stage62 FIX3 APK 유지, Stage71 Android → Manual**이다. 후보의 입력·안내 닫기는 현재 원 snapshot/discovery가 발급한 guided-form 인자를 기존 `life_android_step`으로 전달한다. 폐기된 모바일 제공자나 예전 입력·클릭 별칭으로 우회하지 않는다. 일반 웹 Playwright는 유지한다. 입력칸 확인과 안내 클릭 접수는 세 기능의 전송·결과 성공과 구분한다.
-
-후속 개발은 원본 서버의 실제 등록 핸들러와 private job 완료 기록을 읽는 명시 적용용 host 후보를 추가한다. 입력 대상은 원 native `f_`로 통일하고 일반 웹 `item_`/`ssc_`와의 미확인 노드 연결을 요구하지 않는다. 원 현재 주소·창·폼·빈칸 근거가 부족하면 자동 입력을 차단한다. 특히 보존 Stage62 소스의 신뢰된 주소 row가 RIGHT 경로에서 확인되지 않았으므로, 서버 후보 검사 통과를 현재 APK의 자동 입력 지원으로 표시하지 않는다. 세 기능의 요청·결과 전달 연결은 여전히 아래 후속 개발 범위다.
-
-| 기능 | 현재 새 후보에 빠진 연결 | 필요한 최소 후속 개발 |
-| --- | --- | --- |
-| `YOUTUBE` | 영상 URL/ID 계약, 답변과 영상의 일치 확인, 근거 범위 표시 | 원본 URL·요청 계약을 유지해 최신 모바일 작업에 연결하고, 같은 질문·영상에 해당하는 답변만 결과로 표시한다. |
-| `VIDEO` | 포함 사용량/추가 결제 확인, 생성 결과, 기존 영상 내보내기·조회, 실제 파일 검증·GPT 재생 전달 | 원본 영상 상태 전이를 최신 호스트 포트에 연결한다. 생성 성공과 영상 회수·검증·전달을 각각 실제 결과로 확인한다. |
-| `ANDROID` | 코드 후보는 연결됨. 운영 등록·현재 APK 동작 확인이 남음 | 유튜브·지메일·인스타그램만 원본 단일 패키지 매핑으로 전달한다. 원본 앱 열기 완료 뒤 별도 CU WAIT INSPECT에서 실제 오른쪽 패키지·창을 확인한다. |
-
-### ANDROID 코드 후보의 현재 범위
-
-`createJebiseoTask`는 명시적인 `intent:open_app`, `feature:ANDROID`, `action:OPEN_APP`, 지원하는 `appPackage`, 기존 기기·명령·taskDigest를 요구한다. 현재 지원 매핑은 `com.google.android.youtube`, `com.google.android.gm`, `com.instagram.android`다. URL이나 미확인 앱 별칭으로 바꾸지 않는다.
-
-같은 원본 `life_android_open`의 큐 응답에는 `jobId`만 반환되므로 먼저 그 원 작업의 완료를 확인한다. 이후 `APP_OBSERVE`는 기존 `life_android_computer_inspect`를 `WAIT / READ_ONLY / NONE / max_actions_in_call:1`로만 호출한다. WAIT 실행·클릭·입력·스크린샷·이전 앱 복원은 호출하지 않는다. 실제 원본 런처가 이미 같은 앱을 확인한 경우에는 재실행하지 않는다.
-
-현재 인증된 원본 host는 두 job의 기기·명령·세션·실제 호출·Stage26 완료·시간 순서를 연결하고, 후속 Stage61 범위와 실제 screen의 목표 패키지·창·영역·display를 확인한다. 잠금·민감 화면·라우팅 진행 중이거나 증거가 바뀌면 실패한다. 성공 의미는 **현재 오른쪽에 대상 앱이 보였음**이며 앱 내부 작업, Gemini 처리, 전송·결제의 성공이 아니다.
-
-한 번 열린 작업은 원 결과가 불명확해도 다시 열지 않는다. 완료 뒤에는 원 receipt를 유지하며 새 읽기 관찰만 할 수 있다. 새 관찰이 실패하면 이전 화면을 현재 결과로 재사용하지 않는다. `androidAppCandidateSupported:true`와 `androidAppAvailable:false`를 구분한다.
-
-복구 원본 기준 Gemini 웹의 현재 RIGHT 주소·정확한 현재 draft 생산기는 제공되지 않는다. native Gemini 전용 입력·클릭 receipt를 Chrome에 재사용하지 않는다. 따라서 이 ANDROID 후보 연결로 YOUTUBE·VIDEO의 완료 상태를 올리지 않는다.
-
-새 후보의 대상·결과 검증 계약만으로 실제 증거 생산기가 생기지는 않는다. 원본 관찰은 제공자의 메시지·대화 식별자를 입증하지 못하는 경우 `SIGNED_GEMINI_VISIBLE_SEQUENCE_CANDIDATE_UNVERIFIED`와 `sentMessageIdProven: false`를 반환한다. 이 후보를 현재 질문의 검증된 최종 답변으로 바꾸지 않는다. [원본 답변 관찰자][visible]
-
-## 4. 휴대폰만 사용·오른쪽 자동 열기
-
-| 요구 | 현재 구현과의 관계 | 완료 조건 |
-| --- | --- | --- |
-| **사용자는 휴대폰만 사용** | 사용자에게 PC 실행·수동 빌드 절차를 요구하지 않는 방향을 유지한다. 원본의 영상 파일 검증은 기존 호스트에서 실행하는 코드이며, 이것만으로 휴대폰 영상 회수 경로가 연결됐다고 보지는 않는다. [파일 검증][artifact] | 휴대폰에서 요청·필요한 사용자 조치·결과 확인까지 이어지는 실제 경로를 확인한다. |
-| **GPT에서 요청하면 오른쪽 Gemini 자동 열기** | 고정 `https://gemini.google.com/app`을 기존 `life_web_navigate` → `right_web_link`로 연다. 보존된 Android 소스의 `LinkSplitController`·`SamsungSplitSetup`이 필요시 분할 배치를 수행하도록 작성돼 있다. 추가 서비스 이름 매핑은 별도 후보 overlay이며 기존 운영 composition에는 자동 적용하지 않는다. | 현재 설치된 휴대폰에서 왼쪽 GPT 보존, 오른쪽 Chrome 배치, 요청 주소와 Gemini 실제 페이지를 확인한다. 링크 클릭·OPEN 접수·주소 확인을 전체 기능 완료로 보지 않는다. |
-| **열기와 실제 작업 구분** | `intent: open`은 질문 없이 OPEN만 가능하다. 분석·영상 요청은 OPEN 원 결과와 새 Gemini 입력창을 확인한 다음 단계로 이어진다. pending/unknown에서 원 job만 조회하며 재OPEN·새 BEGIN을 자동 생성하지 않는다. | 현재 요청과 같은 작업의 전송·답변 또는 영상 파일까지 독립 확인한다. 전체 Gemini 도움 가용성이 false여도 기존 도구의 명시적 화면 열기 자체와 혼동하지 않는다. |
-| **비서 병렬 연결** | 분석·검토는 병렬로 할 수 있지만 같은 휴대폰의 효과는 기존 명령과 결과를 유지하며 순서대로 처리한다. 새 후보는 다른 작업 선점과 미확정 결과 후 다음 효과를 차단하는 기반을 둔다. | 세 기능을 공통 모바일 경로에 연결한 뒤 기존 명령 유지, 원본 승인·결과 조회, 다른 작업과의 충돌 방지를 실제로 확인한다. |
-
-명시적으로 `INTERNAL`을 요청한 경우에는 여전히 비노출 제공자가 없어 실행 전에 차단한다.
-이 문서는 기존 세 기능을 정확히 이어가기 위한 범위 확인이다. **세 기능 실사용 완료,
-새 API 연결·추가 결제 승인으로 해석하지 않는다.**
+현재는 후보 소스다. `codeCandidate:true`, `productionRegistered:false`, `geminiAssistanceAvailable:false`, `liveExecutionVerified:false`를 유지한다. 코드 검사·문서·인계 준비가 운영 등록, 설치된 플러그인의 갱신, 실제 휴대폰 성공을 증명하지 않는다. 기술 계약은 [provider-contract.md](provider-contract.md)를 따른다.
 
 [contract]: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/gemini-native/src/contract.mjs
 [workflow]: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/gemini-native/src/native-workflow.mjs
-[artifact]: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/gemini-native/src/video-artifact.mjs
-[readme]: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/gemini-native/README.md
-[composition]: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/android-direct/gemini-v4-original-composition.mjs
-[tests]: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/gemini-native/test/native-v4.test.mjs
-[visible]: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/blob/67c69428f27030237f417753c717ab758faaa855/jh-server/owner-setup/android-direct/gemini-v4-visible-reply.mjs

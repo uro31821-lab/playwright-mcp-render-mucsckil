@@ -134,6 +134,10 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
         if (!current()) fail('JEBISEO_AUTHENTICATED_REQUEST_REQUIRED');
         return binding.createRuntime(task);
       },
+      createHandoffRuntime(input) {
+        if (!current()) fail('JEBISEO_AUTHENTICATED_REQUEST_REQUIRED');
+        return binding.createHandoffRuntime(input);
+      },
       close() {closed = true; binding = null;}
     });
   }

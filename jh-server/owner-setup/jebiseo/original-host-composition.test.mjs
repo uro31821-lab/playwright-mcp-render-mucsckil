@@ -193,6 +193,21 @@ const appTask = () => createJebiseoTask({taskRef:'fixture-app-task',threadRef:'f
   deviceId:'fixture-phone',commandId:'1'.repeat(32),appPackage:'com.google.android.youtube',
   taskDigest:'8'.repeat(64)});
 
+test('the installed candidate exposes manual handoff only in its authenticated request boundary',async()=>{
+  const f=await setup();
+  const input={request:{taskRef:'fixture-handoff-task',threadRef:'fixture-handoff-thread',
+    sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'ANDROID',
+    requestText:'삼성 계산기를 열어 줘'}};
+  assert.throws(()=>f.host.createHandoffRuntime(input),/AUTHENTICATED_REQUEST_REQUIRED/);
+  f.fixture.onStatus=async()=>f.host.createHandoffRuntime(input).start();
+  const response=await f.issueRequest({});
+  assert.equal(response.nextAction,'OPEN');
+  assert.equal(response.surface,'GEMINI_NATIVE');
+  assert.equal(response.requestSent,false);
+  assert.equal(response.automatedOpenAttempted,false);
+  assert.equal(f.jobs.size,0);
+});
+
 test('native app queue and later readonly inspection retain real command wrappers and private mk provenance', async () => {
   const f = await setup(); f.fixture.appInspection=fixtureAndroidAppInspection;
   let rt, step='OPEN_APP';

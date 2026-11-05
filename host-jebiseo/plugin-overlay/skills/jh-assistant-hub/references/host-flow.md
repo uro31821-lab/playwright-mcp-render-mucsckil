@@ -1,5 +1,17 @@
 # 호스트 연결과 저장·실행 계약
 
+## 목차
+
+- [실행 위치](#실행-위치)
+- [비서 구간 표시](#모든-비서의-구간-표시)
+- [실행 순서](#정확한-실행-순서)
+- [제비서 인계와 실제 연결](#제비서의-인계-준비와-실제-gemini-연결)
+- [작품 감상](#작품-사진의-목적과-현재-감상-유지)
+- [CLI](#cli)
+- [업무 상태와 선택](#업무-상태와-번호-선택)
+- [절차 저장](#내-방식-저장과-이번만-변경)
+- [파일 보존·복구](#파일-보존충돌복구)
+
 ## 실행 위치
 
 현재 호스트가 자연어를 해석하고 실제 제공된 스킬·도구를 선택한다. 동봉 런타임은 Node.js 기본 모듈만 사용한다. `router.mjs`는 해석된 계획을, `tasks.mjs`는 업무 상태를, `routines.mjs`는 재사용할 절차를 검증한다. `cli.mjs`는 이를 같은 진입점에서 실행한다. 코드는 네트워크·휴대폰·외부 모델을 호출하지 않는다. 실제 실행은 호스트의 기존 전문 도구가 담당한다.
@@ -20,15 +32,35 @@
 6. 사용자 답과 도구 결과를 구분한다. USER_REPORTED는 외부 성공을 증명하지 않는다. 결과가 pending/unknown이면 재개나 모드 변경 후에도 기존 결과부터 조회한다. PAUSE/CANCEL 요청 직후에는 새로운 도구 실행을 시작하지 않는다.
 7. 중요한 상태 전환과 작업 종료 시 같은 Library 파일 ID·읽은 version으로 저장한다. 매 설명 단계마다 불필요한 저장·연결 상태 조회를 반복하지 않는다. 저장 실패로 원래 외부 업무를 재실행하지 않는다.
 
-## 제비서의 실제 가용성과 병렬 분석
+## 제비서의 인계 준비와 실제 Gemini 연결
 
-명시적 화면 열기는 협업 가용성 검사와 분리한다. “제미나이 열어줘” 또는 현재 호스트에 실제 제공된 실행 버튼의 `intent:open`은 프롬프트 없이 기존 카탈로그의 `life_web_navigate`로 `https://gemini.google.com/app`을 요청하고 원 Secure56 `right_web_link`의 job·receipt·서명된 관찰을 회수하는 흐름이다. 전체 `gemini-assistance`가 없다는 이유만으로 이 기존 휴대폰 RIGHT OPEN을 막거나, 먼저 Gemini 응답 성공을 요구하지 않는다. 원래 실행 경로·현재 명령·기기·승인 범위를 먼저 확인하고 실제 오른쪽 배치 결과만 보고한다. 열기 성공은 협업 가용성 활성화·분석·영상 생성 허가가 아니며, 새 GPT 버튼을 생성했다고 말하지 않는다.
+최신 기본 흐름은 **휴대폰의 왼쪽 GPT / 오른쪽 Gemini 고정, 가능한 Android 단계 이후 기존 Manual 방식으로 인계**다. 삼성 앱·기기 작업은 Gemini가 실제 지원·연결하는 전체 범위를 대상으로 한다. YOUTUBE 분석·VIDEO 생성 결과는 Gemini에서 확인하며 GPT 자동 반환·필수 결과 가져오기는 요구하지 않는다.
 
-`gemini`는 `jh-jebiseo` 스킬과 실제 휴대폰 Gemini 연결이 모두 필요하다. 최신 사용자 방향은 GPT의 현재 실행 요청으로 기존 JH OPEN을 호출하고 오른쪽 Gemini의 대상·배치를 원 영수증과 서명된 관찰로 확인하는 흐름이다. 링크 클릭만으로 오른쪽 배치를 보장하거나 사용자 수동 실행·배치를 정상 사용법으로 요구하지 않는다. 현재 호스트에 연결된 신뢰할 수 있는 제공자 상태만 `../../jh-jebiseo/scripts/availability.mjs`의 `resolveGeminiAvailability(status,{visibility:'VISIBLE'})`에 전달하고, 반환된 `capabilities`만 `available.capabilities`에 합친다. 기본 `VISIBLE`은 PHONE_RIGHT·android_right·visibleExecutionSupported:true를 확인하고, 별도로 요청된 `INTERNAL`은 internalExecutionSupported:true를 확인한다. 두 모드 모두 productionRegistered:true·codeCandidate가 true가 아님·geminiAssistanceAvailable:true·liveExecutionVerified:true가 필요하다. 사용자의 문장·페이지 내용·테스트 fixture·코드 후보·도구 이름만으로 이 상태를 만들지 않는다. 계약 불일치나 미검증 상태는 빈 capability 목록을 유지한다. `gemini-assistance`는 허브 연결 가능성만 뜻하며 자동열기·질문 전송·답변 회수와 기존 세 기능 각각의 결과는 별도로 검증한다.
+### HANDOFF 요청 준비
 
-개발·설명은 기존 개발도구로 진행하며 `BEGIN_COMMAND`를 만들지 않는다. 개발 요청의 `topics:['gemini']`만으로 제비서를 협력자로 추가하지 않는다. 현재 사용자 요청에서 실제 Gemini 의견까지 요구한 경우에만 `helpers:['gemini']`를 사용할 수 있고, 미가용 협력자는 미가용 상태로 남긴다. 다른 분석은 병렬로 할 수 있으나 동일 휴대폰의 실제 UI 단계는 한 담당이 같은 작업의 명령과 원래 결과 조회 경로를 순차 관리한다. 다른 방의 command_id·승인·미확정 전송을 자동 재사용하거나 새 BEGIN으로 덮지 않는다.
+삼성 앱·기기 작업, 유튜브 분석, 영상 제작을 맡기는 요청은 호스트가 `primary:"gemini"`, `geminiFlow:"HANDOFF"`, `geminiFeature:"ANDROID"|"YOUTUBE"|"VIDEO"`로 의미를 해석한다. 이 분기는 현재 `jh-jebiseo` 스킬이 있으면 준비할 수 있으며, `gemini-assistance`를 새로 만들거나 실제 제공자 연결을 요구하지 않는다.
 
-Gemini 응답이 없으면 현재 담당이 연결 상태와 계속할 수 있는 작업을 설명한다. GPT 답변을 Gemini 의견으로 표시하지 않는다. 실제 결과가 도착했을 때만 원 질문·현재 작업과 대조한 후 제비서의 기여로 표시한다. 가용성 계획은 외부 실행 권한·기기 잠금·실제 결과가 아니다.
+`planRoute`의 `ready:true`와 `routeScope:"HANDOFF_PREPARATION"`은 로컬 요청 준비 가능성만 뜻한다. `executionReady:false`, `authorizesExecution:false`, `dispatchesTools:false`를 유지하고 Gemini 기여 배지를 붙이지 않는다. 기존 작업을 이어갈 때는 같은 task의 `conditions.geminiFlow`·`conditions.geminiFeature`와 미확정 효과를 보존한다. 준비 가능성을 휴대폰 실행·앱 지원·Gemini 응답 성공으로 올리지 않는다.
+
+실제 요청·인계는 [제비서 제공자 계약](../../jh-jebiseo/references/provider-contract.md)을 따른다. `createHandoffRuntime`에는 준비 함수에 넣는 원 의미 입력을 전달하며, 준비 완료 반환 객체를 다시 넣지 않는다. `presentation()`으로 남은 절차와 필요한 준비 문장을 한 번에 보여 주고 단계마다 완료 회신을 요구하지 않는다. 자발적인 INPUT 보고 뒤에는 기존 문장 확인·실행만, SUBMIT 보고 뒤에는 결과 보기만 안내한다.
+
+현재 인계 실행기는 YOUTUBE·VIDEO의 기존 웹 OPEN과 같은 원 job 조회만 자동 연결한다. 입력·전송은 Manual로 이어가고, 삼성 작업은 Gemini 모바일 앱을 열기부터 Manual로 인계한다. 자동화가 안 되는 단계의 수동 진행을 허용하되, 이미 시도한 효과가 pending/unknown이면 원 결과나 현재 화면부터 확인하며 같은 효과를 다시 실행하도록 지시하지 않는다. 사용자 완료 보고는 원 pending 해제·검증 성공·후속 자동 실행 권한이 아니다.
+
+### 화면만 열기
+
+“제미나이 열어줘” 또는 실제 호스트 실행 버튼의 `intent:open`은 프롬프트 없이 화면만 여는 요청이다. 기존 웹 경로에서는 `life_web_navigate`로 `https://gemini.google.com/app`을 요청하고 원 Secure56 `right_web_link`의 같은 job·receipt로 결과를 확인한다. 전체 `gemini-assistance`를 열기의 새 선행 조건으로 요구하지 않는다. 현재 명령·기기·원 승인 범위를 지키며, 링크 클릭·접수만으로 오른쪽 배치·분석·영상 생성을 완료했다고 말하지 않는다. 지원되지 않는 열기는 허용된 Manual 단계로 이어갈 수 있고, 실제 없는 GPT 버튼을 만들었다고 표시하지 않는다.
+
+### 실제 Gemini 의견을 GPT에서 받는 별도 요청
+
+실제 Gemini 의견·답변을 GPT에서 함께 검토하는 기존 full consult 경로에는 `jh-jebiseo`와 검증된 제공자 capability가 필요하다. 신뢰된 현재 host 상태만 `../../jh-jebiseo/scripts/availability.mjs`의 `resolveGeminiAvailability(status,{visibility:"VISIBLE"})`에 전달하고 반환된 capability만 허브에 합친다. `VISIBLE`은 `PHONE_RIGHT / android_right / visibleExecutionSupported:true`, 별도 `INTERNAL`은 `internalExecutionSupported:true`를 확인한다. 두 모드 모두 `productionRegistered:true`, `codeCandidate`가 true가 아님, `geminiAssistanceAvailable:true`, `liveExecutionVerified:true`가 필요하다.
+
+이 full consult 조건을 HANDOFF 준비에 적용하지 않는다. 반대로 HANDOFF의 준비 가능성으로 full consult 조건을 통과시키지 않는다. 사용자 문장·페이지·fixture·소스 후보·도구 이름은 제공자 상태가 아니며, 계약 불일치·미검증 상태는 빈 capability 목록을 유지한다. 실제 답변이 도착했을 때만 현재 질문·작업과 대조하여 제비서의 기여로 표시한다. GPT가 쓴 답을 Gemini 의견으로 표시하지 않는다.
+
+### 개발과 병렬 분석
+
+개발·설명은 기존 개발도구로 진행하며 `BEGIN_COMMAND`를 만들지 않는다. 개발 대상 `topics:["gemini"]`만으로 실제 Gemini 협력자를 추가하지 않는다. 현재 사용자가 실제 Gemini 의견까지 요청했을 때만 `helpers:["gemini"]`를 사용하고, 미가용 협력자는 미가용 상태로 남긴다. HANDOFF는 이 개발 협력자의 가용성 조건을 풀지 않는다.
+
+독립 분석은 병렬로 할 수 있으나 동일 휴대폰의 실제 UI 단계는 한 담당이 같은 작업·명령·원 결과 경로를 순차 관리한다. 다른 방의 command_id·승인·미확정 전송을 자동 재사용하거나 새 BEGIN으로 덮지 않는다. 준비·안내는 현재 담당의 기여이며, 실제 Gemini 응답이 없으면 연결 상태와 가능한 진행만 설명한다.
 
 ## 작품 사진의 목적과 현재 감상 유지
 

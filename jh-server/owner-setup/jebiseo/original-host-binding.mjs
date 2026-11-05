@@ -16,6 +16,8 @@ import {prepareJebiseoGuidedCall} from './guided-form.mjs';
 import {inspectJebiseoNativeScreen, inspectJebiseoPostActionObservation} from './native-screen-proof.mjs';
 import {describeOpenCompletion} from '../deployment/jh167-open-completion.mjs';
 import {getJebiseoAndroidTarget, inspectJebiseoAndroidAppObservation} from './android-app.mjs';
+import {prepareJebiseoHandoff} from './handoff-request.mjs';
+import {createJebiseoHandoffSession} from './handoff-runtime.mjs';
 
 const ROUTES = Object.freeze({OPEN: 'life_web_navigate', SNAPSHOT: 'life_web_snapshot',
   OPEN_APP: 'life_android_open', APP_OBSERVE: 'life_android_computer_inspect',
@@ -154,7 +156,7 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     readAuthenticatedRequestScope, readOriginalJobScope, now].some(fn => typeof fn !== 'function'))
     fail('JEBISEO_ORIGINAL_HOST_READERS_REQUIRED');
   const steps = new AsyncLocalStorage(), scheduler = createJebiseoDeviceScheduler();
-  const entries = new Map(), commandTasks = new Map();
+  const entries = new Map(), commandTasks = new Map(), handoffs = new Map();
   let nextInvocationOrdinal = 0;
 
   function currentStep(entry) {
@@ -536,5 +538,22 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     entries.set(bound.taskRef, entry); commandTasks.set(key, bound.taskRef);
     return entry.facade;
   }
-  return Object.freeze({createRuntime});
+  function createHandoffRuntime({request, deviceId = null, commandId = null} = {}) {
+    const prepared = prepareJebiseoHandoff(request);
+    if (prepared.active !== true) return createJebiseoHandoffSession({request});
+    const key = prepared.taskRef;
+    const identity = JSON.stringify([prepared.threadRef, prepared.sourceRef,
+      prepared.requestDigest, deviceId, commandId]);
+    const saved = handoffs.get(key);
+    if (saved) {
+      if (saved.identity !== identity) fail('JEBISEO_HANDOFF_TASK_BINDING_CHANGED');
+      return saved.facade;
+    }
+    if (handoffs.size >= 256) fail('JEBISEO_HANDOFF_TASK_CAPACITY');
+    const facade = createJebiseoHandoffSession({request, deviceId, commandId,
+      createOriginalRuntime: createRuntime});
+    handoffs.set(key, {identity, facade});
+    return facade;
+  }
+  return Object.freeze({createRuntime, createHandoffRuntime});
 }
