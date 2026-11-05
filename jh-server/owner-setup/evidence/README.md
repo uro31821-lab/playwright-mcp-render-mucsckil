@@ -1,6 +1,6 @@
 # JH Evidence Search — Perplexity Standard Search API
 
-**Scope:** JH server-side OAuth MCP **source-only release candidate**. It is not wired into the current production tool catalog. No Android, Playwright, Gemini, Sonar, Agent API, scheduled searches, or user-visible Perplexity interface.
+**Scope:** JH server-side OAuth MCP **conditional runtime integration candidate** (PR #160). The tool is wired only in the candidate's generated server and remains invisible unless both the explicit feature flag and private API key are present. **PR #160 has not been deployed to Render**. No Android, Playwright, Gemini, Sonar, Agent API, scheduled searches, or user-visible Perplexity interface.
 
 ## Behavior
 1. The user explicitly asks for 근거 / 증거 / 논문 / 자료 / 출처 / 원문 링크 / 팩트체크.
@@ -11,15 +11,15 @@
 
 > The tool's check of the user_request string provides an additional guard but is not cryptographic proof of the origin of that string. Retrieved snippets are not themselves independently verified facts.
 
-## Deployment fence — explicit follow-up release required
+## Deployment fence — no automatic production release
 
-The 2026-11-05 current JH Secure56/JH168 integration workflows protect the generated runtime and deployment composition. This candidate deliberately leaves **all existing deployed server files byte-identical** and stores the reversible, fail-closed optional composer under `owner-setup/evidence`. This PR therefore DOES NOT expose the MCP tool, even if the environment keys are present. A separate, operator-reviewed release must add and validate the composer against the exact live runtime, receive protected-path authorization, and confirm a working MCP catalog before enabling external traffic. Do not bypass the protected CI by suppressing checks. Never claim live availability based on source-only tests.
+The current Secure56/JH168 generated server is assembled with the same existing OAuth, Android signing, owner and replay guards. The review candidate adds **one server-side OAuth search tool registration behind two explicit private environment switches**, after all old source-pinned guards. No additional Android command or signed device catalog change. The deployed JH runtime is untouched: PR #160 must pass *all* protected CI and be reviewed before a controlled merge and Render deploy. Never claim live registration merely because a generated candidate compiles.
 
-## Render configuration — only AFTER approved release wiring, no credentials yet
+## Render configuration — only after reviewed merge/deploy; no credentials stored in this PR
 - **PERPLEXITY_API_KEY:** private Render secret. Never commit, log or paste it into a chat.
 - **JH_EVIDENCE_SEARCH_ENABLED=1:** enables the tool only if the secret also exists.
 
-Default: OFF; without both variables, the new tool does not appear in MCP tools/list. Keep the existing JH authorization, Secure56 Android tool catalog digest, protocol_version=1.0, APK, bridge, owner and browser unchanged.
+Default: OFF; without both variables, the new tool does not appear in MCP tools/list. Issuing a key in the Perplexity console does **not** configure the Render process; set the secret privately on the correct JH Render service when ready. Keep the existing JH authorization, Secure56 Android tool catalog digest, protocol_version=1.0, APK, bridge, owner and browser unchanged.
 
 Pricing: standard Search API costs $5 per 1,000 successful requests ($0.005 each); successful empty-result searches are billed. No additional token billing for the Perplexity Search endpoint. GPT usage costs, if any, are separate. Prepaid credits and disabled auto-top-up are recommended for spending control.
 
@@ -40,7 +40,7 @@ On a JH instance where `PERPLEXITY_API_KEY` has already been privately configure
 
 This script uses `curl --fail-with-body --show-error`, `jq -n --arg`, and `set -euo pipefail` and prints only the HTTP status and response shape. When the key is absent, it makes no request and prints setup instructions. **Never paste the key into a chat, issue, pull request, command history or Git commit.**
 
-For direct programmatic use with the existing Node.js HTTP client, the project provides `searchPerplexityEvidence` (native `fetch`, no new dependency). The search tool is intentionally not yet in the deployed JH MCP catalog.
+For direct programmatic use with the existing Node.js HTTP client, the project provides `searchPerplexityEvidence` (native `fetch`, no new dependency). The search tool is **not yet in the deployed JH MCP catalog**; the reviewed PR adds the conditional registration for a later deployment.
 
 ## Automated regression tests
 Run from repository root:
