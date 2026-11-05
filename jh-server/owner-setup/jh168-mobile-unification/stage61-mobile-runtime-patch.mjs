@@ -182,6 +182,7 @@ const HELPER=String.raw`
     const a=String(args?.action||"").toUpperCase();
     if(["SCROLL","DRAG"].includes(a))return "SCROLL";
     if(a==="TYPE")return "TYPE";if(a==="KEYPRESS")return "KEYPRESS_ENTER_TAB";
+    if(a==="CLICK")return "CLICK";if(a==="BACK")return "BACK";
     if(["WAIT","MOVE","SCREENSHOT"].includes(a))return "READ_ONLY_INSPECT";
     return "NATIVE_APP_ACTION";
   }
@@ -227,8 +228,12 @@ const HELPER=String.raw`
     // A second OPEN attempt invalidates every previously prepared ref before
     // its new receipt is inspected; a failed re-open can never leave stale refs.
     if(action==="SELECT_OPEN")jhStage61PreparedPick56.delete(routeToken);
-    const record=await jhStage61Host56.record({routeToken,originalReceiptRef:jhStage61SaveOriginal56(result),
+    const originalReceiptRef=jhStage61SaveOriginal56(result);
+    let record=await jhStage61Host56.record({routeToken,originalReceiptRef,
       expectedProvider:provider,expectedAction:action,terminal});
+    if(record.ok!==true&&record.code==="STAGE61_RECEIPT_SCHEMA_INVALID")
+      record=await jhStage61Host56.recordVerifiedPreDispatchNoEffect({
+        routeToken,originalReceiptRef,expectedProvider:provider,expectedAction:action});
     let selectPrepared=null;
     if(action==="SELECT_OPEN"&&record.ok===true&&record.recordedOutcome==="PREPARED")
       selectPrepared=jhStage61RememberPreparedPick56(result,routeToken);

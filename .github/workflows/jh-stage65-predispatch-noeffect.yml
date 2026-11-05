@@ -1,0 +1,40 @@
+name: JH Stage65 predispatch no-effect fallback
+on:
+  push:
+    branches: [fix/stage65-predispatch-noeffect-fallback-20261105]
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.mjs'
+      - '.github/workflows/jh-stage65-predispatch-noeffect.yml'
+permissions:
+  contents: read
+jobs:
+  exact-noeffect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and focused tests
+        run: |
+          set -euo pipefail
+          ROOT=jh-server/owner-setup/jh168-mobile-unification
+          node --check "$ROOT/stage61-right-pane-host-adapter.mjs"
+          node --check "$ROOT/stage61-mobile-runtime-patch.mjs"
+          node --test --test-concurrency=1 --test-reporter=spec             "$ROOT/stage61-right-pane-host-adapter.test.mjs"             "$ROOT/stage61-right-pane-router.test.mjs"             "$ROOT/stage61-mobile-runtime-patch.test.mjs"             "$ROOT/stage64-feature-fallback.test.mjs"
+      - name: Boundaries
+        run: |
+          echo PHONE_ACTIONS=0
+          echo APK_BUILD=0
+          echo RENDER_DEPLOY=0
+          echo AUTOMATIC_REPLAY=0

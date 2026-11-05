@@ -185,6 +185,29 @@ export function createStage61HostAdapter({readOriginalSignedResult,ttlMs=10*60*1
    s.expiresAt=now()+ttlMs;
    return Object.freeze({...view(routeToken,s),control,controlCode:String(result.code||'ok')});
   },
+  async recordVerifiedPreDispatchNoEffect({routeToken,originalReceiptRef,expectedProvider,expectedAction}={}){
+   const s=get(routeToken);if(!s)return fail('STAGE61_ROUTE_STATE_NOT_FOUND');
+   if(s.stopped)return fail('STAGE61_ROUTE_STATE_STOPPED');
+   if(!['ANDROID_WEB','ANDROID_COMPUTER_USE'].includes(expectedProvider))
+    return fail('STAGE61_NO_EFFECT_PROVIDER_INVALID');
+   const result=await signed(originalReceiptRef);
+   const rv=result?.resultVerification;
+   const exact=!!result&&result.ok===false&&result.code==='OWNER_ADMISSION_BLOCKED'&&
+    result.executed===false&&result.duplicate===false&&result.resultVerified===false&&
+    result.externalEffectVerified===false&&rv?.status==='OWNER_ADMISSION_BLOCKED'&&
+    rv.verified===false&&rv.effectConfirmed===false&&rv.duplicate===false&&
+    rv.executed===false&&rv.state==='FAILED_PRE_DISPATCH'&&
+    rv.reason==='owner_admission_rejected_no_dispatch'&&
+    typeof rv.executionId==='string'&&rv.executionId.length>8;
+   if(!exact)return fail('STAGE61_SIGNED_PREDISPATCH_NO_EFFECT_REQUIRED');
+   if(expectedProvider==='ANDROID_WEB')s.webOutcome='FAILED_NO_EFFECT';
+   else s.computerOutcome='FAILED_NO_EFFECT';
+   s.expiresAt=now()+ttlMs;
+   return Object.freeze({...view(routeToken,s),recordedOutcome:'FAILED_NO_EFFECT',
+    receiptDigest:hash('stage61-predispatch-noeffect|'+expectedProvider+'|'+
+      String(expectedAction||'').toUpperCase()+'|'+rv.executionId),
+    verifiedPreDispatchNoEffect:true});
+  },
   async record({routeToken,originalReceiptRef,expectedProvider,expectedAction,terminal=true}={}){
    const s=get(routeToken);if(!s)return fail('STAGE61_ROUTE_STATE_NOT_FOUND');
    if(s.stopped)return fail('STAGE61_ROUTE_STATE_STOPPED');

@@ -52,6 +52,8 @@ test('patch connects mobile web and computer use to Stage61',()=>{
  assert.match(out,/jhStage61TaskRoute56/);
  assert.match(out,/STAGE61_ROUTE_TASK_BINDING_MISMATCH/);
  assert.match(out,/jhStage61FinishComputer56/);
+ assert.match(out,/recordVerifiedPreDispatchNoEffect/);
+ assert.match(out,/if\(a==="CLICK"\)return "CLICK";if\(a==="BACK"\)return "BACK";/);
  assert.match(out,/nextAction=action===\"SELECT_OPEN\"&&record\.recordedOutcome===\"PREPARED\"\?\"SELECT_PICK\":action/);
  assert.match(out,/ACTION_APPROVAL_REQUEST/);
  assert.match(out,/recordControl/);
