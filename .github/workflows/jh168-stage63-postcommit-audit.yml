@@ -97,12 +97,49 @@ jobs:
             jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.test.mjs \
             2>&1 | tee /tmp/stage63-functional.log
 
-      - name: Confirm clean read-only worktree
+      - name: Verify exact generated outputs and restore clean worktree
         shell: bash
         run: |
           set -euo pipefail
+          cat > /tmp/stage63-expected-generated.txt <<'EOF'
+          jh-server/owner-setup/browser-live/browser-session-functional.mjs
+          jh-server/owner-setup/deployment/durable-live-news-review-generated.mjs
+          jh-server/owner-setup/deployment/operational-service-durable-live.mjs
+          jh-server/owner-setup/deployment/operational-service-durable-return-route56.mjs
+          jh-server/owner-setup/deployment/operational-service-pending-approval-operator.mjs
+          jh-server/owner-setup/deployment/operational-service-stage25-followup-operator.mjs
+          jh-server/owner-setup/deployment/owner-service-cutover-candidate.mjs
+          jh-server/owner-setup/deployment/owner-service-durable-candidate.mjs
+          jh-server/owner-setup/deployment/owner-service-durable-return-route56.mjs
+          jh-server/owner-setup/deployment/owner-service-pending-approval-operator.mjs
+          jh-server/owner-setup/deployment/owner-service-stage25-followup-operator.mjs
+          jh-server/owner-setup/deployment/unified-service-durable-live.mjs
+          jh-server/owner-setup/deployment/unified-service-durable-return-route56.mjs
+          jh-server/owner-setup/deployment/unified-service-pending-approval-operator.mjs
+          jh-server/owner-setup/deployment/unified-service-stage25-followup-operator.mjs
+          jh-server/owner-setup/server-integration/jh168-followup-operator-attestation.json
+          jh-server/owner-setup/server-integration/pending-approval-operator-attestation.json
+          jh-server/owner-setup/server-integration/server-durable-native-candidate.mjs
+          jh-server/owner-setup/server-integration/server-durable-native-return-route56.mjs
+          jh-server/owner-setup/server-integration/server-functional.mjs
+          jh-server/owner-setup/server-integration/server-jh168-pending-approval-followup-operator.mjs
+          jh-server/owner-setup/server-integration/server-jh168-pending-approval-operator.mjs
+          EOF
+          sed -i 's/^          //' /tmp/stage63-expected-generated.txt
           git status --porcelain=v1 | tee /tmp/stage63-worktree-status.log
-          test ! -s /tmp/stage63-worktree-status.log
+          if grep -Ev '^\?\? ' /tmp/stage63-worktree-status.log > /tmp/stage63-unexpected-tracked.log; then
+            cat /tmp/stage63-unexpected-tracked.log
+            exit 1
+          fi
+          sed -n 's/^?? //p' /tmp/stage63-worktree-status.log | sort > /tmp/stage63-actual-generated.txt
+          sort /tmp/stage63-expected-generated.txt > /tmp/stage63-expected-generated.sorted
+          diff -u /tmp/stage63-expected-generated.sorted /tmp/stage63-actual-generated.txt
+          while IFS= read -r file; do
+            test -f "$file"
+            test ! -L "$file"
+            rm -f -- "$file"
+          done < /tmp/stage63-expected-generated.txt
+          test -z "$(git status --porcelain=v1)"
 
       - name: Upload final evidence
         if: always()
@@ -113,5 +150,8 @@ jobs:
             /tmp/stage63-source-audit.log
             /tmp/stage63-functional.log
             /tmp/stage63-worktree-status.log
+            /tmp/stage63-actual-generated.txt
+            /tmp/stage63-expected-generated.sorted
+            /tmp/stage63-unexpected-tracked.log
           if-no-files-found: warn
           retention-days: 7
