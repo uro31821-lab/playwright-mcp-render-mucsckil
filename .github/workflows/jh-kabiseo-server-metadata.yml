@@ -21,6 +21,12 @@ jobs:
         run: |
           node --version
           node --test --test-reporter=spec candidate/host-kabiseo-assist/server/metadata-producer.test.mjs
+      - name: Restore existing locked generator dependencies without install hooks
+        run: |
+          set -euo pipefail
+          npm ci --prefix baseline/jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix baseline/jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          git -C baseline diff --exit-code -- jh-server/owner-setup/package.json jh-server/owner-setup/package-lock.json jh-server/owner-setup/owner-enrollment/package.json jh-server/owner-setup/owner-enrollment/package-lock.json
       - name: Compose against existing reviewed runtime without starting server
         env:
           KABISEO_BASELINE_COMMIT: 0663e0c3b434f300803e5cf272609032a5e519d3
