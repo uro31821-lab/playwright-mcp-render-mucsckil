@@ -71,6 +71,23 @@ const REVIEWED_TRANSITIONS=Object.freeze([
      'jh-server/owner-setup/jh168-mobile-unification/stage66-verified-mobile-feature-profile.test.mjs':
       'e674d7b1404da52b022af59010f9b4b4dda8ebd6'
     })
+   }),
+   Object.freeze({
+    reviewedHead:'67d994c74386be18adaabeebbff5328d0bea02f5',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
+      '8eeadec54be3eedcf7bd67cd47a604236988c31a',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs':
+      'ba10efcffac3fa26039217132a4039e6dba58177',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs':
+      '215b696dad69ef244dff022dc6a642031ab2a2bf',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs':
+      'fa99a70e6bd96d915fae141634542eda7f79a2ef',
+     'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.mjs':
+      'ae83f3a682fedcb020a3a8162adb68d949454d41',
+     'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.test.mjs':
+      'b68cd7b51e02f38fb553e00e46ec8de191caa634'
+    })
    })
   ])
  })
