@@ -1,0 +1,23 @@
+{
+  "schema":"JH168_STAGE69_ROUND2_RESULT_V1",
+  "round":2,
+  "playwrightMobileCommon":{
+    "status":"PROVIDER_UNAVAILABLE",
+    "code":"PLAYWRIGHT_MOBILE_REAL_PHONE_PROVIDER_NOT_CONNECTED",
+    "note":"Round 2 source now requires an explicit bound ADB endpoint and exact device serial; no live endpoint is connected."
+  },
+  "results":[
+    {"feature":"NATIVE_SELECT","android":"FAILED","androidEvidence":["Form15 discover found one CHOICE but labelSource=unresolved/ambiguous","form15_list_open -> choice_question_required / field_label_ambiguous"],"decision":"ROUND3_FIX_BOTH"},
+    {"feature":"NESTED_VERTICAL_SCROLL","android":"FAILED","androidEvidence":["internal target remained unproven; no safe exact inner-scroll execution target was established"],"decision":"ROUND3_FIX_BOTH"},
+    {"feature":"HORIZONTAL_SCROLL","android":"FAILED_UNVERIFIED","androidEvidence":["native exact target existed but first path failed horizontal_readback_before_insufficient","round2 Computer Use alternative was blocked before dispatch by platform safety filter"],"decision":"ROUND3_FIX_BOTH"},
+    {"feature":"PRESS_KEY","android":"FAILED","androidEvidence":["Computer Use inspect -> keypress_target_ready","prepare -> APPROVAL_REQUIRED plus Stage61 provider mismatch; no execution lease"],"decision":"ROUND3_FIX_BOTH"},
+    {"feature":"RETURN_TO_CHROME_FROM_OTHER_APP","android":"FAILED_UNVERIFIED","androidEvidence":["verified return workflow was created with initialPackage=com.android.chrome","OPEN_KAKAO_T test was blocked before dispatch by platform safety filter"],"decision":"ROUND3_FIX_BOTH"}
+  ],
+  "round3Features":[
+    "NATIVE_SELECT",
+    "NESTED_VERTICAL_SCROLL",
+    "HORIZONTAL_SCROLL",
+    "PRESS_KEY",
+    "RETURN_TO_CHROME_FROM_OTHER_APP"
+  ]
+}
