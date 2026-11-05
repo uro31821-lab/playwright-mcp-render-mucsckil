@@ -1,0 +1,20 @@
+{
+  "schema":"JH168_STAGE71_RETIRE_UNUSED_MOBILE_ENGINE_V1",
+  "status":"READY_FOR_REGRESSION",
+  "routingModel":"ANDROID_THEN_MANUAL",
+  "removed":[
+    "mobile provider runtime",
+    "provider probe",
+    "dual-engine router",
+    "dual-engine regression",
+    "obsolete provider CI",
+    "obsolete three-round executable policy CI"
+  ],
+  "preserved":[
+    "general web Playwright dependencies",
+    "Stage68 and Stage69 historical evidence documents",
+    "Stage69 real-phone decisions",
+    "Stage70 focused Web-Android-Web E2E evidence"
+  ],
+  "next":"REGRESSION_PR_MERGE"
+}
