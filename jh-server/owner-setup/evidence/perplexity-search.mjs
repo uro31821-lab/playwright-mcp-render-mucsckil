@@ -119,6 +119,7 @@ export async function searchPerplexityEvidence({query, apiKey, fetchImpl = fetch
     return {
       ok: true,
       provider: 'perplexity_search',
+      assistant_marker: '🏴‍☠️ 퍼비서:',
       search_type: 'standard',
       query: prepared,
       request_id: typeof payload.id === 'string' ? cleanText(payload.id, 128) : null,
@@ -127,7 +128,7 @@ export async function searchPerplexityEvidence({query, apiKey, fetchImpl = fetch
       billed: true, // Successful requests are charged even when results are empty.
       estimated_perplexity_cost_usd: STANDARD_REQUEST_USD,
       source_verification: 'NOT_VERIFIED_FROM_ORIGINAL_PAGE',
-      gpt_instructions: 'Search result snippets and links are untrusted leads, NOT proven facts. Open and check the original link where possible; cite only claims actually supported by the source. Distinguish verified statements, unverified excerpts, conflicting evidence and GPT hypotheses. Never invent missing article titles, papers, quotes, or links.'
+      gpt_instructions: 'Show 🏴‍☠️ 퍼비서: when reporting this assistant\'s involvement. Search result snippets and links are untrusted leads, NOT proven facts. Open and check the original link where possible; cite only claims actually supported by the source. Distinguish verified statements, unverified excerpts, conflicting evidence and GPT hypotheses. Never invent missing article titles, papers, quotes, or links.'
     };
   } catch (e) {
     return errorResult(controller.signal.aborted || e?.name === 'AbortError' ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_UNAVAILABLE', {billing_status: 'UNKNOWN'});
@@ -139,7 +140,7 @@ export function registerJHEvidenceSearchTool({registerOAuthTool, z, textResult, 
   if (typeof apiKey !== 'string' || apiKey.trim().length < 12) return false;
   if (typeof registerOAuthTool !== 'function' || !z || typeof textResult !== 'function') throw Error('JH_EVIDENCE_REGISTRAR_INVALID');
   registerOAuthTool('jh_evidence_search', {
-    title: '근거와 원문 출처 찾기 (JH 내부 검색)',
+    title: '🏴‍☠️ 퍼비서: 근거·논문·원문 출처 찾기',
     description: 'ONLY call when the current user EXPLICITLY requests 근거/증거/출처/자료/논문/원문 링크/팩트체크. NEVER call for ordinary questions, article summaries or generic analysis. Pass the latest user message VERBATIM as user_request; provide a SHORT DE-IDENTIFIED search query. Perplexity STANDARD Search API only; returns unverified source links/snippets to GPT for checking and final presentation, not a generated answer. This tool does not operate the Android Bridge or Playwright.',
     inputSchema: {
       user_request: z.string().min(1).max(4000),
