@@ -1,0 +1,39 @@
+{
+  "schema": "KABISEO_EXECUTOR_RECOVERY_CHECKPOINT_V1",
+  "recordedDateAsiaSeoul": "2026-11-06",
+  "cameraCodeBaseline": "250cd3f0b691198cc16007e4f4dbf4cb48267f1c",
+  "cameraFeatureVersion": "0.12",
+  "cameraRuntimeEnabled": false,
+  "workspace": {
+    "trivialHealthCheck": "FAILED_CAAS_CLIENTERROR",
+    "sameExecutorRetry": false,
+    "sourceMaterialization": "NO_AUTHORIZED_RAW_BYTE_PATH",
+    "providerRootCause": "UNCONFIRMED"
+  },
+  "newestObservedParentReceipt": {
+    "filename": "RESULT(20261105-152437).txt",
+    "candidate": "JH168-STAGE77-LOCATION-ONCE-NATIVE-SELECT-FIX3-KEEPALIVE-FIX1-20261105",
+    "status": "INSTALLED_NEEDS_LOCATION_ONCE_FIX1_PHONE_E2E",
+    "androidBuild": "PASS_REPORTED",
+    "originalSigning": "PASS_REPORTED",
+    "phoneInstall": "UPDATE_ACCEPTED_REPORTED",
+    "environment": "EXISTING_VERIFIED_PERSISTENT_CHECKPOINT_REUSED",
+    "cameraBuildVerified": false,
+    "signedArtifactHashVerifiedHere": false
+  },
+  "latestAvailableReviewSource": {
+    "filename": "JH77_LOCATION_ONCE_FIX2.zip",
+    "sha256": "fa36cec777b334b44926cfa73dad9960e258a4479acdbf8548f54575510e1d43",
+    "sourceManifestSha256": "55f18f45139ddb3ca8ee484ae54acd4a914a9a35339543bce5cff079cd4ceef3",
+    "sourceFilesReported": 440,
+    "rawBytesAccessibleHere": false,
+    "sameAsInstalledApkProven": false
+  },
+  "nextAction": "Recover exact latest source bytes in a healthy workspace; compare against current installed lineage before camera integration",
+  "reusePolicy": "Reuse verified existing toolchain and compatible cache; do not rebuild or reinstall the unchanged parent. Camera code changes require their own full candidate build and existing signer checks.",
+  "forbiddenSubstitutions": ["More mock tests do not clear executor or source-access blockers", "Do not replace current parent with historical JH73 source", "Do not publish private full Android source to this public repository", "Do not use seed-project success as full JH success"],
+  "newApkBuilt": false,
+  "newApkInstalled": false,
+  "productionDeployment": false,
+  "phoneCommands": 0
+}
