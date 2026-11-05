@@ -1,0 +1,22 @@
+{
+  "schema":"JH168_STAGE69_FINAL_STATE_V2",
+  "round":3,
+  "maxRounds":3,
+  "status":"COMPLETE",
+  "automatic":{
+    "BACK":"ANDROID",
+    "WAIT_CONDITION":"ANDROID",
+    "SCREENSHOT":"ANDROID"
+  },
+  "manual":[
+    "NATIVE_SELECT",
+    "NESTED_VERTICAL_SCROLL",
+    "HORIZONTAL_SCROLL",
+    "PRESS_KEY",
+    "RETURN_TO_CHROME_FROM_OTHER_APP"
+  ],
+  "routingModel":"ANDROID_THEN_MANUAL",
+  "noAutomaticReplay":["UNKNOWN","PENDING","FAILED_AFTER_EFFECT","EFFECT_UNKNOWN","NEEDS_REVIEW_NO_REPLAY"],
+  "verificationRequired":"REAL_PHONE_EXECUTION_PLUS_READBACK",
+  "next":"STAGE70_COMPLETE"
+}

@@ -16,6 +16,10 @@ const store=new Map([
  ['receipt-cu-pass-01',{stage61Router:receipt('ANDROID_COMPUTER_USE','VERIFIED_PASS','SCROLL')}],
  ['receipt-cu-pass-approved-01',{approvalConsumed:true,stage61Router:receipt('ANDROID_COMPUTER_USE','VERIFIED_PASS','CLICK')}],
  ['receipt-web-unknown-01',{stage61Router:receipt('ANDROID_WEB','UNKNOWN','CLICK')}],
+ ['receipt-web-predispatch-blocked-01',{ok:false,code:'OWNER_ADMISSION_BLOCKED',executed:false,
+  duplicate:false,resultVerified:false,externalEffectVerified:false,resultVerification:{
+   status:'OWNER_ADMISSION_BLOCKED',verified:false,effectConfirmed:false,duplicate:false,executed:false,
+   state:'FAILED_PRE_DISPATCH',executionId:'exec_stage65_exact_noeffect',reason:'owner_admission_rejected_no_dispatch'}}],
  ['receipt-reversed-layout-01',{stage61Router:{...receipt('ANDROID_WEB','READ_ONLY_VERIFIED','SNAPSHOT'),chatBounds:'1233,0,2448,1713',workBounds:'0,0,1216,1713'}}],
  ['approval-request-01',{ok:true,code:'local_action_approval_required',requestToken,expiresAt:Date.now()+120000,actionDigest:'c'.repeat(64),screenDigest:'d'.repeat(64),automaticApprovalRetryAllowed:false}],
  ['approval-status-pending-01',{ok:true,code:'action_approval_pending_local_tap',approved:false,grantToken:null,grantExpiresAt:null,automaticApprovalRetryAllowed:false}],
@@ -36,7 +40,7 @@ test('caller cannot begin from missing or invented receipt',async()=>assert.equa
 test('initial signed snapshot fixes left GPT right Chrome scope',async()=>{const h=make(),x=await h.begin({originalReceiptRef:'receipt-snapshot-01'});assert.equal(x.ok,true);assert.equal(x.layout.chatPackage,'com.openai.chatgpt');assert.equal(x.layout.workPackage,'com.android.chrome');});
 test('reversed signed layout is rejected',async()=>assert.equal((await make().begin({originalReceiptRef:'receipt-reversed-layout-01'})).ok,false));
 test('web unsupported routes next action to computer use',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-unsupported-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});assert.equal(h.plan({routeToken:b.routeToken,action:'CLICK'}).provider,'ANDROID_COMPUTER_USE');});
-test('both unsupported expose targeted mobile gap only',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-unsupported-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-cu-unsupported-01',expectedProvider:'ANDROID_COMPUTER_USE',expectedAction:'CLICK'});const p=h.plan({routeToken:b.routeToken,action:'CLICK',playwrightMobileAvailable:true});assert.equal(p.provider,'PLAYWRIGHT_MOBILE');assert.equal(p.fallbackEligible,true);});
+test('both Android providers unsupported expose manual fallback',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-unsupported-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-cu-unsupported-01',expectedProvider:'ANDROID_COMPUTER_USE',expectedAction:'CLICK'});const p=h.plan({routeToken:b.routeToken,action:'CLICK'});assert.equal(p.provider,'MANUAL');assert.equal(p.manualRequired,true);assert.equal(p.allowed,false);});
 test('verified SELECT_OPEN PREPARED keeps route open for one explicit PICK',async()=>{
  const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});
  const r=await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-select-open-prepared-01',
@@ -49,6 +53,25 @@ test('verified SELECT_OPEN PREPARED keeps route open for one explicit PICK',asyn
  assert.equal(phone.stage61Action,'SELECT_PICK');
  assert.equal(phone.stage61WebOutcome,'NOT_RUN');
  assert.equal(phone.automaticReplay,false);
+});
+test('exact signed owner pre-dispatch block becomes FAILED_NO_EFFECT and advances to Computer Use',async()=>{
+ const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});
+ const r=await h.recordVerifiedPreDispatchNoEffect({routeToken:b.routeToken,
+  originalReceiptRef:'receipt-web-predispatch-blocked-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});
+ assert.equal(r.ok,true);assert.equal(r.recordedOutcome,'FAILED_NO_EFFECT');
+ assert.equal(r.verifiedPreDispatchNoEffect,true);assert.match(r.receiptDigest,/^[0-9a-f]{64}$/);
+ const p=h.plan({routeToken:b.routeToken,action:'CLICK'});
+ assert.equal(p.provider,'ANDROID_COMPUTER_USE');assert.equal(p.allowed,true);
+});
+test('predispatch fallback rejects copied or effect-ambiguous result',async()=>{
+ const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});
+ store.set('receipt-bad-noeffect-01',{ok:false,code:'OWNER_ADMISSION_BLOCKED',executed:true,
+  duplicate:false,resultVerified:false,externalEffectVerified:false,resultVerification:{
+   status:'OWNER_ADMISSION_BLOCKED',verified:false,effectConfirmed:false,duplicate:false,executed:true,
+   state:'FAILED_PRE_DISPATCH',executionId:'exec_bad',reason:'owner_admission_rejected_no_dispatch'}});
+ const r=await h.recordVerifiedPreDispatchNoEffect({routeToken:b.routeToken,
+  originalReceiptRef:'receipt-bad-noeffect-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});
+ assert.equal(r.ok,false);assert.equal(r.code,'STAGE61_SIGNED_PREDISPATCH_NO_EFFECT_REQUIRED');
 });
 test('unknown result permanently stops route state',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});const r=await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-web-unknown-01',expectedProvider:'ANDROID_WEB',expectedAction:'CLICK'});assert.equal(r.stopped,true);assert.equal(h.plan({routeToken:b.routeToken,action:'CLICK'}).code,'STAGE61_ROUTE_STATE_STOPPED');});
 test('verified pass stores one final success digest and stops repeat',async()=>{const h=make(),b=await h.begin({originalReceiptRef:'receipt-snapshot-01'});const r=await h.record({routeToken:b.routeToken,originalReceiptRef:'receipt-cu-pass-01',expectedProvider:'ANDROID_COMPUTER_USE',expectedAction:'SCROLL'});assert.match(r.successReceiptDigest,/^[0-9a-f]{64}$/);assert.equal(h.plan({routeToken:b.routeToken,action:'SCROLL'}).code,'STAGE61_ROUTE_STATE_STOPPED');});

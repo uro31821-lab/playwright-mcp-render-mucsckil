@@ -46,6 +46,19 @@
 
 ## 현재 개발 후보와의 연결
 
+확정 기준은 **Stage72 / PR #159**, 병합 `5d72b78fd3730111076b33e2771f5b6b70f657aa`다. **Stage62 FIX3 APK 유지 + Stage71 Android → Manual**을 사용한다. InstallOnly·재설치·재빌드·데이터 초기화는 수행하지 않는다. 최신 모바일 계약이 이전 모바일 Playwright 계획을 대체하며, 일반 웹 Playwright는 보존한다.
+
+| 현재 후보 동작 | 원본 연결과 제한 |
+| --- | --- |
+| 입력 후보 읽기 | `life_android_snapshot`의 완료된 protocol row에서 원 `form15_discover` 인자를 얻어 기존 `life_android_step`으로 전달 |
+| 문장 입력 | 원 discovery의 `form15ToolArguments.fields[].write`에서 현재 필드에 발급한 `form15_type`을 사용. 세션·요청·필드 값은 보존하고 `value`만 현재 요청 문장으로 교체 |
+| 안내 닫기 | 원 `guidedForm.buttons[].activateToolArguments`의 정확한 닫기 대상·비승인 metadata와 `form_activate / visible-only`를 검증. 전송·승인 대상은 포함하지 않음 |
+| 결과 확인 | 현재 `agent_step.result.url`의 동작·필드·실패 코드를 확인. 입력 검증과 클릭 접수를 전송·답변 성공으로 바꾸지 않음 |
+
+이것은 별도 `guided_form` MCP 도구가 생겼다는 뜻이 아니다. 실제 등록된 기존 `life_android_step`의 원본 carrier 경로이며 기존 명령·서명·기기·durable 검사가 유지돼야 한다. 일반 RIGHT `item_`를 native `f_`로 변환하거나 새 식별자를 만들어 쓰지 않는다. 파서는 인증자가 아니며 실제 host가 같은 오른쪽 Gemini 창·현재 명령·정확한 대상·빈 입력칸을 검증해야 한다. 호출자가 주입한 carrier나 화면 글을 권한으로 삼지 않는다.
+
+원 결과가 MANUAL·PENDING·UNKNOWN·NEEDS_REVIEW_NO_REPLAY·만료·결과 유실이면 성공으로 표시하거나 자동 반복하지 않는다. `actionAccepted:false`도 실행 중 예외의 미실행 증거가 아니다. 기존 원 결과 확인만 pending 장벽을 해제할 수 있다. 과거 `life_web_click`·`life_web_type`나 폐기된 모바일 제공자로 자동 우회하지 않는다.
+
 개발 소스는 [기존 JH 저장소의 제비서 후보](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/tree/feat/jh-jebiseo-mobile-20261104/jh-server/owner-setup/jebiseo)에 연결한다. 링크·소스 존재 자체는 현재 호스트의 설치·배포·실제 기기 실행 증거가 아니다.
 
 후보의 `createJebiseoRuntime({callOriginalTool,readCurrentBinding,verifyGeminiTarget,verifyObservation,runtimeMode})`는 기존 경로를 받는 호스트 어댑터 계약이며, 새 MCP 도구나 Gemini 서비스가 생겼다는 뜻이 아니다. 호스트가 실제로 연결한 상태만 사용하고 함수 이름으로 외부 도구를 추측해 호출하지 않는다. 전송 예약·중복 방지는 기존 Secure56 beforeDispatch 경로를 사용하며 새 장부를 만들지 않는다.

@@ -54,16 +54,16 @@ export function createStage61HostAdapter({readOriginalSignedResult,ttlMs=10*60*1
    const routeToken=token(),s={layout,scopeReceipt:receipt,webOutcome:'NOT_RUN',computerOutcome:'NOT_RUN',stopped:false,successReceiptDigest:null,approval:emptyCheckpoint(),screenConsent:emptyCheckpoint(),createdAt:now(),expiresAt:now()+ttlMs};
    states.set(routeToken,s);return view(routeToken,s);
   },
-  plan({routeToken,action,playwrightMobileAvailable=false}={}){
+  plan({routeToken,action}={}){
    const s=get(routeToken);if(!s)return fail('STAGE61_ROUTE_STATE_NOT_FOUND');
    if(s.stopped)return fail('STAGE61_ROUTE_STATE_STOPPED');
-   return Object.freeze({ok:true,...routeStage61({action,layout:s.layout,webOutcome:s.webOutcome,computerOutcome:s.computerOutcome,playwrightMobileAvailable}),routeToken,replayAllowed:false,automaticReplay:false});
+   return Object.freeze({ok:true,...routeStage61({action,layout:s.layout,webOutcome:s.webOutcome,computerOutcome:s.computerOutcome}),routeToken,replayAllowed:false,automaticReplay:false});
   },
   phonePayload({routeToken,action,provider}={}){
    const s=get(routeToken);if(!s)return fail('STAGE61_ROUTE_STATE_NOT_FOUND');
-   const planned=routeStage61({action,layout:s.layout,webOutcome:s.webOutcome,computerOutcome:s.computerOutcome,playwrightMobileAvailable:provider==='PLAYWRIGHT_MOBILE'});
-   if(planned.provider!==provider||(!planned.allowed&&provider!=='PLAYWRIGHT_MOBILE'))return fail('STAGE61_PROVIDER_NOT_AUTHORIZED');
-   return Object.freeze({ok:true,stage61RouteSchema:STAGE61_ROUTE_SCHEMA,stage61Action:String(action||'').toUpperCase(),stage61WebOutcome:s.webOutcome,stage61ComputerOutcome:s.computerOutcome,stage61PlaywrightMobileAvailable:provider==='PLAYWRIGHT_MOBILE',routeToken,replayAllowed:false,automaticReplay:false});
+   const planned=routeStage61({action,layout:s.layout,webOutcome:s.webOutcome,computerOutcome:s.computerOutcome});
+   if(planned.provider!==provider||!planned.allowed)return fail('STAGE61_PROVIDER_NOT_AUTHORIZED');
+   return Object.freeze({ok:true,stage61RouteSchema:STAGE61_ROUTE_SCHEMA,stage61Action:String(action||'').toUpperCase(),stage61WebOutcome:s.webOutcome,stage61ComputerOutcome:s.computerOutcome,routeToken,replayAllowed:false,automaticReplay:false});
   },
   /** Prevents a duplicate prompt or a status query for a different request. */
   controlPlan({routeToken,control,action,taskId,requestToken,grantToken}={}){
@@ -184,6 +184,29 @@ export function createStage61HostAdapter({readOriginalSignedResult,ttlMs=10*60*1
    }
    s.expiresAt=now()+ttlMs;
    return Object.freeze({...view(routeToken,s),control,controlCode:String(result.code||'ok')});
+  },
+  async recordVerifiedPreDispatchNoEffect({routeToken,originalReceiptRef,expectedProvider,expectedAction}={}){
+   const s=get(routeToken);if(!s)return fail('STAGE61_ROUTE_STATE_NOT_FOUND');
+   if(s.stopped)return fail('STAGE61_ROUTE_STATE_STOPPED');
+   if(!['ANDROID_WEB','ANDROID_COMPUTER_USE'].includes(expectedProvider))
+    return fail('STAGE61_NO_EFFECT_PROVIDER_INVALID');
+   const result=await signed(originalReceiptRef);
+   const rv=result?.resultVerification;
+   const exact=!!result&&result.ok===false&&result.code==='OWNER_ADMISSION_BLOCKED'&&
+    result.executed===false&&result.duplicate===false&&result.resultVerified===false&&
+    result.externalEffectVerified===false&&rv?.status==='OWNER_ADMISSION_BLOCKED'&&
+    rv.verified===false&&rv.effectConfirmed===false&&rv.duplicate===false&&
+    rv.executed===false&&rv.state==='FAILED_PRE_DISPATCH'&&
+    rv.reason==='owner_admission_rejected_no_dispatch'&&
+    typeof rv.executionId==='string'&&rv.executionId.length>8;
+   if(!exact)return fail('STAGE61_SIGNED_PREDISPATCH_NO_EFFECT_REQUIRED');
+   if(expectedProvider==='ANDROID_WEB')s.webOutcome='FAILED_NO_EFFECT';
+   else s.computerOutcome='FAILED_NO_EFFECT';
+   s.expiresAt=now()+ttlMs;
+   return Object.freeze({...view(routeToken,s),recordedOutcome:'FAILED_NO_EFFECT',
+    receiptDigest:hash('stage61-predispatch-noeffect|'+expectedProvider+'|'+
+      String(expectedAction||'').toUpperCase()+'|'+rv.executionId),
+    verifiedPreDispatchNoEffect:true});
   },
   async record({routeToken,originalReceiptRef,expectedProvider,expectedAction,terminal=true}={}){
    const s=get(routeToken);if(!s)return fail('STAGE61_ROUTE_STATE_NOT_FOUND');

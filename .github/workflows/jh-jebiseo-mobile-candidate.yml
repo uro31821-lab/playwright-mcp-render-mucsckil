@@ -10,6 +10,21 @@ on:
       - 'jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs'
       - 'jh-server/owner-setup/deployment/jh167-open-completion*'
       - 'jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs'
+      - 'jh-mobile-dual-engine/stage67/**'
+      - 'jh-mobile-dual-engine/stage69/**'
+      - 'jh-mobile-dual-engine/stage70/**'
+      - 'jh-mobile-dual-engine/stage71/**'
+      - 'jh-mobile-dual-engine/stage72/**'
+      # Stage71 inspects executable source and workflows across the repository.
+      - '**.mjs'
+      - '**.js'
+      - '**.cjs'
+      - '**.ts'
+      - '**.yml'
+      - '**.yaml'
+      # Include the dependency inputs used by the existing install steps.
+      - '**/package.json'
+      - '**/package-lock.json'
       - '.github/workflows/jh-jebiseo-mobile-candidate.yml'
   push:
     branches: [jh-fix3-secure-server]
@@ -20,6 +35,21 @@ on:
       - 'jh-server/owner-setup/deployment/jh167-web-service-names.test.mjs'
       - 'jh-server/owner-setup/deployment/jh167-open-completion*'
       - 'jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs'
+      - 'jh-mobile-dual-engine/stage67/**'
+      - 'jh-mobile-dual-engine/stage69/**'
+      - 'jh-mobile-dual-engine/stage70/**'
+      - 'jh-mobile-dual-engine/stage71/**'
+      - 'jh-mobile-dual-engine/stage72/**'
+      # Stage71 inspects executable source and workflows across the repository.
+      - '**.mjs'
+      - '**.js'
+      - '**.cjs'
+      - '**.ts'
+      - '**.yml'
+      - '**.yaml'
+      # Include the dependency inputs used by the existing install steps.
+      - '**/package.json'
+      - '**/package-lock.json'
       - '.github/workflows/jh-jebiseo-mobile-candidate.yml'
 
 permissions:
@@ -61,5 +91,11 @@ jobs:
             jh-server/owner-setup/deployment/jh167-open-completion.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile-web-4-entrypoint-contract.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile-web-13-runtime-contract.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage66-verified-mobile-feature-profile.test.mjs \
+            jh-mobile-dual-engine/stage67/stage67-final-mobile-routing.test.mjs \
+            jh-mobile-dual-engine/stage69/final-state.test.mjs \
+            jh-mobile-dual-engine/stage70/stage70-nine-alias.test.mjs \
+            jh-mobile-dual-engine/stage71/retired-engine-removal.test.mjs \
+            jh-mobile-dual-engine/stage72/stage72-handoff.test.mjs \
             host-jebiseo/plugin-overlay/skills/jh-assistant-hub/tests/*.test.mjs \
             host-jebiseo/plugin-overlay/skills/jh-jebiseo/tests/*.test.mjs

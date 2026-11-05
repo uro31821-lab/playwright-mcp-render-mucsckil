@@ -1,14 +1,15 @@
 import {createHash} from 'node:crypto';
+import {nextStage64FeatureProvider} from './stage64-feature-fallback.mjs';
 
 export const STAGE61_ROUTE_SCHEMA='JH168_STAGE61_ROUTE_REQUEST_V1';
 export const STAGE61_RECEIPT_SCHEMA='JH168_STAGE61_UNIFIED_RECEIPT_V1';
 export const STAGE61_VERSION='JH168_STAGE61_RIGHT_PANE_ROUTER_V3';
 
-const PROVIDERS=new Set(['ANDROID_WEB','ANDROID_COMPUTER_USE','PLAYWRIGHT_MOBILE','STOP_NO_REPLAY']);
+const PROVIDERS=new Set(['ANDROID_WEB','ANDROID_COMPUTER_USE','STOP_NO_REPLAY']);
 const OUTCOMES=new Set(['NOT_RUN','READ_ONLY_VERIFIED','PREPARED','VERIFIED_PASS','VERIFIED_UNSUPPORTED_NO_EFFECT','FAILED_NO_EFFECT','FAILED_AFTER_EFFECT','UNKNOWN','PENDING','PHONE_SCOPED_SITE_DISCARD']);
 const ACTIONS=new Set(['OPEN','SNAPSHOT','CLICK','TYPE','SCROLL','BACK','SELECT_OPEN','SELECT_PICK','KEYPRESS_ENTER_TAB','NATIVE_APP_ACTION','READ_ONLY_INSPECT']);
 const uncertain=new Set(['UNKNOWN','PENDING','PHONE_SCOPED_SITE_DISCARD','FAILED_AFTER_EFFECT']);
-const webFirst=new Set(['OPEN','SNAPSHOT','CLICK','TYPE','BACK','SELECT_OPEN','SELECT_PICK','KEYPRESS_ENTER_TAB']);
+const webFirst=new Set(['OPEN','SNAPSHOT','CLICK','TYPE','BACK','SELECT_OPEN','SELECT_PICK']);
 const computerNative=new Set(['CLICK','TYPE','SCROLL','BACK','SELECT_OPEN','SELECT_PICK','KEYPRESS_ENTER_TAB','NATIVE_APP_ACTION','READ_ONLY_INSPECT']);
 const sha=x=>createHash('sha256').update(String(x)).digest('hex');
 const fail=(code,action='SNAPSHOT')=>Object.freeze({provider:'STOP_NO_REPLAY',action,code,allowed:false,replayAllowed:false,fallbackEligible:false});
@@ -46,21 +47,16 @@ export function fixedLayoutStage61(layout){
  return {ok:true,code:'LEFT_GPT_RIGHT_WORK_VERIFIED'};
 }
 
-export function routeStage61({action,layout,webOutcome='NOT_RUN',computerOutcome='NOT_RUN',playwrightMobileAvailable=false,compatibilityDirectComputerUse=false}={}){
+export function routeStage61({action,layout,webOutcome='NOT_RUN',computerOutcome='NOT_RUN',compatibilityDirectComputerUse=false}={}){
  action=String(action||'').toUpperCase();webOutcome=String(webOutcome||'NOT_RUN').toUpperCase();computerOutcome=String(computerOutcome||'NOT_RUN').toUpperCase();
  if(!ACTIONS.has(action)||!OUTCOMES.has(webOutcome)||!OUTCOMES.has(computerOutcome))return fail('INVALID_STAGE61_ROUTE_INPUT',action||'SNAPSHOT');
  const fixed=fixedLayoutStage61(layout);if(!fixed.ok)return fail(fixed.code,action);
  if(uncertain.has(webOutcome)||uncertain.has(computerOutcome))return fail('PREVIOUS_EFFECT_UNCERTAIN',action);
  if(webOutcome==='VERIFIED_PASS'||computerOutcome==='VERIFIED_PASS')return fail('ALREADY_VERIFIED_NO_REPEAT',action);
- if(action==='READ_ONLY_INSPECT')return {provider:'ANDROID_COMPUTER_USE',action,code:'READ_ONLY_COMPUTER_USE_INSPECTION',allowed:true,replayAllowed:false,fallbackEligible:false};
- if(webFirst.has(action)&&webOutcome==='NOT_RUN')return {provider:'ANDROID_WEB',action,code:'TRY_EXISTING_ANDROID_WEB',allowed:true,replayAllowed:false,fallbackEligible:false};
- if(computerNative.has(action)&&computerOutcome==='NOT_RUN'&&(webOutcome==='VERIFIED_UNSUPPORTED_NO_EFFECT'||!webFirst.has(action)||compatibilityDirectComputerUse))
-  return {provider:'ANDROID_COMPUTER_USE',action,code:compatibilityDirectComputerUse&&webOutcome==='NOT_RUN'?'EXPLICIT_COMPUTER_USE_COMPATIBILITY':'TRY_EXISTING_ANDROID_COMPUTER_USE',allowed:true,replayAllowed:false,fallbackEligible:false};
- if(webOutcome==='VERIFIED_UNSUPPORTED_NO_EFFECT'&&computerOutcome==='VERIFIED_UNSUPPORTED_NO_EFFECT')
-  return playwrightMobileAvailable
-   ?{provider:'PLAYWRIGHT_MOBILE',action,code:'TARGETED_PLAYWRIGHT_MOBILE_GAP',allowed:true,replayAllowed:false,fallbackEligible:true}
-   :fail('PLAYWRIGHT_MOBILE_NOT_CONNECTED',action);
- return fail('NO_SAFE_ROUTE',action);
+ if(compatibilityDirectComputerUse&&computerNative.has(action)&&computerOutcome==='NOT_RUN')
+  return {provider:'ANDROID_COMPUTER_USE',action,code:'EXPLICIT_COMPUTER_USE_COMPATIBILITY',allowed:true,replayAllowed:false,fallbackEligible:false};
+ const next=nextStage64FeatureProvider({action,webOutcome,computerOutcome});
+ return next.provider==='STOP_NO_REPLAY'?fail(next.code,action):next;
 }
 
 export function verifyStage61Receipt(receipt,expected={}){
@@ -78,7 +74,7 @@ export function verifyStage61Receipt(receipt,expected={}){
  return {ok:true,code:'STAGE61_RECEIPT_VERIFIED',receiptDigest:sha(receipt.unifiedReceiptDigest+'|'+receipt.provider+'|'+receipt.action+'|'+receipt.outcome),success:receipt.outcome==='VERIFIED_PASS'};
 }
 
-export function nextStage61Request({action,layout,receipts=[],playwrightMobileAvailable=false}={}){
+export function nextStage61Request({action,layout,receipts=[]}={}){
  let webOutcome='NOT_RUN',computerOutcome='NOT_RUN';
  for(const receipt of receipts){
   const verified=verifyStage61Receipt(receipt);if(!verified.ok)return fail(verified.code,String(action||'SNAPSHOT').toUpperCase());
@@ -86,5 +82,5 @@ export function nextStage61Request({action,layout,receipts=[],playwrightMobileAv
   if(receipt.provider==='ANDROID_COMPUTER_USE')computerOutcome=receipt.outcome;
   if(receipt.outcome==='VERIFIED_PASS')return fail('ALREADY_VERIFIED_NO_REPEAT',String(action||'SNAPSHOT').toUpperCase());
  }
- return routeStage61({action,layout,webOutcome,computerOutcome,playwrightMobileAvailable});
+ return routeStage61({action,layout,webOutcome,computerOutcome});
 }

@@ -5,15 +5,18 @@ import vm from 'node:vm';
 import {createJebiseoMobilePort, JEBISEO_ORIGINAL_MOBILE_TOOLS, JEBISEO_GEMINI_WEB_URL,
   unwrapJebiseoMobileReply} from './mobile-port.mjs';
 import {patchJH168MobileWebCommands56} from '../jh168-mobile-unification/mobile-web-tool-patch.mjs';
+import {fixtureGuidedArguments, fixtureGuidedJob, fixtureMobileReply} from './test-support.mjs';
+import {classifyJebiseoGuidedJob} from './guided-outcome.mjs';
 
 const command = 'a'.repeat(32), context = `ssc_${'b'.repeat(32)}`, item = `item_${'c'.repeat(16)}`;
 const task = 'd'.repeat(64), request = 'e'.repeat(32), digest = 'f'.repeat(64);
-const typeArgs = () => ({context_id: context, target_item_ref: item, request_id: request, text: '공개 예시 질문'});
+const typeArgs = () => ({context_id: context, target_item_ref: item, request_id: request,
+  text: '공개 예시 질문', guided_arguments: fixtureGuidedArguments()});
 const submitArgs = () => ({device_id: 'test-phone', task_digest: task, index: 3,
   lease_token: 'original-lease-token', action_approval_grant_token: 'original-local-grant',
   local_action_approval_digest: digest});
 const envelope = value => ({content: [{type: 'text', text: JSON.stringify(value)}]});
-function fixture(reply = () => envelope({ok: true})) {
+function fixture(reply = (name, args) => envelope(fixtureMobileReply(name, args))) {
   const calls = [];
   const port = createJebiseoMobilePort({runtimeMode: 'PHONE_RIGHT', callOriginalTool: async (name, args) => {
     calls.push({name, args}); return reply(name, args);
@@ -43,6 +46,7 @@ test('legacy and unset runtime modes cannot invoke same-named desktop tools', as
   }
   assert.equal(JEBISEO_ORIGINAL_MOBILE_TOOLS.includes('life_android_workflow_link'), false);
   assert.equal(JEBISEO_ORIGINAL_MOBILE_TOOLS.includes('life_web_click'), false);
+  assert.equal(JEBISEO_ORIGINAL_MOBILE_TOOLS.includes('life_web_type'), false);
 });
 
 test('unknown operations, mismatched command and extra action keys fail before dispatch', async () => {
@@ -97,14 +101,15 @@ test('original lowercase command-discard and pending results survive unchanged',
   const result = await f.run('RECEIPT_STATUS', {task_digest: task, receipt_token: 'original-receipt-token'});
   assert.equal(result.code, 'new_command_binding_required_or_discarded');
   assert.equal(result.originalStatus, 'UNKNOWN');
-  assert.equal(result.status, 'RETURNED');
+  assert.equal(result.status, 'UNKNOWN');
   assert.equal(f.calls[0].args.command_id, command);
 });
 
-test('typing retains exact mobile refs and request identity without implicit submit', async () => {
+test('typing forwards issued native carrier unchanged and replaces only its value', async () => {
   const f = fixture();
   await f.run('TYPE', typeArgs());
-  assert.deepEqual(f.calls, [{name: 'life_web_type', args: {...typeArgs(), command_id: command, submit: false}}]);
+  assert.deepEqual(f.calls, [{name: 'life_android_step', args: {
+    ...fixtureGuidedArguments(), value: typeArgs().text, command_id: command}}]);
   assert.equal((await f.run('TYPE', {...typeArgs(), submit: true})).code, 'MOBILE_SUBMIT_SEPARATE_ACTION_REQUIRED');
   assert.equal((await f.run('TYPE', {...typeArgs(), target_item_ref: '#editor'})).code, 'MOBILE_FRESH_ITEM_REF_REQUIRED');
   assert.equal((await f.run('TYPE', {...typeArgs(), text: '가'.repeat(700)})).code, 'JEBISEO_SHARED_PHONE_TEXT_LIMIT');
@@ -124,7 +129,7 @@ test('concurrent or changed-request duplicate writes invoke original tool only o
 
 test('unknown effect stays reserved while same original job can be read repeatedly', async () => {
   const f = fixture((name) => {
-    if (name === 'life_web_type') throw Error('new_command_binding_required_or_discarded');
+    if (name === 'life_android_step') throw Error('new_command_binding_required_or_discarded');
     return envelope({status: 'in_progress'});
   });
   const first = await f.run('TYPE', typeArgs());
@@ -133,7 +138,7 @@ test('unknown effect stays reserved while same original job can be read repeated
   assert.equal((await f.run('TYPE', typeArgs())).toolInvoked, false);
   await f.run('JOB_STATUS', {job_id: 'original-job-id'});
   await f.run('JOB_STATUS', {job_id: 'original-job-id'});
-  assert.deepEqual(f.calls.map(c => c.name), ['life_web_type', 'life_job_status', 'life_job_status']);
+  assert.deepEqual(f.calls.map(c => c.name), ['life_android_step', 'life_job_status', 'life_job_status']);
   assert.ok(f.calls.every(c => c.args.command_id === command));
   assert.equal(f.port.capabilities().processLocalReservationsOnly, true);
 });
@@ -183,7 +188,7 @@ test('in-memory reservation capacity fails closed instead of evicting unknown ac
   assert.equal(calls, 1);
 });
 
-test('adapter uses real generated Mobile13 open/read/input handlers and their original preflight', async () => {
+test('adapter preserves the real generated Mobile13 fixed OPEN and RIGHT read handlers', async () => {
   const source = readFileSync(new URL('../../server.mjs', import.meta.url), 'utf8');
   const start = '  registerOAuthTool("life_web_navigate",{';
   const prerequisites = [
@@ -215,14 +220,80 @@ test('adapter uses real generated Mobile13 open/read/input handlers and their or
   assert.equal(opened.code, 'OPEN_COMPLETION_PENDING');
   assert.deepEqual(JSON.parse(JSON.stringify(opens)), [{service: JEBISEO_GEMINI_WEB_URL}]);
   await port.run({visibility: 'VISIBLE', operation: 'SNAPSHOT', command_id: command, args: {context_id: context}});
-  await port.run({visibility: 'VISIBLE', operation: 'TYPE', command_id: command, args: typeArgs()});
-  assert.deepEqual(jobs.map(j => j.type), [
-    'split_screen_session_status', 'split_screen_session_input_preflight', 'split_screen_session_followup'
-  ]);
-  assert.equal(jobs[2].payload.requestId, request);
-  assert.equal(jobs[2].payload.targetItemRef, item);
-  assert.equal(jobs[2].payload.contextId, context);
-  assert.equal(jobs[2].payload.inputGrantToken, `ipg_${'3'.repeat(32)}`);
-  assert.equal(jobs[2].payload.action, 'SET_TEXT');
-  assert.equal(jobs[2].tool, 'life_android_execute_computer_action');
+  assert.deepEqual(jobs.map(j => j.type), ['split_screen_session_status']);
+});
+
+test('native snapshot and guided TYPE use original registered Android job carriers', async () => {
+  const source = readFileSync(new URL('../../server.mjs', import.meta.url), 'utf8');
+  const a = source.indexOf('  registerOAuthTool("life_android_snapshot",{');
+  const b = source.indexOf('  registerOAuthTool("open_on_android",', a);
+  assert.ok(a >= 0 && b > a);
+  const handlers = new Map(), jobs = [];
+  const z = new Proxy(() => z, {get: () => z, apply: () => z});
+  vm.runInNewContext(source.slice(a, b), {z,
+    registerOAuthTool: (name, config, handler) => handlers.set(name, handler),
+    mk: (type, payload = {}) => {const job = {type, payload}; jobs.push(job); return job;},
+    waitJob: async job => ({...job, status: 'complete', result: {ok: true}}), jobResult: envelope
+  });
+  const port = createJebiseoMobilePort({runtimeMode: 'PHONE_RIGHT',
+    callOriginalTool: (name, args) => handlers.get(name)(args)});
+  await port.run({visibility: 'VISIBLE', operation: 'FORM_SNAPSHOT', command_id: command});
+  const typed = await port.run({visibility: 'VISIBLE', operation: 'TYPE', command_id: command, args: typeArgs()});
+  assert.deepEqual(jobs.map(j => j.type), ['agent_snapshot', 'agent_step']);
+  assert.deepEqual(jobs[1].payload, {...fixtureGuidedArguments(), value: typeArgs().text, command_id: command});
+  assert.equal(typed.geminiAcceptedVerified, false);
+});
+
+test('manual and unresolved outcomes remain reserved and never fall back to an old input alias', async () => {
+  for (const payload of [{ok: true, provider: 'MANUAL', allowed: false, manualRequired: true},
+    {ok: false, status: 'EFFECT_UNKNOWN'}, {ok: true, status: 'queued'}]) {
+    const f = fixture(() => envelope(payload));
+    const first = await f.run('TYPE', typeArgs());
+    assert.equal(first.ok, false);
+    assert.deepEqual(first.payload, payload);
+    assert.equal((await f.run('TYPE', {...typeArgs(), request_id: '1'.repeat(32)})).toolInvoked, false);
+    assert.deepEqual(f.calls.map(c => c.name), ['life_android_step']);
+  }
+});
+
+test('typed native job decoding preserves uncertainty and never promotes a mismatched input result', async () => {
+  const successful = JSON.parse(fixtureGuidedJob().result.url);
+  for (const [inner, status] of [
+    [successful, 'RETURNED'],
+    [{...successful, fieldId: 'f_' + 'c'.repeat(24)}, 'UNVERIFIABLE'],
+    [{...successful, operation: 'select'}, 'UNVERIFIABLE'],
+    [{ok: false, code: 'field_changed_rescan', actionAccepted: false}, 'BLOCKED'],
+    [{ok: true, code: 'manual_required', provider: 'MANUAL'}, 'MANUAL'],
+    ...['field_value_unverified', 'dispatch_uncertain_do_not_retry',
+      'operation_incomplete_do_not_retry', 'form_operation_failed_do_not_retry'].map(code =>
+      [{ok: false, code, actionAccepted: false}, 'UNKNOWN'])
+  ]) {
+    const payload = fixtureGuidedJob('TYPE', inner), f = fixture(() => envelope(payload));
+    const response = await f.run('TYPE', typeArgs());
+    assert.equal(response.status, status, inner.code);
+    assert.equal(response.nativeCode, inner.code); assert.equal(response.readbackRequired, true);
+    assert.deepEqual(response.payload, payload);
+    assert.equal(response.geminiAcceptedVerified, false);
+    assert.equal((await f.run('TYPE', typeArgs())).toolInvoked, false);
+  }
+});
+
+test('guided result parser reads only the exact original job slot and current action', async () => {
+  const good = fixtureGuidedJob(), inner = JSON.parse(good.result.url);
+  const missingField = {...inner}; delete missingField.fieldId;
+  assert.equal(classifyJebiseoGuidedJob(fixtureGuidedJob('TYPE', missingField), {
+    operation: 'TYPE', identity: {operation: 'form15_type'}
+  }).outcome.status, 'UNVERIFIABLE');
+  for (const payload of [{ok: true}, {...good, type: 'agent_snapshot'},
+    {...good, result: {...good.result, url: 'not-json'}},
+    {...good, result: {...good.result, ok: false}},
+    {acted: good, snapshot: {ok: true}}, fixtureGuidedJob('DISCOVER_INPUT')]) {
+    const response = await fixture(() => envelope(payload)).run('TYPE', typeArgs());
+    assert.equal(response.ok, false); assert.equal(response.readbackRequired, true);
+  }
+  const decorated = fixtureGuidedJob('TYPE', {...inner, nextQuestion: {status: 'UNKNOWN'},
+    detail: '{"manualRequired":true}', observations: [{label: 'STOP_NO_REPLAY'}]});
+  assert.equal((await fixture(() => envelope(decorated)).run('TYPE', typeArgs())).status, 'RETURNED');
+  const guarded = {...good, executionStatus: 'EFFECT_UNKNOWN'};
+  assert.equal((await fixture(() => envelope(guarded)).run('TYPE', typeArgs())).status, 'UNKNOWN');
 });

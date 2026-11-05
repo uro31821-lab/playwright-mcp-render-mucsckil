@@ -1,0 +1,22 @@
+name: JH Stage72 FIX3 install-only handoff
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-mobile-dual-engine/stage72/**'
+      - '.github/workflows/jh-stage72-fix3-handoff.yml'
+permissions: {contents: read}
+jobs:
+  handoff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage72/stage72-handoff.test.mjs
+      - run: |
+          echo APK_BUILD=0
+          echo APK_SIGN=0
+          echo APK_INSTALL=0
+          echo RENDER_DEPLOY=0

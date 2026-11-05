@@ -5,10 +5,12 @@
 import {createHash} from 'node:crypto';
 import {createJebiseoMobilePort, JEBISEO_GEMINI_WEB_URL} from './mobile-port.mjs';
 import {verifyJebiseoReply} from './reply-proof.mjs';
+import {prepareJebiseoGuidedCall} from './guided-form.mjs';
 
-const effects = new Set(['OPEN', 'TYPE', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
+const guided = new Set(['DISCOVER_INPUT', 'DISMISS_NOTICE', 'TYPE']);
+const effects = new Set(['OPEN', ...guided, 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const recovery = new Set(['RECEIPT_STATUS', 'JOB_STATUS', 'APPROVAL_STATUS']);
-const openOnlySteps = new Set(['OPEN', 'SNAPSHOT', 'JOB_STATUS', 'RECEIPT_STATUS']);
+const openOnlySteps = new Set(['OPEN', 'SNAPSHOT', 'FORM_SNAPSHOT', 'JOB_STATUS', 'RECEIPT_STATUS']);
 const hex32 = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
 const hex64 = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const ref = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{7,159}$/.test(value);
@@ -51,8 +53,18 @@ function validTarget(proof, task, operation, args, bindingDigest) {
       proof.commandId !== task.commandId || proof.promptDigest !== task.promptDigest ||
       proof.bindingDigest !== bindingDigest || !Number.isSafeInteger(proof.windowId) || proof.windowId < 0)
     return false;
-  if (operation === 'TYPE') return proof.contextId === args.context_id &&
-    proof.targetItemRef === args.target_item_ref && proof.editorVerified === true && proof.draftEmpty === true;
+  if (guided.has(operation)) {
+    if (proof.contextId !== args.context_id || proof.guidedArgumentsVerified !== true ||
+        proof.rightPaneVerified !== true || proof.workPackage !== 'com.android.chrome' ||
+        !Number.isSafeInteger(proof.displayId) || proof.displayId < 0 ||
+        prepareJebiseoGuidedCall({operation, issuedArguments: proof.guidedArguments,
+          text: args.text}).ok !== true) return false;
+    if (operation === 'DISCOVER_INPUT') return proof.inputDiscoveryVerified === true;
+    if (proof.targetItemRef !== args.target_item_ref) return false;
+    if (operation === 'DISMISS_NOTICE') return proof.noticeDismissVerified === true &&
+      proof.nonSensitiveVerified === true && proof.approvalRequired === false;
+    return proof.editorVerified === true && proof.draftEmpty === true;
+  }
   // The CU task/run scope belongs to the exact prepared action. Mobile13 TYPE
   // computes separate digests for its preflight/followup; there is no global
   // command taskDigest to invent or compare against the current binding.
@@ -89,6 +101,7 @@ export function jebiseoCapabilities() {
     mobileRoute: 'android_right', runtimeMode: 'PHONE_RIGHT', defaultVisibility: 'VISIBLE',
     internalExecutionSupported: false, visibleExecutionSupported: false,
     geminiAssistanceAvailable: false, liveExecutionVerified: false,
+    routingModel: 'ANDROID_THEN_MANUAL', installedApkBaseline: 'STAGE62_FIX3',
     codeCandidate: true, productionRegistered: false,
     visibleMobileCandidateSupported: true, commandCreationSupported: false,
     automaticReplay: false, requiresInternalProvider: false});
@@ -160,13 +173,16 @@ export function createJebiseoDeviceScheduler() {
  * RIGHT address confirmation alone never proves the Gemini editor is ready.
  *
  * verifyGeminiTarget must authenticate a fresh original provider/window and
- * context/item (TYPE), or prepared CU task/run/target plus exact prompt draft
+ * context/item (TYPE/DISMISS_NOTICE), or prepared CU task/run/target plus exact prompt draft
  * (approval/submit), then return the fields checked by validTarget. Unlabelled
  * icon geometry and caller booleans are not provider/target proof. OPEN is the
  * separate fixed-URL navigation step, so it does not require a Gemini window
  * before launching. Original focus/durable checks still precede that dispatch.
- * No producer
- * for that attestation is invented here; absent proof blocks effects.
+ * For guided actions it must resolve the exact carrier from the original fresh
+ * native snapshot or form15 discovery, verify the same RIGHT Gemini surface,
+ * and return guidedArgumentsVerified + guidedArguments. Parsing the carrier
+ * alone is never authentication. Callers cannot inject these arguments.
+ * No producer for that attestation is invented here; absent proof blocks effects.
  *
  * Task bindings and pending barriers here are process-local coordination only.
  * Existing original owner receipts/journal remain authoritative after restart.
@@ -221,6 +237,8 @@ export function createJebiseoRuntime({callOriginalTool, readCurrentBinding, veri
         return result('JEBISEO_COMMAND_MISMATCH');
       if (parameters.device_id !== undefined && parameters.device_id !== scope.deviceId)
         return result('JEBISEO_DEVICE_MISMATCH');
+      if (Object.hasOwn(parameters, 'guided_arguments'))
+        return result('JEBISEO_CALLER_GUIDED_ARGUMENTS_FORBIDDEN');
       const existingPending = pendingEffects.get(scope.taskRef);
       if (operation === 'JOB_STATUS' && existingPending?.operation === 'OPEN' &&
           (!originalJobId(existingPending.jobId) || parameters.job_id !== existingPending.jobId))
@@ -250,7 +268,7 @@ export function createJebiseoRuntime({callOriginalTool, readCurrentBinding, veri
         try {
           targetDigest = jebiseoTargetBindingDigest(scope, operation, parameters);
           if (operation !== 'OPEN')
-            target = await verifyGeminiTarget({task: scope, operation, args: parameters, binding});
+            target = snapshot(await verifyGeminiTarget({task: scope, operation, args: parameters, binding}));
         } catch { return result('JEBISEO_ORIGINAL_GEMINI_TARGET_UNVERIFIED'); }
         if (operation !== 'OPEN' && !validTarget(target, scope, operation, parameters, targetDigest))
           return result('JEBISEO_ORIGINAL_GEMINI_TARGET_UNVERIFIED');
@@ -262,7 +280,8 @@ export function createJebiseoRuntime({callOriginalTool, readCurrentBinding, veri
         if (effectBindingProblem(fresh, scope)) return result('JEBISEO_BINDING_CHANGED_AFTER_TARGET_VERIFICATION');
         const effectKey = digest(JSON.stringify(['jh.jebiseo-effect.v1', targetDigest]));
         const response = await port.run({visibility: 'VISIBLE', command_id: scope.commandId,
-          operation, args: parameters});
+          operation, args: guided.has(operation)
+            ? {...parameters, guided_arguments: target.guidedArguments} : parameters});
         if (response.toolInvoked === true) {
           const pending = Object.freeze({effectKey, operation,
             ...(operation === 'OPEN' ? {jobId: originalJobId(response.payload?.jobId) ? response.payload.jobId : null} : {})});

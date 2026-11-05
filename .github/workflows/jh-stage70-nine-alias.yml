@@ -1,0 +1,23 @@
+name: JH Stage71 Android-manual mobile regression
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-mobile-dual-engine/stage67/**'
+      - 'jh-mobile-dual-engine/stage69/**'
+      - 'jh-mobile-dual-engine/stage70/**'
+      - 'jh-mobile-dual-engine/stage71/**'
+      - '.github/workflows/jh-stage70-nine-alias.yml'
+permissions: {contents: read}
+jobs:
+  mobile-final-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage67/stage67-final-mobile-routing.test.mjs
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage69/final-state.test.mjs
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage70/stage70-nine-alias.test.mjs
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage71/retired-engine-removal.test.mjs

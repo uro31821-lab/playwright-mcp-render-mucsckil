@@ -1,0 +1,40 @@
+{
+  "schema":"JH168_STAGE72_FIX3_INSTALL_HANDOFF_V2",
+  "status":"SKIP_INSTALL_SUPERSEDED_BY_CURRENT_APP",
+  "serverBaseline":{
+    "branch":"jh-fix3-secure-server",
+    "runtimeCommit":"a06e4643a036fa7cc121ef997bc332a43f2f85df",
+    "renderService":"jh-secure-bridge-fix4",
+    "renderStatus":"live",
+    "routingModel":"ANDROID_THEN_MANUAL"
+  },
+  "currentPhone":{
+    "secureActive":true,
+    "deviceResponded":true,
+    "appVersionCode":168,
+    "appVersionName":"jh168-stage62-native-select-pick-fix3-keepalive",
+    "bridgeVersion":"unified-final-checkpoint.57-fix10-secure409-cu-fix2-rz-chat-return-reconnect-q3-approval-v2-split-v2"
+  },
+  "installOnlyBundle":{
+    "uploadedZipSha256":"f01802f0d404d72887d23474c3a7dbc0ad585c8f840f6a0b64a6114c3381abe1",
+    "containsApk":false,
+    "candidate":"JH168-STAGE61-SCREEN-CONSENT-OVERLAY-THREAD-V10-SECURITY-GATE-20261103",
+    "targetPackage":"com.koreanlifehub.bridge",
+    "targetVersionCode":168,
+    "signedApkName":"JH168-Stage61-ScreenConsentOverlayThreadV10-ORIGINAL-CERT-SIGNED.apk"
+  },
+  "decision":{
+    "installNow":false,
+    "reason":"The phone already runs a later Stage62 FIX3 lineage at the same versionCode. The Stage61 V10 InstallOnly package must not overwrite the current app.",
+    "rebuildRequired":false,
+    "uninstallAllowed":false,
+    "dataResetAllowed":false,
+    "automaticReinstallAllowed":false
+  },
+  "next":[
+    "Keep the currently installed Stage62 FIX3 APK",
+    "Keep the live Stage71 server baseline",
+    "Do not run the uploaded Stage61 V10 InstallOnly launcher",
+    "Only create/install a new APK if a future phone-side change is actually required"
+  ]
+}

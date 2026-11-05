@@ -4,6 +4,7 @@ import {createJebiseoTask, createJebiseoRuntime, jebiseoTargetBindingDigest,
   jebiseoCapabilities} from './host-runtime.mjs';
 import {createJebiseoMobilePort, JEBISEO_GEMINI_WEB_URL,
   unwrapJebiseoMobileReply} from './mobile-port.mjs';
+import {fixtureGuidedArguments} from './test-support.mjs';
 
 const commandId = 'a'.repeat(32), deviceId = 'phone-open-fixture';
 // Match the actual original mk() format, including short IDs seen on device.
@@ -32,7 +33,9 @@ function fixture({reply = {code: 'OPEN_COMPLETION_PENDING', jobId}, ...options} 
         deviceId, commandId, promptDigest: scope.promptDigest, windowId: 23,
         bindingDigest: jebiseoTargetBindingDigest(scope, operation, parameters),
         contextId: parameters.context_id, targetItemRef: parameters.target_item_ref,
-        editorVerified: true, draftEmpty: true};
+        editorVerified: true, draftEmpty: true, rightPaneVerified: true,
+        workPackage: 'com.android.chrome', displayId: 0, guidedArgumentsVerified: true,
+        guidedArguments: fixtureGuidedArguments()};
     }, ...options});
   return {runtime, binding, calls, targets, reads};
 }
@@ -53,7 +56,7 @@ test('current explicit invocation defaults to visible, with open-only requiring 
     args: {command_id: commandId, url: JEBISEO_GEMINI_WEB_URL}}]);
   assert.equal(f.targets.length, 0, 'opening cannot demand a pre-existing Gemini editor');
   assert.equal(f.reads.length, 2, 'original owner binding is checked again before launch');
-  for (const operation of ['TYPE', 'INSPECT_SUBMIT', 'PREPARE_SUBMIT', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT'])
+  for (const operation of ['TYPE', 'DISCOVER_INPUT', 'DISMISS_NOTICE', 'INSPECT_SUBMIT', 'PREPARE_SUBMIT', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT'])
     assert.equal((await f.runtime.runStep({task: open, operation, args})).code, 'JEBISEO_OPEN_ONLY_TASK');
   assert.equal(f.calls.length, 1);
   assert.equal(jebiseoCapabilities().productionRegistered, false);
@@ -128,7 +131,7 @@ test('OPEN readback must bind the original effect, job, URL and owner; TYPE stil
   const typed = await f.runtime.runStep({task: scope, operation: 'TYPE', args});
   assert.equal(typed.toolInvoked, true);
   assert.deepEqual(f.targets, ['TYPE']);
-  assert.deepEqual(f.calls.map(call => call.name), ['life_web_navigate', 'life_web_type']);
+  assert.deepEqual(f.calls.map(call => call.name), ['life_web_navigate', 'life_android_step']);
   assert.equal(typed.geminiAcceptedVerified, false);
 });
 

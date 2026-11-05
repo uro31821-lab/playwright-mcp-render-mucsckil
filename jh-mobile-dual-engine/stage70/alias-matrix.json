@@ -1,0 +1,20 @@
+{
+  "schema":"JH168_STAGE70_NINE_WEB_ALIAS_MATRIX_V2",
+  "verifiedAt":"2026-11-05",
+  "routingModel":"ANDROID_THEN_MANUAL",
+  "aliases":[
+    {"alias":"life_web_navigate","feature":"OPEN_RIGHT_URL","mode":"AUTO_ANDROID","route":"life_web_navigate","realPhoneEvidence":"RIGHT_ADDRESS_CONFIRMED"},
+    {"alias":"life_web_snapshot","feature":"READ_RIGHT_SCREEN","mode":"AUTO_ANDROID","route":"life_web_snapshot","realPhoneEvidence":"captured"},
+    {"alias":"life_web_click","feature":"VISIBLE_SAFE_BUTTON_CLICK","mode":"AUTO_ANDROID_ADAPTER","route":"guidedForm.form_activate","directAliasPreferred":false,"reason":"generic itemRef click may be owner-blocked; verified form_activate path is preferred"},
+    {"alias":"life_web_type","feature":"VISIBLE_TEXT_TYPE","mode":"AUTO_ANDROID_ADAPTER","route":"guidedForm.form15_type","directAliasPreferred":false,"reason":"use fresh exact field write arguments and valueVerified readback"},
+    {"alias":"life_web_select","feature":"NATIVE_SELECT","mode":"MANUAL_AFTER_ROUND_3","route":null},
+    {"alias":"life_web_press_key","feature":"PRESS_KEY","mode":"MANUAL_AFTER_ROUND_3","route":null},
+    {"alias":"life_web_wait","feature":"WAIT_CONDITION","mode":"AUTO_ANDROID","route":"life_web_wait","realPhoneEvidence":"MOBILE_WAIT_CONDITION_CONFIRMED"},
+    {"alias":"life_web_back","feature":"BACK_PAGE_NAVIGATION","mode":"AUTO_ANDROID_NATIVE","route":"native Android back + immediate URL/content readback","scope":"PAGE_HISTORY_ONLY_NOT_DIALOG_CLOSE"},
+    {"alias":"life_web_screenshot","feature":"SCREENSHOT","mode":"AUTO_ANDROID_CONSENT","route":"screen consent -> computer_prepare(SCREENSHOT) -> life_web_screenshot","realPhoneEvidence":"frame_delivered_ephemeral"}
+  ],
+  "automaticAliasCount":7,
+  "manualAliasCount":2,
+  "noReplayOn":["UNKNOWN","PENDING","FAILED_AFTER_EFFECT","EFFECT_UNKNOWN","NEEDS_REVIEW_NO_REPLAY"],
+  "nonAliasManualFeatures":["NESTED_VERTICAL_SCROLL","HORIZONTAL_SCROLL","RETURN_TO_CHROME_FROM_OTHER_APP"]
+}

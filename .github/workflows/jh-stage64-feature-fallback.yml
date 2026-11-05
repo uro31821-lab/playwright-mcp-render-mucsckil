@@ -1,0 +1,40 @@
+name: JH Stage64 Android -> manual feature routing
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.test.mjs'
+      - '.github/workflows/jh-stage64-feature-fallback.yml'
+permissions:
+  contents: read
+jobs:
+  feature-routing:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and focused routing tests
+        run: |
+          set -euo pipefail
+          ROOT=jh-server/owner-setup/jh168-mobile-unification
+          node --check "$ROOT/stage64-feature-fallback.mjs"
+          node --check "$ROOT/stage61-right-pane-router.mjs"
+          node --test --test-concurrency=1 --test-reporter=spec             "$ROOT/stage64-feature-fallback.test.mjs"             "$ROOT/stage61-right-pane-router.test.mjs"             "$ROOT/stage61-right-pane-host-adapter.test.mjs"
+      - name: Preserve release boundary
+        run: |
+          echo APK_BUILD=0
+          echo APK_INSTALL=0
+          echo RENDER_DEPLOY=0
+          echo PHONE_E2E=NOT_RUN
+          echo AUTOMATIC_REPLAY=0

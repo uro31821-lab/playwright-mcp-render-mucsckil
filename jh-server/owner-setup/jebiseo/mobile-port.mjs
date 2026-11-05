@@ -6,6 +6,9 @@
  */
 import {createHash} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
+import {prepareJebiseoGuidedCall} from './guided-form.mjs';
+import {classifyJebiseoMobileOutcome} from './mobile-outcome.mjs';
+import {classifyJebiseoGuidedJob} from './guided-outcome.mjs';
 
 // This destination is implementation-owned. Page text or a generated link must
 // never turn a Gemini launch into navigation to a different service/account.
@@ -13,7 +16,10 @@ export const JEBISEO_GEMINI_WEB_URL = 'https://gemini.google.com/app';
 const ROUTES = Object.freeze({
   OPEN: 'life_web_navigate',
   SNAPSHOT: 'life_web_snapshot',
-  TYPE: 'life_web_type',
+  FORM_SNAPSHOT: 'life_android_snapshot',
+  DISCOVER_INPUT: 'life_android_step',
+  DISMISS_NOTICE: 'life_android_step',
+  TYPE: 'life_android_step',
   INSPECT_SUBMIT: 'life_android_computer_inspect',
   PREPARE_SUBMIT: 'life_android_computer_prepare',
   APPROVAL_REQUEST: 'life_android_action_approval_request',
@@ -22,8 +28,9 @@ const ROUTES = Object.freeze({
   RECEIPT_STATUS: 'life_android_pending_approval_receipt_status',
   JOB_STATUS: 'life_job_status'
 });
-export const JEBISEO_ORIGINAL_MOBILE_TOOLS = Object.freeze(Object.values(ROUTES));
-const EFFECTS = new Set(['OPEN', 'TYPE', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
+export const JEBISEO_ORIGINAL_MOBILE_TOOLS = Object.freeze([...new Set(Object.values(ROUTES))]);
+const GUIDED = new Set(['DISCOVER_INPUT', 'DISMISS_NOTICE', 'TYPE']);
+const EFFECTS = new Set(['OPEN', ...GUIDED, 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const SUBMIT = new Set(['INSPECT_SUBMIT', 'PREPARE_SUBMIT', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const HEX32 = /^[a-f0-9]{32}$/, HEX64 = /^[a-f0-9]{64}$/;
 const CONTEXT = /^ssc_[a-f0-9]{32}$/, ITEM = /^item_[a-f0-9]{16}$/;
@@ -42,7 +49,10 @@ const CU_FIELDS = Object.freeze([
 const FIELDS = Object.freeze({
   OPEN: [],
   SNAPSHOT: ['context_id', 'goal'],
-  TYPE: ['context_id', 'request_id', 'target_item_ref', 'text', 'submit'],
+  FORM_SNAPSHOT: [],
+  DISCOVER_INPUT: ['context_id', 'guided_arguments'],
+  DISMISS_NOTICE: ['context_id', 'target_item_ref', 'guided_arguments'],
+  TYPE: ['context_id', 'request_id', 'target_item_ref', 'text', 'submit', 'guided_arguments'],
   APPROVAL_STATUS: ['device_id', 'task_digest', 'request_token'],
   RECEIPT_STATUS: ['device_id', 'task_digest', 'run_digest', 'receipt_token'],
   JOB_STATUS: ['job_id']
@@ -106,6 +116,13 @@ function validateArgs(operation, args, commandId) {
     return {error: 'JEBISEO_DEVICE_ID_INVALID'};
   if (operation === 'OPEN') {
     value.url = JEBISEO_GEMINI_WEB_URL;
+  } else if (operation === 'FORM_SNAPSHOT') {
+    // Original signed native snapshot exposes issued guided-form arguments.
+    // A generic RIGHT item reference must never be converted to a native ID.
+  } else if (operation === 'DISCOVER_INPUT' || operation === 'DISMISS_NOTICE') {
+    if (!matches(CONTEXT, args.context_id)) return {error: 'MOBILE_CONTEXT_ID_REQUIRED'};
+    if (operation === 'DISMISS_NOTICE' && !matches(ITEM, args.target_item_ref))
+      return {error: 'MOBILE_FRESH_ITEM_REF_REQUIRED'};
   } else if (operation === 'SNAPSHOT') {
     if (args.context_id !== undefined && !matches(CONTEXT, args.context_id))
       return {error: 'MOBILE_CONTEXT_ID_INVALID'};
@@ -157,6 +174,14 @@ function validateArgs(operation, args, commandId) {
     Object.assign(value, {action: 'CLICK', effect: 'IRREVERSIBLE',
       data_class: args.data_class ?? 'NON_SENSITIVE', max_actions_in_call: 1});
   }
+  if (GUIDED.has(operation)) {
+    const prepared = prepareJebiseoGuidedCall({operation,
+      issuedArguments: args.guided_arguments, text: args.text});
+    if (prepared.ok !== true) return {error: prepared.code};
+    // Only the original carrier is forwarded. Context/item/request values are
+    // host binding inputs, not substitutes for phone-issued form identifiers.
+    return {value: {...prepared.arguments, command_id: commandId}, identity: prepared.identity};
+  }
   return {value};
 }
 
@@ -173,6 +198,7 @@ export function createJebiseoMobilePort({callOriginalTool, runtimeMode = null, m
   return Object.freeze({
     capabilities: () => Object.freeze({backend: 'PHONE_RIGHT', available: runtimeMode === 'PHONE_RIGHT',
       hiddenUiSupported: false, originalToolNames: JEBISEO_ORIGINAL_MOBILE_TOOLS,
+      routingModel: 'ANDROID_THEN_MANUAL', nativeGuidedArgumentsRequired: true,
       createsCommand: false, automaticReplay: false, processLocalReservationsOnly: true,
       originalDurableFenceRequired: true, realGeminiE2EVerified: false}),
     async run({visibility, command_id: commandId, operation, args = {}} = {}) {
@@ -186,8 +212,8 @@ export function createJebiseoMobilePort({callOriginalTool, runtimeMode = null, m
       if (EFFECTS.has(operation)) {
         const identity = operation === 'OPEN'
           ? [operation, commandId, JEBISEO_GEMINI_WEB_URL]
-          : operation === 'TYPE'
-          ? [operation, commandId, args.context_id, args.target_item_ref]
+          : GUIDED.has(operation)
+          ? [operation, commandId, args.context_id, args.target_item_ref ?? null]
           : [operation, commandId, args.device_id ?? null, args.task_digest];
         const key = hash(identity);
         if (reserved.has(key)) return reject(operation, 'JEBISEO_ACTION_ALREADY_ATTEMPTED_READ_ORIGINAL_RESULT');
@@ -206,9 +232,13 @@ export function createJebiseoMobilePort({callOriginalTool, runtimeMode = null, m
       const payload = unwrapJebiseoMobileReply(raw);
       // `raw` and `payload` are private host evidence. In particular a complete
       // job or ok:true is not Google receipt, full reply, or ChatGPT delivery proof.
-      return Object.freeze({...base(operation), ok: raw?.isError !== true && payload !== null && payload.ok !== false,
-        status: payload === null ? 'UNVERIFIABLE' : 'RETURNED',
-        code: typeof payload?.code === 'string' ? payload.code : 'ORIGINAL_MOBILE_RESULT',
+      const native = GUIDED.has(operation) ? classifyJebiseoGuidedJob(payload, {
+        operation, identity: checked.identity, isError: raw?.isError === true
+      }) : null;
+      const outcome = native?.outcome ?? classifyJebiseoMobileOutcome(payload, {isError: raw?.isError === true});
+      return Object.freeze({...base(operation), ...outcome,
+        code: typeof payload?.code === 'string' ? payload.code : native?.nativeCode ?? 'ORIGINAL_MOBILE_RESULT',
+        ...(native ? {nativeCode: native.nativeCode, nativePayload: native.nativePayload} : {}),
         originalStatus: payload?.status ?? null, toolInvoked: true, raw, payload});
     }
   });

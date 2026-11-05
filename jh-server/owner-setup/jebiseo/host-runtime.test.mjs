@@ -7,6 +7,7 @@ import {createJebiseoTask, createJebiseoRuntime, createJebiseoDeviceScheduler,
   jebiseoCapabilities, jebiseoTargetBindingDigest} from './host-runtime.mjs';
 import {createDurableNativeHooks} from '../deployment/durable-native-host.mjs';
 import {MOBILE13_ACTION_POLICY_MODE56} from '../jh168-mobile-unification/mobile13-action-policy.mjs';
+import {fixtureGuidedArguments, fixtureMobileReply} from './test-support.mjs';
 
 const commandId = 'a'.repeat(32), taskDigest = 'b'.repeat(64), runDigest = '9'.repeat(64);
 const prompt = '이 제안의 다른 관점을 알려 주세요.';
@@ -25,8 +26,12 @@ function targetProof({task: scope, operation, args}) {
   return {source: 'ORIGINAL_SECURE56', provider: 'GEMINI', targetVerified: true,
     deviceId: scope.deviceId, commandId: scope.commandId, promptDigest: scope.promptDigest,
     bindingDigest: jebiseoTargetBindingDigest(scope, operation, args), windowId: 23,
-    ...(operation === 'TYPE' ? {contextId: args.context_id, targetItemRef: args.target_item_ref,
-      editorVerified: true, draftEmpty: true} : {taskDigest: args.task_digest,
+    ...(['TYPE', 'DISCOVER_INPUT', 'DISMISS_NOTICE'].includes(operation) ? {
+      contextId: args.context_id, targetItemRef: args.target_item_ref,
+      editorVerified: true, draftEmpty: true, inputDiscoveryVerified: true,
+      noticeDismissVerified: true, nonSensitiveVerified: true, approvalRequired: false, rightPaneVerified: true,
+      workPackage: 'com.android.chrome', displayId: 0, guidedArgumentsVerified: true,
+      guidedArguments: fixtureGuidedArguments(operation)} : {taskDigest: args.task_digest,
       runDigest: args.run_digest ?? null, submitTargetVerified: true, draftMatchesPrompt: true})};
 }
 function effectProof(response, operation, outcome = 'VERIFIED_APPLIED') {
@@ -39,7 +44,7 @@ function setup(options = {}) {
   const binding = {deviceId: 'phone-current-01', commandId, runtimeMode: 'PHONE_RIGHT',
     focusProtected: true, durableDispatchProtected: true};
   const runtime = createJebiseoRuntime({runtimeMode: 'PHONE_RIGHT',
-    callOriginalTool: async (name, args) => {calls.push({name, args}); return {ok: true};},
+    callOriginalTool: async (name, args) => {calls.push({name, args}); return fixtureMobileReply(name, args);},
     readCurrentBinding: async args => {reads.push(args); return {...binding};},
     verifyGeminiTarget: async request => {targets.push(request); return targetProof(request);}, ...options});
   return {runtime, calls, reads, targets, binding};
@@ -64,9 +69,10 @@ test('development, quotation and negation do not invoke Gemini', async () => {
 test('visible input uses one original handler with same command/request and no global task digest', async () => {
   const f = setup(), r = await f.runtime.runStep({task: task(), operation: 'TYPE', args: input});
   assert.equal(r.status, 'RETURNED'); assert.equal(f.calls.length, 1);
-  assert.equal(f.calls[0].name, 'life_web_type');
+  assert.equal(f.calls[0].name, 'life_android_step');
   assert.equal(f.calls[0].args.command_id, commandId);
-  assert.equal(f.calls[0].args.request_id, input.request_id);
+  assert.equal(f.calls[0].args.text, fixtureGuidedArguments().text);
+  assert.equal(f.calls[0].args.value, input.text);
   assert.equal(Object.hasOwn(f.calls[0].args, 'task_digest'), false);
   assert.equal(f.reads.length, 2); assert.equal(f.targets.length, 1);
   assert.match(r.effectKey, /^[a-f0-9]{64}$/); assert.equal(r.readbackRequired, true);
@@ -106,12 +112,42 @@ test('target attestation must bind provider, window, context, item and empty dra
   for (const patch of [{provider: 'OTHER'}, {windowId: -1}, {deviceId: 'other-phone'},
     {commandId: 'f'.repeat(32)}, {contextId: 'ssc_' + 'f'.repeat(32)},
     {targetItemRef: 'item_' + 'f'.repeat(16)}, {draftEmpty: false},
-    {bindingDigest: 'f'.repeat(64)}, {promptDigest: 'f'.repeat(64)}]) {
+    {bindingDigest: 'f'.repeat(64)}, {promptDigest: 'f'.repeat(64)},
+    {guidedArgumentsVerified: false}, {guidedArguments: undefined},
+    {rightPaneVerified: false}, {workPackage: 'other.app'}, {displayId: -1}]) {
     const f = setup({verifyGeminiTarget: async request => ({...targetProof(request), ...patch})});
     assert.equal((await f.runtime.runStep({task: task(), operation: 'TYPE', args: input})).code,
       'JEBISEO_ORIGINAL_GEMINI_TARGET_UNVERIFIED');
     assert.equal(f.calls.length, 0);
   }
+});
+test('discovery and notice dismissal require their own verified original native carrier', async () => {
+  for (const [operation, args, patches] of [
+    ['DISCOVER_INPUT', {context_id: input.context_id}, [{inputDiscoveryVerified: false}]],
+    ['DISMISS_NOTICE', {context_id: input.context_id, target_item_ref: input.target_item_ref},
+      [{noticeDismissVerified: false}, {nonSensitiveVerified: false}, {approvalRequired: true},
+        {targetItemRef: 'item_' + 'f'.repeat(16)}]]
+  ]) {
+    const f = setup();
+    const response = await f.runtime.runStep({task: task(), operation, args});
+    assert.equal(response.toolInvoked, true);
+    assert.equal(response.geminiAcceptedVerified, false);
+    assert.deepEqual(f.calls, [{name: 'life_android_step',
+      args: {...fixtureGuidedArguments(operation), command_id: commandId}}]);
+    for (const patch of [...patches, {guidedArguments: fixtureGuidedArguments('TYPE')}]) {
+      const blocked = setup({verifyGeminiTarget: async request => ({...targetProof(request), ...patch})});
+      const rejection = await blocked.runtime.runStep({task: task(), operation, args});
+      assert.equal(rejection.code, 'JEBISEO_ORIGINAL_GEMINI_TARGET_UNVERIFIED');
+      assert.equal(blocked.calls.length, 0);
+    }
+  }
+});
+test('callers cannot supply native form arguments even when they match an issued shape', async () => {
+  const f = setup();
+  const response = await f.runtime.runStep({task: task(), operation: 'TYPE',
+    args: {...input, guided_arguments: fixtureGuidedArguments()}});
+  assert.equal(response.code, 'JEBISEO_CALLER_GUIDED_ARGUMENTS_FORBIDDEN');
+  assert.equal(f.calls.length, 0); assert.equal(f.targets.length, 0);
 });
 test('submit proof binds exact CU task/run and current prompt draft, not a global command digest', async () => {
   const valid = setup();
@@ -138,8 +174,9 @@ test('command cancellation or protection loss during target verification stops d
     assert.equal(f.calls.length, 0);
   }
 });
-test('invoked, queued or unknown prior effect prevents every next effect; read-only recovery stays available', async () => {
-  for (const raw of [{ok: true}, {ok: true, status: 'queued'}, null]) {
+test('invoked, queued, manual or unknown prior effect prevents every next effect; recovery stays available', async () => {
+  for (const raw of [{ok: true}, {ok: true, status: 'queued'},
+    {ok: true, provider: 'MANUAL', manualRequired: true}, null]) {
     const calls = [], f = setup({callOriginalTool: async (name, args) => {
       calls.push({name, args}); if (raw === null) throw Error('ORIGINAL_OUTCOME_UNKNOWN'); return raw;
     }});
@@ -221,7 +258,20 @@ test('queued input and target-verifier inputs are frozen before asynchronous wor
   const pending = f.runtime.runStep({task: task(), operation: 'TYPE', args: a});
   a.text = 'mutated'; release();
   assert.equal((await pending).status, 'RETURNED');
-  assert.equal(f.calls[0].args.text, prompt);
+  assert.equal(f.calls[0].args.value, prompt);
+});
+test('native issuer arguments cannot change during the final asynchronous binding check', async () => {
+  let originalProof, reads = 0;
+  const f = setup({
+    verifyGeminiTarget: async request => {originalProof = targetProof(request); return originalProof;},
+    readCurrentBinding: async () => {
+      if (++reads === 2) originalProof.guidedArguments.text = 'mutated-after-verification';
+      return {...f.binding};
+    }
+  });
+  const response = await f.runtime.runStep({task: task(), operation: 'TYPE', args: input});
+  assert.equal(response.toolInvoked, true);
+  assert.equal(f.calls[0].args.text, fixtureGuidedArguments().text);
 });
 test('facade reuses the actual original durable hook once and completion reconciles that same record', async () => {
   const directory = mkdtempSync(path.join(tmpdir(), 'jebiseo-original-hooks-'));
@@ -231,17 +281,11 @@ test('facade reuses the actual original durable hook once and completion reconci
   let dispatches = 0;
   try {
     const f = setup({callOriginalTool: async (name, args) => {
-      assert.equal(name, 'life_web_type');
+      assert.equal(name, 'life_android_step');
       // Synthetic queued job at the original authenticated handler boundary.
       // Real phone HMAC verification is outside this no-device regression.
-      const payload = {contextId: args.context_id, requestId: args.request_id, action: 'SET_TEXT',
-        command: '현재 오른쪽 입력칸에 문자 입력', targetItemRef: args.target_item_ref,
-        value: args.text, inputGrantToken: 'ipg_' + '8'.repeat(32),
-        mcpToolName: 'life_android_execute_computer_action', secureRequestedEffect: 'REVERSIBLE_WRITE',
-        taskDigest: '4'.repeat(64), targetDeviceDigest: '5'.repeat(64),
-        secureInvocationExpiresAt: Date.now() + 60000, containsCredential: false,
-        dataClass: 'NON_SENSITIVE', commandId: args.command_id};
-      const job = {...payload, id: 'fixture-job', type: 'split_screen_session_followup',
+      const payload = {...args, commandId: args.command_id};
+      const job = {...payload, id: 'fixture-job', type: 'agent_step',
         targetDeviceId: 'phone-current-01', secureSessionId: 'fixture-session', status: 'queued'};
       hooks.capture(job, payload);
       assert.equal(hooks.beforeDispatch(job).allowed, true);
@@ -249,7 +293,7 @@ test('facade reuses the actual original durable hook once and completion reconci
       job.status = 'in_progress';
       assert.equal(hooks.acceptedCompletion(job, {ok: true}).allowed, true);
       assert.equal(hooks.uncertainEffectsForMaintenance(), 0);
-      return {ok: true, status: 'complete'};
+      return fixtureMobileReply(name, args);
     }});
     const response = await f.runtime.runStep({task: task(), operation: 'TYPE', args: input});
     assert.equal(response.status, 'RETURNED'); assert.equal(dispatches, 1);

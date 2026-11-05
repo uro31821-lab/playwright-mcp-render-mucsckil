@@ -1,0 +1,31 @@
+{
+  "schema":"JH168_STAGE70_CONTINUOUS_E2E_PLAN_V2",
+  "goal":"Verify one continuous LEFT_GPT_RIGHT_CHROME task uses only Stage69-approved routes without replaying failed aliases.",
+  "commandFocus":{
+    "required":true,
+    "sequence":[
+      "life_android_workflow_link BEGIN_COMMAND with a fresh 32-hex request_id",
+      "life_android_workflow_link BEGIN with the identical request_id and command_id",
+      "reuse that exact command_id for the full continuous task"
+    ],
+    "reason":"BEGIN_COMMAND alone can be preempted by a later genuine BEGIN. Stage44 focused BEGIN protects one continuous owner task for its bounded focus window."
+  },
+  "steps":[
+    {"id":1,"action":"OPEN_RIGHT_URL","route":"life_web_navigate","expected":"RIGHT_ADDRESS_CONFIRMED"},
+    {"id":2,"action":"READ_RIGHT_SCREEN","route":"life_web_snapshot","expected":"captured"},
+    {"id":3,"action":"WAIT_CONDITION","route":"life_web_wait","expected":"MOBILE_WAIT_CONDITION_CONFIRMED + conditionVerified=true"},
+    {"id":4,"action":"OPEN_DESTINATION","route":"life_web_navigate","expected":"RIGHT_ADDRESS_CONFIRMED"},
+    {"id":5,"action":"READ_DESTINATION","route":"life_web_snapshot","expected":"destination page observed"},
+    {"id":6,"action":"BACK_PAGE_NAVIGATION","route":"native Android back","expected":"index page observed after one BACK"},
+    {"id":7,"action":"VISIBLE_SAFE_BUTTON_CLICK","route":"guidedForm.form_activate","expected":"explicit page-state readback changes click-count 0 -> 1"},
+    {"id":8,"action":"VISIBLE_TEXT_TYPE","route":"guidedForm.form15_type","expected":"field_value_verified + valueVerified=true"}
+  ],
+  "excludedFromContinuousE2E":[
+    "life_web_select",
+    "life_web_press_key",
+    "NESTED_VERTICAL_SCROLL",
+    "HORIZONTAL_SCROLL",
+    "RETURN_TO_CHROME_FROM_OTHER_APP"
+  ],
+  "screenshot":"Already real-phone verified in Stage69; do not repeat merely for regression because it requires fresh phone-local consent."
+}
