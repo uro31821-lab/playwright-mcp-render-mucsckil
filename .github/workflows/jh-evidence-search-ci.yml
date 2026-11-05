@@ -62,3 +62,36 @@ jobs:
               out.write(json.dumps(result, indent=2, sort_keys=True))
               out.write('\n```\n')
           PY_SUMMARY
+
+  pinned-source-mcp:
+    needs: isolated-search
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      JH_OWNER_DEFER_LISTEN: '1'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.16.0'
+      - name: Existing JH dependencies only, no install scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Current Secure56 generated host + real MCP protocol + synthetic Search
+        run: |
+          node --check jh-server/owner-setup/evidence/perplexity-search-current-host.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search-current-host.test.mjs
+      - name: No provider secrets, live deployment or Android execution
+        run: |
+          test -z "${RENDER_SERVICE_ID:-}"
+          test -z "${PERPLEXITY_API_KEY:-}"
+          git diff --exit-code HEAD -- jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs jh-server/owner-setup/deployment/published-host-router.mjs
+          echo JH_EVIDENCE_CURRENT_SOURCE_ONLY_NOT_DEPLOYED
