@@ -1,9 +1,10 @@
 {
-  "schema":"JH168_STAGE70_FINAL_STATE_V1",
+  "schema":"JH168_STAGE70_FINAL_STATE_V2",
   "status":"COMPLETE",
   "stage69":"COMPLETE",
   "nineAliasProfile":"LOCKED",
   "focusedContinuousE2E":"VERIFIED_PASS",
+  "routingModel":"ANDROID_THEN_MANUAL",
   "automaticAliases":7,
   "manualAliases":2,
   "nonAliasManualFeatures":[
@@ -11,7 +12,6 @@
     "HORIZONTAL_SCROLL",
     "RETURN_TO_CHROME_FROM_OTHER_APP"
   ],
-  "playwrightMobileActiveRoutes":0,
   "requiredCommandContinuity":"BEGIN_COMMAND then focused BEGIN with identical request_id for bounded multi-step owner E2E",
   "next":"UNIFIED_ENGINE_BASELINE_READY"
 }
