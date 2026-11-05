@@ -15,13 +15,26 @@ test('merged candidate preserves current native FIX3 lineage and adds TripLocati
   assert.equal(x.prebuildVerification.mergedStaticAudit,'22/22 PASS');
 });
 
-test('artifact is source-only and cryptographically pinned',()=>{
+test('corrected delivery is source-only, short-path and cryptographically pinned',()=>{
+  assert.equal(x.artifact.name,'JH73_TRIP_INSTALL_FIXED.zip');
   assert.match(x.artifact.sha256,/^[0-9a-f]{64}$/);
   assert.equal(x.artifact.zipCrc,'PASS');
   assert.equal(x.artifact.apkBundled,false);
   assert.equal(x.artifact.secretSigningMaterialBundled,false);
+  assert.equal(x.artifact.installerType,'BUILD_SIGN_INSTALL_LAUNCHER');
+  assert.equal(x.artifact.rootLauncher,'INSTALL.cmd');
+  assert.equal(x.artifact.rootReadme,'00_README_FIRST.txt');
+  assert.equal(x.artifact.outerWrapperDirectory,false);
+  assert.ok(x.artifact.maxInternalPath<=120);
+  assert.equal(x.artifact.shortPathDeliveryVerified,true);
   assert.match(x.merge.sourceManifestSha256,/^[0-9a-f]{64}$/);
   assert.match(x.merge.validationManifestSha256,/^[0-9a-f]{64}$/);
+});
+
+test('rejected long-path delivery is explicitly blocked',()=>{
+  assert.equal(x.rejectedDelivery.mustNotUse,true);
+  assert.match(x.rejectedDelivery.reason,/Long outer wrapper directory/);
+  assert.notEqual(x.rejectedDelivery.sha256,x.artifact.sha256);
 });
 
 test('Stage71 server is reused with Android-manual routing and no deploy',()=>{
@@ -40,4 +53,5 @@ test('location and install safety remain fail-closed',()=>{
   assert.equal(x.safety.dataResetAllowed,false);
   assert.equal(x.safety.automaticReinstallAllowed,false);
   assert.equal(x.safety.install,'ONE_EXPLICIT_Y_THEN_ADB_INSTALL_R');
+  assert.match(x.safety.whyNoApkInZip,/built and signed on the verified Windows signing PC/);
 });
