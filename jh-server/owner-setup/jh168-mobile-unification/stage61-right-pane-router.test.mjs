@@ -13,7 +13,8 @@ test('web is first for click',()=>assert.equal(routeStage61({action:'CLICK',layo
 test('computer use is first for scroll',()=>assert.equal(routeStage61({action:'SCROLL',layout}).provider,'ANDROID_COMPUTER_USE'));
 test('computer use follows exact web unsupported',()=>assert.equal(routeStage61({action:'CLICK',layout,webOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT'}).provider,'ANDROID_COMPUTER_USE'));
 test('playwright mobile follows both exact unsupported only',()=>assert.equal(routeStage61({action:'SELECT_PICK',layout,webOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT',computerOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT',playwrightMobileAvailable:true}).provider,'PLAYWRIGHT_MOBILE'));
-test('no connected mobile provider stops',()=>assert.equal(routeStage61({action:'SELECT_PICK',layout,webOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT',computerOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT'}).code,'PLAYWRIGHT_MOBILE_NOT_CONNECTED'));
+test('no connected mobile provider becomes explicit manual fallback',()=>{const r=routeStage61({action:'SELECT_PICK',layout,webOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT',computerOutcome:'VERIFIED_UNSUPPORTED_NO_EFFECT'});assert.equal(r.provider,'MANUAL');assert.equal(r.code,'MANUAL_AFTER_AUTOMATION_GAP');assert.equal(r.allowed,false);});
+test('verified failed-no-effect may advance to next Android provider',()=>assert.equal(routeStage61({action:'CLICK',layout,webOutcome:'FAILED_NO_EFFECT'}).provider,'ANDROID_COMPUTER_USE'));
 for(const state of ['UNKNOWN','PENDING','PHONE_SCOPED_SITE_DISCARD','FAILED_AFTER_EFFECT'])test(`${state} stops without fallback`,()=>assert.equal(routeStage61({action:'CLICK',layout,webOutcome:state}).provider,'STOP_NO_REPLAY'));
 test('verified action cannot be repeated',()=>assert.equal(routeStage61({action:'CLICK',layout,webOutcome:'VERIFIED_PASS'}).code,'ALREADY_VERIFIED_NO_REPEAT'));
 test('verified receipt accepted',()=>assert.equal(verifyStage61Receipt(receipt('ANDROID_WEB','VERIFIED_PASS')).success,true));

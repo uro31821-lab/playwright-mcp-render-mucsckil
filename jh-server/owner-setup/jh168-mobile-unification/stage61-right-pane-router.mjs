@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {nextStage64FeatureProvider} from './stage64-feature-fallback.mjs';
 
 export const STAGE61_ROUTE_SCHEMA='JH168_STAGE61_ROUTE_REQUEST_V1';
 export const STAGE61_RECEIPT_SCHEMA='JH168_STAGE61_UNIFIED_RECEIPT_V1';
@@ -52,15 +53,10 @@ export function routeStage61({action,layout,webOutcome='NOT_RUN',computerOutcome
  const fixed=fixedLayoutStage61(layout);if(!fixed.ok)return fail(fixed.code,action);
  if(uncertain.has(webOutcome)||uncertain.has(computerOutcome))return fail('PREVIOUS_EFFECT_UNCERTAIN',action);
  if(webOutcome==='VERIFIED_PASS'||computerOutcome==='VERIFIED_PASS')return fail('ALREADY_VERIFIED_NO_REPEAT',action);
- if(action==='READ_ONLY_INSPECT')return {provider:'ANDROID_COMPUTER_USE',action,code:'READ_ONLY_COMPUTER_USE_INSPECTION',allowed:true,replayAllowed:false,fallbackEligible:false};
- if(webFirst.has(action)&&webOutcome==='NOT_RUN')return {provider:'ANDROID_WEB',action,code:'TRY_EXISTING_ANDROID_WEB',allowed:true,replayAllowed:false,fallbackEligible:false};
- if(computerNative.has(action)&&computerOutcome==='NOT_RUN'&&(webOutcome==='VERIFIED_UNSUPPORTED_NO_EFFECT'||!webFirst.has(action)||compatibilityDirectComputerUse))
-  return {provider:'ANDROID_COMPUTER_USE',action,code:compatibilityDirectComputerUse&&webOutcome==='NOT_RUN'?'EXPLICIT_COMPUTER_USE_COMPATIBILITY':'TRY_EXISTING_ANDROID_COMPUTER_USE',allowed:true,replayAllowed:false,fallbackEligible:false};
- if(webOutcome==='VERIFIED_UNSUPPORTED_NO_EFFECT'&&computerOutcome==='VERIFIED_UNSUPPORTED_NO_EFFECT')
-  return playwrightMobileAvailable
-   ?{provider:'PLAYWRIGHT_MOBILE',action,code:'TARGETED_PLAYWRIGHT_MOBILE_GAP',allowed:true,replayAllowed:false,fallbackEligible:true}
-   :fail('PLAYWRIGHT_MOBILE_NOT_CONNECTED',action);
- return fail('NO_SAFE_ROUTE',action);
+ if(compatibilityDirectComputerUse&&computerNative.has(action)&&computerOutcome==='NOT_RUN')
+  return {provider:'ANDROID_COMPUTER_USE',action,code:'EXPLICIT_COMPUTER_USE_COMPATIBILITY',allowed:true,replayAllowed:false,fallbackEligible:false};
+ const next=nextStage64FeatureProvider({action,webOutcome,computerOutcome,playwrightMobileAvailable});
+ return next.provider==='STOP_NO_REPLAY'?fail(next.code,action):next;
 }
 
 export function verifyStage61Receipt(receipt,expected={}){
