@@ -10,17 +10,25 @@ const SEARCH_ENDPOINT = 'https://api.perplexity.ai/search';
 const STANDARD_REQUEST_USD = 0.005; // Published $5 / 1,000 successful requests.
 const SEARCH_TIMEOUT_MS = 18_000;
 const MAX_RESPONSE_CHARS = 1_000_000;
-const REQUEST_WORDS = /(?:근거|증거|출처|논문|자료|원문|참고\s*문헌|연구\s*(?:자료|결과|논문)|팩트\s*체크|출처\s*링크|source(?:s)?\b|citation(?:s)?\b|reference(?:s)?\b|evidence\b|papers?\b|fact[ -]?check)/i;
-const REQUEST_ACTIONS = /(?:찾아|검색|보여|제시|제공|확인|검증|조사|링크|알려|어디|뭐|어떤|주세요|해\s*줘|해\s*주세요|있어|있나|부탁|제시해|보내|대조|달라|요청|필요|찾을|show|find|provide|give|cite|list|verify|check)/i;
-const BARE_REQUEST = /^(?:근거|증거|출처|논문|자료|원문|참고\s*문헌|팩트\s*체크|evidence|sources?|citations?|references?|papers?)\s*[?!.]?$/i;
+// Search is opt-in: merely mentioning "논문" or "근거" in a summary is NOT intent.
+const EVIDENCE_WORD = '(?:근거|증거|출처|논문|자료|원문|참고\\s*문헌|인용\\s*출처|source(?:s)?|citation(?:s)?|reference(?:s)?|evidence|papers?)';
+const EVIDENCE_ACTION = '(?:찾아|검색|보여|제시|제공|확인|검증|대조|링크|인용|달라|있어|있나|어디서|show|find|provide|give|cite|verify|check)';
+const EVIDENCE_INTENT_NEAR = new RegExp(EVIDENCE_WORD + '.{0,32}?' + EVIDENCE_ACTION + '|' + EVIDENCE_ACTION + '.{0,28}?' + EVIDENCE_WORD, 'i');
+const BARE_REQUEST = /^(?:근거|증거|출처|논문|자료|원문|참고\s*문헌|팩트\s*체크|evidence|sources?|citations?|references?|papers?)(?:는|가|은|만|좀|요)?\s*[?!.]?$/i;
+const FACTCHECK_REQUEST = /(?:팩트\s*체크|fact[ -]?check)(?:\s*(?:해\s*줘|해\s*주세요|부탁|해\s*봐|요청|좀\s*해|해주|해주세요))\b?/i;
+const NO_EXTERNAL_RESEARCH = /(?:검색|조사|근거\s*조사|출처\s*검색|perplexity\s*호출|퍼플렉시티\s*호출).{0,15}(?:하지\s*마|말아|말고|필요\s*없|금지)|(?:근거|증거|출처|논문|자료|원문).{0,16}(?:찾지\s*마|요구하지\s*않|필요\s*없)/i;
 
 export function isExplicitEvidenceRequest(value) {
   if (typeof value !== 'string' || value.length > 4000) return false;
   const text = value.trim();
-  if (!text) return false;
-  // Do not misread an explicit instruction NOT to research as permission.
-  if (/(?:근거|증거|출처|논문|자료|원문|팩트\s*체크).{0,14}(?:찾지\s*마|검색하지\s*마|필요\s*없|요구하지\s*않|호출하지\s*마)/i.test(text)) return false;
-  return BARE_REQUEST.test(text) || (REQUEST_WORDS.test(text) && REQUEST_ACTIONS.test(text));
+  if (!text || NO_EXTERNAL_RESEARCH.test(text)) return false;
+  if (/source\s*code|소스\s*코드/i.test(text) && !/(?:출처|근거|증거|논문|팩트\s*체크)/i.test(text)) return false;
+  // A single-word follow-up like "근거?" also expresses an explicit request.
+  if (BARE_REQUEST.test(text)) return true;
+  if (/(?:팩트\s*체크|fact[ -]?check)(?:해\s*줘|해\s*주세요|해\s*봐|부탁|요청|해주세요)/i.test(text)) return true;
+  if (/(?:근거|출처|증거)\s*(?:는|가|은)?\s*(?:뭐야|어디야|어디서)/i.test(text)) return true;
+  // Require a search/verification verb CLOSE to the evidence object.
+  return EVIDENCE_INTENT_NEAR.test(text);
 }
 
 function validSearchQuery(query) {
@@ -29,7 +37,7 @@ function validSearchQuery(query) {
   const prepared = items.map(x => typeof x === 'string' ? x.trim() : '');
   if (prepared.some(x => x.length < 3 || x.length > 500 || /[\u0000-\u001f]/.test(x))) return null;
   // Obvious account identifiers are never sent to an external search provider.
-  if (prepared.some(x => /\b\d{6}[- ]?[1-8]\d{6}\b|\b01[016789][- ]?\d{3,4}[- ]?\d{4}\b/.test(x))) return null;
+  if (prepared.some(x => /\b\d{6}[- ]?[1-8]\d{6}\b|\b01[016789][- ]?\d{3,4}[- ]?\d{4}\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|\b(?:sk-proj-|pplx-)[A-Za-z0-9_-]{12,}|(?:환자명|주민등록번호|차트번호)\s*[:=]\s*\S{2,}/i.test(x))) return null;
   return prepared.length === 1 ? prepared[0] : prepared;
 }
 
