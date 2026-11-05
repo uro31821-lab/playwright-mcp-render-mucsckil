@@ -9,7 +9,7 @@ const z=(()=>{
 })();
 
 test('only explicit evidence requests qualify',()=>{
-  for(const s of ['이 기사의 근거 찾아줘','관련 논문과 원문 링크 보여줘','이 주장의 증거 자료 제시해 줘','출처?','팩트체크해줘','show citation sources','논문 자료 찾아줘','이 기사 요약하고 관련 근거 논문도 찾아줘'])
+  for(const s of ['이 기사의 근거 찾아줘','관련 논문과 원문 링크 보여줘','이 주장의 증거 자료 제시해 줘','출처?','근거는?','관련 자료는?','그 근거는?','그에 대한 출처는?','팩트체크해줘','show citation sources','논문 자료 찾아줘','이 기사 요약하고 관련 근거 논문도 찾아줘'])
     assert.equal(isExplicitEvidenceRequest(s),true,s);
   for(const s of ['이 기사 요약해 줘','내 생각을 확장해 줘','주식 아이디어 줘','오늘 날씨?','자료를 찾지 마','근거를 요구하지 않아','이 논문을 요약해줘','이 자료 내용 정리해줘','이 기사에 근거 부족한 이유를 설명해줘','팩트체크하는 방법 알려줘','이 보고서의 출처 표기법을 설명해줘','소스 코드 보여줘'])
     assert.equal(isExplicitEvidenceRequest(s),false,s);
@@ -66,6 +66,8 @@ test('MCP OAuth tool hidden without key, blocks generic questions',async()=>{
  assert.equal(blocked.code,'EXPLICIT_EVIDENCE_REQUEST_REQUIRED');assert.equal(count,0);
  const ok=await handler({user_request:'이 기사의 근거와 링크 찾아줘',query:'supporting paper search'});
  assert.equal(ok.ok,true);assert.equal(count,1);
+ const followup=await handler({user_request:'관련 자료는?',query:'research on the previously discussed subject'});
+ assert.equal(followup.ok,true);assert.equal(count,2);
 });
 
 test('five search queries use one paid request, zero-results remain billable',async()=>{

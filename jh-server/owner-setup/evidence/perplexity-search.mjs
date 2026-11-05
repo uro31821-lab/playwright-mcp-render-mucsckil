@@ -15,6 +15,9 @@ const EVIDENCE_WORD = '(?:근거|증거|출처|논문|자료|원문|참고\\s*�
 const EVIDENCE_ACTION = '(?:찾아|검색|보여|제시|제공|확인|검증|대조|링크|인용|달라|있어|있나|어디서|show|find|provide|give|cite|verify|check)';
 const EVIDENCE_INTENT_NEAR = new RegExp(EVIDENCE_WORD + '.{0,32}?' + EVIDENCE_ACTION + '|' + EVIDENCE_ACTION + '.{0,28}?' + EVIDENCE_WORD, 'i');
 const BARE_REQUEST = /^(?:근거|증거|출처|논문|자료|원문|참고\s*문헌|팩트\s*체크|evidence|sources?|citations?|references?|papers?)(?:는|가|은|만|좀|요)?\s*[?!.]?$/i;
+// Short elliptical follow-ups refer to the immediately preceding explanation.
+// "관련 자료는?" must be explicit opt-in, but ordinary mention of "자료" is NOT.
+const CONTEXTUAL_BARE_REQUEST = /^(?:(?:관련(?:된|한)?|그(?:에\s*대한)?|이에\s*대한|이\s*주장의|방금\s*말한|앞서\s*말한)\s+)(?:근거|증거|출처|논문|자료|원문|참고\s*문헌)(?:는|가|은|만|좀|요|도|들)?\s*[?!.]?$/i;
 const NO_EXTERNAL_RESEARCH = /(?:검색|조사|근거\s*조사|출처\s*검색|perplexity\s*호출|퍼플렉시티\s*호출).{0,15}(?:하지\s*마|말아|말고|필요\s*없|금지)|(?:근거|증거|출처|논문|자료|원문).{0,16}(?:찾지\s*마|요구하지\s*않|필요\s*없)/i;
 
 export function isExplicitEvidenceRequest(value) {
@@ -23,7 +26,7 @@ export function isExplicitEvidenceRequest(value) {
   if (!text || NO_EXTERNAL_RESEARCH.test(text)) return false;
   if (/source\s*code|소스\s*코드/i.test(text) && !/(?:출처|근거|증거|논문|팩트\s*체크)/i.test(text)) return false;
   // A single-word follow-up like "근거?" also expresses an explicit request.
-  if (BARE_REQUEST.test(text)) return true;
+  if (BARE_REQUEST.test(text) || CONTEXTUAL_BARE_REQUEST.test(text)) return true;
   if (/(?:팩트\s*체크|fact[ -]?check)(?:해\s*줘|해\s*주세요|해\s*봐|부탁|요청|해주세요)/i.test(text)) return true;
   if (/(?:근거|출처|증거)\s*(?:는|가|은)?\s*(?:뭐야|어디야|어디서)/i.test(text)) return true;
   // Require a search/verification verb CLOSE to the evidence object.
@@ -195,7 +198,7 @@ export function registerJHEvidenceSearchTool({registerOAuthTool, z, textResult, 
   if (typeof registerOAuthTool !== 'function' || !z || typeof textResult !== 'function') throw Error('JH_EVIDENCE_REGISTRAR_INVALID');
   registerOAuthTool('jh_evidence_search', {
     title: '🏴‍☠️ 퍼비서: 근거·논문·원문 출처 찾기',
-    description: 'ONLY call when the current user EXPLICITLY requests 근거/증거/출처/자료/논문/원문 링크/팩트체크. NEVER call for ordinary questions, article summaries or generic analysis. Pass the latest user message VERBATIM as user_request; provide a SHORT DE-IDENTIFIED search query. Perplexity STANDARD Search API only; returns unverified source links/snippets to GPT for checking and final presentation, not a generated answer. This tool does not operate the Android Bridge or Playwright.',
+    description: 'ONLY call when the current user EXPLICITLY requests 근거/증거/출처/자료/논문/원문 링크/팩트체크. NEVER call for ordinary questions, article summaries or generic analysis. Pass the latest user message VERBATIM as user_request. For short follow-ups such as 근거는? / 관련 자료는? / 출처는?, derive the SHORT DE-IDENTIFIED search query from the preceding conversation topic (do not send the conversation transcript); if no topic is known, ask the user for the topic, not a speculative search. Only show the 퍼비서 marker after actual tool involvement. Perplexity STANDARD Search API only; returns unverified source links/snippets to GPT for checking and final presentation, not a generated answer. This tool does not operate the Android Bridge or Playwright.',
     inputSchema: {
       user_request: z.string().min(1).max(4000),
       query: z.union([z.string().min(3).max(500), z.array(z.string().min(3).max(500)).min(1).max(5)]),
