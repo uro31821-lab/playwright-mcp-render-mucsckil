@@ -99,9 +99,11 @@ jobs:
         run: |
           node --check jh-server/owner-setup/evidence/perplexity-search-current-host.test.mjs
           node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search-current-host.test.mjs
+          node --check jh-server/owner-setup/evidence/perplexity-search-real-owner-catalog.test.mjs
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search-real-owner-catalog.test.mjs
       - name: No provider secrets, live deployment or Android execution
         run: |
           test -z "${RENDER_SERVICE_ID:-}"
           test -z "${PERPLEXITY_API_KEY:-}"
           git diff --exit-code HEAD -- jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs jh-server/owner-setup/deployment/published-host-router.mjs
-          echo JH_EVIDENCE_CURRENT_SOURCE_ONLY_NOT_DEPLOYED
+          echo JH_EVIDENCE_AUTHENTICATED_HTTP_CATALOG_REVIEW_ONLY
