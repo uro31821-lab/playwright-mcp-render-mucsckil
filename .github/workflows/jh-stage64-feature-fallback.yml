@@ -1,12 +1,11 @@
-name: JH Stage64 Android -> Playwright Mobile -> manual feature routing
+name: JH Stage64 Android -> manual feature routing
 on:
-  push:
-    branches: [fix/stage64-android-playwright-manual-20261105]
   pull_request:
     branches: [jh-fix3-secure-server]
     paths:
       - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs'
       - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.mjs'
       - 'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs'
       - 'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.mjs'
       - 'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.test.mjs'
