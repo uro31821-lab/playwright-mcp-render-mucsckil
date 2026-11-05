@@ -1,7 +1,6 @@
 name: JH Kabiseo verified offline kit parts
-on:
-  pull_request:
-    paths: ['.github/workflows/jh-kabiseo-kit-parts.yml']
+# Historical exact artifact split. Intentionally not a PR trigger; artifact expiry must be checked.
+on: workflow_dispatch
 permissions: {contents: read, actions: read}
 jobs:
   split-existing-public-kit:

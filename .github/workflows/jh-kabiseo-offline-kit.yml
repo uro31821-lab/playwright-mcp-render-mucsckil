@@ -1,13 +1,10 @@
 name: JH Kabiseo offline full-build dependencies
-on:
-  pull_request:
-    paths:
-      - 'host-kabiseo-assist/tools/offline-kit/**'
-      - '.github/workflows/jh-kabiseo-offline-kit.yml'
+# One-off dependency preparation, not a repeated PR gate or host app build.
+on: workflow_dispatch
 permissions: {contents: read}
 concurrency:
-  group: kabiseo-offline-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: kabiseo-offline-manual
+  cancel-in-progress: false
 jobs:
   public-build-dependencies:
     runs-on: ubuntu-latest

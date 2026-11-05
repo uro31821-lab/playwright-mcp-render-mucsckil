@@ -1,9 +1,6 @@
 name: JH Kabiseo public host compile inputs
-on:
-  pull_request:
-    paths:
-      - 'host-kabiseo-assist/tools/compile-kit/**'
-      - '.github/workflows/jh-kabiseo-host-compile-kit.yml'
+# Tool export is an explicit preparation task, not a repeated PR correctness gate.
+on: workflow_dispatch
 permissions:
   contents: read
 jobs:
