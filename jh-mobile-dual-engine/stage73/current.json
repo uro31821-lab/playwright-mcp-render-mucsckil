@@ -1,87 +1,20 @@
 {
-  "schema":"JH168_STAGE73_TRIP_LOCATION_NATIVE_FIX3_MERGE_V2",
-  "status":"READY_FOR_WINDOWS_BUILD_SIGN_INSTALL",
+  "schema":"JH168_STAGE73_TRIP_LOCATION_NATIVE_FIX3_MERGE_V3",
+  "status":"BLOCKED_SUPERSEDED_BY_STAGE75_FIX1",
   "candidate":"JH168-STAGE62-TRIP-LOCATION-NATIVE-SELECT-FIX3-KEEPALIVE-20261105",
-  "artifact":{
-    "name":"JH73_TRIP_INSTALL_FIXED.zip",
-    "sha256":"876b26376e81a22fa8fd23c3305e9b247849fac2bc87fce6940883762379c4f0",
-    "bytes":7061479,
-    "entries":523,
-    "zipCrc":"PASS",
-    "libraryFileId":"libfile_feffe56ee1d881918c98c666410e1ef4",
-    "apkBundled":false,
-    "secretSigningMaterialBundled":false,
-    "installerType":"BUILD_SIGN_INSTALL_LAUNCHER",
-    "rootLauncher":"INSTALL.cmd",
-    "rootReadme":"00_README_FIRST.txt",
-    "outerWrapperDirectory":false,
-    "maxInternalPath":111,
-    "recommendedExtractPath":"C:\\JH73",
-    "shortPathDeliveryVerified":true
+  "inputResult":{
+    "name":"RESULT(20261105-122018).txt",
+    "sha256":"0b4f58a8ab8d5438fb8b3be84e67436e5a2530dca7a0e58d1c4fc1a26bf25cfd",
+    "status":"BLOCKED",
+    "lastStep":"ANDROID_TESTS_AND_RELEASE_BUILD",
+    "reason":"GRADLE_BUILD_OR_TEST_FAILED_EXIT_1",
+    "phoneInstall":"NOT_RUN",
+    "phoneReadback":"NOT_RUN"
   },
-  "rejectedDelivery":{
-    "name":"JH168_Stage62_TripLocation_NativeSelect_FIX3_KeepAlive_20261105.zip",
-    "sha256":"77ef34a355e96e8abfe43e27b926b5c04bf824a1dd95d66e25b4f775c8c067fd",
-    "reason":"Long outer wrapper directory raised the longest internal path to 175 characters and Windows Explorer exceeded the effective path limit. The localized root launcher filename was also decoded incorrectly.",
-    "mustNotUse":true
-  },
-  "merge":{
-    "commonAncestor":"JH168-STAGE61-SCREEN-CONSENT-V10-20261103",
-    "nativeSelectBase":"JH168-STAGE62-NATIVE-SELECT-PICK-FIX2-20261104",
-    "installedParent":"jh168-stage62-native-select-pick-fix3-keepalive",
-    "tripSource":"JH168-STAGE62-TRIP-LOCATION-V1-20261104",
-    "versionCode":168,
-    "versionName":"jh168-stage62-trip-location-native-select-fix3-keepalive",
-    "sourceFiles":433,
-    "sourceManifestSha256":"4620b7a619cae37087374f5a4ca0de6ae7be26d45249432ef2d36b4e71a9b889",
-    "validationFiles":50,
-    "validationManifestSha256":"12172c77406939805f2e3f0d5bbafbdbffe84a4647a52071de901801384865aa"
-  },
-  "prebuildVerification":{
-    "tripDecisionPolicy":"7/7 PASS",
-    "nativeSelectPolicy":"3/3 PASS",
-    "mergedStaticAudit":"22/22 PASS",
-    "updaterStaticAudit":"11/11 PASS",
-    "conflictMarkers":0,
-    "deliveryZipCrc":"PASS",
-    "deliveryRequiredFiles":"PASS",
-    "deliveryRootLauncher":"PASS",
-    "deliveryLongestInternalPath":"111"
-  },
-  "server":{
-    "routingModel":"ANDROID_THEN_MANUAL",
-    "stage71RuntimeCommit":"a06e4643a036fa7cc121ef997bc332a43f2f85df",
-    "renderStatus":"live",
-    "newDeployRequired":false
-  },
-  "currentPhoneBaseline":{
-    "secureActive":true,
-    "appVersionCode":168,
-    "appVersionName":"jh168-stage62-native-select-pick-fix3-keepalive"
-  },
-  "permissions":{
-    "backgroundLocation":false,
-    "locationMode":"APP_IN_USE_ONLY",
-    "remotePermissionGrant":false,
-    "remoteTripStart":false
-  },
-  "safety":{
-    "originalCertificateSha256":"7cc577efe48e865fdbe799b92aa9edf89724631361ae97979f2b8e4a940a288b",
-    "newSigningKeyAllowed":false,
-    "uninstallAllowed":false,
-    "dataResetAllowed":false,
-    "automaticReinstallAllowed":false,
-    "install":"ONE_EXPLICIT_Y_THEN_ADB_INSTALL_R",
-    "whyNoApkInZip":"The merged APK must be built and signed on the verified Windows signing PC with the existing original certificate. INSTALL.cmd is the installation launcher."
-  },
-  "next":[
-    "Delete or ignore the rejected long-path ZIP",
-    "Extract JH73_TRIP_INSTALL_FIXED.zip completely, preferably to C:\\JH73",
-    "Connect exactly one unlocked authorized USB phone",
-    "Run root INSTALL.cmd",
-    "Script must pass source/security/Gradle/signing checks before asking for Y",
-    "Type Y once for update install",
-    "Return RESULT.txt",
-    "Then verify merged versionName, Secure56, KeepAlive persistence, and TripLocation first-run permissions/E2E"
-  ]
+  "rootCause":"AndroidAgent.execute used a direct return inside an expression-bodied function when dispatching TripAgentTransport. Kotlin rejects that form.",
+  "phoneEffect":false,
+  "serverEffect":false,
+  "mustNotRerun":"JH73_TRIP_INSTALL_FIXED.zip",
+  "supersededBy":"JH168-STAGE62-TRIP-LOCATION-NATIVE-SELECT-FIX3-KEEPALIVE-FIX1-20261105",
+  "next":"USE_STAGE75_FIX1_ONLY"
 }

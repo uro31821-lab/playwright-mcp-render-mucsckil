@@ -1,0 +1,90 @@
+{
+  "schema":"JH168_STAGE75_TRIP_NATIVE_FIX3_FIX1_V1",
+  "status":"READY_FOR_WINDOWS_BUILD_SIGN_INSTALL",
+  "candidate":"JH168-STAGE62-TRIP-LOCATION-NATIVE-SELECT-FIX3-KEEPALIVE-FIX1-20261105",
+  "inputFailure":{
+    "result":"RESULT(20261105-122018).txt",
+    "sha256":"0b4f58a8ab8d5438fb8b3be84e67436e5a2530dca7a0e58d1c4fc1a26bf25cfd",
+    "lastStep":"ANDROID_TESTS_AND_RELEASE_BUILD",
+    "reason":"GRADLE_BUILD_OR_TEST_FAILED_EXIT_1",
+    "sourceCheck":"PASS",
+    "originalCertificateSearch":"MATCH",
+    "securityGate":"PASS_SAFE",
+    "build":"NOT_RUN",
+    "signing":"NOT_RUN",
+    "phoneInstall":"NOT_RUN",
+    "phoneReadback":"NOT_RUN"
+  },
+  "rootCause":{
+    "file":"app/src/main/java/com/koreanlifehub/bridge/AndroidAgent.kt",
+    "function":"AndroidAgent.execute",
+    "classification":"KOTLIN_EXPRESSION_BODY_DIRECT_RETURN",
+    "failingForm":"if (TripAgentTransport.matches(step)) return TripAgentTransport.execute(service, step)",
+    "compilerMessage":"returns are not allowed for functions with expression body"
+  },
+  "repair":{
+    "productionFilesChanged":[
+      "app/src/main/java/com/koreanlifehub/bridge/AndroidAgent.kt",
+      "app/build.gradle.kts",
+      "app/src/main/assets/jh-release.json"
+    ],
+    "newForm":"if (matches) execute else gate ?: when",
+    "versionCode":168,
+    "versionName":"jh168-stage62-trip-location-native-select-fix3-keepalive-fix1",
+    "permissionsChanged":false,
+    "serverChanged":false,
+    "automaticReplayChanged":false
+  },
+  "artifact":{
+    "name":"JH73_TRIP_FIX1.zip",
+    "sha256":"e8625f4b3bf38602b54edc4c8a1a64e1e19aac9212ddb1a3bc4a795b5c94b842",
+    "bytes":7055508,
+    "entries":500,
+    "zipCrc":"PASS",
+    "freshExtractExact":true,
+    "maxInternalPath":111,
+    "recommendedExtractPath":"C:\\JH73F1",
+    "rootLauncher":"INSTALL.cmd",
+    "apkBundled":false,
+    "secretSigningMaterialBundled":false
+  },
+  "integrity":{
+    "sourceFiles":433,
+    "sourceManifestSha256":"1d7ad1a3b8ba43b31a8534da957ab1a3bb8e530fabf7b1e08280e5e0a584af42",
+    "validationFiles":58,
+    "validationManifestSha256":"8363640e8d0f6274c8b7c343e5942ddd9fd626ec777a1be812e32b80aa34eb3b"
+  },
+  "verification":{
+    "beforeRegression":"EXPECTED_COMPILE_FAIL_EXACT_MESSAGE",
+    "afterRegression":"3/3 PASS",
+    "tripAndroid35FocusedCompile":"PASS",
+    "tripDecisionPolicy":"7/7 PASS",
+    "nativeSelectPolicy":"3/3 PASS",
+    "mergedStaticAudit":"23/23 PASS",
+    "fix1SourceAudit":"14/14 PASS",
+    "updaterStaticAudit":"12/12 PASS",
+    "fullWindowsGradle":"REQUIRED"
+  },
+  "server":{
+    "routingModel":"ANDROID_THEN_MANUAL",
+    "renderStatus":"live",
+    "newDeployRequired":false
+  },
+  "safety":{
+    "backgroundLocationPermission":false,
+    "originalCertificateSha256":"7cc577efe48e865fdbe799b92aa9edf89724631361ae97979f2b8e4a940a288b",
+    "newSigningKeyAllowed":false,
+    "uninstallAllowed":false,
+    "dataResetAllowed":false,
+    "automaticReinstallAllowed":false,
+    "install":"ONE_EXPLICIT_Y_THEN_ADB_INSTALL_R"
+  },
+  "next":[
+    "Do not rerun JH73_TRIP_INSTALL_FIXED.zip",
+    "Extract JH73_TRIP_FIX1.zip to C:\\JH73F1",
+    "Connect exactly one unlocked authorized USB phone",
+    "Run root INSTALL.cmd",
+    "Type Y only after source/security/Gradle/signing verification passes",
+    "Return the new RESULT.txt"
+  ]
+}
