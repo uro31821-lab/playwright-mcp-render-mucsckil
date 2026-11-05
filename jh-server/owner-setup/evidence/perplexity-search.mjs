@@ -15,7 +15,6 @@ const EVIDENCE_WORD = '(?:근거|증거|출처|논문|자료|원문|참고\\s*�
 const EVIDENCE_ACTION = '(?:찾아|검색|보여|제시|제공|확인|검증|대조|링크|인용|달라|있어|있나|어디서|show|find|provide|give|cite|verify|check)';
 const EVIDENCE_INTENT_NEAR = new RegExp(EVIDENCE_WORD + '.{0,32}?' + EVIDENCE_ACTION + '|' + EVIDENCE_ACTION + '.{0,28}?' + EVIDENCE_WORD, 'i');
 const BARE_REQUEST = /^(?:근거|증거|출처|논문|자료|원문|참고\s*문헌|팩트\s*체크|evidence|sources?|citations?|references?|papers?)(?:는|가|은|만|좀|요)?\s*[?!.]?$/i;
-const FACTCHECK_REQUEST = /(?:팩트\s*체크|fact[ -]?check)(?:\s*(?:해\s*줘|해\s*주세요|부탁|해\s*봐|요청|좀\s*해|해주|해주세요))\b?/i;
 const NO_EXTERNAL_RESEARCH = /(?:검색|조사|근거\s*조사|출처\s*검색|perplexity\s*호출|퍼플렉시티\s*호출).{0,15}(?:하지\s*마|말아|말고|필요\s*없|금지)|(?:근거|증거|출처|논문|자료|원문).{0,16}(?:찾지\s*마|요구하지\s*않|필요\s*없)/i;
 
 export function isExplicitEvidenceRequest(value) {
