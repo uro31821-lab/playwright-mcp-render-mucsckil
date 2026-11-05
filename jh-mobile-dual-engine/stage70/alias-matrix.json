@@ -1,6 +1,7 @@
 {
-  "schema":"JH168_STAGE70_NINE_WEB_ALIAS_MATRIX_V1",
+  "schema":"JH168_STAGE70_NINE_WEB_ALIAS_MATRIX_V2",
   "verifiedAt":"2026-11-05",
+  "routingModel":"ANDROID_THEN_MANUAL",
   "aliases":[
     {"alias":"life_web_navigate","feature":"OPEN_RIGHT_URL","mode":"AUTO_ANDROID","route":"life_web_navigate","realPhoneEvidence":"RIGHT_ADDRESS_CONFIRMED"},
     {"alias":"life_web_snapshot","feature":"READ_RIGHT_SCREEN","mode":"AUTO_ANDROID","route":"life_web_snapshot","realPhoneEvidence":"captured"},
@@ -14,7 +15,6 @@
   ],
   "automaticAliasCount":7,
   "manualAliasCount":2,
-  "playwrightMobileActiveRoutes":0,
   "noReplayOn":["UNKNOWN","PENDING","FAILED_AFTER_EFFECT","EFFECT_UNKNOWN","NEEDS_REVIEW_NO_REPLAY"],
   "nonAliasManualFeatures":["NESTED_VERTICAL_SCROLL","HORIZONTAL_SCROLL","RETURN_TO_CHROME_FROM_OTHER_APP"]
 }
