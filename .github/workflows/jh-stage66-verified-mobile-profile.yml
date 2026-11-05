@@ -1,0 +1,34 @@
+name: JH Stage66 verified mobile feature profile
+on:
+  push:
+    branches: [feat/stage66-verified-mobile-feature-profile-20261105]
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage66-verified-mobile-feature-profile.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage66-verified-mobile-feature-profile.test.mjs'
+      - '.github/workflows/jh-stage66-verified-mobile-profile.yml'
+permissions:
+  contents: read
+jobs:
+  verified-profile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test only retained verified routes
+        run: |
+          ROOT=jh-server/owner-setup/jh168-mobile-unification
+          node --check "$ROOT/stage66-verified-mobile-feature-profile.mjs"
+          node --test --test-reporter=spec "$ROOT/stage66-verified-mobile-feature-profile.test.mjs"
+      - name: No release side effects
+        run: |
+          echo APK_BUILD=0
+          echo APK_INSTALL=0
+          echo RENDER_DEPLOY=0
+          echo PHONE_ACTIONS=0
