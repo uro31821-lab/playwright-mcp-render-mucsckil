@@ -1,0 +1,87 @@
+{
+  "schema": "JH168_STAGE77_LOCATION_ONCE_V1",
+  "status": "READY_FOR_WINDOWS_BUILD_SIGN_INSTALL",
+  "candidate": "JH168-STAGE77-LOCATION-ONCE-NATIVE-SELECT-FIX3-KEEPALIVE-20261105",
+  "versionCode": 168,
+  "versionName": "jh168-stage77-location-once-native-select-fix3-keepalive",
+  "parentInstalledVersion": "jh168-stage62-trip-location-native-select-fix3-keepalive-fix1",
+  "userDecision": "LOCATION_DEPENDENT_QUESTIONS_USE_ONE_SHOT_CURRENT_LOCATION_BY_DEFAULT",
+  "behavior": {
+    "default": "location_once",
+    "statusAction": "location_once_status",
+    "continuousTripMode": "PRESERVED_OPTIONAL_EXPLICIT_ONLY",
+    "tripSessionStarted": false,
+    "locationForegroundServiceStarted": false,
+    "backgroundLocationPermissionRequested": false,
+    "locationHistoryStored": false,
+    "resultRetention": "PROCESS_MEMORY_ONE_STATUS_READ_OR_120_SECONDS",
+    "strictRequestCorrelation": true,
+    "userTapFallback": true,
+    "appOpenFallback": "PENDING_REQUEST_ONLY"
+  },
+  "artifact": {
+    "name": "JH77_LOCATION_ONCE.zip",
+    "sha256": "45f753a4d13b62be81e429bec93c77028fe9e5b2359f7e08e359192a5981b476",
+    "bytes": 7099136,
+    "entries": 517,
+    "zipCrc": "PASS",
+    "maxInternalPath": 111,
+    "libraryFileId": "libfile_4ab2caa1af388191a6e26c3f574afea4",
+    "recommendedExtractPath": "C:\\JH77",
+    "apkBundled": false,
+    "secretSigningMaterialBundled": false
+  },
+  "integrity": {
+    "sourceManifestSha256": "0b0adb5f7e69d517325896bc31d7147397bc0d5ae31eb6cc3aeb079b89f5e33c",
+    "sourceFiles": 439,
+    "validationManifestSha256": "d4dfb027f53bfdc0e93c5bdc0ade289245aa7081f377bc485d29f9dc6a15edca",
+    "validationFiles": 65,
+    "packageContentManifestSha256": "efbe28706719a54ede2c55d5a0591c8498764fccbb1461b2e72e37e280ff8df1"
+  },
+  "prebuild": {
+    "combinedPolicyRegression": "22/22 PASS",
+    "oneShotPolicyMemory": "9/9 PASS",
+    "transportRouting": "1/1 PASS",
+    "android35FocusedCompile": "PASS",
+    "staticAudit": "18/18 PASS",
+    "installerAudit": "16/16 PASS",
+    "freshExtractHashAudit": "PASS",
+    "conflictMarkers": 0
+  },
+  "plugin": {
+    "id": "plugins_6ac116dadd588191ba4712ffe090534b",
+    "version": "1.32.9",
+    "releaseId": "pluginrel_6aec8b0539688191a11ced712e8567a1",
+    "defaultLocationRule": "ON_DEMAND_ONE_SHOT",
+    "continuousMode": "EXPLICIT_ONLY"
+  },
+  "server": {
+    "routingModel": "ANDROID_THEN_MANUAL",
+    "secureCarrier": "EXISTING_SIGNED_AGENT_STEP",
+    "newDeployRequired": false
+  },
+  "safety": {
+    "originalCertificateSha256": "7cc577efe48e865fdbe799b92aa9edf89724631361ae97979f2b8e4a940a288b",
+    "newSigningKeyAllowed": false,
+    "uninstallAllowed": false,
+    "dataResetAllowed": false,
+    "automaticReplayAllowed": false,
+    "install": "ONE_EXPLICIT_Y_THEN_ADB_INSTALL_R"
+  },
+  "currentPhone": {
+    "unchangedUntilInstall": true,
+    "installedVersionName": "jh168-stage62-trip-location-native-select-fix3-keepalive-fix1",
+    "locationOnceCapabilityExpectedAfterInstall": [
+      "LOCATION_ONCE_V1",
+      "LOCATION_ONCE_TAP_FALLBACK_V1"
+    ]
+  },
+  "next": [
+    "Extract JH77_LOCATION_ONCE.zip to C:\\JH77",
+    "Run INSTALL.cmd on the verified Windows signing PC with exactly one authorized USB phone",
+    "Allow full Gradle unit-test/release build and original-certificate verification",
+    "Type Y once only after every check passes",
+    "Return RESULT.txt",
+    "Verify LOCATION_ONCE_V1, direct or user-tap one-shot fix, one-time result consumption, no trip service, and no location history"
+  ]
+}
