@@ -1,6 +1,6 @@
 # JH Evidence Search — Perplexity Standard Search API
 
-**Scope:** JH server-side OAuth MCP **conditional runtime integration candidate** (PR #160). The tool is wired only in the candidate's generated server and remains invisible unless both the explicit feature flag and private API key are present. **PR #160 has not been deployed to Render**. No Android, Playwright, Gemini, Sonar, Agent API, scheduled searches, or user-visible Perplexity interface.
+**Scope:** JH server-side OAuth MCP **source-only integration candidate** (PR #160). A standalone optional tool composer can be tested against the generated JH server, but the protected production runtime does not yet register it. **PR #160 has not been deployed to Render**. No Android, Playwright, Gemini, Sonar, Agent API, scheduled searches, or user-visible Perplexity interface.
 
 ## Behavior
 1. The user explicitly asks for 근거 / 증거 / 논문 / 자료 / 출처 / 원문 링크 / 팩트체크.
@@ -11,15 +11,15 @@
 
 > The tool's check of the user_request string provides an additional guard but is not cryptographic proof of the origin of that string. Retrieved snippets are not themselves independently verified facts.
 
-## Deployment fence — no automatic production release
+## Protected runtime integration fence
 
-The current Secure56/JH168 generated server is assembled with the same existing OAuth, Android signing, owner and replay guards. The review candidate adds **one server-side OAuth search tool registration behind two explicit private environment switches**, after all old source-pinned guards. No additional Android command or signed device catalog change. The deployed JH runtime is untouched: PR #160 must pass *all* protected CI and be reviewed before a controlled merge and Render deploy. Never claim live registration merely because a generated candidate compiles.
+The current JH Secure56/JH168 automated security review explicitly pins the composition source. In a 2026-11-05 trial, editing `deployment/jh167-article-operational-review-composition.mjs` to register this new OAuth tool caused multiple protected checks to fail. **The modification was reverted to the exact production baseline**; the protected tests were neither disabled nor relaxed. The isolated Search API engine, the reversible composer and the synthetic actual-MCP tests live under `owner-setup/evidence`. A separate reviewed change to the source-pin/security release contract is required before the tool can appear in production `tools/list`. A CI pass here does not certify live availability.
 
-## Render configuration — only after reviewed merge/deploy; no credentials stored in this PR
+## Render configuration — after approved runtime registration and deployment; no credentials in PR
 - **PERPLEXITY_API_KEY:** private Render secret. Never commit, log or paste it into a chat.
 - **JH_EVIDENCE_SEARCH_ENABLED=1:** enables the tool only if the secret also exists.
 
-Default: OFF; without both variables, the new tool does not appear in MCP tools/list. Issuing a key in the Perplexity console does **not** configure the Render process; set the secret privately on the correct JH Render service when ready. Keep the existing JH authorization, Secure56 Android tool catalog digest, protocol_version=1.0, APK, bridge, owner and browser unchanged.
+The tool is not registered in the currently deployed MCP catalog, irrespective of key status. Once protected runtime registration is separately reviewed, the default will be OFF and both variables will be required. Issuing a key in the Perplexity console does **not** configure the Render process; set the secret privately on the correct JH Render service when ready. Keep the existing JH authorization, Secure56 Android tool catalog digest, protocol_version=1.0, APK, bridge, owner and browser unchanged.
 
 Pricing: standard Search API costs $5 per 1,000 successful requests ($0.005 each); successful empty-result searches are billed. No additional token billing for the Perplexity Search endpoint. GPT usage costs, if any, are separate. Prepaid credits and disabled auto-top-up are recommended for spending control.
 
