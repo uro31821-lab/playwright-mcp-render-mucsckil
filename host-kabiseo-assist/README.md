@@ -1,27 +1,24 @@
-# 🏴‍☠️ 카비서 — read-only camera metadata contract v0.5
+# 🏴‍☠️ 카비서 — v0.8 host source verification candidate
 
-This is an isolated JVM contract candidate, NOT a live JH route, Android service integration, APK or replacement camera. No server entry point imports or registers this module.
+**Draft / runtime OFF. This is not an installed camera upgrade or an APK.**
 
-## Preserved baseline
-Base commit: `5d72b78fd3730111076b33e2771f5b6b70f657aa` on `jh-fix3-secure-server` (2026-11-05). Preserve Stage71 Android-then-manual policy and Stage72 current-installed-app decision. No production deployment, APK build/install, split-guard bypass or older source replacement is performed.
+The existing GPT photo-taking flow remains the target. No separate camera launch, Chrome switch, face/body retouch, automatic shutter, attachment or sending is added. Read-only receipts never authorize pixels, gestures or camera setting changes.
 
-## Scope and naming
-Display name: 카메라비서 / 카비서. New action: `KABISEO_CAMERA_METADATA`.
-The Java package stays `com.jh.pobiseo.assist` for compatibility. `POBISEO_CAMERA_METADATA` is accepted only if the host explicitly authorizes that ORIGINAL action. Never rename an action before signature validation. A replay with the same command/request IDs but a different action is rejected.
+## Latest verified progress
+- The known full JH host candidate (258 Kotlin + 6 Java production files) compiled against real Android SDK35 and project dependency APIs. Resource compilation/link and host-bytecode D8 conversion at min API26 passed.
+- 146 Kotlin + 1 Java test sources compiled; JUnit discovered 111 test classes and ran 1,278 tests with 0 failures, 0 ignored and 0 assumption failures. Non-JUnit helper/manual classes are not silently counted as executed tests.
+- Existing metadata contract: 86 scenarios / 297 assertions; old host patch: 11 tests; new complete-baseline preparation guard: 9 tests. These are distinct suites, not a marketing total.
+- Candidate reproduction matched all 439 files and did not alter original source.
 
-## Corrections
-A read could previously publish a successful camera result after the route was disabled, the camera opening changed, or the enrolled profile was revoked during the read. These cases were reproduced against the unchanged supplied v0.4 source.
+See `docs/HOST_VERIFICATION_V08.md` and `docs/HOST_TEST_RESULT_V08.json` for scope, evidence IDs, failures and compiler warning counts. Detailed logs and reviewed host source are retained in the conversation verification archive. The current GitHub CI tooling-bootstrap success is NOT the full app build; full-source compilation and JUnit execution above took place in the local verification environment.
 
-The candidate revalidates the complete live binding, enable flag, permit, layout and profile before returning a result. The reentry guard covers authorization callbacks, not just the reader. Cached receipts remain historical, not current-screen proof.
+## Source lineage / guard
+The known 433-file Stage73 archive is a historical candidate. Its existing AndroidAgent compile blocker was reproduced and the exact published Stage75/PR165 functional correction backported. The full Stage75 release archive was not available as authorized raw bytes; release version metadata was not silently changed. No claim is made that this source equals the currently installed phone or all newer parallel work.
 
-## Host requirements
-`Host.authorize(request)` must be repeatable, read-only and return the CURRENT binding or null. Verify the actual signed command, device/account, cancellation/expiry, camera opening, package/version, window/display and layout. Defaults deny. Do not use fixture profiles in production.
+Use `tools/prepare_host_candidate.py --source <known-original-source> --output <new-review-copy>` for this review candidate, not the old v0.7 patch alone. It refuses unknown/newer/partial inputs and existing outputs. It is a developer tool tested in Linux UTF-8, not a user installation launcher.
 
-A read-only receipt never permits pixels, gestures or camera changes. Existing GPT capture flow remains the target. No separate camera launch, Chrome switch, face/body retouch, focus/exposure/flash modification, automatic shutter, attachment or send is added.
+## Remaining gates
+Full Gradle app assembly/merged manifests/full-app lint/dependency packaging/signing/install remain unperformed for this candidate. Server command production, real camera profile enrollment, phone read-only validation, automatic pinch zoom and restoration remain unverified. Feature stays OFF and existing host authentication, approval, split protection and current app are preserved. Do not ship from JVM tests or library build success alone.
 
-The original zoom/restoration module is NOT included in this focused repository subset. User-reported manual reset is not automatic restoration proof. Production zoom must remain disabled until actual JH gesture and restoration tests pass.
-
-## Verification
-Run `python3 host-kabiseo-assist/tools/test_metadata.py` from repository root: 29 original + 25 new = 54 synthetic JVM scenarios. The full local source package additionally reran its other suites: 211 total scenarios. Do not sum 54 and 211; 54 is a subset.
-
-Still not verified: real Android API compilation, Gradle/DEX/APK, current host wiring, device camera-surface profile, automatic gesture execution and setting restoration. This PR deliberately does not enable a runtime path.
+## Naming / authorization
+Display: 카메라비서 / 카비서. Command: `KABISEO_CAMERA_METADATA`. Java package `com.jh.pobiseo.assist` is retained for compatibility. Any legacy action must be authorized in its original signed form; do not rewrite signed actions. Default host denies. Do not turn a denied ordinary snapshot into a camera-metadata request.

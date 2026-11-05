@@ -1,0 +1,7 @@
+{
+  "schema": "KABISEO_V08_KNOWN_CANDIDATE_INPUT",
+  "files": 433,
+  "source_tree_sha256": "973242a90b65a6978f84e8d7c789268d1372189627bf06f644e22c13b8677942",
+  "input_zip_sha256": "876b26376e81a22fa8fd23c3305e9b247849fac2bc87fce6940883762379c4f0",
+  "not_current_phone_attestation": true
+}
