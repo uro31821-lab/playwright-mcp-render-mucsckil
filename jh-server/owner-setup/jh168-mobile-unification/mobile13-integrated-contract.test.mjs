@@ -34,6 +34,7 @@ const REPORT='JH_MOBILE13_INTEGRATED_CONTRACT ';
 const DEVICE='synthetic-mobile13-device';
 const COMMAND='a'.repeat(32),CONTEXT='ssc_'+'b'.repeat(32);
 const ITEM='item_'+'c'.repeat(16),REQUEST='d'.repeat(32),GRANT='ipg_'+'e'.repeat(32);
+const PICK_ITEM='item_'+'3'.repeat(16);
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const clone=value=>JSON.parse(JSON.stringify(value));
 const body=reply=>JSON.parse(reply.content[0].text);
@@ -71,9 +72,16 @@ function statusResult(label='READY'){
   items:[{itemRef:ITEM,label}],splitScreenRequired:true,splitScreen:proof(now)};
 }
 function actionResult(job){
- return {ok:true,code:'action_verified',contextId:CONTEXT,action:job.action,
+ const base={ok:true,code:'action_verified',contextId:CONTEXT,action:job.action,
   resultVerified:true,externalEffectVerified:false,automaticReplay:false,
   splitScreenRequired:true,splitScreen:proof()};
+ if(job.stage61Action!=='SELECT_OPEN')return base;
+ return {...base,code:'native_select_open_verified',nativeSelectOptions:{
+  schema:'JH168_NATIVE_SELECT_OPTION_REFS_V1',code:'NATIVE_SELECT_OPTION_REFS_READY',
+  readOnly:true,pickReady:true,authorizedToPick:false,phoneActionDispatched:false,
+  resultVerified:false,automaticReplay:false,popupWindowId:31,
+  optionItems:[{itemRef:PICK_ITEM,label:'파랑 연습 옵션',role:'nativeSelectOption',clickable:true}],
+  optionCount:1,expiresAt:Date.now()+45000}};
 }
 
 function setup(source,options={}){
@@ -168,11 +176,15 @@ function setup(source,options={}){
   const waitJob=syntheticWait;
   const awaitFrame56=async waiter=>{frameWaiters56.delete(waiter.lease);return null;};
   const jhRightWebOpen56=()=>{throw Error("UNEXPECTED_URL_EFFECT_IN_CONTRACT_FIXTURE");};
+  const jhStage61SyntheticContextRoute56=new Map();
+  const jhStage61SyntheticPreparedPick56=new Map();
   async function jhStage61BeforeWeb56(args,payload,action,command){
    const s=String(command||"");
    const stageAction=action==="SET_TEXT"?"TYPE":action==="BACK"?"BACK":
     /선택 메뉴 열기|select menu open/i.test(s)?"SELECT_OPEN":
     /옵션 선택|select option/i.test(s)?"SELECT_PICK":"CLICK";
+   const routeToken="s61_synthetic_contract";
+   jhStage61SyntheticContextRoute56.set(String(args?.context_id||""),routeToken);
    Object.assign(payload,{
     stage61RouteSchema:"JH168_STAGE61_ROUTE_REQUEST_V1",
     stage61Action:stageAction,
@@ -180,9 +192,54 @@ function setup(source,options={}){
     stage61ComputerOutcome:"NOT_RUN",
     stage61PlaywrightMobileAvailable:false
    });
-   return {ok:true,routeToken:"s61_synthetic_contract",stageAction};
+   return {ok:true,routeToken,stageAction};
   }
-  async function jhStage61AfterAction56(result){return result;}
+  async function jhStage61AfterAction56(result,routeToken,provider,action){
+   if(action==="SELECT_OPEN"){
+    const c=result?.nativeSelectOptions;
+    const refs=Array.isArray(c?.optionItems)?c.optionItems.map(v=>v?.itemRef):[];
+    if(c?.schema==="JH168_NATIVE_SELECT_OPTION_REFS_V1"&&
+       c.code==="NATIVE_SELECT_OPTION_REFS_READY"&&c.readOnly===true&&
+       c.pickReady===true&&c.authorizedToPick===false&&
+       c.phoneActionDispatched===false&&c.resultVerified===false&&
+       c.automaticReplay===false&&Number.isSafeInteger(c.expiresAt)&&
+       c.expiresAt>Date.now()&&refs.length===c.optionCount&&refs.length>0&&
+       refs.every(v=>/^item_[a-f0-9]{16}$/.test(v))&&new Set(refs).size===refs.length)
+     jhStage61SyntheticPreparedPick56.set(routeToken,{refs:new Set(refs),expiresAt:c.expiresAt});
+    else jhStage61SyntheticPreparedPick56.delete(routeToken);
+   }
+   if(action==="SELECT_PICK")jhStage61SyntheticPreparedPick56.delete(routeToken);
+   return result;
+  }
+  async function jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload){
+   if(payload?.stage61Action!=="SELECT_PICK")
+    return jhOwnerAdmission155(device,commandId,record,firstAttempt);
+   const keys=Reflect.ownKeys(payload).filter(v=>typeof v==="string").sort();
+   const expected=["action","command","contextId","requestId","stage61Action",
+    "stage61ComputerOutcome","stage61PlaywrightMobileAvailable","stage61RouteSchema",
+    "stage61WebOutcome","targetItemRef"];
+   const routeToken=jhStage61SyntheticContextRoute56.get(String(payload?.contextId||""));
+   const prepared=jhStage61SyntheticPreparedPick56.get(routeToken);
+   const exact=keys.length===expected.length&&keys.every((v,i)=>v===expected[i])&&
+    payload.action==="CLICK"&&payload.command==="오른쪽 화면에서 새로 확인한 옵션 선택"&&
+    payload.stage61RouteSchema==="JH168_STAGE61_ROUTE_REQUEST_V1"&&
+    payload.stage61WebOutcome==="NOT_RUN"&&payload.stage61ComputerOutcome==="NOT_RUN"&&
+    payload.stage61PlaywrightMobileAvailable===false&&
+    /^ssc_[a-f0-9]{32}$/.test(payload.contextId)&&/^[a-f0-9]{32}$/.test(payload.requestId)&&
+    /^item_[a-f0-9]{16}$/.test(payload.targetItemRef)&&prepared?.refs?.has(payload.targetItemRef)&&
+    Date.now()<prepared.expiresAt;
+   if(routeToken)jhStage61SyntheticPreparedPick56.delete(routeToken);
+   if(!exact)return false;
+   try{if(jhRequireCommand56(device)!==commandId)return false;}catch{return false;}
+   let binding;
+   try{binding=jhPaymentLifecycle.captureBinding({device_id:device});}catch{return false;}
+   const auth=active56(device);
+   try{jhPaymentLifecycle.assertBinding({command_binding:binding});}catch{return false;}
+   try{if(jhRequireCommand56(device)!==commandId)return false;}catch{return false;}
+   return typeof auth?.sessionId==="string"&&auth.sessionId.length>0&&
+    !jhBlockedCommands56.has(device)&&record?.state==="PREPARING"&&firstAttempt===true&&
+    record.attemptCount===1&&!record.dispatchStartedAt;
+  }
   function registerOAuthTool(name,config,handler){
    const wrapped=jhCommandTool56(name,config,handler);
    registrations.set(name,wrapped);
@@ -271,21 +328,31 @@ async function runFixture(){
   assert.ok(f.admissions.every(v=>v.allowed),JSON.stringify(f.admissions));
   assert.equal(f.host.uncertainEffectsForMaintenance(),0);
  });
- await check('SELECT PICK uses one exact Stage61-wrapped journaled CLICK',async f=>{
-  const target='item_'+'3'.repeat(16),request='e'.repeat(32);
-  const r=await f.call('select',{context_id:CONTEXT,target_item_ref:target,request_id:request,phase:'PICK'});
+ await check('SELECT PICK uses prepared OPEN evidence and no generic snapshot fallback',async f=>{
+  const request='e'.repeat(32);
+  const opened=await f.call('select',{
+   context_id:CONTEXT,target_item_ref:ITEM,request_id:REQUEST,phase:'OPEN'});
+  assert.equal(opened.nativeSelectOptions?.optionItems?.[0]?.itemRef,PICK_ITEM);
+  const snapshotsBeforePick=f.captures.filter(v=>v.job.type==='agent_snapshot').length;
+  const r=await f.call('select',{
+   context_id:CONTEXT,target_item_ref:PICK_ITEM,request_id:request,phase:'PICK'});
   assert.equal(r.automaticReplay,false);
   const writes=f.captures.filter(v=>v.job.type==='split_screen_session_followup');
-  assert.equal(writes.length,1,JSON.stringify({reply:r,captures:f.captures,admissions:f.admissions}));
-  const write=writes[0];
+  assert.equal(writes.length,2,JSON.stringify({reply:r,captures:f.captures,admissions:f.admissions}));
+  const [openWrite,write]=writes;
+  assert.equal(openWrite.payload.stage61Action,'SELECT_OPEN');
   assert.equal(write.payload.action,'CLICK');
-  assert.equal(write.payload.targetItemRef,target);
+  assert.equal(write.payload.targetItemRef,PICK_ITEM);
   assert.equal(write.payload.requestId,request);
   assert.equal(write.payload.stage61RouteSchema,'JH168_STAGE61_ROUTE_REQUEST_V1');
   assert.equal(write.payload.stage61Action,'SELECT_PICK');
   assert.equal(write.payload.stage61WebOutcome,'NOT_RUN');
   assert.equal(write.payload.stage61ComputerOutcome,'NOT_RUN');
   assert.equal(write.payload.stage61PlaywrightMobileAvailable,false);
+  assert.equal(f.captures.filter(v=>v.job.type==='agent_snapshot').length,snapshotsBeforePick,
+   'SELECT_PICK must not fall back to generic snapshot-row owner admission');
+  const pickAdmission=f.admissions.filter(v=>v.jobId===write.job.id);
+  assert.equal(pickAdmission.length,1);assert.equal(pickAdmission[0].allowed,true);
   assert.ok(f.admissions.every(v=>v.allowed),JSON.stringify(f.admissions));
   assert.equal(f.host.uncertainEffectsForMaintenance(),0);
  });
