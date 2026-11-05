@@ -44,6 +44,7 @@ const HELPER=String.raw`
   const jhStage61OriginalResult56=new Map();
   const jhStage61ContextRoute56=new Map();
   const jhStage61ContextTask56=new Map();
+  const jhStage61ContextItems56=new Map();
   const jhStage61TaskRoute56=new Map();
   const jhStage61PreparedPick56=new Map();
   const jhStage61Host56=createStage61HostAdapter({
@@ -96,6 +97,29 @@ const HELPER=String.raw`
     if(typeof jhOwnerAdmissionNote40==="function")return jhOwnerAdmissionNote40(record,code);
     return false;
   }
+  function jhStage61FreshContextItems56(result){
+    const contextId=String(result?.contextId||result?.context_id||"");
+    const expiresAt=Number(result?.expiresAt||0);
+    const rows=Array.isArray(result?.items)?result.items:null;
+    if(!/^ssc_[a-f0-9]{32}$/.test(contextId)||!Number.isSafeInteger(expiresAt)||
+      expiresAt<=Date.now()||expiresAt>Date.now()+15*60*1000||!rows||rows.length<1||rows.length>256)
+      return null;
+    const refs=new Set();
+    for(const row of rows){
+      if(!row||typeof row!=="object")continue;
+      const ref=String(row.itemRef||"");
+      if(/^item_[a-f0-9]{16}$/.test(ref)&&row.clickable===true)refs.add(ref);
+    }
+    return refs.size?{contextId,refs,expiresAt}:null;
+  }
+  function jhStage61RememberFreshContextItems56(result){
+    const fresh=jhStage61FreshContextItems56(result);
+    if(!fresh)return false;
+    jhStage61ContextItems56.set(fresh.contextId,{refs:fresh.refs,expiresAt:fresh.expiresAt});
+    while(jhStage61ContextItems56.size>64)
+      jhStage61ContextItems56.delete(jhStage61ContextItems56.keys().next().value);
+    return true;
+  }
   function jhStage61PreparedResult56(result){
     const candidate=result?.schema==="JH168_NATIVE_SELECT_OPTION_REFS_V1"?result:
       result?.nativeSelectOptions?.schema==="JH168_NATIVE_SELECT_OPTION_REFS_V1"?result.nativeSelectOptions:
@@ -128,6 +152,50 @@ const HELPER=String.raw`
       jhStage61PreparedPick56.delete(jhStage61PreparedPick56.keys().next().value);
     return {ok:true,code:"STAGE61_SELECT_PICK_PREPARED",expiresAt:prepared.expiresAt,
       optionCount:prepared.optionCount,replayAllowed:false,automaticReplay:false};
+  }
+  function jhStage61ExactSelectOpen56(payload){
+    const p=payload&&typeof payload==="object"?payload:null;
+    const intended=p?.stage61Action==="SELECT_OPEN"||
+      p?.command==="오른쪽 화면에서 지정 선택 메뉴 열기";
+    if(!intended)return {intended:false,ok:false,code:null};
+    try{
+      const keys=Reflect.ownKeys(p);
+      const expected=["action","command","contextId","requestId","stage61Action",
+        "stage61ComputerOutcome","stage61PlaywrightMobileAvailable","stage61RouteSchema",
+        "stage61WebOutcome","targetItemRef"];
+      const names=keys.every(value=>typeof value==="string")?keys.slice().sort():[];
+      const plain=names.every(name=>{const d=Object.getOwnPropertyDescriptor(p,name);
+        return !!d&&Object.hasOwn(d,"value")&&d.enumerable===true;});
+      if(names.length!==expected.length||names.some((value,index)=>value!==expected[index])||!plain||
+        !/^ssc_[a-f0-9]{32}$/.test(p.contextId)||!/^[a-f0-9]{32}$/.test(p.requestId)||
+        !/^item_[a-f0-9]{16}$/.test(p.targetItemRef)||p.action!=="CLICK"||
+        p.command!=="오른쪽 화면에서 지정 선택 메뉴 열기"||
+        p.stage61RouteSchema!=="JH168_STAGE61_ROUTE_REQUEST_V1"||p.stage61Action!=="SELECT_OPEN"||
+        p.stage61WebOutcome!=="NOT_RUN"||p.stage61ComputerOutcome!=="NOT_RUN"||
+        p.stage61PlaywrightMobileAvailable!==false)
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_SCOPE_INVALID"};
+      const routeToken=jhStage61ContextRoute56.get(p.contextId);
+      if(typeof routeToken!=="string"||!routeToken)
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY"};
+      const fresh=jhStage61ContextItems56.get(p.contextId);
+      if(!fresh||Date.now()>=fresh.expiresAt||!fresh.refs.has(p.targetItemRef)){
+        jhStage61ContextItems56.delete(p.contextId);
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_FRESH_REF_REQUIRED",routeToken};
+      }
+      const plan=jhStage61Host56.plan({routeToken,action:"SELECT_OPEN",playwrightMobileAvailable:false});
+      if(plan.ok!==true||plan.provider!=="ANDROID_WEB"||plan.allowed!==true||
+        plan.routeToken!==routeToken||plan.replayAllowed!==false||plan.automaticReplay!==false)
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY",routeToken};
+      const phone=jhStage61Host56.phonePayload({routeToken,action:"SELECT_OPEN",provider:"ANDROID_WEB"});
+      if(phone.ok!==true||phone.routeToken!==routeToken||phone.replayAllowed!==false||
+        phone.automaticReplay!==false||phone.stage61RouteSchema!==p.stage61RouteSchema||
+        phone.stage61Action!==p.stage61Action||phone.stage61WebOutcome!==p.stage61WebOutcome||
+        phone.stage61ComputerOutcome!==p.stage61ComputerOutcome||
+        phone.stage61PlaywrightMobileAvailable!==p.stage61PlaywrightMobileAvailable)
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY",routeToken};
+      return {intended:true,ok:true,code:"OWNER_SELECT_OPEN_ROUTE_VERIFIED",
+        routeToken,contextId:p.contextId,targetItemRef:p.targetItemRef};
+    }catch{return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY"};}
   }
   function jhStage61ExactSelectPick56(payload){
     const p=payload&&typeof payload==="object"?payload:null;
@@ -174,7 +242,9 @@ const HELPER=String.raw`
     }catch{return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY"};}
   }
   async function jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload){
-    const exact=jhStage61ExactSelectPick56(payload);
+    const open=jhStage61ExactSelectOpen56(payload);
+    const pick=jhStage61ExactSelectPick56(payload);
+    const exact=open.intended?open:pick;
     if(!exact.intended)return jhOwnerAdmission155(device,commandId,record,firstAttempt);
     const fail=code=>jhStage61OwnerNote56(record,code);
     try{if(jhRequireCommand56(device)!==commandId)return fail("COMMAND_BINDING_CHANGED");}
@@ -195,8 +265,13 @@ const HELPER=String.raw`
       "OWNER_DEVICE_OR_PROCESS_CHANGED":"OWNER_BINDING_ASSERT_REJECTED");}
     try{if(jhRequireCommand56(device)!==commandId)return fail("COMMAND_CHANGED_DURING_READ");}
     catch{return fail("COMMAND_DISCARDED_DURING_READ");}
-    if(exact.routeToken)jhStage61PreparedPick56.delete(exact.routeToken);
-    if(exact.ok!==true)return fail(exact.code||"OWNER_SELECT_PICK_ROUTE_NOT_READY");
+    if(exact.ok!==true)return fail(exact.code||
+      (open.intended?"OWNER_SELECT_OPEN_ROUTE_NOT_READY":"OWNER_SELECT_PICK_ROUTE_NOT_READY"));
+    if(open.intended&&exact.contextId){
+      const fresh=jhStage61ContextItems56.get(exact.contextId);
+      if(fresh){fresh.refs.delete(exact.targetItemRef);if(!fresh.refs.size)jhStage61ContextItems56.delete(exact.contextId);}
+    }
+    if(pick.intended&&exact.routeToken)jhStage61PreparedPick56.delete(exact.routeToken);
     // The server admits only its exact signed OPEN receipt and one-shot option ref. Android still
     // rechecks the current popup, option lease and exact node, then consumes the
     // lease before the only ACTION_CLICK. No raw popup snapshot or replay exists.
@@ -242,7 +317,10 @@ const HELPER=String.raw`
     if(state.ok!==true)return {...result,stage61RouterHost:state};
     const contextId=String(result?.contextId||result?.context_id||"");
     const validContext=/^ssc_[a-f0-9]{32}$/.test(contextId);
-    if(validContext)jhStage61ContextRoute56.set(contextId,state.routeToken);
+    if(validContext){
+      jhStage61ContextRoute56.set(contextId,state.routeToken);
+      jhStage61RememberFreshContextItems56(result);
+    }
     const taskDigest=String(result?.taskDigest||result?.task_digest||"");
     if(/^[a-f0-9]{64}$/.test(taskDigest)){
       jhStage61TaskRoute56.set(taskDigest,state.routeToken);
@@ -281,7 +359,11 @@ const HELPER=String.raw`
   async function jhStage61AfterAction56(result,routeToken,provider,action,terminal=true){
     // A second OPEN attempt invalidates every previously prepared ref before
     // its new receipt is inspected; a failed re-open can never leave stale refs.
-    if(action==="SELECT_OPEN")jhStage61PreparedPick56.delete(routeToken);
+    if(action==="SELECT_OPEN"){
+      jhStage61PreparedPick56.delete(routeToken);
+      for(const [contextId,mapped] of jhStage61ContextRoute56)
+        if(mapped===routeToken)jhStage61ContextItems56.delete(contextId);
+    }
     const originalReceiptRef=jhStage61SaveOriginal56(result);
     let record=await jhStage61Host56.record({routeToken,originalReceiptRef,
       expectedProvider:provider,expectedAction:action,terminal});
