@@ -1,0 +1,36 @@
+{
+  "schema": "JH168_STAGE68_THREE_ROUND_ELIMINATION_V1",
+  "round": 1,
+  "maxRounds": 3,
+  "status": "READY_FOR_PHONE_E2E",
+  "features": [
+    "NATIVE_SELECT",
+    "NESTED_VERTICAL_SCROLL",
+    "HORIZONTAL_SCROLL",
+    "BACK",
+    "PRESS_KEY",
+    "WAIT_CONDITION",
+    "SCREENSHOT",
+    "RETURN_TO_CHROME_FROM_OTHER_APP"
+  ],
+  "roundRule": {
+    "androidPassPlaywrightFail": "KEEP_ANDROID_DELETE_PLAYWRIGHT",
+    "playwrightPassAndroidFail": "KEEP_PLAYWRIGHT_DELETE_ANDROID",
+    "bothPass": "KEEP_ONE_DELETE_OTHER",
+    "bothFailBeforeRound3": "FIX_BOTH_AND_NEXT_ROUND",
+    "bothFailAtRound3": "MANUAL_AFTER_ROUND_3"
+  },
+  "bothPassTieBreak": [
+    "REAL_DEVICE_READBACK_RELIABILITY",
+    "SECURE56_INTEGRATION",
+    "MAINTENANCE_COST",
+    "JH_NATIVE_INTEGRATION",
+    "ANDROID"
+  ],
+  "noAutomaticReplay": [
+    "UNKNOWN",
+    "PENDING",
+    "FAILED_AFTER_EFFECT"
+  ],
+  "verificationRequired": "REAL_PHONE_EXECUTION_PLUS_READBACK"
+}
