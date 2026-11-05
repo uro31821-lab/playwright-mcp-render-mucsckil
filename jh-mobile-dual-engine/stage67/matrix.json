@@ -1,0 +1,16 @@
+{
+  "schema":"JH168_STAGE67_DUAL_ENGINE_MATRIX_V1",
+  "order":["ANDROID","PLAYWRIGHT_MOBILE","MANUAL"],
+  "features":[
+    {"feature":"NATIVE_SELECT","android":"android/native-select.mjs","playwrightMobile":"playwright-mobile/native-select.mjs"},
+    {"feature":"NESTED_VERTICAL_SCROLL","android":"android/nested-vertical-scroll.mjs","playwrightMobile":"playwright-mobile/nested-vertical-scroll.mjs"},
+    {"feature":"HORIZONTAL_SCROLL","android":"android/horizontal-scroll.mjs","playwrightMobile":"playwright-mobile/horizontal-scroll.mjs"},
+    {"feature":"BACK","android":"android/back.mjs","playwrightMobile":"playwright-mobile/back.mjs"},
+    {"feature":"PRESS_KEY","android":"android/press-key.mjs","playwrightMobile":"playwright-mobile/press-key.mjs"},
+    {"feature":"WAIT_CONDITION","android":"android/wait-condition.mjs","playwrightMobile":"playwright-mobile/wait-condition.mjs"},
+    {"feature":"SCREENSHOT","android":"android/screenshot.mjs","playwrightMobile":"playwright-mobile/screenshot.mjs"},
+    {"feature":"RETURN_TO_CHROME_FROM_OTHER_APP","android":"android/return-to-chrome.mjs","playwrightMobile":"playwright-mobile/return-to-chrome.mjs"}
+  ],
+  "promotionRule":"real-device execution plus readback required; CI/desktop DOM does not equal phone E2E",
+  "noReplay":["UNKNOWN","PENDING","FAILED_AFTER_EFFECT"]
+}
