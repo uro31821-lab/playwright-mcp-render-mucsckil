@@ -62,6 +62,15 @@ const REVIEWED_TRANSITIONS=Object.freeze([
      'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs':
       'bd4617a33c5c8918d112531172c4083e9d386a04'
     })
+   }),
+   Object.freeze({
+    reviewedHead:'94ee7aa9875eb61dacf5d975b2784e279643bcfa',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage66-verified-mobile-feature-profile.mjs':
+      '051d779a1f971cc4cc967474767046e28e2238ab',
+     'jh-server/owner-setup/jh168-mobile-unification/stage66-verified-mobile-feature-profile.test.mjs':
+      'e674d7b1404da52b022af59010f9b4b4dda8ebd6'
+    })
    })
   ])
  })
