@@ -1,9 +1,10 @@
-/** One-way request preparation and the existing optional phone OPEN.
+/** Selection-menu handoff by default, with an explicit legacy OPEN option.
  * No input, submit, response capture, video export or new command is dispatched.
  * Manual progress is a user report, never an original-host success receipt.
  */
 import {prepareJebiseoHandoff, createJebiseoManualHandoff} from './handoff-request.mjs';
 import {createJebiseoTask} from './host-runtime.mjs';
+import {createJebiseoTextSelectionGuide, createJebiseoManualReturnGuide} from './text-selection-guide.mjs';
 
 const ref = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{7,159}$/.test(value);
 const command = value => typeof value === 'string' && /^[a-f0-9]{32}$/.test(value);
@@ -26,7 +27,11 @@ const frozen = value => {
  * The binding must reuse this session for the same task and current request.
  */
 export function createJebiseoHandoffSession({request, deviceId = null, commandId = null,
-  createOriginalRuntime} = {}) {
+  deliveryMode = 'TEXT_SELECTION', requiresResultInspection = false, createOriginalRuntime} = {}) {
+  if (!['TEXT_SELECTION', 'OPEN_MANUAL'].includes(deliveryMode))
+    throw Error('JEBISEO_HANDOFF_DELIVERY_MODE_INVALID');
+  if (typeof requiresResultInspection !== 'boolean')
+    throw Error('JEBISEO_HANDOFF_INSPECTION_FLAG_INVALID');
   const prepared = prepareJebiseoHandoff(request);
   let original = null, current = prepared, startPromise = null, statusPromise = null;
   let originalJobId = null, originalEffectKey = null, openAttempted = false, manualReportedRank = -1;
@@ -39,12 +44,26 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
       requestDigest: prepared.requestDigest, step, outcome,
       ...(originalJobId ? {receiptRef: originalJobId} : {})
     });
-    current = frozen({...guide, automatedOpenAttempted: openAttempted,
+    current = frozen({...guide, deliveryMode, automatedOpenAttempted: openAttempted,
       ...(originalJobId ? {originalJobId} : {}),
       ...(originalEffectKey ? {originalEffectKey} : {}),
-      ...extra, returnToGpt: false, requiresUserReply: false,
+      ...extra, returnToGpt: prepared.returnToGpt, automaticReturnToGpt: false,
+      requiresUserReply: false,
       requestSent: false, resultVerified: false, externalEffectVerified: false,
       geminiReplyVerified: false, automaticReplay: false, authorizesExecution: false});
+    return current;
+  }
+
+  function textSelection(step = 'READY') {
+    current = frozen({...createJebiseoTextSelectionGuide(prepared,
+      {step, requiresResultInspection}), deliveryMode, automatedOpenAttempted: false});
+    return current;
+  }
+
+  function inspectExisting() {
+    if (deliveryMode === 'TEXT_SELECTION') return textSelection();
+    const guide = manual('OPEN', 'UNKNOWN', {reason: 'CURRENT_TASK_RESULT_INSPECTION_REQUIRED'});
+    current = frozen({...guide, manualSteps: [guide.instruction]});
     return current;
   }
 
@@ -76,7 +95,11 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
 
   async function startOnce() {
     if (prepared.active !== true) return prepared;
+    if (requiresResultInspection) return inspectExisting();
     if (current.userReported === true) return current;
+    // The user's existing selection menu owns the handoff. Do not also create
+    // an automatic OPEN, input or submission before the user uses that menu.
+    if (deliveryMode === 'TEXT_SELECTION') return textSelection();
     if (prepared.surface === 'GEMINI_NATIVE')
       return manual('OPEN', 'NOT_ATTEMPTED', {reason: 'NATIVE_GEMINI_MANUAL_HANDOFF'});
     if (typeof createOriginalRuntime !== 'function' || !ref(deviceId) || !command(commandId))
@@ -131,21 +154,29 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
 
   function reportManualProgress({taskRef, threadRef, requestDigest, step} = {}) {
     if (prepared.active !== true) return prepared;
+    const allowedSteps = deliveryMode === 'TEXT_SELECTION'
+      ? ['OPEN', 'HANDOFF', 'INPUT', 'SUBMIT'] : ['OPEN', 'INPUT', 'SUBMIT'];
     if (taskRef !== prepared.taskRef || threadRef !== prepared.threadRef ||
-        requestDigest !== prepared.requestDigest || !['OPEN', 'INPUT', 'SUBMIT'].includes(step))
+        requestDigest !== prepared.requestDigest || !allowedSteps.includes(step))
       return frozen({ok: false, active: false, code: 'JEBISEO_HANDOFF_REPORT_SCOPE_MISMATCH',
         requestSent: false, resultVerified: false, authorizesExecution: false,
-        automaticReplay: false, returnToGpt: false});
-    const rank = ['OPEN', 'INPUT', 'SUBMIT'].indexOf(step);
+        automaticReplay: false, returnToGpt: false, automaticReturnToGpt: false});
+    if (requiresResultInspection) return inspectExisting();
+    const rank = {OPEN: 0, HANDOFF: 0, INPUT: 1, SUBMIT: 2}[step];
     if (rank <= manualReportedRank) return current;
     manualReportedRank = rank;
     // This changes only guidance. It cannot settle the original pending effect
     // or authorize a callback; the user can finish in Gemini without reporting.
-    return manual(step, 'USER_REPORTED_DONE');
+    return deliveryMode === 'TEXT_SELECTION' ? textSelection(step)
+      : manual(step, 'USER_REPORTED_DONE');
   }
 
   function presentation() {
     if (prepared.active !== true) return prepared;
+    if (requiresResultInspection) return inspectExisting();
+    if (deliveryMode === 'TEXT_SELECTION') return current === prepared
+      ? frozen({...createJebiseoTextSelectionGuide(prepared), deliveryMode,
+        automatedOpenAttempted: false}) : current;
     const next = current.nextAction;
     const viewing = next === 'VIEW_GEMINI_RESULT';
     const submitOnly = next === 'SUBMIT';
@@ -154,7 +185,10 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
     // OPEN can have been attempted; an INPUT/SUBMIT uncertainty from another
     // workflow is never turned into an instruction to repeat that operation.
     let steps;
-    if (viewing) steps = ['진행 상황과 결과는 오른쪽 Gemini에서 확인하세요.'];
+    const resultInstruction = prepared.feature === 'YOUTUBE'
+      ? '오른쪽 Gemini에서 분석이 끝난 뒤, 분석 답변을 선택·공유해 GPT로 보내고 현재 대화에 받은 내용을 확인하세요.'
+      : '결과는 Gemini에서 확인하세요. GPT로 돌아와 완료를 알릴 필요는 없습니다.';
+    if (viewing) steps = [resultInstruction];
     else if (unresolvedBinding) steps = [current.instruction];
     else {
       steps = [];
@@ -170,13 +204,19 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
           : '오른쪽 Gemini가 열린 것을 확인한 뒤, 아직 요청하지 않았다면 아래 문장을 입력하고 실행하세요.');
       if (submitOnly && prepared.feature === 'VIDEO')
         steps[steps.length - 1] += ' 추가 결제가 필요하면 진행하지 마세요.';
-      steps.push('결과는 Gemini에서 확인하세요. GPT로 돌아와 완료를 알릴 필요는 없습니다.');
+      steps.push(resultInstruction);
     }
     return frozen({...current, manualSteps: steps,
       ...(!viewing && !submitOnly && !unresolvedBinding ? {preparedPrompt: prepared.prompt} : {}),
-      requiresUserReply: false, returnToGpt: false});
+      requiresUserReply: false, returnToGpt: prepared.returnToGpt, automaticReturnToGpt: false});
   }
 
-  return Object.freeze({request: prepared, start, readOpenStatus, reportManualProgress,
-    presentation, view: () => current});
+  function prepareManualReturn({requested} = {}) {
+    if (prepared.active !== true) return prepared;
+    return createJebiseoManualReturnGuide(prepared, {requested,
+      requiresResultInspection: requiresResultInspection || priorEffectReadback});
+  }
+
+  return Object.freeze({request: prepared, deliveryMode, start, readOpenStatus, reportManualProgress,
+    presentation, prepareManualReturn, view: () => current});
 }

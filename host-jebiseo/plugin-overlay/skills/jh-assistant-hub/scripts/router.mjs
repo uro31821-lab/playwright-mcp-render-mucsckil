@@ -70,7 +70,7 @@ export function planRoute(input) {
     result.helpers = helpersRequested.filter(x => x !== result.lead && !excluded.includes(x));
     result.mode = intent.mode ?? (result.lead === 'guide' ? 'explain' : 'assist');
   }
-  // A one-way manual request can be prepared locally with the installed skill.
+  // A manual handoff and return guide can be prepared with the installed skill.
   // This is not a relaxed Gemini provider capability or permission to dispatch.
   const handoff = result.lead === 'gemini' && intent.kind !== 'develop' &&
     (intent.geminiFlow === 'HANDOFF' ||
@@ -80,8 +80,9 @@ export function planRoute(input) {
     check(['ANDROID', 'YOUTUBE', 'VIDEO'].includes(feature), 'GEMINI_HANDOFF_FEATURE_REQUIRED');
     result.routeScope = 'HANDOFF_PREPARATION';
     result.geminiFeature = feature;
-    result.resultDestination = 'GEMINI';
-    result.returnToGpt = false;
+    result.resultDestination = feature === 'YOUTUBE' ? 'GPT_AFTER_MANUAL_SHARE' : 'GEMINI';
+    result.returnToGpt = feature === 'YOUTUBE';
+    result.automaticReturnToGpt = false;
     result.manualAllowed = true;
     result.executionReady = false;
   }

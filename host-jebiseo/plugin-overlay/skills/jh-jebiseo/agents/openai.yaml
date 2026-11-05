@@ -1,4 +1,4 @@
 interface:
   display_name: "제비서"
-  short_description: "삼성 앱·기기와 유튜브·영상 요청을 Gemini로 인계"
-  default_prompt: "Use $jh-jebiseo to prepare this phone request, keep GPT left and Gemini right, use supported Android actions with the existing Manual fallback, and leave analysis and video results in Gemini."
+  short_description: "Gemini로 요청 전달·유튜브 분석을 GPT로 수동 공유"
+  default_prompt: "Use $jh-jebiseo to prepare text for Gemini's selection menu, guide the manual return of completed YouTube analysis to this GPT conversation, and leave Samsung and video results in Gemini."

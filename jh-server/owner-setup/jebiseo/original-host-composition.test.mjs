@@ -193,16 +193,20 @@ const appTask = () => createJebiseoTask({taskRef:'fixture-app-task',threadRef:'f
   deviceId:'fixture-phone',commandId:'1'.repeat(32),appPackage:'com.google.android.youtube',
   taskDigest:'8'.repeat(64)});
 
-test('the installed candidate exposes manual handoff only in its authenticated request boundary',async()=>{
+test('the installed candidate exposes default text selection only in its authenticated request boundary',async()=>{
   const f=await setup();
   const input={request:{taskRef:'fixture-handoff-task',threadRef:'fixture-handoff-thread',
-    sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'ANDROID',
-    requestText:'삼성 계산기를 열어 줘'}};
+    sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'YOUTUBE',
+    youtubeUrl:'https://youtu.be/abcde12345_',requestText:'이 영상의 핵심을 정리해 줘'},
+    deviceId:'fixture-phone',commandId:'1'.repeat(32)};
   assert.throws(()=>f.host.createHandoffRuntime(input),/AUTHENTICATED_REQUEST_REQUIRED/);
   f.fixture.onStatus=async()=>f.host.createHandoffRuntime(input).start();
   const response=await f.issueRequest({});
-  assert.equal(response.nextAction,'OPEN');
-  assert.equal(response.surface,'GEMINI_NATIVE');
+  assert.equal(response.nextAction,'SELECT_TEXT');
+  assert.equal(response.surface,'ANDROID_TEXT_SELECTION_MENU');
+  assert.equal(response.deliveryMode,'TEXT_SELECTION');
+  assert.equal(response.returnToGpt,true);
+  assert.equal(response.automaticReturnToGpt,false);
   assert.equal(response.requestSent,false);
   assert.equal(response.automatedOpenAttempted,false);
   assert.equal(f.jobs.size,0);

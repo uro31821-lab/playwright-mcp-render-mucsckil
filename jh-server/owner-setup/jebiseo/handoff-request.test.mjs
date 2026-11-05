@@ -14,7 +14,7 @@ const transition = (request, extra = {}) => ({taskRef: request.taskRef, threadRe
   step: 'INPUT', outcome: 'NOT_ATTEMPTED', ...extra});
 const noSuccess = value => {
   for (const key of ['authorityVerified', 'toolInvoked', 'requestSent', 'externalEffectVerified',
-    'resultVerified', 'geminiReplyVerified', 'screenVerified', 'automaticReplay', 'automaticResume', 'returnToGpt'])
+    'resultVerified', 'geminiReplyVerified', 'screenVerified', 'automaticReplay', 'automaticResume', 'automaticReturnToGpt'])
     assert.equal(value[key], false, key);
   assert.equal(value.advisoryOnly, true);
 };
@@ -33,6 +33,7 @@ test('Samsung requests remain broad native Gemini delegation, with no phone comm
     assert.equal(request.supportsCurrentTargetVerified, false);
     assert.equal(request.layout, 'LEFT_GPT_RIGHT_GEMINI');
     assert.equal(request.resultDestination, 'GEMINI');
+    assert.equal(request.returnToGpt, false);
     assert.equal(Object.hasOwn(request, 'openUrl'), false);
     assert.equal(Object.hasOwn(request, 'appPackage'), false);
     assert.equal(Object.hasOwn(request, 'commandId'), false);
@@ -92,6 +93,8 @@ test('YouTube formats normalize to one video without returning tracking data or 
     assert.equal(request.youtubeUrl, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
     assert.equal(request.youtubeVideoId, 'dQw4w9WgXcQ');
     assert.equal(request.existenceVerified, false);
+    assert.equal(request.resultDestination, 'GPT_AFTER_MANUAL_SHARE');
+    assert.equal(request.returnToGpt, true);
     assert.equal(request.surface, 'GEMINI_WEB');
     assert.equal(request.openUrl, 'https://gemini.google.com/app');
     assert.equal(request.prompt.includes('tracking'), false);
@@ -123,6 +126,8 @@ test('video preparation keeps existing-plan/no-extra-payment policy without inve
   assert.equal(request.existingPlanOnly, true);
   assert.equal(request.additionalPaymentAllowed, false);
   assert.equal(request.availabilityVerified, false);
+  assert.equal(request.resultDestination, 'GEMINI');
+  assert.equal(request.returnToGpt, false);
   assert.equal(request.prompt.includes('추가 결제는 진행하지 마세요'), true);
   assert.equal(Object.hasOwn(request, 'downloadUrl'), false);
   assert.equal(Object.hasOwn(request, 'reply'), false);
@@ -192,11 +197,12 @@ test('user reports advance manual guidance while remaining unverified, without r
     assert.equal(guide.ok, true);
     assert.equal(guide.userReported, true);
     assert.equal(guide.nextAction, nextAction);
-    assert.equal(guide.resultDestination, 'GEMINI');
+    assert.equal(guide.resultDestination, 'GPT_AFTER_MANUAL_SHARE');
+    assert.equal(guide.returnToGpt, true);
     if (step === 'SUBMIT') {
       assert.equal(guide.status, 'VIEW_IN_GEMINI');
       assert.equal(guide.manualExecutionRecommended, false);
-      assert.doesNotMatch(guide.instruction, /GPT.*전달|복사|재전송/);
+      assert.match(guide.instruction, /분석이 끝난 뒤.*공유.*GPT.*현재 대화/);
     }
     noSuccess(guide);
   }
@@ -222,7 +228,8 @@ test('another task, thread, source or changed request cannot reuse a previous tr
   const other = prepareJebiseoHandoff(input({requestText: '이 영상에서 여행 장소만 정리해 줘.'}));
   assert.equal(createJebiseoManualHandoff(other, original).ok, false);
   for (const tampering of [{prompt: request.prompt + '\n추가 동작'}, {surface: 'GEMINI_NATIVE'},
-    {returnToGpt: true}, {requestSent: true}, {openUrl: 'https://example.com'},
+    {returnToGpt: false}, {resultDestination: 'GEMINI'}, {automaticReturnToGpt: true},
+    {requestSent: true}, {openUrl: 'https://example.com'},
     {sourceRef: 'message:other-user'}])
     assert.equal(createJebiseoManualHandoff({...request, ...tampering}, original).ok, false);
 });

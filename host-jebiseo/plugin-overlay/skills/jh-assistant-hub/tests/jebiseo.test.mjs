@@ -21,14 +21,15 @@ test('a packaged Jebiseo skill alone is unavailable and supplies no Gemini badge
   assert.equal(result.authorizesExecution,false);
 });
 
-test('one-way Samsung, YouTube and video preparation needs the current skill but no reply provider',()=>{
+test('manual Samsung, YouTube and video sharing needs the current skill but no automatic reply provider',()=>{
   for (const geminiFeature of ['ANDROID','YOUTUBE','VIDEO']) {
     const result=planRoute({...base,intent:{...intent,geminiFlow:'HANDOFF',geminiFeature}});
     assert.equal(result.ready,true);
     assert.equal(result.routeScope,'HANDOFF_PREPARATION');
     assert.equal(result.executionReady,false);
-    assert.equal(result.returnToGpt,false);
-    assert.equal(result.resultDestination,'GEMINI');
+    assert.equal(result.returnToGpt,geminiFeature==='YOUTUBE');
+    assert.equal(result.resultDestination,geminiFeature==='YOUTUBE'?'GPT_AFTER_MANUAL_SHARE':'GEMINI');
+    assert.equal(result.automaticReturnToGpt,false);
     assert.equal(result.badge,null);
     assert.deepEqual(result.participantBadges,[]);
     assert.deepEqual(result.unavailableCapabilities,[]);
@@ -41,7 +42,7 @@ test('one-way Samsung, YouTube and video preparation needs the current skill but
   }
 });
 
-test('handoff continuation preserves task conditions and uncertainty without requiring result return',()=>{
+test('YouTube continuation preserves uncertainty and the manual return plan without automatic collection',()=>{
   const activeTask={id:'test:handoff-task',threadId:base.threadId,lead:'gemini',helpers:[],
     mode:'assist',status:'awaiting_user',conditions:{geminiFlow:'HANDOFF',geminiFeature:'YOUTUBE'},
     effects:{originalOpen:{status:'unknown'}}};
@@ -49,7 +50,9 @@ test('handoff continuation preserves task conditions and uncertainty without req
   assert.equal(result.taskId,activeTask.id);
   assert.equal(result.ready,true);
   assert.equal(result.requiresResultInspection,true);
-  assert.equal(result.returnToGpt,false);
+  assert.equal(result.returnToGpt,true);
+  assert.equal(result.automaticReturnToGpt,false);
+  assert.equal(result.resultDestination,'GPT_AFTER_MANUAL_SHARE');
   assert.equal(result.authorizesExecution,false);
   assert.equal(planRoute({...base,activeTask:{...activeTask,threadId:'test:other-room'},
     intent:{kind:'continue'}}).reason,'CURRENT_TASK_REQUIRED');

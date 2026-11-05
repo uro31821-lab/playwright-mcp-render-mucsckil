@@ -1,5 +1,5 @@
 /**
- * One-way request preparation and manual guidance for the existing phone flow.
+ * Request preparation and manual sharing guidance for the existing phone flow.
  * These are local, advisory values. There is no tool caller, receipt verifier,
  * action grant, phone-command creation, background retry or result collection.
  */
@@ -26,7 +26,8 @@ const hex64 = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 const flags = Object.freeze({advisoryOnly: true, authorityVerified: false,
   toolInvoked: false, requestSent: false, externalEffectVerified: false,
   resultVerified: false, geminiReplyVerified: false, screenVerified: false,
-  automaticReplay: false, automaticResume: false, returnToGpt: false});
+  automaticReplay: false, automaticResume: false, returnToGpt: false,
+  automaticReturnToGpt: false});
 
 function dataObject(value, allowed) {
   if (value === null || typeof value !== 'object' || Array.isArray(value) ||
@@ -80,7 +81,8 @@ function requestDigest(request) {
     request.threadRef, request.sourceRef, request.intent, request.basis,
     request.feature, request.surface, request.target ?? null,
     request.youtubeVideoId ?? null, request.youtubeUrl ?? null, request.promptDigest,
-    'LEFT_GPT_RIGHT_GEMINI', 'ANDROID_THEN_MANUAL', 'GEMINI', false,
+    'LEFT_GPT_RIGHT_GEMINI', 'ANDROID_THEN_MANUAL',
+    request.resultDestination, request.returnToGpt,
     request.feature === 'VIDEO' ? ['EXISTING_PLAN_ONLY', 'NO_ADDITIONAL_PAYMENT'] : null]));
 }
 
@@ -124,13 +126,14 @@ export function prepareJebiseoHandoff(input = {}) {
     prompt, promptDigest: digest(prompt),
     automaticInputFits: [...prompt].length <= 1200 && Buffer.byteLength(prompt, 'utf8') <= 2048,
     layout: 'LEFT_GPT_RIGHT_GEMINI', routingModel: 'ANDROID_THEN_MANUAL',
-    resultDestination: 'GEMINI', manualAllowed: true,
+    resultDestination: input.feature === 'YOUTUBE' ? 'GPT_AFTER_MANUAL_SHARE' : 'GEMINI',
+    manualAllowed: true,
     nativeGeminiRequired: surface === 'GEMINI_NATIVE',
     supportsCurrentTargetVerified: false,
     ...(surface === 'GEMINI_WEB' ? {openUrl: WEB_URL} : {}),
     ...(input.feature === 'VIDEO' ? {existingPlanOnly: true, additionalPaymentAllowed: false,
       availabilityVerified: false} : {}),
-    ...flags};
+    ...flags, returnToGpt: input.feature === 'YOUTUBE'};
   return Object.freeze({...prepared, requestDigest: requestDigest(prepared)});
 }
 
@@ -142,9 +145,11 @@ function validPrepared(request) {
       !text(request.prompt, 18000) || request.promptDigest !== digest(request.prompt) ||
       !hex64(request.requestDigest) || request.requestDigest !== requestDigest(request) ||
       request.layout !== 'LEFT_GPT_RIGHT_GEMINI' || request.routingModel !== 'ANDROID_THEN_MANUAL' ||
-      request.resultDestination !== 'GEMINI' || request.manualAllowed !== true ||
+      request.resultDestination !== (request.feature === 'YOUTUBE' ? 'GPT_AFTER_MANUAL_SHARE' : 'GEMINI') ||
+      request.manualAllowed !== true ||
       request.supportsCurrentTargetVerified !== false ||
-      Object.entries(flags).some(([key, value]) => request[key] !== value)) return false;
+      Object.entries({...flags, returnToGpt: request.feature === 'YOUTUBE'})
+        .some(([key, value]) => request[key] !== value)) return false;
   const native = request.feature === 'ANDROID';
   if (request.surface !== (native ? 'GEMINI_NATIVE' : 'GEMINI_WEB') ||
       request.nativeGeminiRequired !== native ||
@@ -174,7 +179,9 @@ function instruction(action, request) {
     ? '오른쪽 Gemini에서 영상 만들기를 선택하고 준비된 제작 요청을 입력하세요. 추가 결제가 필요하면 진행하지 마세요.'
     : '오른쪽 Gemini 입력창에 준비된 요청을 입력하세요.';
   if (action === 'SUBMIT') return '오른쪽 Gemini에 입력된 요청을 확인하고 실행 버튼을 누르세요.';
-  return '진행 상황과 결과는 오른쪽 Gemini에서 확인하세요.';
+  return request.feature === 'YOUTUBE'
+    ? '오른쪽 Gemini에서 분석이 끝난 뒤, 분석 답변을 선택·공유해 GPT로 보내고 현재 대화에 받은 내용을 확인하세요.'
+    : '진행 상황과 결과는 오른쪽 Gemini에서 확인하세요.';
 }
 
 /**
@@ -200,10 +207,10 @@ export function createJebiseoManualHandoff(request, transition = {}) {
     taskRef: request.taskRef, threadRef: request.threadRef, sourceRef: request.sourceRef,
     requestDigest: request.requestDigest, promptDigest: request.promptDigest,
     feature: request.feature, surface: request.surface, layout: request.layout,
-    resultDestination: 'GEMINI', step: transition.step,
+    resultDestination: request.resultDestination, step: transition.step,
     outcomeReported: transition.outcome, userReported: transition.outcome === 'USER_REPORTED_DONE',
     ...(transition.receiptRef === undefined ? {} : {receiptRef: transition.receiptRef}),
-    ...flags};
+    ...flags, returnToGpt: request.returnToGpt};
   if (UNCERTAIN.has(transition.outcome)) return Object.freeze({...base,
     status: 'OBSERVE_EXISTING', code: 'JEBISEO_EXISTING_OUTCOME_REVIEW_REQUIRED',
     nextAction: 'INSPECT_EXISTING', readbackRequired: true,

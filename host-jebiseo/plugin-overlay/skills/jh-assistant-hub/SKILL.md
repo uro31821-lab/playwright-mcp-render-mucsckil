@@ -32,18 +32,20 @@ description: "JH 하나에서 비서 이름 없이 자연어로 요청할 때 �
 | 속마음·철학적 조언 | reflection → 쇼비서 | 사용자가 요청한 현재 상담 범위 |
 | 자료 정리 | cleanup → 청비서 | 원래 보존 정책과 실제 정리 도구 |
 | 개인 기준·판단 도움 | personal → 에비서 | 이미 있는 현재 문제를 유지 |
-| 삼성 앱·기기 요청, 유튜브 분석, 영상 제작 | gemini → 제비서 | 요청 준비 → 지원되는 자동 단계 → 기존 Manual, 결과는 오른쪽 Gemini에서 확인 |
-| 별도 요청한 Gemini 의견 회수 | gemini → 제비서 | 실제 연결과 이번 답변의 근거가 있는 경우만 |
+| 삼성 앱·기기 요청, 영상 제작 | gemini → 제비서 | 전달 문장 선택 → Gemini에게 물어보기, 결과는 Gemini에서 확인 |
+| 유튜브 분석 | gemini → 제비서 | Gemini 분석 → 사용자가 결과 선택·공유 → 현재 GPT 대화에서 실제 받은 내용으로 이어가기 |
+| Gemini 결과를 GPT로 수동 공유 | gemini → 제비서 | 유튜브는 기본 순서에 포함, 다른 기능은 요청한 때만 실제 공유 목록·확인된 메뉴를 안내 |
+| 별도 자동 Gemini 의견 회수 | gemini → 제비서 | 실제 연결과 이번 답변의 근거가 있는 경우만 |
 
 첨부가 사진이라는 이유만으로 photo로 보내지 않는다. “이 작품은 어디를 봐야 해?”, “이 도자기는 뭐가 특별해?”, 작품 옆 설명판의 쉬운 해석은 [그비서](../jh-geubiseo/SKILL.md)의 art다. “이 사진을 밝게 바꿔줘”는 photo, “그비서를 만들거나 고쳐줘”는 development다. 미술관 방문 일정이 주 목적이면 travel을 유지하고 실제 감상 단계에만 art를 협력시킨다. 감상 중 “더 쉽게”, “무슨 말이야?”는 같은 작품의 설명을 조정하며, 그 말만으로 영구 취향 기록이나 새 개인화 작업을 만들지 않는다.
 
 `memory/evidence/camera/audio/gemini`는 현재 호스트에 실제 경로가 제공되는 경우에만 연결하는 확장 항목이다. 목록에 있다는 것만으로 메모리아·Perplexity·카메라·음향 처리가 구현되었다고 하지 않는다. 특정 서비스·기기를 명시했다면 해당 연결을 확인한다. 실제 경로가 없는 부분만 정확히 알리고 진행 가능한 나머지는 수행한다.
 
-[제비서](../jh-jebiseo/SKILL.md)의 최신 기본 흐름은 **왼쪽 GPT / 오른쪽 Gemini 고정, Android → Manual, 결과는 Gemini에서 확인**이다. 삼성 앱·기기는 Gemini가 지원하는 전체 작업을 요청 대상으로 하며, 기존 세 앱 직접 열기 목록으로 제한하지 않는다. 유튜브 분석·영상 결과를 GPT로 회수하거나 사용자가 복사해 와야 하는 조건을 두지 않는다. 필요할 때 GPT에 다시 묻는 것은 별도 요청으로 처리한다. 현재 문장에 필요한 대상·동작·내용만 준비하고, 삼성 작업은 모바일 Gemini에 인계한다.
+[제비서](../jh-jebiseo/SKILL.md)의 최신 기본 흐름은 **왼쪽 GPT / 오른쪽 Gemini, 전달 문장 선택 → ‘Gemini에게 물어보기’**다. 현재 요청에 필요한 문장만 독립된 한 덩어리로 표시하고 설명·비서 배지는 그 밖에 둔다. 삼성 앱·기기는 Gemini가 실제 지원·연결하는 전체 범위이며 기존 세 앱 목록으로 제한하지 않는다. 삼성·영상 결과는 Gemini에서 확인한다. 유튜브는 분석 완료 후 결과를 선택·공유해 GPT에서 이어가는 순서까지 기본으로 안내하며 별도 반환 요청을 다시 요구하지 않는다. 모든 기능에 자동 답변 수집·자동 GPT 반환은 없다. 현재 대화에 실제 내용이 들어오기 전에는 복귀·삽입·수신 완료를 표시하지 않는다.
 
-이 세 기능을 현재 사용자가 요청하면 호스트는 `intent.geminiFlow:'HANDOFF'`와 `geminiFeature:'ANDROID'|'YOUTUBE'|'VIDEO'`를 지정한다. `planRoute`의 `routeScope:'HANDOFF_PREPARATION' / ready:true`는 현재 스킬을 통한 요청 준비만 뜻하며, Gemini 제공자 연결·자동 실행·실제 응답의 증거가 아니다. 다음 턴에는 같은 작업의 `conditions.geminiFlow / geminiFeature`를 이어받는다. 자동 경로가 지원되지 않으면 해당 단계부터 Manual을 안내한다. 이미 시도한 결과가 불명확하면 기존 화면·원 결과를 먼저 확인하고 반복 전송을 안내하지 않는다. 사용자의 수동 진행 보고를 독립 검증으로 올리지 않는다.
+이 세 기능을 현재 사용자가 요청하면 호스트는 `intent.geminiFlow:'HANDOFF'`와 `geminiFeature:'ANDROID'|'YOUTUBE'|'VIDEO'`를 지정한다. `planRoute`의 `routeScope:'HANDOFF_PREPARATION' / ready:true`는 준비 가능성만 뜻한다. 다음 턴에도 같은 작업의 `conditions.geminiFlow / geminiFeature`와 `requiresResultInspection`을 유지한다. 실제 연결된 session은 `TEXT_SELECTION`을 기본으로 사용하며 폰 도구·별도 자동 OPEN을 호출하지 않는다. 공유 후에는 받은 요청을 확인하고 초안일 때만 실행하도록 안내한다. 명시적 `OPEN_MANUAL` 선택에는 기존 OPEN 1회·동일 job 조회·수동 흐름을 유지한다. 미확정 결과 확인은 전달 방식보다 우선이며 사용자 보고로 장벽을 해제하거나 반복 전송을 안내하지 않는다.
 
-별도 Gemini 의견 회수에는 기존 `gemini-assistance` 검증을 유지한다. 실제 Gemini 응답이 없으면 GPT의 안내에 제비서 기여 표식을 붙이지 않는다. “제비서를 만들어줘”는 개발 대상이며 외부 질의를 시작하지 않는다. 분석은 병렬로 나눌 수 있지만 같은 휴대폰 실행 명령은 주 담당 하나가 순차 관리한다.
+YOUTUBE는 `returnToGpt:true / resultDestination:'GPT_AFTER_MANUAL_SHARE'`, 다른 두 기능은 `returnToGpt:false / resultDestination:'GEMINI'`이며 모두 `automaticReturnToGpt:false`다. 별도 자동 Gemini 의견 회수에는 기존 `gemini-assistance` 검증을 유지한다. 선택 메뉴 안내·유튜브 기본 수동 복귀·다른 결과의 요청된 수동 반환 때문에 이 capability를 새로 요구하지 않는다. 실제 Gemini 응답이 없으면 GPT의 안내에 제비서 기여 표식을 붙이지 않는다. “제비서를 만들어줘”는 개발 대상이며 외부 질의를 시작하지 않는다. 분석은 병렬로 나눌 수 있지만 같은 휴대폰 실행 명령은 주 담당 하나가 순차 관리한다.
 
 “제미나이 열어줘”나 실제 호스트 실행 버튼에서 온 `intent:open`은 프롬프트 없이 화면만 여는 요청으로 구분한다. 전체 `gemini-assistance`가 미가용이어도 현재 카탈로그의 기존 `life_web_navigate` → 원 Secure56 `right_web_link` 경로를 확인해 `https://gemini.google.com/app`을 오른쪽에 열고 원 결과를 조회할 수 있다. 열기 성공으로 협업 가용성을 올리거나 분석·영상 생성을 임의로 시작하지 않는다. 이 스킬의 등록이 GPT에 새 버튼을 만든다는 뜻은 아니다.
 

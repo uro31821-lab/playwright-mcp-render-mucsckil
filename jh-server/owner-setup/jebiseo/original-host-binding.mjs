@@ -538,19 +538,26 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     entries.set(bound.taskRef, entry); commandTasks.set(key, bound.taskRef);
     return entry.facade;
   }
-  function createHandoffRuntime({request, deviceId = null, commandId = null} = {}) {
+  function createHandoffRuntime({request, deviceId = null, commandId = null,
+    deliveryMode = 'TEXT_SELECTION', requiresResultInspection = false} = {}) {
+    if (!['TEXT_SELECTION', 'OPEN_MANUAL'].includes(deliveryMode))
+      fail('JEBISEO_HANDOFF_DELIVERY_MODE_INVALID');
+    if (typeof requiresResultInspection !== 'boolean')
+      fail('JEBISEO_HANDOFF_INSPECTION_FLAG_INVALID');
     const prepared = prepareJebiseoHandoff(request);
-    if (prepared.active !== true) return createJebiseoHandoffSession({request});
+    if (prepared.active !== true) return createJebiseoHandoffSession({request, deliveryMode,
+      requiresResultInspection});
     const key = prepared.taskRef;
     const identity = JSON.stringify([prepared.threadRef, prepared.sourceRef,
-      prepared.requestDigest, deviceId, commandId]);
+      prepared.requestDigest, deviceId, commandId, deliveryMode, requiresResultInspection]);
     const saved = handoffs.get(key);
     if (saved) {
       if (saved.identity !== identity) fail('JEBISEO_HANDOFF_TASK_BINDING_CHANGED');
       return saved.facade;
     }
     if (handoffs.size >= 256) fail('JEBISEO_HANDOFF_TASK_CAPACITY');
-    const facade = createJebiseoHandoffSession({request, deviceId, commandId,
+    const facade = createJebiseoHandoffSession({request, deviceId, commandId, deliveryMode,
+      requiresResultInspection,
       createOriginalRuntime: createRuntime});
     handoffs.set(key, {identity, facade});
     return facade;

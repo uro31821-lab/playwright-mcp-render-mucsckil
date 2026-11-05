@@ -175,23 +175,24 @@ const typeArgs = () => ({field_id: field, request_id: '2'.repeat(32), text: prom
 const appTask = () => task({intent: 'open_app', feature: 'ANDROID', action: 'OPEN_APP',
   appPackage: 'com.google.android.youtube', taskDigest: '8'.repeat(64)});
 
-test('one-way handoff reuses the original bound OPEN and same cached session across requests', async () => {
+test('explicit OPEN_MANUAL reuses the original bound OPEN and same cached session across requests', async () => {
   const f=fixture();
   const request={taskRef:'fixture-handoff-task',threadRef:'fixture-handoff-thread',
     sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'YOUTUBE',
     youtubeUrl:'https://youtu.be/abcde12345_',requestText:'이 영상의 핵심을 정리해 줘'};
-  const session=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId}));
+  const session=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,deliveryMode:'OPEN_MANUAL'}));
   const opened=await f.within(()=>session.start());
-  assert.equal(opened.requestSent,false);assert.equal(opened.returnToGpt,false);
+  assert.equal(opened.requestSent,false);assert.equal(opened.returnToGpt,true);
+  assert.equal(opened.automaticReturnToGpt,false);
   assert.equal(opened.nextAction,'INSPECT_EXISTING');
   assert.equal(f.jobs.size,1);
-  const same=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId}));
+  const same=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,deliveryMode:'OPEN_MANUAL'}));
   assert.equal(same,session);await f.within(()=>same.start());assert.equal(f.jobs.size,1);
   await f.within(()=>same.readOpenStatus());assert.equal(f.jobs.size,1);
   assert.deepEqual(f.calls.map(x=>x.name),['life_web_navigate','life_job_status']);
   assert.equal(session.presentation().requiresUserReply,false);
   await assert.rejects(f.within(()=>f.host.createHandoffRuntime({
-    request:{...request,requestText:'다른 작업'},deviceId,commandId})),/HANDOFF_TASK_BINDING_CHANGED/);
+    request:{...request,requestText:'다른 작업'},deviceId,commandId,deliveryMode:'OPEN_MANUAL'})),/HANDOFF_TASK_BINDING_CHANGED/);
 });
 
 test('Samsung handoff through the original host creates no native/web job or reply requirement', async () => {
@@ -201,8 +202,28 @@ test('Samsung handoff through the original host creates no native/web job or rep
     target:'삼성 노트',requestText:'선택한 내용을 노트에 저장해 줘'};
   const session=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId}));
   const manual=await f.within(()=>session.start());
-  assert.equal(manual.surface,'GEMINI_NATIVE');assert.equal(manual.nextAction,'OPEN');
+  assert.equal(manual.surface,'ANDROID_TEXT_SELECTION_MENU');assert.equal(manual.nextAction,'SELECT_TEXT');
+  assert.equal(manual.nativeGeminiRequired,true);assert.equal(manual.deliveryMode,'TEXT_SELECTION');
   assert.equal(manual.externalEffectVerified,false);assert.equal(manual.requestSent,false);
+  assert.equal(await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId})),session);
+  await assert.rejects(f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,
+    deliveryMode:'OPEN_MANUAL'})),/HANDOFF_TASK_BINDING_CHANGED/);
+  await assert.rejects(f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,
+    requiresResultInspection:true})),/HANDOFF_TASK_BINDING_CHANGED/);
+  assert.equal(f.jobs.size,0);assert.equal(f.calls.length,0);assert.equal(f.parses.length,0);
+});
+
+test('the original host preserves a current task inspection barrier in selection mode', async () => {
+  const f=fixture();
+  const request={taskRef:'fixture-pending-task',threadRef:'fixture-handoff-thread',
+    sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'VIDEO',
+    requestText:'바다 영상을 만들어 줘'};
+  const session=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,
+    requiresResultInspection:true}));
+  assert.equal((await f.within(()=>session.start())).nextAction,'INSPECT_EXISTING');
+  assert.equal(session.presentation().preparedPrompt,undefined);
+  await assert.rejects(f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId})),
+    /HANDOFF_TASK_BINDING_CHANGED/);
   assert.equal(f.jobs.size,0);assert.equal(f.calls.length,0);assert.equal(f.parses.length,0);
 });
 

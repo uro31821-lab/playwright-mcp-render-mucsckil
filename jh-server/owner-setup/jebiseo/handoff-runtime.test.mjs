@@ -4,6 +4,9 @@ import {createHash} from 'node:crypto';
 import {createJebiseoHandoffSession} from './handoff-runtime.mjs';
 import {createJebiseoRuntime} from './host-runtime.mjs';
 
+// Preserve the explicit OPEN_MANUAL path; text-selection has its own runtime suite.
+const createOpenManualSession = options => createJebiseoHandoffSession({...options, deliveryMode: 'OPEN_MANUAL'});
+
 const deviceId='fixture-handoff-phone',commandId='1'.repeat(32);
 const request=(overrides={})=>({taskRef:'fixture-handoff-task',threadRef:'fixture-handoff-thread',
   sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'YOUTUBE',
@@ -15,12 +18,12 @@ const queued=()=>({toolInvoked:true,status:'PENDING',readbackRequired:true,
     arguments:{job_id:'job_17',command_id:commandId}}});
 const noSuccess=result=>{
   assert.equal(result.requestSent,false);assert.equal(result.resultVerified,false);
-  assert.equal(result.externalEffectVerified,false);assert.equal(result.returnToGpt,false);
+  assert.equal(result.externalEffectVerified,false);assert.equal(result.automaticReturnToGpt,false);
   assert.equal(result.automaticReplay,false);assert.equal(result.authorizesExecution,false);
 };
 
 test('Samsung actions prepare a native manual handoff without constructing a web or app-open runtime',async()=>{
-  const session=createJebiseoHandoffSession({request:request({feature:'ANDROID',
+  const session=createOpenManualSession({request:request({feature:'ANDROID',
     youtubeUrl:undefined,target:'삼성 계산기',requestText:'계산기를 열어 줘'}),deviceId,commandId,
     createOriginalRuntime(){assert.fail('Samsung request must not use Chrome or legacy three-app route');}});
   const guide=await session.start();
@@ -32,7 +35,7 @@ test('Samsung actions prepare a native manual handoff without constructing a web
 });
 
 test('web request preparation remains usable without a phone command or full Gemini provider',async()=>{
-  const session=createJebiseoHandoffSession({request:request(),
+  const session=createOpenManualSession({request:request(),
     createOriginalRuntime(){assert.fail('no binding must remain manual');}});
   const guide=await session.start();assert.equal(guide.nextAction,'OPEN');
   assert.equal(guide.reason,'EXISTING_PHONE_BINDING_UNAVAILABLE');
@@ -42,7 +45,7 @@ test('web request preparation remains usable without a phone command or full Gem
 
 test('concurrent and repeated starts reuse exactly one original OPEN-only task and never send or collect',async()=>{
   const calls=[];let constructors=0,task;
-  const session=createJebiseoHandoffSession({request:request(),deviceId,commandId,
+  const session=createOpenManualSession({request:request(),deviceId,commandId,
     createOriginalRuntime(t){constructors++;task=t;return {
       async start(){calls.push('OPEN');return queued();},
       async runStep(input){calls.push(input);return {ok:true,status:'RETURNED'};},
@@ -63,7 +66,7 @@ test('concurrent and repeated starts reuse exactly one original OPEN-only task a
 test('a dispatched ok response and a lost response are observation-only, never permission to resend',async()=>{
   for(const mode of ['ok','throw']) {
     let calls=0;
-    const session=createJebiseoHandoffSession({request:request(),deviceId,commandId,
+    const session=createOpenManualSession({request:request(),deviceId,commandId,
       createOriginalRuntime:()=>({runStep:async()=>{},start:async()=>{
         calls++;if(mode==='throw')throw Error('network_lost');
         return {ok:true,toolInvoked:true,status:'RETURNED'};
@@ -75,7 +78,7 @@ test('a dispatched ok response and a lost response are observation-only, never p
 
 test('an original pre-dispatch gap can hand off, while a retained uncertain effect stays observe-only',async()=>{
   for(const readbackRequired of [false,true]) {
-    const session=createJebiseoHandoffSession({request:request(),deviceId,commandId,
+    const session=createOpenManualSession({request:request(),deviceId,commandId,
       createOriginalRuntime:()=>({runStep:async()=>{},start:async()=>({toolInvoked:false,
         status:'BLOCKED',readbackRequired,code:readbackRequired
           ?'JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED':'JEBISEO_ORIGINAL_PHONE_BINDING_REQUIRED'})})});
@@ -92,7 +95,7 @@ test('wrong-job, extra-argument and wrong-command followups cannot create a rece
   for(const arguments_ of [{job_id:'job_17',command_id:'2'.repeat(32)},
     {job_id:'https://attacker.invalid',command_id:commandId},
     {job_id:'job_17',command_id:commandId,manualDone:true}]) {
-    const session=createJebiseoHandoffSession({request:request(),deviceId,commandId,
+    const session=createOpenManualSession({request:request(),deviceId,commandId,
       createOriginalRuntime:()=>({start:async()=>({...queued(),followUp:{tool:'life_job_status',
         readOnly:true,arguments:arguments_}}),runStep:async()=>assert.fail('invalid followup')})});
     const guide=await session.start();assert.equal(guide.statusReadAvailable,false);
@@ -100,8 +103,8 @@ test('wrong-job, extra-argument and wrong-command followups cannot create a rece
   }
 });
 
-test('manual reports are scoped and monotonic without becoming verified submission or requiring a return',async()=>{
-  const session=createJebiseoHandoffSession({request:request()});await session.start();
+test('manual reports are scoped and monotonic while YouTube return stays manual and unverified',async()=>{
+  const session=createOpenManualSession({request:request()});await session.start();
   const before=session.view();
   assert.equal(session.reportManualProgress({...reported(session,'SUBMIT'),threadRef:'wrong-thread'}).ok,false);
   assert.equal(session.view(),before);
@@ -117,13 +120,15 @@ test('manual reports are scoped and monotonic without becoming verified submissi
   assert.equal(submitted.nextAction,'VIEW_GEMINI_RESULT');assert.equal(submitted.userReported,true);
   assert.equal(submitted.requiresUserReply,false);noSuccess(submitted);
   assert.equal(session.presentation().manualSteps.length,1);
+  assert.equal(submitted.returnToGpt,true);
+  assert.match(session.presentation().manualSteps[0],/분석이 끝난 뒤.*공유.*GPT/);
   assert.equal(session.presentation().preparedPrompt,undefined);
   assert.equal(session.reportManualProgress(reported(session,'INPUT')),submitted);
   assert.equal(await session.start(),submitted);
 });
 
 test('manual completion before start suppresses a later automated OPEN',async()=>{
-  const session=createJebiseoHandoffSession({request:request(),deviceId,commandId,
+  const session=createOpenManualSession({request:request(),deviceId,commandId,
     createOriginalRuntime(){assert.fail('user already completed manually');}});
   const final=session.reportManualProgress(reported(session,'SUBMIT'));
   assert.equal(await session.start(),final);noSuccess(final);
@@ -132,7 +137,7 @@ test('manual completion before start suppresses a later automated OPEN',async()=
 test('a late original OPEN response does not overwrite manual progress or offer another submit',async()=>{
   let release,entered;
   const started=new Promise(resolve=>{entered=resolve;});
-  const session=createJebiseoHandoffSession({request:request(),deviceId,commandId,
+  const session=createOpenManualSession({request:request(),deviceId,commandId,
     createOriginalRuntime:()=>({runStep:async()=>{},start:()=>{entered();
       return new Promise(resolve=>{release=resolve;});}})});
   const pending=session.start();await started;
@@ -145,7 +150,7 @@ test('a late original OPEN response does not overwrite manual progress or offer 
 
 test('a late OPEN error cannot replace an already reported manual submission',async()=>{
   let reject,entered;const started=new Promise(resolve=>{entered=resolve;});
-  const session=createJebiseoHandoffSession({request:request(),deviceId,commandId,
+  const session=createOpenManualSession({request:request(),deviceId,commandId,
     createOriginalRuntime:()=>({runStep:async()=>{},start:()=>{entered();
       return new Promise((resolve,no)=>{reject=no;});}})});
   const pending=session.start();await started;
@@ -154,7 +159,7 @@ test('a late OPEN error cannot replace an already reported manual submission',as
 });
 
 test('mutation of the caller request cannot change the bound manual prompt',async()=>{
-  const input=request();const session=createJebiseoHandoffSession({request:input});
+  const input=request();const session=createOpenManualSession({request:input});
   const prepared=session.request.prompt;input.requestText='changed request';
   await session.start();
   assert.equal(session.reportManualProgress(reported(session,'OPEN')).prompt,prepared);
@@ -163,7 +168,7 @@ test('mutation of the caller request cannot change the bound manual prompt',asyn
 
 test('development and non-invocations never construct the original phone runtime',async()=>{
   for(const intent of ['develop','quote','explain','stop']) {
-    const session=createJebiseoHandoffSession({request:request({intent}),deviceId,commandId,
+    const session=createOpenManualSession({request:request({intent}),deviceId,commandId,
       createOriginalRuntime(){assert.fail('not an execution request');}});
     assert.equal((await session.start()).active,false);
     assert.equal((await session.readOpenStatus()).active,false);
@@ -172,7 +177,7 @@ test('development and non-invocations never construct the original phone runtime
 
 test('the actual legacy runtime receives only its fixed web navigation operation',async()=>{
   const calls=[];
-  const session=createJebiseoHandoffSession({request:request(),deviceId,commandId,
+  const session=createOpenManualSession({request:request(),deviceId,commandId,
     createOriginalRuntime:task=>{
       const runtime=createJebiseoRuntime({runtimeMode:'PHONE_RIGHT',
         readCurrentBinding:()=>({deviceId,commandId,runtimeMode:'PHONE_RIGHT',
