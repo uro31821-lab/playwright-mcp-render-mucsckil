@@ -1,0 +1,23 @@
+name: JH Stage73 TripLocation + NativeSelect FIX3 merge
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-mobile-dual-engine/stage73/**'
+      - '.github/workflows/jh-stage73-trip-native-fix3.yml'
+permissions: {contents: read}
+jobs:
+  merged-candidate-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage73/stage73-merge.test.mjs
+      - run: |
+          echo APK_BUILD=0
+          echo APK_SIGN=0
+          echo APK_INSTALL=0
+          echo RENDER_DEPLOY=0
+          echo PHONE_PERMISSION_GRANT=0
