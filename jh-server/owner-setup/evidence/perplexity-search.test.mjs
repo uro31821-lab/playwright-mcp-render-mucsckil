@@ -38,6 +38,7 @@ test('standard Search API: ONE POST, no agent/model/fast; source links for GPT',
  const result=await searchPerplexityEvidence({query:'dementia diagnosis NICE clinical guideline',apiKey:KEY,fetchImpl});
  assert.equal(count,1);assert.equal(result.ok,true);
  assert.equal(result.provider,'perplexity_search');
+ assert.equal(result.assistant_marker,'🏴‍☠️ 퍼비서:');
  assert.equal(result.search_type,'standard');
  assert.equal(result.sources.length,2);
  assert.equal(result.sources[0].url,'https://www.nice.org.uk/guidance/ng97');
@@ -59,6 +60,7 @@ test('MCP OAuth tool hidden without key, blocks generic questions',async()=>{
    fetchImpl:async()=>{count++;return yes({results:[]});}}),true);
  assert.equal(registered.length,1);
  assert.equal(registered[0].name,'jh_evidence_search');
+ assert.match(registered[0].config.title,/🏴‍☠️ 퍼비서/);
  const handler=registered[0].handler;
  const blocked=await handler({user_request:'이 기사 요약해 줘',query:'the general article'});
  assert.equal(blocked.code,'EXPLICIT_EVIDENCE_REQUEST_REQUIRED');assert.equal(count,0);
