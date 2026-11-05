@@ -34,6 +34,21 @@ const REVIEWED_TRANSITIONS=Object.freeze([
      'jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs':
       '1049d0f86cf6cc4dd2eb3009eecc4dc29a845583'
     })
+   }),
+   Object.freeze({
+    reviewedHead:'51c46c374d70701bd93e564038fb15f4d1d46466',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs':
+      '3044caf07865601c1d5362a382e9de57b080b464',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs':
+      'c5e5d46def55f1dee705527010e2eb27b1cece52',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs':
+      'b9c8925f9769ef1b3c0a411f2926e3db187a9084',
+     'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.mjs':
+      'caf47a2fe47083382008991e4a8673501298bf64',
+     'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.test.mjs':
+      '44ac584dce2ae6615c6578d32761e9acce66c768'
+    })
    })
   ])
  })
