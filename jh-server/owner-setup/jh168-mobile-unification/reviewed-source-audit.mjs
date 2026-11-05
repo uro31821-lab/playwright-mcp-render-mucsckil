@@ -49,6 +49,19 @@ const REVIEWED_TRANSITIONS=Object.freeze([
      'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.test.mjs':
       '44ac584dce2ae6615c6578d32761e9acce66c768'
     })
+   }),
+   Object.freeze({
+    reviewedHead:'76e39c0680ff6bfdc552e75db62b061311c934c0',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.mjs':
+      '7db04089817875ac9a185fe4e38f1439761be975',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs':
+      'fa34893f08b41cb6c958fbc734b58d9f111dd24e',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
+      'd4e73efc16e2e2805513b0669e62d97c8a3619c5',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs':
+      'bd4617a33c5c8918d112531172c4083e9d386a04'
+    })
    })
   ])
  })
