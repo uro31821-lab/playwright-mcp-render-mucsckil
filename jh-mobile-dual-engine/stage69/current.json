@@ -1,0 +1,21 @@
+{
+  "schema":"JH168_STAGE69_ROUND2_STATE_V1",
+  "round":2,
+  "maxRounds":3,
+  "status":"FIXING_ROUND1_DUAL_FAILURES",
+  "resolved":{
+    "BACK":"ANDROID",
+    "WAIT_CONDITION":"ANDROID",
+    "SCREENSHOT":"ANDROID"
+  },
+  "remaining":[
+    "NATIVE_SELECT",
+    "NESTED_VERTICAL_SCROLL",
+    "HORIZONTAL_SCROLL",
+    "PRESS_KEY",
+    "RETURN_TO_CHROME_FROM_OTHER_APP"
+  ],
+  "rule":"Only remaining dual failures are modified and re-run. Any round-2 winner eliminates the opposite implementation. Only dual failures continue to round 3.",
+  "noAutomaticReplay":["UNKNOWN","PENDING","FAILED_AFTER_EFFECT"],
+  "verificationRequired":"REAL_PHONE_EXECUTION_PLUS_READBACK"
+}
