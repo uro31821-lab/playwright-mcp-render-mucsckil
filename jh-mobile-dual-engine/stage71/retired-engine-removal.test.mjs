@@ -8,6 +8,8 @@ const executableExt=new Set(['.mjs','.js','.cjs','.ts','.yml','.yaml']);
 const retiredDir=['playwright','mobile'].join('-');
 const banned=[
   ['PLAYWRIGHT','MOBILE'].join('_'),
+  ['Playwright',' Mobile'].join(''),
+  ['playwright','Mobile'].join(''),
   ['Playwright','Mobile','Provider'].join(''),
   ['JH','PLAYWRIGHT','ADB'].join('_'),
   retiredDir+'/',
