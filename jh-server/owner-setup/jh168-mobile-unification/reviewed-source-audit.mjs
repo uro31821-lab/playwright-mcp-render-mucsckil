@@ -120,13 +120,23 @@ export function assertReviewedSource({cwd, baseline,
      '--no-renames',finalReviewedHead,head,'--',...paths]),'',
     'HEAD_HAS_UNREVIEWED_PROTECTED_SOURCE_AFTER_TRANSITION');
    }else{
-    ancestor(finalReviewedHead,base,'REVIEWED_TRANSITION_NOT_ANCESTOR_OF_BASE');
-    assert.equal(git(['diff','--no-ext-diff','--no-textconv','--raw','--no-abbrev',
-     '--no-renames',finalReviewedHead,base,'--',...paths]),'',
-    'BASE_HAS_UNREVIEWED_PROTECTED_SOURCE_AFTER_TRANSITION');
-    assert.equal(git(['diff','--no-ext-diff','--no-textconv','--raw','--no-abbrev',
-     '--no-renames',base,head,'--',...paths]),'',
-    'HEAD_HAS_UNREVIEWED_PROTECTED_SOURCE_AFTER_BASE');
+    const isAncestor=(from,to)=>spawnSync('git',['merge-base','--is-ancestor',from,to],options).status===0;
+    const reviewedInBase=isAncestor(finalReviewedHead,base);
+    const baseInReviewed=isAncestor(base,finalReviewedHead);
+    assert.ok(reviewedInBase||baseInReviewed,'REVIEWED_TRANSITION_BRANCH_RELATION_INVALID');
+    if(reviewedInBase){
+     assert.equal(git(['diff','--no-ext-diff','--no-textconv','--raw','--no-abbrev',
+      '--no-renames',finalReviewedHead,base,'--',...paths]),'',
+     'BASE_HAS_UNREVIEWED_PROTECTED_SOURCE_AFTER_TRANSITION');
+     assert.equal(git(['diff','--no-ext-diff','--no-textconv','--raw','--no-abbrev',
+      '--no-renames',base,head,'--',...paths]),'',
+     'HEAD_HAS_UNREVIEWED_PROTECTED_SOURCE_AFTER_BASE');
+    }else{
+     ancestor(finalReviewedHead,head,'REVIEWED_CANDIDATE_NOT_ANCESTOR_OF_HEAD');
+     assert.equal(git(['diff','--no-ext-diff','--no-textconv','--raw','--no-abbrev',
+      '--no-renames',finalReviewedHead,head,'--',...paths]),'',
+     'HEAD_HAS_UNREVIEWED_PROTECTED_SOURCE_AFTER_CANDIDATE');
+    }
    }
    reviewedTransition=finalReviewedHead;
   }else{
