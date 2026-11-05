@@ -1,0 +1,31 @@
+ // KABISEO_V07_HELPER_BEGIN — explicit signed route only; no snapshot fallback.
+ @android.annotation.TargetApi(34)
+ private fun kabiseoMetadataResult(job:JSONObject,gate:SecureBridge56.Verify,generation:Long):JSONObject {
+  fun denied(code:String)=JSONObject().put("ok",false).put("code",code).put("readOnly",true)
+    .put("cameraSettingsChanged",false).put("pixelsRead",false).put("gestureDispatched",false)
+  if(android.os.Build.VERSION.SDK_INT<34)return denied("kabiseo_api34_required")
+  if(!gate.ok||gate.code!="secure_verified"||!job.has("secureSessionId"))return denied("kabiseo_signed_request_required")
+  return try {
+   val c=com.jh.pobiseo.assist.CameraCommandGate.Command(
+     job.optString("id"),job.optString("commandId"),job.optString("secureSessionId"),job.optString("type"),
+     job.optString("mcpToolName"),job.optString("action"),job.optString("secureRequestedEffect"),
+     job.optString("cameraTargetPackage"),job.optString("targetDeviceDigest"),job.optString("taskDigest"),job.optLong("secureExpiresAt"))
+   val result=com.jh.pobiseo.assist.android.JhCameraMetadataRuntime.run(this,c,gate.code,
+     java.util.function.Supplier {
+       val active=SecureBridge56Runtime.session.activeView()
+       val unlocked=!(getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager).isDeviceLocked
+       com.jh.pobiseo.assist.CameraCommandGate.Live(
+         kabiseoCameraMetadataEnabled,running&&accessibilityConnected&&active!=null&&TrustedAutoReconnectPolicy.enabled(this),
+         unlocked,siteFence.current(generation)&&!siteDeleteFailed,serverCommandId.orEmpty(),active?.sessionId.orEmpty(),active?.deviceDigest.orEmpty())
+     },java.util.function.LongSupplier {SecureBridge56Runtime.session.transportNowMillis()},
+     java.util.function.LongSupplier {kabiseoCameraEpoch.get()},
+     com.jh.pobiseo.assist.android.JhCameraMetadataRuntime.Profiles { _,_,_ -> null })
+   // No camera profile is bundled. PROFILE_REQUIRED is NOT a camera-verification success.
+   JSONObject().put("ok",result.status()==com.jh.pobiseo.assist.CameraMetadataRoute.Status.CAMERA_READ_ONLY)
+     .put("code","kabiseo_"+result.reason().name.lowercase(java.util.Locale.ROOT))
+     .put("readOnly",true).put("cameraSettingsChanged",false).put("pixelsRead",false).put("gestureDispatched",false)
+     .put("automaticZoomEnabled",false).put("restoreVerified",false)
+  }catch(_:RuntimeException){denied("kabiseo_metadata_unavailable")}
+ }
+ // KABISEO_V07_HELPER_END
+

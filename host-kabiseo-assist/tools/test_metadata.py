@@ -6,8 +6,8 @@ root=Path(__file__).resolve().parents[1]
 if not all(shutil.which(x) for x in ("javac","java")):
     raise SystemExit("JDK 17+ required; tests NOT RUN")
 package=root/"core/src/main/java/com/jh/pobiseo/assist"
-names=("CameraMetadataRouteTests","CameraMetadataHardeningTests")
-sources=[package/"CameraSurfacePolicy.java",package/"CameraMetadataRoute.java"]
+names=("CameraMetadataRouteTests","CameraMetadataHardeningTests","CameraCommandGateTests")
+sources=[package/"CameraSurfacePolicy.java",package/"CameraMetadataRoute.java",package/"CameraCommandGate.java"]
 sources += [root/"tests"/(name+".java") for name in names]
 with tempfile.TemporaryDirectory(prefix="kabiseo-metadata-") as out:
     subprocess.run(["javac","--release","17","-Xlint:all","-Werror","-encoding","UTF-8","-d",out,*map(str,sources)],check=True)
