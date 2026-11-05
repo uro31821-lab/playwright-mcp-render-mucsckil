@@ -1,0 +1,30 @@
+name: JH Stage75 TripLocation merged FIX1
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-mobile-dual-engine/stage73/current.json'
+      - 'jh-mobile-dual-engine/stage75/**'
+      - '.github/workflows/jh-stage75-trip-fix1.yml'
+permissions: {contents: read}
+jobs:
+  fix1-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage75/stage75-fix1.test.mjs
+      - name: Verify patch is minimal and fail-closed
+        run: |
+          set -euo pipefail
+          PATCH=jh-mobile-dual-engine/stage75/android-agent-trip-fix1.patch
+          grep -F 'if(TripAgentTransport.matches(step)) TripAgentTransport.execute(service,step)' "$PATCH"
+          grep -F 'else SplitComfortRuntime.gate(service) ?: when {' "$PATCH"
+          ! grep -E 'adb install|uninstall|pm clear|ACCESS_BACKGROUND_LOCATION|Render deploy' "$PATCH"
+          echo APK_BUILD=0
+          echo APK_SIGN=0
+          echo APK_INSTALL=0
+          echo RENDER_DEPLOY=0
+          echo PHONE_EFFECT=0

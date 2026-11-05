@@ -1,0 +1,15 @@
+--- a/app/src/main/java/com/koreanlifehub/bridge/AndroidAgent.kt
++++ b/app/src/main/java/com/koreanlifehub/bridge/AndroidAgent.kt
+@@
+-        if(TripAgentTransport.matches(step))return TripAgentTransport.execute(service,step)
+-        SplitComfortRuntime.gate(service)?.let { return it }
+-        when {
++        if(TripAgentTransport.matches(step)) TripAgentTransport.execute(service,step)
++        else SplitComfortRuntime.gate(service) ?: when {
+
+Rationale:
+- AndroidAgent.execute is expression-bodied (`:String = try { ... }`).
+- A direct `return` in that body is rejected by Kotlin.
+- Trip commands remain the first branch.
+- The split-comfort gate still precedes all legacy routing.
+- No new fallback, replay, permission, server route, uninstall, or data reset is introduced.

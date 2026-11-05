@@ -33,7 +33,7 @@ const GUIDED = new Set(['DISCOVER_INPUT', 'DISMISS_NOTICE', 'TYPE']);
 const EFFECTS = new Set(['OPEN', ...GUIDED, 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const SUBMIT = new Set(['INSPECT_SUBMIT', 'PREPARE_SUBMIT', 'APPROVAL_REQUEST', 'EXECUTE_SUBMIT']);
 const HEX32 = /^[a-f0-9]{32}$/, HEX64 = /^[a-f0-9]{64}$/;
-const CONTEXT = /^ssc_[a-f0-9]{32}$/, ITEM = /^item_[a-f0-9]{16}$/;
+const CONTEXT = /^ssc_[a-f0-9]{32}$/, FIELD = /^f_[a-f0-9]{24}$/;
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const matches = (pattern, value) => typeof value === 'string' && pattern.test(value);
 const token = value => typeof value === 'string' && value.length >= 8 && value.length <= 512 && !/[\u0000-\u001f]/.test(value);
@@ -50,9 +50,9 @@ const FIELDS = Object.freeze({
   OPEN: [],
   SNAPSHOT: ['context_id', 'goal'],
   FORM_SNAPSHOT: [],
-  DISCOVER_INPUT: ['context_id', 'guided_arguments'],
-  DISMISS_NOTICE: ['context_id', 'target_item_ref', 'guided_arguments'],
-  TYPE: ['context_id', 'request_id', 'target_item_ref', 'text', 'submit', 'guided_arguments'],
+  DISCOVER_INPUT: ['guided_arguments'],
+  DISMISS_NOTICE: ['field_id', 'guided_arguments'],
+  TYPE: ['request_id', 'field_id', 'text', 'submit', 'guided_arguments'],
   APPROVAL_STATUS: ['device_id', 'task_digest', 'request_token'],
   RECEIPT_STATUS: ['device_id', 'task_digest', 'run_digest', 'receipt_token'],
   JOB_STATUS: ['job_id']
@@ -120,16 +120,14 @@ function validateArgs(operation, args, commandId) {
     // Original signed native snapshot exposes issued guided-form arguments.
     // A generic RIGHT item reference must never be converted to a native ID.
   } else if (operation === 'DISCOVER_INPUT' || operation === 'DISMISS_NOTICE') {
-    if (!matches(CONTEXT, args.context_id)) return {error: 'MOBILE_CONTEXT_ID_REQUIRED'};
-    if (operation === 'DISMISS_NOTICE' && !matches(ITEM, args.target_item_ref))
-      return {error: 'MOBILE_FRESH_ITEM_REF_REQUIRED'};
+    if (operation === 'DISMISS_NOTICE' && !matches(FIELD, args.field_id))
+      return {error: 'JEBISEO_NATIVE_FIELD_ID_REQUIRED'};
   } else if (operation === 'SNAPSHOT') {
     if (args.context_id !== undefined && !matches(CONTEXT, args.context_id))
       return {error: 'MOBILE_CONTEXT_ID_INVALID'};
     if (args.goal !== undefined && !text(args.goal)) return {error: 'MOBILE_READ_GOAL_INVALID'};
   } else if (operation === 'TYPE') {
-    if (!matches(CONTEXT, args.context_id)) return {error: 'MOBILE_CONTEXT_ID_REQUIRED'};
-    if (!matches(ITEM, args.target_item_ref)) return {error: 'MOBILE_FRESH_ITEM_REF_REQUIRED'};
+    if (!matches(FIELD, args.field_id)) return {error: 'JEBISEO_NATIVE_FIELD_ID_REQUIRED'};
     if (!matches(HEX32, args.request_id)) return {error: 'MOBILE_REQUEST_ID_REQUIRED'};
     if (args.submit !== undefined && args.submit !== false)
       return {error: 'MOBILE_SUBMIT_SEPARATE_ACTION_REQUIRED'};
@@ -178,8 +176,11 @@ function validateArgs(operation, args, commandId) {
     const prepared = prepareJebiseoGuidedCall({operation,
       issuedArguments: args.guided_arguments, text: args.text});
     if (prepared.ok !== true) return {error: prepared.code};
-    // Only the original carrier is forwarded. Context/item/request values are
-    // host binding inputs, not substitutes for phone-issued form identifiers.
+    if (operation !== 'DISCOVER_INPUT' && prepared.identity.fieldId !== args.field_id)
+      return {error: 'JEBISEO_GUIDED_TARGET_MISMATCH'};
+    // The canonical target is the original native f_ ID. Mobile13 item_ IDs
+    // have no public same-node mapping to it. Only the exact issued carrier is
+    // forwarded; the external request value remains host coordination only.
     return {value: {...prepared.arguments, command_id: commandId}, identity: prepared.identity};
   }
   return {value};
@@ -213,7 +214,7 @@ export function createJebiseoMobilePort({callOriginalTool, runtimeMode = null, m
         const identity = operation === 'OPEN'
           ? [operation, commandId, JEBISEO_GEMINI_WEB_URL]
           : GUIDED.has(operation)
-          ? [operation, commandId, args.context_id, args.target_item_ref ?? null]
+          ? [operation, commandId, args.field_id ?? null]
           : [operation, commandId, args.device_id ?? null, args.task_digest];
         const key = hash(identity);
         if (reserved.has(key)) return reject(operation, 'JEBISEO_ACTION_ALREADY_ATTEMPTED_READ_ORIGINAL_RESULT');

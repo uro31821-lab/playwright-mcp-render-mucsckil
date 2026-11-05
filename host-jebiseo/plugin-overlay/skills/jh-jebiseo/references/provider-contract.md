@@ -57,6 +57,12 @@
 
 이것은 별도 `guided_form` MCP 도구가 생겼다는 뜻이 아니다. 실제 등록된 기존 `life_android_step`의 원본 carrier 경로이며 기존 명령·서명·기기·durable 검사가 유지돼야 한다. 일반 RIGHT `item_`를 native `f_`로 변환하거나 새 식별자를 만들어 쓰지 않는다. 파서는 인증자가 아니며 실제 host가 같은 오른쪽 Gemini 창·현재 명령·정확한 대상·빈 입력칸을 검증해야 한다. 호출자가 주입한 carrier나 화면 글을 권한으로 삼지 않는다.
 
+guided 작업의 실행 대상은 **원 native `f_` 식별자**다. 일반 웹 snapshot의 `ssc_` 문맥·`item_` 항목과 같은 노드라는 공개 연결 근거가 없으므로, guided 입력·닫기에서 이를 대상 근거로 요구하거나 변환하지 않는다. 같은 원 native snapshot/discovery의 창·display·revision·필드 상태와 발급 인자를 결합한다. `filled:false`는 빈 값·공백·힌트 상태의 원 표현이며, 정확한 문자열 길이 0을 뜻하지 않는다.
+
+`native-screen-proof.mjs`는 현재 주소의 원 `ANDROID_ACCESSIBILITY_TOOLBAR` 관찰이 없으면 `PROVIDER_ADDRESS_UNVERIFIED`를 반환한다. 폼의 `origin`, 일반 URL 표시 글, 과거 OPEN 완료를 현재 주소 검증으로 바꾸지 않는다. 보존 Stage62 소스에서 이 주소 row는 LEFT 작업창 경로에만 확인되었으므로 RIGHT 실사용 지원을 보장하지 않는다. 일반 ‘닫기’만으로 안내창이라는 의미를 확정하지 않으며, 현재 후보는 명시적인 ‘주의사항 닫기’ 대상만 인정한다.
+
+`original-host-composition.mjs`와 `original-host-binding.mjs`는 **명시 적용용 서버 후보**다. 원 생성 서버의 최종 등록 핸들러·입력 schema, 인증된 현재 요청, private job 저장소, 완료 기록과 현재 명령·세션·focus를 사용한다. 공개 응답의 `ok:true`나 직접 넣은 검증 boolean은 원 완료 증거가 아니다. 실제 startup에는 적용하지 않으며 새 MCP 도구·서명·승인·장부를 만들지 않는다. 완료 출처 확인과 입력·전송·답변 성공은 별개다.
+
 원 결과가 MANUAL·PENDING·UNKNOWN·NEEDS_REVIEW_NO_REPLAY·만료·결과 유실이면 성공으로 표시하거나 자동 반복하지 않는다. `actionAccepted:false`도 실행 중 예외의 미실행 증거가 아니다. 기존 원 결과 확인만 pending 장벽을 해제할 수 있다. 과거 `life_web_click`·`life_web_type`나 폐기된 모바일 제공자로 자동 우회하지 않는다.
 
 개발 소스는 [기존 JH 저장소의 제비서 후보](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/tree/feat/jh-jebiseo-mobile-20261104/jh-server/owner-setup/jebiseo)에 연결한다. 링크·소스 존재 자체는 현재 호스트의 설치·배포·실제 기기 실행 증거가 아니다.

@@ -47,20 +47,24 @@ export function jebiseoTargetBindingDigest(task, operation, args) {
     Object.keys(args).sort().map(key => [key, args[key]])]));
 }
 
-function validTarget(proof, task, operation, args, bindingDigest) {
+function validTarget(proof, task, operation, args, bindingDigest, secureSessionId) {
   if (!object(proof) || proof.source !== 'ORIGINAL_SECURE56' || proof.provider !== 'GEMINI' ||
       proof.targetVerified !== true || proof.deviceId !== task.deviceId ||
-      proof.commandId !== task.commandId || proof.promptDigest !== task.promptDigest ||
+      proof.commandId !== task.commandId || proof.secureSessionId !== secureSessionId ||
+      proof.promptDigest !== task.promptDigest ||
       proof.bindingDigest !== bindingDigest || !Number.isSafeInteger(proof.windowId) || proof.windowId < 0)
     return false;
   if (guided.has(operation)) {
-    if (proof.contextId !== args.context_id || proof.guidedArgumentsVerified !== true ||
+    const prepared = prepareJebiseoGuidedCall({operation,
+      issuedArguments: proof.guidedArguments, text: args.text});
+    if (proof.guidedArgumentsVerified !== true ||
         proof.rightPaneVerified !== true || proof.workPackage !== 'com.android.chrome' ||
         !Number.isSafeInteger(proof.displayId) || proof.displayId < 0 ||
-        prepareJebiseoGuidedCall({operation, issuedArguments: proof.guidedArguments,
-          text: args.text}).ok !== true) return false;
+        prepared.ok !== true) return false;
     if (operation === 'DISCOVER_INPUT') return proof.inputDiscoveryVerified === true;
-    if (proof.targetItemRef !== args.target_item_ref) return false;
+    if (typeof args.field_id !== 'string' || !/^f_[0-9a-f]{24}$/.test(args.field_id) ||
+        proof.targetFieldId !== args.field_id || prepared.identity.fieldId !== args.field_id)
+      return false;
     if (operation === 'DISMISS_NOTICE') return proof.noticeDismissVerified === true &&
       proof.nonSensitiveVerified === true && proof.approvalRequired === false;
     return proof.editorVerified === true && proof.draftEmpty === true;
@@ -77,15 +81,19 @@ function effectBindingProblem(binding, task) {
   if (binding?.deviceId !== task.deviceId || binding?.runtimeMode !== 'PHONE_RIGHT')
     return 'JEBISEO_ORIGINAL_PHONE_BINDING_REQUIRED';
   if (binding.commandId !== task.commandId) return 'new_command_binding_required_or_discarded';
+  if (typeof binding.secureSessionId !== 'string' || !binding.secureSessionId ||
+      binding.secureSessionId.length > 200)
+    return 'JEBISEO_ORIGINAL_SECURE_SESSION_REQUIRED';
   if (binding.focusProtected !== true) return 'JEBISEO_ORIGINAL_DEVICE_FOCUS_REQUIRED';
   if (binding.durableDispatchProtected !== true) return 'JEBISEO_ORIGINAL_DURABLE_DISPATCH_REQUIRED';
   return null;
 }
-function reconciles(readback, pending, task) {
+function reconciles(readback, pending, task, secureSessionId) {
   return object(readback) && readback.source === 'ORIGINAL_SECURE56' &&
     readback.effectKey === pending.effectKey && readback.operation === pending.operation &&
     readback.taskRef === task.taskRef && readback.deviceId === task.deviceId &&
     readback.commandId === task.commandId &&
+    readback.secureSessionId === pending.secureSessionId && pending.secureSessionId === secureSessionId &&
     (pending.operation !== 'OPEN' || (originalJobId(pending.jobId) && readback.jobId === pending.jobId &&
       readback.url === JEBISEO_GEMINI_WEB_URL)) &&
     ['VERIFIED_APPLIED', 'VERIFIED_NOT_APPLIED'].includes(readback.outcome);
@@ -173,7 +181,7 @@ export function createJebiseoDeviceScheduler() {
  * RIGHT address confirmation alone never proves the Gemini editor is ready.
  *
  * verifyGeminiTarget must authenticate a fresh original provider/window and
- * context/item (TYPE/DISMISS_NOTICE), or prepared CU task/run/target plus exact prompt draft
+ * native f_ target (TYPE/DISMISS_NOTICE), or prepared CU task/run/target plus exact prompt draft
  * (approval/submit), then return the fields checked by validTarget. Unlabelled
  * icon geometry and caller booleans are not provider/target proof. OPEN is the
  * separate fixed-URL navigation step, so it does not require a Gemini window
@@ -182,7 +190,8 @@ export function createJebiseoDeviceScheduler() {
  * native snapshot or form15 discovery, verify the same RIGHT Gemini surface,
  * and return guidedArgumentsVerified + guidedArguments. Parsing the carrier
  * alone is never authentication. Callers cannot inject these arguments.
- * No producer for that attestation is invented here; absent proof blocks effects.
+ * The opt-in original-host composition supplies the producer; absent proof
+ * still blocks effects. A generic item_ ID is never converted to a native f_.
  *
  * Task bindings and pending barriers here are process-local coordination only.
  * Existing original owner receipts/journal remain authoritative after restart.
@@ -254,7 +263,7 @@ export function createJebiseoRuntime({callOriginalTool, readCurrentBinding, veri
         if (bindingProblem) return result(bindingProblem);
         const pending = pendingEffects.get(scope.taskRef);
         if (pending) {
-          if (!reconciles(binding.effectReadback, pending, scope))
+          if (!reconciles(binding.effectReadback, pending, scope, binding.secureSessionId))
             return result('JEBISEO_PRIOR_EFFECT_READBACK_REQUIRED', {
               effectKey: pending.effectKey, pendingOperation: pending.operation, readbackRequired: true,
               followUp: openFollowUp(pending, scope)});
@@ -270,20 +279,24 @@ export function createJebiseoRuntime({callOriginalTool, readCurrentBinding, veri
           if (operation !== 'OPEN')
             target = snapshot(await verifyGeminiTarget({task: scope, operation, args: parameters, binding}));
         } catch { return result('JEBISEO_ORIGINAL_GEMINI_TARGET_UNVERIFIED'); }
-        if (operation !== 'OPEN' && !validTarget(target, scope, operation, parameters, targetDigest))
-          return result('JEBISEO_ORIGINAL_GEMINI_TARGET_UNVERIFIED');
+        if (operation !== 'OPEN' && !validTarget(target, scope, operation, parameters, targetDigest,
+          binding.secureSessionId))
+          return result('JEBISEO_ORIGINAL_GEMINI_TARGET_UNVERIFIED', {
+            verificationCode: /^[A-Z][A-Z0-9_]{1,159}$/.test(target?.code ?? '')
+              ? target.code : null});
         // Target verification may await a signed read. Recheck original command
         // and installed dispatch protections; never create or renew a command.
         let fresh;
         try { fresh = await readBinding(scope); }
         catch { return result('JEBISEO_BINDING_CHANGED_AFTER_TARGET_VERIFICATION'); }
-        if (effectBindingProblem(fresh, scope)) return result('JEBISEO_BINDING_CHANGED_AFTER_TARGET_VERIFICATION');
+        if (effectBindingProblem(fresh, scope) || fresh.secureSessionId !== binding.secureSessionId)
+          return result('JEBISEO_BINDING_CHANGED_AFTER_TARGET_VERIFICATION');
         const effectKey = digest(JSON.stringify(['jh.jebiseo-effect.v1', targetDigest]));
         const response = await port.run({visibility: 'VISIBLE', command_id: scope.commandId,
           operation, args: guided.has(operation)
             ? {...parameters, guided_arguments: target.guidedArguments} : parameters});
         if (response.toolInvoked === true) {
-          const pending = Object.freeze({effectKey, operation,
+          const pending = Object.freeze({effectKey, operation, secureSessionId: fresh.secureSessionId,
             ...(operation === 'OPEN' ? {jobId: originalJobId(response.payload?.jobId) ? response.payload.jobId : null} : {})});
           pendingEffects.set(scope.taskRef, pending);
           return Object.freeze({...response, effectKey, readbackRequired: true,

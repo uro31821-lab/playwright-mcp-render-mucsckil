@@ -1,6 +1,6 @@
 # 제비서 — Stage72 기준 개발 체크포인트
 
-갱신일: 2026-11-05. 사용자 지시: 중지 이후 **다시 진행**.
+갱신일: 2026-11-05. 사용자 지시: Stage72 재개 이후 **다음 진행**.
 
 ## 현재 기준
 
@@ -16,6 +16,8 @@
 
 PR 반영 직전 최신 main `197319f91866351514b95f92e27973c62d46d0ff`도 소스에 보존 병합했다. Stage72 이후 추가된 파일은 Stage73/74의 별도 설치 전달물 기록·정적 검사·CI 3개뿐이며 서버 코드와 기존 보호 기준은 같았다. 이 기록의 설치 안내를 이번 제비서 작업의 설치 지시로 채택하지 않는다. 이 작업의 기기 기준은 위 Stage62 FIX3 유지 조건이다.
 
+후속 개발 중 [PR #165](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/165)가 병합되어 main이 `e7c6fc94776ebbf8392377624c41c95f0c90fb8a`로 이동했다. Stage73 실패·대체 기록과 Stage75 TripLocation FIX1 patch 기록·검사·CI, 총 6파일 변경을 그대로 보존 병합했다. 제비서 서버·원 인증 소스의 변경은 없었다. 별도 전달물의 설치 안내는 이 작업의 설치 승인이나 현재 APK 변경으로 해석하지 않는다.
+
 ## 목표와 세 기능
 
 휴대폰의 GPT에서 요청하면 왼쪽 GPT를 유지하면서 오른쪽 Chrome의 `https://gemini.google.com/app`을 기존 JH 경로로 열고 현재 요청의 결과를 회수한다. 사용자가 Google/Gemini를 직접 열고 배치하는 절차를 정상 사용법으로 요구하지 않는다. 실제 GPT 전용 버튼을 만든 상태는 아니며, 명시적인 자연어 열기 요청과 구현 후보를 구분한다.
@@ -30,7 +32,7 @@ PR 반영 직전 최신 main `197319f91866351514b95f92e27973c62d46d0ff`도 소�
 
 일반 상담·의견·검토를 위 세 기능의 대체 목록으로 쓰지 않는다. 별도 Gemini API·추가 결제·새 계정·서버 브라우저로 전환하지 않는다.
 
-## 이번 코드 변경
+## 원본 입력 경로와 이번 연결
 
 | 동작 | 연결과 확인 기준 |
 | --- | --- |
@@ -42,13 +44,29 @@ PR 반영 직전 최신 main `197319f91866351514b95f92e27973c62d46d0ff`도 소�
 | 결과 해석 | 현재 호출의 `agent_step.result.url`만 한 번 해석. 입력 실패·불확실·MANUAL·만료·재검토를 성공으로 올리지 않음 |
 | 후속 진행 | 기존 기기·명령·창·질문·원 결과 연결을 유지. 확인되지 않은 효과가 남으면 다음 효과 차단 |
 
-`guided-form.mjs`는 원본 완료 snapshot/discovery에서 발급 인자를 추출한다. 일반 RIGHT `item_` 참조를 native `f_` 식별자로 바꾸거나 새 세션·요청 값을 만들지 않는다. 호출자가 주입한 `guided_arguments`는 host에서 거부한다. 실제 원본과 같은 기기·명령·오른쪽 Gemini 창·대상·빈 입력칸을 검증한 신뢰된 host proof만 사용한다. 파싱 성공은 인증·승인·운영 등록의 증거가 아니다.
+`guided-form.mjs`는 원본 완료 snapshot/discovery에서 발급 인자를 추출한다. **실행 대상은 원 native `f_`로 통일했다.** 공개된 일반 RIGHT `item_`와 같은 노드라는 연결 근거가 없으므로, guided 작업에서는 일반 웹 `ssc_` 문맥이나 `item_` 항목을 대상 인자로 받지 않는다. 새 세션·요청·필드 값을 만들지 않으며 원 발급 carrier와 `field_id`가 정확히 일치해야 한다. 호출자가 주입한 `guided_arguments`는 host에서 거부한다. 실제 원본과 같은 기기·명령·오른쪽 Gemini 창·대상·빈 입력칸을 검증한 신뢰된 host proof만 사용한다. 파싱 성공은 인증·승인·운영 등록의 증거가 아니다.
 
 `guided-outcome.mjs`는 현재 guided 호출의 정확한 native 결과 슬롯만 해석한다. 다른 동작의 성공 코드·필드 불일치·손상된 JSON은 미확인으로 유지한다. `field_value_verified`는 입력칸 확인일 뿐 Gemini 전송·답변 성공이 아니다. `low_risk_action_dispatched`는 클릭 접수일 뿐 안내가 닫혔다는 증거가 아니다. `actionAccepted:false`도 실행 중 예외에서는 미실행 증거가 될 수 없다.
 
 `mobile-outcome.mjs`는 원 결과의 대기·불확실·재검토·MANUAL·거절을 보존한다. secondary 안내, UI 글, 다음 provider 추천을 현재 실행 결과로 오인하지 않는다. 이 분류와 파싱 결과는 예약·pending 장벽·승인을 해제하지 않는다. 정확한 기존 원 결과 검증만 후속 동작을 허용할 수 있다.
 
-`callOriginalTool`, `readCurrentBinding`, `verifyGeminiTarget`, `verifyObservation`은 기존 인증된 host 경계다. production 증거 생산기·등록을 모의 true로 대체하지 않는다. `codeCandidate:true`, `productionRegistered:false`, `geminiAssistanceAvailable:false`, `liveExecutionVerified:false`를 유지한다.
+### 실제 원본 서버와 관찰을 결합하는 후보
+
+- `original-host-composition.mjs`: 완성된 원 생성 서버에만 명시 적용하는 되돌릴 수 있는 overlay다. 기존 최종 등록 핸들러와 입력 schema, 현재 인증된 HTTP·MCP 요청을 그대로 결합한다. registry는 MCP 인스턴스별로 분리하며 전역의 ‘가장 최근 연결’을 선택하지 않는다. production startup과 MCP catalog에 추가 등록하지 않는다.
+- `original-host-binding.mjs`: 원 private job 객체와 이번 원 핸들러가 실제로 반환한 응답을 연결한다. 현재 기기·명령·secure session·focus·원 durable hook을 읽고, 기존 Stage26 완료 기록 이후의 결과만 원 완료로 인정한다. 공개 응답의 digest나 `ok:true`를 단독 증거로 받지 않는다. 원 snapshot의 command는 실제 mk 호출 범위에 private하게 묶고 Android payload를 변경하지 않는다.
+- `native-screen-proof.mjs`: 같은 원 native snapshot의 RIGHT 창·display·시각·폼 metadata를 검사한다. TYPE은 독립 snapshot과 discovery의 revision·필드 상태·원 발급 세션이 일치하고, 명확한 Gemini 질문칸 후보가 하나이며 `filled:false`인 경우로 제한한다. `filled:false`는 빈 값·공백·힌트를 뜻한다. 임의의 첫 번째 TEXT 칸을 선택하지 않는다.
+- 같은 task의 facade/runtime과 pending 기록을 재사용한다. 새 객체나 다른 taskRef를 만들어 같은 원 명령의 미확정 효과를 우회하지 못한다. 요청 종료·연결 중단·명령 또는 세션 변경 후에는 이전 capability로 후속 호출하지 않는다.
+- 원 학습 wrapper의 비동기 대기 뒤에도 실행 범위가 유지돼야 한다. 원 작업을 큐에 넣기 직전 현재 요청·기기·명령·세션·focus를 다시 대조한다. 원 서명·작업 내용·durable 예약은 변경하지 않으며 candidate 호출이 아닌 기존 작업에는 이 확인을 적용하지 않는다.
+
+### 현재 주소 및 사후 결과의 실제 한계
+
+보존 Stage62 Android 원문에서 신뢰된 `browser_address_readback / ANDROID_ACCESSIBILITY_TOOLBAR` row는 **작업창 LEFT 경로**에서만 확인됐다. 현재 요구한 GPT LEFT / Chrome RIGHT에서 이 row가 나온다는 근거는 없다. 보존 소스와 현재 설치 APK의 바이트 일치를 이번 개발에서 새로 확인한 것은 아니다.
+
+후보는 이 원 현재 주소 관찰이 없으면 **`PROVIDER_ADDRESS_UNVERIFIED`**로 차단한다. 폼의 `origin`, 일반 URL 글, 과거 OPEN 주소 확인을 현재 주소 증명으로 바꾸지 않는다. 단순 ‘닫기’는 안내창인지 구별하지 못하므로, 현재 목적 검증은 명시적인 ‘주의사항 닫기’ 대상으로 제한한다.
+
+OPEN은 기존 `describeOpenCompletion`으로 그 작업의 완료 시점 주소만 확인한다. DISCOVER는 이후 별도 원 native snapshot으로 같은 발급 대상이 다시 확인돼야 pending을 해제할 수 있다. TYPE·DISMISS_NOTICE의 현재 값·안내 부재를 독립 확인하는 사후 생산기와 실제 전송·답변의 account/conversation/message 연결은 아직 없다. 원 완료가 수신됐다는 사실만으로 이 장벽을 해제하지 않는다.
+
+`callOriginalTool`, `readCurrentBinding`, `verifyGeminiTarget`의 명시 적용용 원본 host 연결 후보를 추가했지만 production 등록과 실제 휴대폰 지원은 별도다. `verifyObservation`의 Gemini 답변·전송 ID 생산기를 만들었다고 주장하지 않는다. `codeCandidate:true`, `productionRegistered:false`, `geminiAssistanceAvailable:false`, `liveExecutionVerified:false`를 유지한다.
 
 ## 실제 휴대폰 기록과 이번 개발의 구분
 
@@ -62,7 +80,9 @@ PR 반영 직전 최신 main `197319f91866351514b95f92e27973c62d46d0ff`도 소�
 ## 검사
 
 보호 원본 선행 게이트: **10 passed / 0 failed / 0 skipped**.
-최종 로컬 통합 검사: **262 passed / 0 failed / 0 skipped** (약 3.5초).
+이번 원본 host·native 관찰 후보를 포함한 최종 로컬 통합 검사: **298 passed / 0 failed / 0 skipped**. 실제 최종 생성 서버에 overlay를 적용·원상 복원하고 구문과 catalog 보존도 확인했다. 후속 main 보존 영향 범위인 Stage73·Stage75 검사 **8개 모두 통과**했다.
+
+직전 후보 `e2827d2f9e4bfa5a9364873d5b8c02e0cee40bbc`의 로컬 통합 검사: **262 passed / 0 failed / 0 skipped**. 해당 후보의 GitHub CI 7개도 성공했다.
 두 의존성 경로는 package.json과 lockfile이 같은 기존 설치를 재사용했다.
 후속 main 기록 병합 뒤에는 영향 범위인 보호 원본·Stage71·Stage73 검사 **19개 모두 통과**를 확인했다. 제비서 실행 코드와 통합 검사는 이 병합에서 변경되지 않았다.
 
@@ -70,6 +90,6 @@ PR 반영 직전 최신 main `197319f91866351514b95f92e27973c62d46d0ff`도 소�
 
 ## 이어갈 위치
 
-이 후보의 원본 snapshot/discovery 파서를 실제 신뢰된 host 관찰 생산기와 연결하고, 기능별 현재 요청·전송·결과 회수의 증거를 이어간다. 실제 실행 요청과 유효한 원명령이 있는 때만 휴대폰을 조작한다. 개발 재개만으로 BEGIN·재OPEN·질문 전송을 시작하지 않는다.
+현재 APK 유지 조건에서 **RIGHT 현재 주소를 확인할 수 있는 기존 원 관찰 경로**와 입력 후 값·안내 부재의 사후 증거를 이어간다. 이 증거가 없으면 자동 실행 가용성은 올리지 않는다. 기능별 현재 요청·전송·결과 회수도 이어서 결합해야 한다. 실제 실행 요청과 유효한 원명령이 있는 때만 휴대폰을 조작한다. 개발 재개만으로 BEGIN·재OPEN·질문 전송을 시작하지 않는다.
 
 운영 PR 병합·서버 배포·APK 설치는 이번 개발 결과에 포함하지 않는다. 같은 기준과 검사·승인 기록을 재사용하며, 중지 요청이 오면 즉시 작업을 멈춘다.

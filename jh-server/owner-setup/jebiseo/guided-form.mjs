@@ -14,7 +14,6 @@ const SESSION = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f
 // These two expressions are the original FormTransport.route() grammar.
 const REQUEST = /^[A-Za-z0-9_-]{8,80}$/;
 const FIELD = /^f_[0-9a-f]{24}$/;
-const ITEM = /^item_[0-9a-f]{16}$/;
 const PROTOCOL_PACKAGE = 'com.koreanlifehub.bridge.protocol';
 const OPERATIONS = Object.freeze({
   DISCOVER_INPUT: 'form15_discover',
@@ -97,15 +96,16 @@ function resolved(operation, args, expectedFieldId) {
 /**
  * Extract only native-issued arguments from the exact original payload shape.
  * `fieldId` is the FormTransport f_ ID. A Mobile13 item_ reference is NOT that
- * ID and is never converted or used to guess a field. The trusted host verifier
- * must bind both references, the selected Gemini target, and the current draft.
+ * ID and is never converted or used to guess a field. The trusted host producer
+ * selects the native field from original current screen evidence, then binds
+ * that exact ID and issued carrier to the Gemini target and current draft.
  */
 export function resolveJebiseoGuidedArguments(input = {}) {
   if (!plain(input)) return reject('JEBISEO_GUIDED_ARGUMENTS_REQUIRED');
-  const {operation, snapshot, discovery, targetItemRef, fieldId, targetLabel} = input;
+  const {operation, snapshot, discovery, fieldId, targetLabel} = input;
   if (!supported(operation)) return reject('JEBISEO_GUIDED_OPERATION_UNSUPPORTED');
-  if (targetItemRef !== undefined && !matches(ITEM, targetItemRef))
-    return reject('JEBISEO_GUIDED_ITEM_REF_INVALID');
+  if (Object.hasOwn(input, 'targetItemRef'))
+    return reject('JEBISEO_GUIDED_WEB_ITEM_MAPPING_UNAVAILABLE');
   if (fieldId !== undefined && !matches(FIELD, fieldId))
     return reject('JEBISEO_GUIDED_FIELD_ID_INVALID');
   if (targetLabel !== undefined && (typeof targetLabel !== 'string' || !targetLabel || targetLabel.includes('\0')))
@@ -125,7 +125,9 @@ export function resolveJebiseoGuidedArguments(input = {}) {
     if (fields.length !== 1 || writes.length !== 1)
       return reject('JEBISEO_GUIDED_FIELD_AMBIGUOUS');
     const field = fields[0], write = writes[0];
-    if (field.kind !== 'TEXT' || field.enabled !== true || field.ambiguous !== false || write.kind !== 'TEXT' ||
+    if (field.kind !== 'TEXT' || field.enabled !== true || field.ambiguous !== false ||
+        field.filled !== false || (field.error !== undefined && field.error !== null && field.error !== '') ||
+        write.kind !== 'TEXT' ||
         typeof field.label !== 'string' || !field.label)
       return reject('JEBISEO_GUIDED_FIELD_NOT_WRITABLE');
     if (targetLabel !== undefined && field.label !== targetLabel)

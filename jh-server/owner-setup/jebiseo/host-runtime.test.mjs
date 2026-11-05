@@ -7,15 +7,15 @@ import {createJebiseoTask, createJebiseoRuntime, createJebiseoDeviceScheduler,
   jebiseoCapabilities, jebiseoTargetBindingDigest} from './host-runtime.mjs';
 import {createDurableNativeHooks} from '../deployment/durable-native-host.mjs';
 import {MOBILE13_ACTION_POLICY_MODE56} from '../jh168-mobile-unification/mobile13-action-policy.mjs';
-import {fixtureGuidedArguments, fixtureMobileReply} from './test-support.mjs';
+import {fixtureFieldId, fixtureGuidedArguments, fixtureMobileReply} from './test-support.mjs';
 
+const secureSessionId = 'fixture-secure-session';
 const commandId = 'a'.repeat(32), taskDigest = 'b'.repeat(64), runDigest = '9'.repeat(64);
 const prompt = '이 제안의 다른 관점을 알려 주세요.';
 const task = (extra = {}) => createJebiseoTask({taskRef: 'task-gemini-001', threadRef: 'thread-current-01',
   intent: 'consult', basis: 'direct', visibility: 'VISIBLE', deviceId: 'phone-current-01',
   commandId, prompt, ...extra});
-const input = {context_id: 'ssc_' + 'c'.repeat(32), request_id: 'd'.repeat(32),
-  target_item_ref: 'item_' + 'e'.repeat(16), text: prompt};
+const input = {request_id: 'd'.repeat(32), field_id: fixtureFieldId, text: prompt};
 const approval = {task_digest: taskDigest, run_digest: runDigest, index: 3};
 const execute = {...approval, lease_token: 'fixture-lease-token',
   action_approval_grant_token: 'fixture-local-grant', local_action_approval_digest: '7'.repeat(64)};
@@ -24,10 +24,10 @@ const execute = {...approval, lease_token: 'fixture-lease-token',
 // provider proof. Production must verify the original receipt independently.
 function targetProof({task: scope, operation, args}) {
   return {source: 'ORIGINAL_SECURE56', provider: 'GEMINI', targetVerified: true,
-    deviceId: scope.deviceId, commandId: scope.commandId, promptDigest: scope.promptDigest,
+    deviceId: scope.deviceId, commandId: scope.commandId, secureSessionId, promptDigest: scope.promptDigest,
     bindingDigest: jebiseoTargetBindingDigest(scope, operation, args), windowId: 23,
     ...(['TYPE', 'DISCOVER_INPUT', 'DISMISS_NOTICE'].includes(operation) ? {
-      contextId: args.context_id, targetItemRef: args.target_item_ref,
+      targetFieldId: args.field_id,
       editorVerified: true, draftEmpty: true, inputDiscoveryVerified: true,
       noticeDismissVerified: true, nonSensitiveVerified: true, approvalRequired: false, rightPaneVerified: true,
       workPackage: 'com.android.chrome', displayId: 0, guidedArgumentsVerified: true,
@@ -36,12 +36,12 @@ function targetProof({task: scope, operation, args}) {
 }
 function effectProof(response, operation, outcome = 'VERIFIED_APPLIED') {
   return {source: 'ORIGINAL_SECURE56', effectKey: response.effectKey, operation, outcome,
-    taskRef: 'task-gemini-001', deviceId: 'phone-current-01', commandId};
+    taskRef: 'task-gemini-001', deviceId: 'phone-current-01', commandId, secureSessionId};
 }
 function setup(options = {}) {
   const calls = [], reads = [], targets = [];
   // Deliberately no global taskDigest: Mobile13 computes a digest per job.
-  const binding = {deviceId: 'phone-current-01', commandId, runtimeMode: 'PHONE_RIGHT',
+  const binding = {deviceId: 'phone-current-01', commandId, secureSessionId, runtimeMode: 'PHONE_RIGHT',
     focusProtected: true, durableDispatchProtected: true};
   const runtime = createJebiseoRuntime({runtimeMode: 'PHONE_RIGHT',
     callOriginalTool: async (name, args) => {calls.push({name, args}); return fixtureMobileReply(name, args);},
@@ -81,6 +81,7 @@ test('visible input uses one original handler with same command/request and no g
 test('missing original focus/durable guard, wrong draft/device and lost command stop before invocation', async () => {
   for (const [change, args, code] of [
     [{focusProtected: false}, input, 'JEBISEO_ORIGINAL_DEVICE_FOCUS_REQUIRED'],
+    [{secureSessionId: undefined}, input, 'JEBISEO_ORIGINAL_SECURE_SESSION_REQUIRED'],
     [{durableDispatchProtected: false}, input, 'JEBISEO_ORIGINAL_DURABLE_DISPATCH_REQUIRED'],
     [{commandId: 'f'.repeat(32)}, input, 'new_command_binding_required_or_discarded'],
     [{}, {...input, text: 'different'}, 'JEBISEO_REQUEST_TEXT_CHANGED'],
@@ -108,10 +109,9 @@ test('missing, false or caller-style target flags never authorize a Gemini effec
     assert.equal(f.calls.length, 0);
   }
 });
-test('target attestation must bind provider, window, context, item and empty draft', async () => {
+test('target attestation must bind provider, native window, original field and empty draft', async () => {
   for (const patch of [{provider: 'OTHER'}, {windowId: -1}, {deviceId: 'other-phone'},
-    {commandId: 'f'.repeat(32)}, {contextId: 'ssc_' + 'f'.repeat(32)},
-    {targetItemRef: 'item_' + 'f'.repeat(16)}, {draftEmpty: false},
+    {commandId: 'f'.repeat(32)}, {secureSessionId: 'other-session'}, {targetFieldId: 'f_' + 'f'.repeat(24)}, {draftEmpty: false},
     {bindingDigest: 'f'.repeat(64)}, {promptDigest: 'f'.repeat(64)},
     {guidedArgumentsVerified: false}, {guidedArguments: undefined},
     {rightPaneVerified: false}, {workPackage: 'other.app'}, {displayId: -1}]) {
@@ -123,10 +123,10 @@ test('target attestation must bind provider, window, context, item and empty dra
 });
 test('discovery and notice dismissal require their own verified original native carrier', async () => {
   for (const [operation, args, patches] of [
-    ['DISCOVER_INPUT', {context_id: input.context_id}, [{inputDiscoveryVerified: false}]],
-    ['DISMISS_NOTICE', {context_id: input.context_id, target_item_ref: input.target_item_ref},
+    ['DISCOVER_INPUT', {}, [{inputDiscoveryVerified: false}]],
+    ['DISMISS_NOTICE', {field_id: input.field_id},
       [{noticeDismissVerified: false}, {nonSensitiveVerified: false}, {approvalRequired: true},
-        {targetItemRef: 'item_' + 'f'.repeat(16)}]]
+        {targetFieldId: 'f_' + 'f'.repeat(24)}]]
   ]) {
     const f = setup();
     const response = await f.runtime.runStep({task: task(), operation, args});
@@ -149,6 +149,20 @@ test('callers cannot supply native form arguments even when they match an issued
   assert.equal(response.code, 'JEBISEO_CALLER_GUIDED_ARGUMENTS_FORBIDDEN');
   assert.equal(f.calls.length, 0); assert.equal(f.targets.length, 0);
 });
+test('trusted selection and original carrier must name the same native field before dispatch', async () => {
+  const f = setup();
+  const response = await f.runtime.runStep({task: task(), operation: 'TYPE',
+    args: {...input, field_id: 'f_' + 'c'.repeat(24)}});
+  assert.equal(response.code, 'JEBISEO_ORIGINAL_GEMINI_TARGET_UNVERIFIED');
+  assert.equal(f.calls.length, 0);
+});
+test('an absent current native address remains a precise diagnostic and cannot authorize an effect', async () => {
+  const f = setup({verifyGeminiTarget: async () => ({ok: false, code: 'PROVIDER_ADDRESS_UNVERIFIED'})});
+  const response = await f.runtime.runStep({task: task(), operation: 'TYPE', args: input});
+  assert.equal(response.verificationCode, 'PROVIDER_ADDRESS_UNVERIFIED');
+  assert.equal(response.toolInvoked, false);
+  assert.equal(f.calls.length, 0);
+});
 test('submit proof binds exact CU task/run and current prompt draft, not a global command digest', async () => {
   const valid = setup();
   assert.equal((await valid.runtime.runStep({task: task(), operation: 'APPROVAL_REQUEST', args: approval})).status,
@@ -165,7 +179,8 @@ test('submit proof binds exact CU task/run and current prompt draft, not a globa
     operation: 'APPROVAL_REQUEST', args: approval})).code, 'JEBISEO_ORIGINAL_TASK_SCOPE_CHANGED');
 });
 test('command cancellation or protection loss during target verification stops dispatch', async () => {
-  for (const change of [{commandId: 'f'.repeat(32)}, {focusProtected: false}, {durableDispatchProtected: false}]) {
+  for (const change of [{commandId: 'f'.repeat(32)}, {secureSessionId: 'rotated-session'},
+    {focusProtected: false}, {durableDispatchProtected: false}]) {
     const f = setup({verifyGeminiTarget: async request => {
       await Promise.resolve(); Object.assign(f.binding, change); return targetProof(request);
     }});
@@ -198,7 +213,8 @@ test('only exact trusted outcome clears pending state, and each subsequent effec
   const f = setup();
   const typed = await f.runtime.runStep({task: task(), operation: 'TYPE', args: input});
   for (const patch of [{effectKey: 'f'.repeat(64)}, {taskRef: 'other-task'}, {deviceId: 'other-phone'},
-    {commandId: 'f'.repeat(32)}, {operation: 'EXECUTE_SUBMIT'}, {outcome: 'QUEUED'},
+    {commandId: 'f'.repeat(32)}, {secureSessionId: 'other-session'},
+    {operation: 'EXECUTE_SUBMIT'}, {outcome: 'QUEUED'},
     {source: 'CALLER_JSON'}, {outcome: undefined, ok: true}]) {
     f.binding.effectReadback = {...effectProof(typed, 'TYPE'), ...patch};
     assert.equal((await f.runtime.runStep({task: task(), operation: 'APPROVAL_REQUEST', args: approval})).code,

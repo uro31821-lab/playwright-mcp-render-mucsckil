@@ -4,13 +4,14 @@ import {createJebiseoTask, createJebiseoRuntime, jebiseoTargetBindingDigest,
   jebiseoCapabilities} from './host-runtime.mjs';
 import {createJebiseoMobilePort, JEBISEO_GEMINI_WEB_URL,
   unwrapJebiseoMobileReply} from './mobile-port.mjs';
-import {fixtureGuidedArguments} from './test-support.mjs';
+import {fixtureFieldId, fixtureGuidedArguments} from './test-support.mjs';
 
 const commandId = 'a'.repeat(32), deviceId = 'phone-open-fixture';
+const secureSessionId = 'fixture-secure-open-session';
 // Match the actual original mk() format, including short IDs seen on device.
 const jobId = 'job_104';
 const prompt = '이 공개 유튜브 링크를 요약해 주세요.';
-const args = {context_id: 'ssc_' + 'b'.repeat(32), target_item_ref: 'item_' + 'c'.repeat(16),
+const args = {field_id: fixtureFieldId,
   request_id: 'd'.repeat(32), text: prompt};
 const task = (extra = {}) => createJebiseoTask({taskRef: 'task-open-fixture', threadRef: 'thread-open-fixture',
   deviceId, commandId, intent: 'assist', basis: 'direct', prompt, ...extra});
@@ -18,7 +19,7 @@ const envelope = value => ({content: [{type: 'text', text: JSON.stringify(value)
 
 function fixture({reply = {code: 'OPEN_COMPLETION_PENDING', jobId}, ...options} = {}) {
   const calls = [], targets = [], reads = [];
-  const binding = {deviceId, commandId, runtimeMode: 'PHONE_RIGHT', focusProtected: true,
+  const binding = {deviceId, commandId, secureSessionId, runtimeMode: 'PHONE_RIGHT', focusProtected: true,
     durableDispatchProtected: true};
   const runtime = createJebiseoRuntime({runtimeMode: 'PHONE_RIGHT',
     callOriginalTool: async (name, parameters) => {
@@ -30,9 +31,9 @@ function fixture({reply = {code: 'OPEN_COMPLETION_PENDING', jobId}, ...options} 
     verifyGeminiTarget: async ({task: scope, operation, args: parameters}) => {
       targets.push(operation);
       return {source: 'ORIGINAL_SECURE56', provider: 'GEMINI', targetVerified: true,
-        deviceId, commandId, promptDigest: scope.promptDigest, windowId: 23,
+        deviceId, commandId, secureSessionId, promptDigest: scope.promptDigest, windowId: 23,
         bindingDigest: jebiseoTargetBindingDigest(scope, operation, parameters),
-        contextId: parameters.context_id, targetItemRef: parameters.target_item_ref,
+        targetFieldId: parameters.field_id,
         editorVerified: true, draftEmpty: true, rightPaneVerified: true,
         workPackage: 'com.android.chrome', displayId: 0, guidedArgumentsVerified: true,
         guidedArguments: fixtureGuidedArguments()};
@@ -41,6 +42,7 @@ function fixture({reply = {code: 'OPEN_COMPLETION_PENDING', jobId}, ...options} 
 }
 function openProof(opened, patch = {}) {
   return {source: 'ORIGINAL_SECURE56', taskRef: 'task-open-fixture', deviceId, commandId,
+    secureSessionId,
     effectKey: opened.effectKey, operation: 'OPEN', jobId, url: JEBISEO_GEMINI_WEB_URL,
     outcome: 'VERIFIED_APPLIED', ...patch};
 }

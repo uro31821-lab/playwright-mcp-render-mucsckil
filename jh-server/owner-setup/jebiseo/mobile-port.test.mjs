@@ -5,12 +5,12 @@ import vm from 'node:vm';
 import {createJebiseoMobilePort, JEBISEO_ORIGINAL_MOBILE_TOOLS, JEBISEO_GEMINI_WEB_URL,
   unwrapJebiseoMobileReply} from './mobile-port.mjs';
 import {patchJH168MobileWebCommands56} from '../jh168-mobile-unification/mobile-web-tool-patch.mjs';
-import {fixtureGuidedArguments, fixtureGuidedJob, fixtureMobileReply} from './test-support.mjs';
+import {fixtureFieldId, fixtureGuidedArguments, fixtureGuidedJob, fixtureMobileReply} from './test-support.mjs';
 import {classifyJebiseoGuidedJob} from './guided-outcome.mjs';
 
-const command = 'a'.repeat(32), context = `ssc_${'b'.repeat(32)}`, item = `item_${'c'.repeat(16)}`;
+const command = 'a'.repeat(32), context = `ssc_${'b'.repeat(32)}`;
 const task = 'd'.repeat(64), request = 'e'.repeat(32), digest = 'f'.repeat(64);
-const typeArgs = () => ({context_id: context, target_item_ref: item, request_id: request,
+const typeArgs = () => ({field_id: fixtureFieldId, request_id: request,
   text: '공개 예시 질문', guided_arguments: fixtureGuidedArguments()});
 const submitArgs = () => ({device_id: 'test-phone', task_digest: task, index: 3,
   lease_token: 'original-lease-token', action_approval_grant_token: 'original-local-grant',
@@ -111,9 +111,22 @@ test('typing forwards issued native carrier unchanged and replaces only its valu
   assert.deepEqual(f.calls, [{name: 'life_android_step', args: {
     ...fixtureGuidedArguments(), value: typeArgs().text, command_id: command}}]);
   assert.equal((await f.run('TYPE', {...typeArgs(), submit: true})).code, 'MOBILE_SUBMIT_SEPARATE_ACTION_REQUIRED');
-  assert.equal((await f.run('TYPE', {...typeArgs(), target_item_ref: '#editor'})).code, 'MOBILE_FRESH_ITEM_REF_REQUIRED');
+  assert.equal((await f.run('TYPE', {...typeArgs(), field_id: '#editor'})).code, 'JEBISEO_NATIVE_FIELD_ID_REQUIRED');
   assert.equal((await f.run('TYPE', {...typeArgs(), text: '가'.repeat(700)})).code, 'JEBISEO_SHARED_PHONE_TEXT_LIMIT');
   assert.equal(f.calls.length, 1);
+});
+
+test('native target must equal the issued field; web context and item references cannot replace it', async () => {
+  const f = fixture();
+  assert.equal((await f.run('TYPE', {...typeArgs(), field_id: 'f_' + '1'.repeat(24)})).code,
+    'JEBISEO_GUIDED_TARGET_MISMATCH');
+  for (const extra of [{target_item_ref: 'item_' + 'c'.repeat(16)}, {context_id: context}]) {
+    assert.equal((await f.run('TYPE', {...typeArgs(), ...extra})).code,
+      'JEBISEO_MOBILE_ARGUMENT_UNSUPPORTED');
+  }
+  assert.equal((await f.run('TYPE', {...typeArgs(), field_id: 'item_' + 'c'.repeat(16)})).code,
+    'JEBISEO_NATIVE_FIELD_ID_REQUIRED');
+  assert.equal(f.calls.length, 0);
 });
 
 test('concurrent or changed-request duplicate writes invoke original tool only once', async () => {

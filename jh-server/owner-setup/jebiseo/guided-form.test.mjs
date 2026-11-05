@@ -41,7 +41,7 @@ test('original snapshot issues discovery unchanged without asserting authenticat
 
 test('TYPE cross-checks original field metadata and changes only the issued value', () => {
   const original = discovery(), before = structuredClone(original);
-  const result = resolve({operation: 'TYPE', discovery: original, fieldId, targetItemRef: itemRef, targetLabel: 'Gemini 입력'});
+  const result = resolve({operation: 'TYPE', discovery: original, fieldId, targetLabel: 'Gemini 입력'});
   assert.equal(result.ok, true);
   const prompt = '사용자가 요청한 공개 문장\n두 번째 줄';
   const call = prepare({operation: 'TYPE', issuedArguments: result.issuedArguments, text: prompt});
@@ -51,7 +51,7 @@ test('TYPE cross-checks original field metadata and changes only the issued valu
   assert.deepEqual(result.issuedArguments, typeArgs());
   assert.deepEqual(original, before);
   assert.equal(resolve({operation: 'TYPE', discovery: original, targetItemRef: itemRef}).code,
-    'JEBISEO_GUIDED_FIELD_ID_REQUIRED');
+    'JEBISEO_GUIDED_WEB_ITEM_MAPPING_UNAVAILABLE');
   assert.equal(resolve({operation: 'TYPE', discovery: original, fieldId, targetLabel: '다른 입력'}).ok, false);
   assert.equal(resolve({operation: 'TYPE', discovery: discovery({fields: [...page().fields, ...page().fields]}), fieldId}).ok, false);
   assert.equal(resolve({operation: 'TYPE', discovery: discovery({fields: [{...page().fields[0], ambiguous: true}]}), fieldId}).ok, false);
@@ -77,6 +77,14 @@ test('DISMISS_NOTICE accepts only the exact original non-approval dismissal, nev
   const duplicate = page(); duplicate.buttons.push({...duplicate.buttons[0], targetId: otherId});
   assert.equal(resolve({operation: 'DISMISS_NOTICE', snapshot: snapshot(duplicate), targetLabel: '주의사항 닫기'}).ok, false);
   assert.equal(resolve({operation: 'DISMISS_NOTICE', snapshot: snapshot()}).ok, false);
+});
+
+test('unknown or existing draft and native validation errors cannot produce TYPE arguments', () => {
+  for (const change of [{filled: true}, {filled: undefined}, {enabled: false}, {error: 'validation error'}]) {
+    const original = discovery({fields: [{...page().fields[0], ...change}]});
+    assert.equal(resolve({operation: 'TYPE', discovery: original, fieldId}).code,
+      'JEBISEO_GUIDED_FIELD_NOT_WRITABLE');
+  }
 });
 
 test('incomplete, failed, partial, malformed and ambiguous original observations cannot issue action arguments', () => {
