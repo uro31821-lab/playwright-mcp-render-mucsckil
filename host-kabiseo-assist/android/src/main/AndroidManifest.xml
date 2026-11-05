@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Library only: no camera, network, new service, launcher or permission declaration. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
