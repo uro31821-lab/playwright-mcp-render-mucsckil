@@ -1,0 +1,20 @@
+{
+  "schema":"JH168_STAGE70_CONTINUOUS_E2E_PLAN_V1",
+  "goal":"Verify one continuous LEFT_GPT_RIGHT_CHROME task uses only Stage69-approved routes without replaying failed aliases.",
+  "steps":[
+    {"id":1,"action":"OPEN_RIGHT_URL","expected":"RIGHT_ADDRESS_CONFIRMED"},
+    {"id":2,"action":"READ_RIGHT_SCREEN","expected":"captured"},
+    {"id":3,"action":"VISIBLE_SAFE_BUTTON_CLICK","route":"guidedForm.form_activate","expected":"resultVerified or explicit page-state readback"},
+    {"id":4,"action":"VISIBLE_TEXT_TYPE","route":"guidedForm.form15_type","expected":"valueVerified=true"},
+    {"id":5,"action":"WAIT_CONDITION","route":"life_web_wait","expected":"conditionVerified=true"},
+    {"id":6,"action":"BACK_PAGE_NAVIGATION","route":"native Android back","expected":"before/after URL differs and expected prior page is observed"}
+  ],
+  "excludedFromContinuousE2E":[
+    "life_web_select",
+    "life_web_press_key",
+    "NESTED_VERTICAL_SCROLL",
+    "HORIZONTAL_SCROLL",
+    "RETURN_TO_CHROME_FROM_OTHER_APP"
+  ],
+  "screenshot":"Already real-phone verified in Stage69; do not repeat merely for regression because it requires fresh phone-local consent."
+}
