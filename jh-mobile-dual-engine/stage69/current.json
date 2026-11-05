@@ -2,7 +2,7 @@
   "schema":"JH168_STAGE69_FINAL_STATE_V1",
   "round":3,
   "maxRounds":3,
-  "status":"ROUND3_COMPLETE_FINALIZING_REGRESSION",
+  "status":"COMPLETE",
   "automatic":{
     "BACK":"ANDROID",
     "WAIT_CONDITION":"ANDROID",
@@ -18,5 +18,5 @@
   "playwrightMobile":"NO_ACTIVE_REAL_PHONE_ROUTES",
   "noAutomaticReplay":["UNKNOWN","PENDING","FAILED_AFTER_EFFECT","EFFECT_UNKNOWN","NEEDS_REVIEW_NO_REPLAY"],
   "verificationRequired":"REAL_PHONE_EXECUTION_PLUS_READBACK",
-  "next":"FINAL_REGRESSION_AND_MERGE"
+  "next":"STAGE70_COMPLETE"
 }

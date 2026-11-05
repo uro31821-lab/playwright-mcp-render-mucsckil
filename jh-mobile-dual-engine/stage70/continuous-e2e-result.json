@@ -1,0 +1,29 @@
+{
+  "schema":"JH168_STAGE70_FOCUSED_CONTINUOUS_E2E_RESULT_V1",
+  "status":"VERIFIED_PASS",
+  "verifiedAt":"2026-11-05",
+  "environment":"REAL_OWNER_PHONE_LEFT_GPT_RIGHT_CHROME",
+  "preflightFinding":{
+    "withoutFocusedBegin":"FAILED_PRE_DISPATCH",
+    "code":"new_command_binding_required_or_discarded",
+    "commandLifecycleCause":"NEW_BEGIN_COMMAND",
+    "verifiedPhoneEffect":false,
+    "resolution":"Acquire Stage44 focused BEGIN using the exact same request_id as BEGIN_COMMAND before the multi-step E2E."
+  },
+  "focusedRun":[
+    {"step":"OPEN_RIGHT_URL","result":"RIGHT_ADDRESS_CONFIRMED"},
+    {"step":"READ_RIGHT_SCREEN","result":"captured"},
+    {"step":"WAIT_CONDITION","result":"MOBILE_WAIT_CONDITION_CONFIRMED","conditionVerified":true},
+    {"step":"OPEN_DESTINATION","result":"RIGHT_ADDRESS_CONFIRMED"},
+    {"step":"READ_DESTINATION","result":"destination page observed"},
+    {"step":"ANDROID_NATIVE_BACK","result":"index page observed on immediate Android snapshot"},
+    {"step":"WEB_READ_AFTER_ANDROID","result":"captured index page"},
+    {"step":"VISIBLE_SAFE_BUTTON_CLICK","result":"low_risk_action_dispatched","readback":"click-count 0 -> 1"},
+    {"step":"VISIBLE_TEXT_TYPE","result":"field_value_verified","valueVerified":true}
+  ],
+  "crossEngineContinuity":"WEB -> ANDROID -> WEB verified within one focused command",
+  "automaticReplay":false,
+  "playwrightMobileUsed":false,
+  "failedStage69RoutesReplayed":false,
+  "screenshotRepeated":false
+}
