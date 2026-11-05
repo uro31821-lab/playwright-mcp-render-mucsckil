@@ -4,26 +4,26 @@ import fs from 'node:fs';
 
 const x=JSON.parse(fs.readFileSync(new URL('./current.json',import.meta.url),'utf8'));
 
-test('Stage72 is install-only and never rebuilds or resigns',()=>{
-  assert.equal(x.status,'READY_FOR_LOCAL_INSTALL_ONLY');
-  assert.equal(x.safety.rebuildRequired,false);
-  assert.equal(x.safety.newSigningKeyAllowed,false);
-  assert.equal(x.safety.uninstallAllowed,false);
-  assert.equal(x.safety.dataResetAllowed,false);
-  assert.equal(x.safety.automaticReinstallAllowed,false);
+test('Stage72 blocks obsolete Stage61 InstallOnly over current Stage62 FIX3',()=>{
+  assert.equal(x.status,'SKIP_INSTALL_SUPERSEDED_BY_CURRENT_APP');
+  assert.equal(x.currentPhone.secureActive,true);
+  assert.equal(x.currentPhone.deviceResponded,true);
+  assert.equal(x.currentPhone.appVersionCode,168);
+  assert.match(x.currentPhone.appVersionName,/stage62.*fix3/i);
+  assert.equal(x.installOnlyBundle.targetVersionCode,168);
+  assert.match(x.installOnlyBundle.candidate,/STAGE61/);
+  assert.equal(x.decision.installNow,false);
 });
 
-test('server baseline remains Stage71 Android-manual live baseline',()=>{
-  assert.equal(x.serverBaseline.mergeCommit,'a06e4643a036fa7cc121ef997bc332a43f2f85df');
-  assert.equal(x.serverBaseline.routingModel,'ANDROID_THEN_MANUAL');
+test('server remains live Stage71 Android-manual baseline',()=>{
+  assert.equal(x.serverBaseline.runtimeCommit,'a06e4643a036fa7cc121ef997bc332a43f2f85df');
   assert.equal(x.serverBaseline.renderStatus,'live');
+  assert.equal(x.serverBaseline.routingModel,'ANDROID_THEN_MANUAL');
 });
 
-test('installer bundle is launcher-only and pinned to existing signed v168 artifact',()=>{
-  assert.equal(x.installOnlyBundle.containsApk,false);
-  assert.equal(x.installOnlyBundle.package,'com.koreanlifehub.bridge');
-  assert.equal(x.installOnlyBundle.versionCode,168);
-  assert.match(x.installOnlyBundle.expectedCertificateSha256,/^[0-9a-f]{64}$/);
-  assert.match(x.installOnlyBundle.expectedSourceManifestSha256,/^[0-9a-f]{64}$/);
-  assert.equal(x.safety.installCommand,'adb install -r <verified signed APK>');
+test('safety stays fail-closed with no rebuild, uninstall, reset or auto reinstall',()=>{
+  assert.equal(x.decision.rebuildRequired,false);
+  assert.equal(x.decision.uninstallAllowed,false);
+  assert.equal(x.decision.dataResetAllowed,false);
+  assert.equal(x.decision.automaticReinstallAllowed,false);
 });
