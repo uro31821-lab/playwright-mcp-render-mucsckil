@@ -103,6 +103,12 @@ OPEN은 기존 `describeOpenCompletion`으로 그 작업의 완료 시점 주소
 
 실행 범위는 [.github/workflows/jh-jebiseo-mobile-candidate.yml](../../../../.github/workflows/jh-jebiseo-mobile-candidate.yml)에 고정한다. 제비서·기존 실제 생성 핸들러·공통 허브 검사와 Stage66/67/69/70/71/72 계약을 함께 실행한다. 같은 중간 생성 파일을 사용하는 원 검사 때문에 `test-concurrency=1`을 유지한다. 보호 원본·pin·승인 규칙을 바꿔 검사를 통과시키지 않는다. 단위·통합·CI 통과는 실제 휴대폰의 입력·전송·답변 성공 증거가 아니다.
 
+### 최신 main 기록 검사와의 호환성 수정
+
+첫 후속 CI [#42038630663](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42038630663)는 보호 원본 10개와 신규 사후 관찰 8개를 통과했지만, 전체 통합은 **305 pass / 1 fail**이었다. 최신 main에서 가져온 Stage76 검사에 과거 모바일 엔진 이름을 포함한 기록 키 참조가 남아 Stage71의 전체 실행 소스 검사를 충돌시켰다.
+
+Stage71 검사와 Stage76 `current.json` 원문은 유지했다. Stage76 검사는 기록에 보고된 `ActiveRoutes` 수치 항목이 정확히 하나이며 정수 0인지 검사하도록 고쳤다. 항목 누락·추가·문자열·양수는 실패하며, 이름을 조립하거나 scanner 예외를 넣지 않는다. 실제 경로·기기 설치·과거 완료 기록을 변경한 것이 아니다. 최종 재검사 결과는 PR #145의 최신 head에 연결한다.
+
 ## 이어갈 위치
 
 현재 APK 유지 조건에서 **RIGHT 현재 주소를 확인할 수 있는 기존 원 관찰 경로**와 입력 후 값·안내 부재의 사후 증거를 이어간다. 이 증거가 없으면 자동 실행 가용성은 올리지 않는다. 기능별 현재 요청·전송·결과 회수도 이어서 결합해야 한다. 실제 실행 요청과 유효한 원명령이 있는 때만 휴대폰을 조작한다. 개발 재개만으로 BEGIN·재OPEN·질문 전송을 시작하지 않는다.

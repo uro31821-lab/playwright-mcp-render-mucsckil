@@ -50,7 +50,14 @@ test('privacy and routing remain fail-closed',()=>{
   assert.equal(x.privacy.locationHistoryLongTermStorage,false);
   assert.equal(x.privacy.automaticRestartAfterForceStopOrReboot,false);
   assert.equal(x.server.routingModel,'ANDROID_THEN_MANUAL');
-  assert.equal(x.server.playwrightMobileActiveRoutes,0);
+  // Validate every active-route count reported by this checkpoint schema.
+  const routeCounts=Object.entries(x.server)
+    .filter(([name])=>name.endsWith('ActiveRoutes'));
+  assert.equal(routeCounts.length,1,'checkpoint must report exactly one active-route count');
+  for(const [name,count] of routeCounts){
+    assert.ok(Number.isSafeInteger(count),name+' must be an integer count');
+    assert.equal(count,0,name+' must remain zero');
+  }
   assert.equal(x.server.newDeployRequired,false);
   assert.equal(x.finalDecision,'TRIP_LOCATION_ANDROID_EXECUTION_COMPLETE');
 });
