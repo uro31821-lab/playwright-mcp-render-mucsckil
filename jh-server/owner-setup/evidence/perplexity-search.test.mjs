@@ -4,8 +4,8 @@ import {isExplicitEvidenceRequest,registerJHEvidenceSearchTool,searchPerplexityE
 const KEY='test-only-fake-api-key-000000';
 const yes=x=>({ok:true,status:200,text:async()=>JSON.stringify(x)});
 const z=(()=>{
-  const leaf={min(){return this;},max(){return this;}};
-  return {string:()=>({...leaf}),array:()=>({...leaf}),union:()=>({...leaf})};
+  const leaf={min(){return this;},max(){return this;},optional(){return this;},int(){return this;},regex(){return this;}};
+  return {string:()=>({...leaf}),array:()=>({...leaf}),union:()=>({...leaf}),number:()=>({...leaf}),enum:()=>({...leaf})};
 })();
 
 test('only explicit evidence requests qualify',()=>{
@@ -24,10 +24,10 @@ test('standard Search API: ONE POST, no agent/model/fast; source links for GPT',
    assert.equal(req.headers.Authorization,'Bearer '+KEY);
    const body=JSON.parse(req.body);
    assert.equal(body.query,'dementia diagnosis NICE clinical guideline');
-   assert.equal(body.max_results,8);
+   assert.equal(body.max_results,10);
    assert.equal(body.max_tokens,12000);
    assert.equal(body.max_tokens_per_page,1500);
-   for(const forbidden of ['model','tools','search_type'])assert.equal(body[forbidden],undefined);
+   for(const forbidden of ['model','tools','search_type','search_context_size'])assert.equal(body[forbidden],undefined);
    return yes({id:'test-1',results:[
      {title:'Clinical guideline',url:'https://www.nice.org.uk/guidance/ng97',snippet:'A guideline excerpt',date:'2025-01-01'},
      {title:'Duplicate',url:'https://www.nice.org.uk/guidance/ng97',snippet:'duplicate'},
@@ -68,21 +68,21 @@ test('MCP OAuth tool hidden without key, blocks generic questions',async()=>{
  assert.equal(ok.ok,true);assert.equal(count,1);
 });
 
-test('three search queries use one paid request, zero-results remain billable',async()=>{
+test('five search queries use one paid request, zero-results remain billable',async()=>{
  let count=0;
  const fetchImpl=async(_url,req)=>{
    count++;
-   assert.deepEqual(JSON.parse(req.body).query,['original research','systematic review','official statistics']);
+   assert.deepEqual(JSON.parse(req.body).query,['original research','systematic review','official statistics','clinical trials','guidelines']);
    return yes({results:[]});
  };
- const result=await searchPerplexityEvidence({apiKey:KEY,fetchImpl,query:['original research','systematic review','official statistics']});
+ const result=await searchPerplexityEvidence({apiKey:KEY,fetchImpl,query:['original research','systematic review','official statistics','clinical trials','guidelines']});
  assert.equal(count,1);assert.equal(result.ok,true);assert.equal(result.returned_sources,0);assert.equal(result.billed,true);
 });
 
 test('reject bad queries and personal identifiers BEFORE external network',async()=>{
  let count=0;
  const fetchImpl=async()=>{count++;return yes({results:[]});};
- for(const query of ['', ['a','b','c','d'],'010-1234-5678 medical report','900101-1234567 name','valid\nmalicious','person@example.com study','환자명: 김철수 진료 기록']){
+ for(const query of ['', ['a','b','c','d'],['a','b','c','d','e','f'],'010-1234-5678 medical report','900101-1234567 name','valid\nmalicious','person@example.com study','환자명: 김철수 진료 기록']){
    const result=await searchPerplexityEvidence({query,apiKey:KEY,fetchImpl});
    assert.equal(result.code,'INVALID_OR_SENSITIVE_QUERY');
  }
@@ -103,4 +103,68 @@ test('success payload lacking sources is NOT passed off as evidence',async()=>{
  const r=await searchPerplexityEvidence({query:'find supporting evidence',apiKey:KEY,fetchImpl:async()=>yes({answer:'not sources'})});
  assert.equal(r.ok,false);assert.equal(r.code,'UPSTREAM_INVALID_SCHEMA');
  assert.equal(r.billing_status,'UNKNOWN');
+});
+
+
+test('documented Search API options travel under exact parameter names (no context_size)',async()=>{
+ let calls=0;
+ const fetchImpl=async(_url,req)=>{
+   calls++;
+   const body=JSON.parse(req.body);
+   assert.deepEqual(body,{
+     query:['clinical research','clinical guideline'],
+     max_results:20,
+     max_tokens:5000,
+     max_tokens_per_page:1000,
+     country:'KR',
+     search_domain_filter:['pubmed.ncbi.nlm.nih.gov','nature.com'],
+     search_language_filter:['en','ko'],
+     search_after_date_filter:'01/01/2025',
+     search_recency_filter:'year'
+   });
+   return yes({id:'search-mock',results:[{title:'Original',url:'https://nature.com/study',snippet:'Source excerpt'},
+     {title:'Duplicate',url:'https://nature.com/study',snippet:'duplicated'},
+     {title:'Other',url:'https://pubmed.ncbi.nlm.nih.gov/12345',snippet:'Another excerpt'}]});
+ };
+ const result=await searchPerplexityEvidence({
+   query:['clinical research','clinical guideline'],apiKey:KEY,fetchImpl,
+   max_results:20,max_tokens:5000,max_tokens_per_page:1000,country:'kr',
+   search_domain_filter:['pubmed.ncbi.nlm.nih.gov','nature.com'],
+   search_language_filter:['EN','ko'],search_after_date_filter:'01/01/2025',
+   search_recency_filter:'year'
+ });
+ assert.equal(calls,1);
+ assert.equal(result.ok,true);
+ assert.equal(result.sources.length,2);
+ assert.equal(result.sources[0].url,'https://nature.com/study');
+});
+
+test('invalid search options fail before network',async()=>{
+ let calls=0;
+ const fetchImpl=async()=>{calls++;return yes({results:[]})};
+ const options=[
+  {max_results:0},{max_results:21},{max_results:1.5},{country:'KOR'},
+  {search_language_filter:['english']},{search_domain_filter:['https://nature.com']},
+  {search_domain_filter:['nature.com','-reddit.com']},
+  {search_after_date_filter:'02/29/2025'},{search_recency_filter:'decade'},
+  {max_tokens:-1},{max_tokens_per_page:0}
+ ];
+ for(const opt of options){
+   const out=await searchPerplexityEvidence({query:'supporting study',apiKey:KEY,fetchImpl,...opt});
+   assert.equal(out.code,'INVALID_SEARCH_OPTIONS',JSON.stringify(opt));
+ }
+ assert.equal(calls,0);
+});
+
+test('429 honors provider Retry-After without automatic retry',async()=>{
+ let calls=0;
+ const result=await searchPerplexityEvidence({query:'supporting study',apiKey:KEY,fetchImpl:async()=>{
+  calls++;
+  return {ok:false,status:429,headers:{get:(name)=>name==='retry-after'?'17':null},text:async()=> 'never expose upstream'};
+ }});
+ assert.equal(calls,1);
+ assert.equal(result.code,'UPSTREAM_RATE_LIMITED');
+ assert.equal(result.retry_after_seconds,17);
+ assert.equal(result.automatic_retry,false);
+ assert.equal(JSON.stringify(result).includes(KEY),false);
 });
