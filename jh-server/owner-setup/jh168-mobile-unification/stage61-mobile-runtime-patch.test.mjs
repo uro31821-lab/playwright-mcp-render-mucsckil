@@ -50,6 +50,11 @@ test('patch connects mobile web and computer use to Stage61',()=>{
  assert.match(out,/jhStage61BeforeWeb56/);
  assert.match(out,/stage61_route_token/);
  assert.match(out,/jhStage61TaskRoute56/);
+ assert.match(out,/jhStage61ContextTask56/);
+ assert.match(out,/jhStage61Keypress56/);
+ assert.match(out,/STAGE61_KEYPRESS_CONTEXT_TASK_REQUIRED/);
+ assert.match(out,/MOBILE_KEYPRESS_APPROVAL_REQUIRED_OR_UNCONFIRMED/);
+ assert.match(out,/\["ENTER","TAB"\]/);
  assert.match(out,/STAGE61_ROUTE_TASK_BINDING_MISMATCH/);
  assert.match(out,/jhStage61FinishComputer56/);
  assert.match(out,/recordVerifiedPreDispatchNoEffect/);
