@@ -12,13 +12,13 @@ jobs:
   public-build-dependencies:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      GRADLE_USER_HOME: ${{ runner.temp }}/kabiseo-public-gradle-home
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with: {persist-credentials: false}
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
         with: {distribution: temurin, java-version: '17'}
+      - name: Set isolated public-only dependency cache on runner
+        run: echo "GRADLE_USER_HOME=$RUNNER_TEMP/kabiseo-public-gradle-home" >> "$GITHUB_ENV"
       - name: Verify and install Gradle 8.9
         shell: bash
         run: |
