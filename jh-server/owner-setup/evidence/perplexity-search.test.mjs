@@ -66,6 +66,8 @@ test('MCP OAuth tool hidden without key, blocks generic questions',async()=>{
  assert.equal(blocked.code,'EXPLICIT_EVIDENCE_REQUEST_REQUIRED');assert.equal(count,0);
  const ok=await handler({user_request:'이 기사의 근거와 링크 찾아줘',query:'supporting paper search'});
  assert.equal(ok.ok,true);assert.equal(count,1);
+ const followup=await handler({user_request:'관련 자료는?',query:'research on the previously discussed subject'});
+ assert.equal(followup.ok,true);assert.equal(count,2);
 });
 
 test('five search queries use one paid request, zero-results remain billable',async()=>{
