@@ -14,12 +14,37 @@ const once=(source,before,after,code)=>{
 };
 
 const IMPORT='import {createStage61HostAdapter} from "../jh168-mobile-unification/stage61-right-pane-host-adapter.mjs";\n';
+
+const PRESS_KEY_OLD=String.raw`  registerOAuthTool("life_web_press_key",{
+    title:"Supported RIGHT-pane navigation key",
+    description:"Only explicit Android BACK is currently bridged. Enter, Tab, Escape, Arrow keys require verified native action contracts and never silently use server Playwright.",
+    inputSchema:{key:z.string(),context_id:z.string().optional(),request_id:z.string().optional()}
+  },async(args)=>{
+    if(!["BACK","AndroidBack"].includes(args.key))
+      return jhMobileWebReject56("MOBILE_KEY_NOT_VERIFIED",{requestedKey:args.key});
+    return jhMobileWebFollow56(args,"BACK","오른쪽 화면에서 Android 뒤로 가기 1회");
+  });`;
+const PRESS_KEY_NEW=String.raw`  registerOAuthTool("life_web_press_key",{
+    title:"Supported RIGHT-pane navigation key",
+    description:"Android BACK stays on the existing signed mobile path. Enter and Tab use the existing Stage61 Android Computer Use KEYPRESS path. Escape and Arrow keys remain unsupported; server Playwright is never used as a fallback.",
+    inputSchema:{key:z.string(),context_id:z.string().optional(),request_id:z.string().optional()}
+  },async(args)=>{
+    if(["BACK","AndroidBack"].includes(args.key))
+      return jhMobileWebFollow56(args,"BACK","오른쪽 화면에서 Android 뒤로 가기 1회");
+    const key=String(args.key||"").toUpperCase();
+    if(!["ENTER","TAB"].includes(key))
+      return jhMobileWebReject56("MOBILE_KEY_NOT_VERIFIED",{requestedKey:args.key});
+    return jhStage61Keypress56(args,key);
+  });`;
+
 const OWNER_PICK_BEFORE='      beforeDispatch:({record,firstAttempt})=>jhOwnerAdmission155(device,commandId,record,firstAttempt),';
 const OWNER_PICK_AFTER='      beforeDispatch:({record,firstAttempt})=>jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload),';
 const HELPER=String.raw`
   // Stage61: server-owned route state over ORIGINAL Secure56 phone results.
   const jhStage61OriginalResult56=new Map();
   const jhStage61ContextRoute56=new Map();
+  const jhStage61ContextTask56=new Map();
+  const jhStage61ContextItems56=new Map();
   const jhStage61TaskRoute56=new Map();
   const jhStage61PreparedPick56=new Map();
   const jhStage61Host56=createStage61HostAdapter({
@@ -34,6 +59,33 @@ const HELPER=String.raw`
     for(const name of names){const value=args?.[name];if(value!==undefined&&value!==null&&String(value)!=="")return value;}
     return null;
   }
+  function jhStage61Reply56(reply){
+    const raw=reply?.content?.find(v=>v?.type==="text"&&typeof v.text==="string")?.text;
+    if(typeof raw!=="string")return null;
+    try{return JSON.parse(raw);}catch{return null;}
+  }
+  async function jhStage61Keypress56(args,key){
+    const contextId=String(args?.context_id||"");
+    const routeToken=String(jhStage61ContextRoute56.get(contextId)||"");
+    const taskDigest=String(jhStage61ContextTask56.get(contextId)||"");
+    if(!routeToken||!/^[a-f0-9]{64}$/.test(taskDigest))
+      return textResult({ok:false,route:"android_right",code:"STAGE61_KEYPRESS_CONTEXT_TASK_REQUIRED",automaticReplay:false});
+    const common={task_digest:taskDigest,stage61_route_token:routeToken,effect:"REVERSIBLE_WRITE",
+      action:"KEYPRESS",keys:[key],data_class:"NONE",max_actions_in_call:1};
+    const inspectReply=await secureCall56("life_android_computer_inspect","computer_use_inspect","READ_ONLY",common);
+    const inspected=jhStage61Reply56(inspectReply);
+    if(!inspected||inspected.ok!==true||inspected.code!=="keypress_target_ready")return inspectReply;
+    const prepareReply=await secureCall56("life_android_computer_prepare","computer_use_action_prepare","READ_ONLY",common,
+      {screenConsentDigest:"",localActionApprovalDigest:""});
+    const prepared=jhStage61Reply56(prepareReply);
+    if(!prepared||prepared.ok!==true)return prepareReply;
+    const lease=String(prepared.leaseToken||prepared.lease_token||"");
+    if(prepared.requiresFreshApproval!==false||lease.length<12)
+      return textResult({...prepared,ok:false,route:"android_right",
+        code:"MOBILE_KEYPRESS_APPROVAL_REQUIRED_OR_UNCONFIRMED",requestedKey:key,taskDigest,automaticReplay:false});
+    return secureCall56("life_android_execute_computer_action","computer_use_action_execute","MUTATION",
+      {...common,lease_token:lease},{leaseToken:lease,localActionApprovalDigest:""});
+  }
   function jhStage61WebAction56(action,command){
     if(action==="SET_TEXT")return "TYPE";if(action==="BACK")return "BACK";
     const s=String(command||"");
@@ -44,6 +96,29 @@ const HELPER=String.raw`
   function jhStage61OwnerNote56(record,code){
     if(typeof jhOwnerAdmissionNote40==="function")return jhOwnerAdmissionNote40(record,code);
     return false;
+  }
+  function jhStage61FreshContextItems56(result){
+    const contextId=String(result?.contextId||result?.context_id||"");
+    const expiresAt=Number(result?.expiresAt||0);
+    const rows=Array.isArray(result?.items)?result.items:null;
+    if(!/^ssc_[a-f0-9]{32}$/.test(contextId)||!Number.isSafeInteger(expiresAt)||
+      expiresAt<=Date.now()||expiresAt>Date.now()+15*60*1000||!rows||rows.length<1||rows.length>256)
+      return null;
+    const refs=new Set();
+    for(const row of rows){
+      if(!row||typeof row!=="object")continue;
+      const ref=String(row.itemRef||"");
+      if(/^item_[a-f0-9]{16}$/.test(ref)&&row.clickable===true)refs.add(ref);
+    }
+    return refs.size?{contextId,refs,expiresAt}:null;
+  }
+  function jhStage61RememberFreshContextItems56(result){
+    const fresh=jhStage61FreshContextItems56(result);
+    if(!fresh)return false;
+    jhStage61ContextItems56.set(fresh.contextId,{refs:fresh.refs,expiresAt:fresh.expiresAt});
+    while(jhStage61ContextItems56.size>64)
+      jhStage61ContextItems56.delete(jhStage61ContextItems56.keys().next().value);
+    return true;
   }
   function jhStage61PreparedResult56(result){
     const candidate=result?.schema==="JH168_NATIVE_SELECT_OPTION_REFS_V1"?result:
@@ -77,6 +152,50 @@ const HELPER=String.raw`
       jhStage61PreparedPick56.delete(jhStage61PreparedPick56.keys().next().value);
     return {ok:true,code:"STAGE61_SELECT_PICK_PREPARED",expiresAt:prepared.expiresAt,
       optionCount:prepared.optionCount,replayAllowed:false,automaticReplay:false};
+  }
+  function jhStage61ExactSelectOpen56(payload){
+    const p=payload&&typeof payload==="object"?payload:null;
+    const intended=p?.stage61Action==="SELECT_OPEN"||
+      p?.command==="오른쪽 화면에서 지정 선택 메뉴 열기";
+    if(!intended)return {intended:false,ok:false,code:null};
+    try{
+      const keys=Reflect.ownKeys(p);
+      const expected=["action","command","contextId","requestId","stage61Action",
+        "stage61ComputerOutcome","stage61PlaywrightMobileAvailable","stage61RouteSchema",
+        "stage61WebOutcome","targetItemRef"];
+      const names=keys.every(value=>typeof value==="string")?keys.slice().sort():[];
+      const plain=names.every(name=>{const d=Object.getOwnPropertyDescriptor(p,name);
+        return !!d&&Object.hasOwn(d,"value")&&d.enumerable===true;});
+      if(names.length!==expected.length||names.some((value,index)=>value!==expected[index])||!plain||
+        !/^ssc_[a-f0-9]{32}$/.test(p.contextId)||!/^[a-f0-9]{32}$/.test(p.requestId)||
+        !/^item_[a-f0-9]{16}$/.test(p.targetItemRef)||p.action!=="CLICK"||
+        p.command!=="오른쪽 화면에서 지정 선택 메뉴 열기"||
+        p.stage61RouteSchema!=="JH168_STAGE61_ROUTE_REQUEST_V1"||p.stage61Action!=="SELECT_OPEN"||
+        p.stage61WebOutcome!=="NOT_RUN"||p.stage61ComputerOutcome!=="NOT_RUN"||
+        p.stage61PlaywrightMobileAvailable!==false)
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_SCOPE_INVALID"};
+      const routeToken=jhStage61ContextRoute56.get(p.contextId);
+      if(typeof routeToken!=="string"||!routeToken)
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY"};
+      const fresh=jhStage61ContextItems56.get(p.contextId);
+      if(!fresh||Date.now()>=fresh.expiresAt||!fresh.refs.has(p.targetItemRef)){
+        jhStage61ContextItems56.delete(p.contextId);
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_FRESH_REF_REQUIRED",routeToken};
+      }
+      const plan=jhStage61Host56.plan({routeToken,action:"SELECT_OPEN",playwrightMobileAvailable:false});
+      if(plan.ok!==true||plan.provider!=="ANDROID_WEB"||plan.allowed!==true||
+        plan.routeToken!==routeToken||plan.replayAllowed!==false||plan.automaticReplay!==false)
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY",routeToken};
+      const phone=jhStage61Host56.phonePayload({routeToken,action:"SELECT_OPEN",provider:"ANDROID_WEB"});
+      if(phone.ok!==true||phone.routeToken!==routeToken||phone.replayAllowed!==false||
+        phone.automaticReplay!==false||phone.stage61RouteSchema!==p.stage61RouteSchema||
+        phone.stage61Action!==p.stage61Action||phone.stage61WebOutcome!==p.stage61WebOutcome||
+        phone.stage61ComputerOutcome!==p.stage61ComputerOutcome||
+        phone.stage61PlaywrightMobileAvailable!==p.stage61PlaywrightMobileAvailable)
+        return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY",routeToken};
+      return {intended:true,ok:true,code:"OWNER_SELECT_OPEN_ROUTE_VERIFIED",
+        routeToken,contextId:p.contextId,targetItemRef:p.targetItemRef};
+    }catch{return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY"};}
   }
   function jhStage61ExactSelectPick56(payload){
     const p=payload&&typeof payload==="object"?payload:null;
@@ -123,7 +242,9 @@ const HELPER=String.raw`
     }catch{return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY"};}
   }
   async function jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload){
-    const exact=jhStage61ExactSelectPick56(payload);
+    const open=jhStage61ExactSelectOpen56(payload);
+    const pick=jhStage61ExactSelectPick56(payload);
+    const exact=open.intended?open:pick;
     if(!exact.intended)return jhOwnerAdmission155(device,commandId,record,firstAttempt);
     const fail=code=>jhStage61OwnerNote56(record,code);
     try{if(jhRequireCommand56(device)!==commandId)return fail("COMMAND_BINDING_CHANGED");}
@@ -144,8 +265,13 @@ const HELPER=String.raw`
       "OWNER_DEVICE_OR_PROCESS_CHANGED":"OWNER_BINDING_ASSERT_REJECTED");}
     try{if(jhRequireCommand56(device)!==commandId)return fail("COMMAND_CHANGED_DURING_READ");}
     catch{return fail("COMMAND_DISCARDED_DURING_READ");}
-    if(exact.routeToken)jhStage61PreparedPick56.delete(exact.routeToken);
-    if(exact.ok!==true)return fail(exact.code||"OWNER_SELECT_PICK_ROUTE_NOT_READY");
+    if(exact.ok!==true)return fail(exact.code||
+      (open.intended?"OWNER_SELECT_OPEN_ROUTE_NOT_READY":"OWNER_SELECT_PICK_ROUTE_NOT_READY"));
+    if(open.intended&&exact.contextId){
+      const fresh=jhStage61ContextItems56.get(exact.contextId);
+      if(fresh){fresh.refs.delete(exact.targetItemRef);if(!fresh.refs.size)jhStage61ContextItems56.delete(exact.contextId);}
+    }
+    if(pick.intended&&exact.routeToken)jhStage61PreparedPick56.delete(exact.routeToken);
     // The server admits only its exact signed OPEN receipt and one-shot option ref. Android still
     // rechecks the current popup, option lease and exact node, then consumes the
     // lease before the only ACTION_CLICK. No raw popup snapshot or replay exists.
@@ -190,11 +316,17 @@ const HELPER=String.raw`
     const state=await jhStage61Host56.begin({originalReceiptRef:jhStage61SaveOriginal56(result)});
     if(state.ok!==true)return {...result,stage61RouterHost:state};
     const contextId=String(result?.contextId||result?.context_id||"");
-    if(/^ssc_[a-f0-9]{32}$/.test(contextId))jhStage61ContextRoute56.set(contextId,state.routeToken);
+    const validContext=/^ssc_[a-f0-9]{32}$/.test(contextId);
+    if(validContext){
+      jhStage61ContextRoute56.set(contextId,state.routeToken);
+      jhStage61RememberFreshContextItems56(result);
+    }
     const taskDigest=String(result?.taskDigest||result?.task_digest||"");
     if(/^[a-f0-9]{64}$/.test(taskDigest)){
       jhStage61TaskRoute56.set(taskDigest,state.routeToken);
+      if(validContext)jhStage61ContextTask56.set(contextId,taskDigest);
       while(jhStage61TaskRoute56.size>64)jhStage61TaskRoute56.delete(jhStage61TaskRoute56.keys().next().value);
+      while(jhStage61ContextTask56.size>64)jhStage61ContextTask56.delete(jhStage61ContextTask56.keys().next().value);
     }
     return {...result,stage61RouteToken:state.routeToken,stage61RouterHost:state,
       stage61NextProvider:"ANDROID_WEB",automaticReplay:false};
@@ -227,7 +359,11 @@ const HELPER=String.raw`
   async function jhStage61AfterAction56(result,routeToken,provider,action,terminal=true){
     // A second OPEN attempt invalidates every previously prepared ref before
     // its new receipt is inspected; a failed re-open can never leave stale refs.
-    if(action==="SELECT_OPEN")jhStage61PreparedPick56.delete(routeToken);
+    if(action==="SELECT_OPEN"){
+      jhStage61PreparedPick56.delete(routeToken);
+      for(const [contextId,mapped] of jhStage61ContextRoute56)
+        if(mapped===routeToken)jhStage61ContextItems56.delete(contextId);
+    }
     const originalReceiptRef=jhStage61SaveOriginal56(result);
     let record=await jhStage61Host56.record({routeToken,originalReceiptRef,
       expectedProvider:provider,expectedAction:action,terminal});
@@ -323,6 +459,7 @@ export function patchStage61MobileRuntime56(source){
   '    return textResult({route:"android_right",automaticReplay:false,...result});\n  }\n\n  registerOAuthTool("life_web_navigate",{',
   '    return textResult({route:"android_right",automaticReplay:false,...await jhStage61BeginRead56(result)});\n  }\n\n  registerOAuthTool("life_web_navigate",{',
   'STAGE61_START_RESULT_ANCHOR');
+ out=once(out,PRESS_KEY_OLD,PRESS_KEY_NEW,'STAGE61_KEYPRESS_HANDLER_ANCHOR');
  out=once(out,'const cuSchema56={','const cuSchema56={stage61_route_token:z.string().optional(),','STAGE61_CU_SCHEMA_ANCHOR');
  const currentHeadOld='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);';
  const currentHeadNew='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);';
@@ -352,6 +489,7 @@ export function patchStage61MobileRuntime56(source){
 
 export function reverseStage61MobileRuntime56(source){
  let out=source;
+ out=once(out,PRESS_KEY_NEW,PRESS_KEY_OLD,'STAGE61_KEYPRESS_HANDLER_REVERSE_ANCHOR');
  if(out.includes(OWNER_PICK_AFTER))out=out.replace(OWNER_PICK_AFTER,OWNER_PICK_BEFORE);
  const currentHeadOld='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);';
  const currentHeadNew='function secureCall56(mcpToolName,jobType,effect,args,extra={}){\n  const stage61=jhStage61PrepareComputer56(args,mcpToolName);\n  if(stage61.ok!==true)return Promise.resolve(textResult(stage61.result));\n  const x=exactEnvelope56(mcpToolName,jobType,effect,stage61.args,extra);';

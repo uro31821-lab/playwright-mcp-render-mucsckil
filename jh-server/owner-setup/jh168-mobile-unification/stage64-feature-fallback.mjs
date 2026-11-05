@@ -22,7 +22,7 @@ const DEFINITIONS=Object.freeze({
  BACK:Object.freeze({android:Object.freeze(['ANDROID_WEB','ANDROID_COMPUTER_USE']),playwrightMobile:true}),
  SELECT_OPEN:Object.freeze({android:Object.freeze(['ANDROID_WEB','ANDROID_COMPUTER_USE']),playwrightMobile:true}),
  SELECT_PICK:Object.freeze({android:Object.freeze(['ANDROID_WEB','ANDROID_COMPUTER_USE']),playwrightMobile:true}),
- KEYPRESS_ENTER_TAB:Object.freeze({android:Object.freeze(['ANDROID_WEB','ANDROID_COMPUTER_USE']),playwrightMobile:true}),
+ KEYPRESS_ENTER_TAB:Object.freeze({android:Object.freeze(['ANDROID_COMPUTER_USE']),playwrightMobile:true}),
  NATIVE_APP_ACTION:Object.freeze({android:Object.freeze(['ANDROID_COMPUTER_USE']),playwrightMobile:false}),
  READ_ONLY_INSPECT:Object.freeze({android:Object.freeze(['ANDROID_COMPUTER_USE']),playwrightMobile:false})
 });

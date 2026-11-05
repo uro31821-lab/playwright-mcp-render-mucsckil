@@ -1,0 +1,19 @@
+{
+  "schema":"JH168_STAGE69_ROUND3_STATE_V1",
+  "round":3,
+  "maxRounds":3,
+  "status":"FIXING_ROUND2_DUAL_FAILURES",
+  "resolved":{
+    "BACK":"ANDROID",
+    "WAIT_CONDITION":"ANDROID",
+    "SCREENSHOT":"ANDROID"
+  },
+  "remaining":[
+    "NATIVE_SELECT",
+    "NESTED_VERTICAL_SCROLL",
+    "HORIZONTAL_SCROLL",
+    "PRESS_KEY",
+    "RETURN_TO_CHROME_FROM_OTHER_APP"
+  ],
+  "round3FinalRule":"Any feature still failing both Android and Playwright Mobile after round 3 becomes MANUAL_AFTER_ROUND_3."
+}

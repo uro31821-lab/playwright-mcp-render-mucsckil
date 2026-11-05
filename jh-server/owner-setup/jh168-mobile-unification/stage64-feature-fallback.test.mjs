@@ -43,3 +43,9 @@ test('post-verification profile keeps only verified working automatic routes',()
  assert.deepEqual(p.features.TYPE,{provider:'PLAYWRIGHT_MOBILE',verified:true,manualRequired:false});
  assert.deepEqual(p.features.CLICK,{provider:'MANUAL',verified:false,manualRequired:true});
 });
+
+test('KEYPRESS_ENTER_TAB uses Android Computer Use first',()=>{
+ const r=nextStage64FeatureProvider({action:'KEYPRESS_ENTER_TAB'});
+ assert.equal(r.provider,'ANDROID_COMPUTER_USE');
+ assert.equal(r.code,'TRY_EXISTING_ANDROID_COMPUTER_USE');
+});
