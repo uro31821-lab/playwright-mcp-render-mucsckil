@@ -1,0 +1,24 @@
+name: JH Stage76 TripLocation phone E2E final
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-mobile-dual-engine/stage76/**'
+      - '.github/workflows/jh-stage76-trip-phone-e2e.yml'
+permissions: {contents: read}
+jobs:
+  final-phone-e2e-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage76/stage76-trip-phone-e2e.test.mjs
+      - run: |
+          echo APK_BUILD=0
+          echo APK_SIGN=0
+          echo APK_INSTALL=0
+          echo PHONE_ACTION_REPLAY=0
+          echo RENDER_DEPLOY=0
+          echo LOCATION_HISTORY_PERSIST=0
