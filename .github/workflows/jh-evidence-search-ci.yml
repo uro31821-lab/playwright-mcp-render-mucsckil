@@ -3,8 +3,7 @@ on:
   pull_request:
     paths:
       - 'jh-server/owner-setup/evidence/perplexity-search*'
-      - 'jh-server/owner-setup/deployment/jh-perplexity-search-composition*'
-      - 'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs'
+      - 'jh-server/owner-setup/evidence/perplexity-search-composition*'
       - '.github/workflows/jh-evidence-search-ci.yml'
   workflow_dispatch:
 # Pure mocked regression only. Never copy cancellation to deployment/device jobs.
@@ -27,7 +26,7 @@ jobs:
       - name: Standard Search API isolated regression (mocked, no API key)
         id: regression
         # Both original test files run once. No npm/SDK/media setup is needed.
-        run: node --test --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search.test.mjs jh-server/owner-setup/deployment/jh-perplexity-search-composition.test.mjs
+        run: node --test --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search.test.mjs jh-server/owner-setup/evidence/perplexity-search-composition.test.mjs
       - name: Summarize exact input and gate outcomes
         if: ${{ always() }}
         env:
@@ -53,7 +52,7 @@ jobs:
                         for name in ('checkout', 'runtime', 'regression')},
               'test_files': [
                   'jh-server/owner-setup/evidence/perplexity-search.test.mjs',
-                  'jh-server/owner-setup/deployment/jh-perplexity-search-composition.test.mjs',
+                  'jh-server/owner-setup/evidence/perplexity-search-composition.test.mjs',
               ],
           }
           # Evidence only: failed/skipped/not_run remain distinct. This never grants a pass.
