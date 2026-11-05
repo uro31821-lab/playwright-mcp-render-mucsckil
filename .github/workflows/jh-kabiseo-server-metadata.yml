@@ -22,16 +22,21 @@ jobs:
           persist-credentials: false
           path: previous
           ref: 75c265188e1823537d224457d3ddf490bdf6e3d8
-      - name: Node builtin-only producer and patch regression tests (no phone or network)
+      - name: Node builtin-only producer, capability and patch regressions
         run: |
           node --version
           node --test --test-reporter=spec candidate/host-kabiseo-assist/server/*.test.mjs
-      - name: Reproduce old failure and test original signer and completion via localhost HTTP
+      - name: Preserve previous signer and completion regressions
         env:
           KABISEO_BASELINE_FILE: baseline/jh-server/server.mjs
           KABISEO_PREVIOUS_PRODUCER: previous/host-kabiseo-assist/server/metadata-producer.mjs
           KABISEO_TRANSPORT_RESULT: ${{ runner.temp }}/kabiseo-server-review/signed-completion-result.json
         run: node --test --test-reporter=spec candidate/host-kabiseo-assist/server/signed-completion.integration.mjs
+      - name: Test authenticated capability then metadata over localhost HTTP (synthetic device only)
+        env:
+          KABISEO_BASELINE_FILE: baseline/jh-server/server.mjs
+          KABISEO_CAPABILITY_RESULT: ${{ runner.temp }}/kabiseo-server-review/capability-transport-result.json
+        run: node --test --test-reporter=spec candidate/host-kabiseo-assist/server/capability-transport.integration.mjs
       - name: Restore existing locked generator dependencies without install hooks
         run: |
           set -euo pipefail
