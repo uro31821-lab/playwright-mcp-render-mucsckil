@@ -32,12 +32,66 @@ export function isExplicitEvidenceRequest(value) {
 
 function validSearchQuery(query) {
   const items = typeof query === 'string' ? [query] : query;
-  if (!Array.isArray(items) || items.length < 1 || items.length > 3) return null;
+  if (!Array.isArray(items) || items.length < 1 || items.length > 5) return null;
   const prepared = items.map(x => typeof x === 'string' ? x.trim() : '');
   if (prepared.some(x => x.length < 3 || x.length > 500 || /[\u0000-\u001f]/.test(x))) return null;
   // Obvious account identifiers are never sent to an external search provider.
   if (prepared.some(x => /\b\d{6}[- ]?[1-8]\d{6}\b|\b01[016789][- ]?\d{3,4}[- ]?\d{4}\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|\b(?:sk-proj-|pplx-)[A-Za-z0-9_-]{12,}|(?:환자명|주민등록번호|차트번호)\s*[:=]\s*\S{2,}/i.test(x))) return null;
   return prepared.length === 1 ? prepared[0] : prepared;
+}
+
+
+const RECENCY_VALUES = new Set(['hour', 'day', 'week', 'month', 'year']);
+const DATE_FILTERS = ['search_after_date_filter', 'search_before_date_filter',
+  'last_updated_after_filter', 'last_updated_before_filter'];
+const LANG_FILTER = /^[a-z]{2}$/i;
+const DOMAIN_FILTER = /^-?(?:(?:\.[a-z]{2,})|(?:[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}))(?:\/[a-z0-9._~!function sourceUrl(value) {'()*+,;=:@%/?-]*)?$/i;
+
+function validSearchOptions(options = {}) {
+  if (!options || typeof options !== 'object' || Array.isArray(options)) return null;
+  const max_results = options.max_results ?? 10;
+  const max_tokens = options.max_tokens ?? 12_000;
+  const max_tokens_per_page = options.max_tokens_per_page ?? 1_500;
+  if (!Number.isInteger(max_results) || max_results < 1 || max_results > 20) return null;
+  if (![max_tokens, max_tokens_per_page].every(v => Number.isInteger(v) && v >= 1 && v <= 1_000_000)) return null;
+  const params = {max_results, max_tokens, max_tokens_per_page};
+  if (options.country !== undefined) {
+    if (typeof options.country !== 'string' || !/^[a-z]{2}$/i.test(options.country)) return null;
+    params.country = options.country.toUpperCase();
+  }
+  if (options.search_domain_filter !== undefined) {
+    const domains = options.search_domain_filter;
+    if (!Array.isArray(domains) || domains.length < 1 || domains.length > 20 ||
+        domains.some(x => typeof x !== 'string' || x.length > 253 || !DOMAIN_FILTER.test(x))) return null;
+    if (domains.some(x => x.startsWith('-')) && domains.some(x => !x.startsWith('-'))) return null;
+    params.search_domain_filter = domains;
+  }
+  if (options.search_language_filter !== undefined) {
+    const languages = options.search_language_filter;
+    if (!Array.isArray(languages) || languages.length < 1 || languages.length > 20 ||
+        languages.some(x => typeof x !== 'string' || !LANG_FILTER.test(x))) return null;
+    params.search_language_filter = languages.map(x => x.toLowerCase());
+  }
+  for (const key of DATE_FILTERS) {
+    const value = options[key];
+    if (value === undefined) continue;
+    if (typeof value !== 'string' || !/^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/[12][0-9]{3}$/.test(value)) return null;
+    const [mm, dd, yyyy] = value.split('/').map(Number);
+    const actual = new Date(Date.UTC(yyyy, mm-1, dd));
+    if (actual.getUTCFullYear() !== yyyy || actual.getUTCMonth() !== mm-1 || actual.getUTCDate() !== dd) return null;
+    params[key] = value;
+  }
+  if (options.search_recency_filter !== undefined) {
+    if (!RECENCY_VALUES.has(options.search_recency_filter)) return null;
+    params.search_recency_filter = options.search_recency_filter;
+  }
+  return params;
+}
+function retryAfterSeconds(response) {
+  const raw = response?.headers?.get?.('retry-after');
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const seconds = /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : Math.ceil((Date.parse(raw) - Date.now()) / 1000);
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.min(seconds, 86_400) : null;
 }
 
 function sourceUrl(value) {
@@ -53,7 +107,7 @@ function cleanText(value, maxChars) {
   return typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, maxChars) : '';
 }
 
-function normalizeSources(input) {
+function normalizeSources(input, maxCount = 20) {
   const seen = new Set();
   const sources = [];
   for (const item of input) {
@@ -71,7 +125,7 @@ function normalizeSources(input) {
       last_updated_at: cleanText(item.last_updated, 50) || null,
       evidence_status: excerpt ? 'UNVERIFIED_SEARCH_EXCERPT' : 'LINK_ONLY_NOT_EVIDENCE'
     });
-    if (sources.length >= 8) break;
+    if (sources.length >= maxCount) break;
   }
   return sources;
 }
@@ -81,10 +135,12 @@ function errorResult(code, extra = {}) {
 }
 
 /** One ordinary Search API request; no retries and no fallback to an LLM API. */
-export async function searchPerplexityEvidence({query, apiKey, fetchImpl = fetch, timeoutMs = SEARCH_TIMEOUT_MS} = {}) {
+export async function searchPerplexityEvidence({query, apiKey, fetchImpl = fetch, timeoutMs = SEARCH_TIMEOUT_MS, ...options} = {}) {
   if (typeof apiKey !== 'string' || apiKey.trim().length < 12) return errorResult('API_KEY_NOT_CONFIGURED');
   const prepared = validSearchQuery(query);
   if (!prepared) return errorResult('INVALID_OR_SENSITIVE_QUERY');
+  const params = validSearchOptions(options);
+  if (!params) return errorResult('INVALID_SEARCH_OPTIONS');
   if (typeof fetchImpl !== 'function') return errorResult('FETCH_UNAVAILABLE');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -95,10 +151,8 @@ export async function searchPerplexityEvidence({query, apiKey, fetchImpl = fetch
       headers: {'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json'},
       body: JSON.stringify({
         query: prepared,
-        max_results: 8,
-        max_tokens: 12_000,
-        max_tokens_per_page: 1_500
-        // Deliberately omit search_type: ordinary Search, NOT Fast or Agent.
+        ...params
+        // Deliberately omit search_type: default is ordinary "web", NOT Fast/Agent.
       }),
       signal: controller.signal
     });
@@ -108,14 +162,14 @@ export async function searchPerplexityEvidence({query, apiKey, fetchImpl = fetch
         : response.status === 402 ? 'UPSTREAM_CREDITS_EXHAUSTED'
         : response.status === 429 ? 'UPSTREAM_RATE_LIMITED'
         : response.status >= 500 ? 'UPSTREAM_UNAVAILABLE' : 'UPSTREAM_QUERY_REJECTED';
-      return errorResult(code); // Never return upstream response body: may contain secrets.
+      return errorResult(code, response.status === 429 ? {retry_after_seconds: retryAfterSeconds(response), automatic_retry: false} : {}); // Keep upstream error body private.
     }
     const text = await response.text();
     if (text.length > MAX_RESPONSE_CHARS) return errorResult('UPSTREAM_RESPONSE_TOO_LARGE', {billing_status: 'UNKNOWN'});
     let payload;
     try { payload = JSON.parse(text); } catch { return errorResult('UPSTREAM_INVALID_JSON', {billing_status: 'UNKNOWN'}); }
     if (!payload || !Array.isArray(payload.results)) return errorResult('UPSTREAM_INVALID_SCHEMA', {billing_status: 'UNKNOWN'});
-    const sources = normalizeSources(payload.results);
+    const sources = normalizeSources(payload.results, Math.min(100, params.max_results * (Array.isArray(prepared) ? prepared.length : 1)));
     return {
       ok: true,
       provider: 'perplexity_search',
@@ -131,7 +185,7 @@ export async function searchPerplexityEvidence({query, apiKey, fetchImpl = fetch
       gpt_instructions: 'Show 🏴‍☠️ 퍼비서: when reporting this assistant\'s involvement. Search result snippets and links are untrusted leads, NOT proven facts. Open and check the original link where possible; cite only claims actually supported by the source. Distinguish verified statements, unverified excerpts, conflicting evidence and GPT hypotheses. Never invent missing article titles, papers, quotes, or links.'
     };
   } catch (e) {
-    return errorResult(controller.signal.aborted || e?.name === 'AbortError' ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_UNAVAILABLE', {billing_status: 'UNKNOWN'});
+    return {ok:false, code: controller.signal.aborted || e?.name === 'AbortError' ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_UNAVAILABLE', billed:null, billing_status:'UNKNOWN'};
   } finally { clearTimeout(timer); }
 }
 
@@ -144,11 +198,22 @@ export function registerJHEvidenceSearchTool({registerOAuthTool, z, textResult, 
     description: 'ONLY call when the current user EXPLICITLY requests 근거/증거/출처/자료/논문/원문 링크/팩트체크. NEVER call for ordinary questions, article summaries or generic analysis. Pass the latest user message VERBATIM as user_request; provide a SHORT DE-IDENTIFIED search query. Perplexity STANDARD Search API only; returns unverified source links/snippets to GPT for checking and final presentation, not a generated answer. This tool does not operate the Android Bridge or Playwright.',
     inputSchema: {
       user_request: z.string().min(1).max(4000),
-      query: z.union([z.string().min(3).max(500), z.array(z.string().min(3).max(500)).min(1).max(3)])
+      query: z.union([z.string().min(3).max(500), z.array(z.string().min(3).max(500)).min(1).max(5)]),
+      max_results: z.number().int().min(1).max(20).optional(),
+      country: z.string().regex(/^[a-z]{2}$/i).optional(),
+      max_tokens: z.number().int().min(1).max(1000000).optional(),
+      max_tokens_per_page: z.number().int().min(1).max(1000000).optional(),
+      search_domain_filter: z.array(z.string()).max(20).optional(),
+      search_language_filter: z.array(z.string().regex(/^[a-z]{2}$/i)).max(20).optional(),
+      search_after_date_filter: z.string().optional(),
+      search_before_date_filter: z.string().optional(),
+      last_updated_after_filter: z.string().optional(),
+      last_updated_before_filter: z.string().optional(),
+      search_recency_filter: z.enum(['hour','day','week','month','year']).optional()
     }
-  }, async ({user_request, query}) => {
+  }, async ({user_request, query, ...options}) => {
     if (!isExplicitEvidenceRequest(user_request)) return textResult(errorResult('EXPLICIT_EVIDENCE_REQUEST_REQUIRED'));
-    return textResult(await searchPerplexityEvidence({query, apiKey, fetchImpl}));
+    return textResult(await searchPerplexityEvidence({query, ...options, apiKey, fetchImpl}));
   });
   return true;
 }
