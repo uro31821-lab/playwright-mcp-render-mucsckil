@@ -1,0 +1,23 @@
+name: JH Stage79 location_once phone E2E final
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-mobile-dual-engine/stage79/**'
+      - '.github/workflows/jh-stage79-location-once-phone-e2e.yml'
+permissions: {contents: read}
+jobs:
+  phone-e2e-record:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test --test-reporter=spec jh-mobile-dual-engine/stage79/stage79-location-once-phone-e2e.test.mjs
+      - run: |
+          echo APK_BUILD=0
+          echo APK_SIGN=0
+          echo APK_INSTALL=0
+          echo PHONE_LOCATION_READ=0
+          echo RENDER_DEPLOY=0
