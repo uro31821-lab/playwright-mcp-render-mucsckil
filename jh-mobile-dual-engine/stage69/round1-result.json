@@ -1,0 +1,94 @@
+{
+  "schema":"JH168_STAGE69_ROUND1_RESULT_V1",
+  "round":1,
+  "playwrightMobileCommon":{
+    "status":"PROVIDER_UNAVAILABLE",
+    "code":"PLAYWRIGHT_MOBILE_REAL_PHONE_PROVIDER_NOT_CONNECTED",
+    "evidence":"No live Playwright Mobile execution tool/provider is connected for the owner phone; CI/DOM is not counted as phone E2E."
+  },
+  "results":[
+    {
+      "feature":"NATIVE_SELECT",
+      "android":"FAILED",
+      "androidEvidence":[
+        "SELECT_OPEN Android Web: OWNER_ADMISSION_BLOCKED / FAILED_PRE_DISPATCH / executed=false",
+        "Computer Use click opened the native select popup, but Stage61 classified the routed CLICK as NATIVE_APP_ACTION and the receipt became PENDING/action-mismatch; final PICK was not authorized or value-verified"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"ROUND2_FIX_BOTH"
+    },
+    {
+      "feature":"NESTED_VERTICAL_SCROLL",
+      "android":"FAILED",
+      "androidEvidence":["nested_scroll_targets_not_proven; noAutomaticParentFallback=true"],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"ROUND2_FIX_BOTH"
+    },
+    {
+      "feature":"HORIZONTAL_SCROLL",
+      "android":"FAILED",
+      "androidEvidence":[
+        "horizontal_scroll_targets_ready with one exact target",
+        "horizontal_readback_before_insufficient / dispatched=false / resultVerified=false"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"ROUND2_FIX_BOTH"
+    },
+    {
+      "feature":"BACK",
+      "android":"VERIFIED_PASS",
+      "androidEvidence":[
+        "destination.html was verified before action",
+        "native Android BACK returned to the Mobile 13 index page and immediate snapshot confirmed the index content"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"KEEP_ANDROID_DELETE_PLAYWRIGHT"
+    },
+    {
+      "feature":"PRESS_KEY",
+      "android":"FAILED",
+      "androidEvidence":["Enter returned MOBILE_KEY_NOT_VERIFIED"],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"ROUND2_FIX_BOTH"
+    },
+    {
+      "feature":"WAIT_CONDITION",
+      "android":"VERIFIED_PASS",
+      "androidEvidence":["MOBILE_WAIT_CONDITION_CONFIRMED / conditionVerified=true"],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"KEEP_ANDROID_DELETE_PLAYWRIGHT"
+    },
+    {
+      "feature":"SCREENSHOT",
+      "android":"VERIFIED_PASS",
+      "androidEvidence":[
+        "phone-local screen consent approved",
+        "frame_delivered_ephemeral with frameDigest and persisted=false"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"KEEP_ANDROID_DELETE_PLAYWRIGHT"
+    },
+    {
+      "feature":"RETURN_TO_CHROME_FROM_OTHER_APP",
+      "android":"FAILED_UNVERIFIED",
+      "androidEvidence":[
+        "last_work_screen_already_visible verified Chrome visibility but did not prove return from another app",
+        "dedicated app-transition workflow could not start because workflow_id was unavailable"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"ROUND2_FIX_BOTH"
+    }
+  ],
+  "round1Resolved":[
+    {"feature":"BACK","winner":"ANDROID"},
+    {"feature":"WAIT_CONDITION","winner":"ANDROID"},
+    {"feature":"SCREENSHOT","winner":"ANDROID"}
+  ],
+  "round2Features":[
+    "NATIVE_SELECT",
+    "NESTED_VERTICAL_SCROLL",
+    "HORIZONTAL_SCROLL",
+    "PRESS_KEY",
+    "RETURN_TO_CHROME_FROM_OTHER_APP"
+  ]
+}
