@@ -1,0 +1,76 @@
+{
+  "schema":"JH168_STAGE69_ROUND3_RESULT_V1",
+  "round":3,
+  "playwrightMobileCommon":{
+    "status":"PROVIDER_UNAVAILABLE",
+    "code":"PLAYWRIGHT_MOBILE_REAL_PHONE_PROVIDER_NOT_CONNECTED"
+  },
+  "results":[
+    {
+      "feature":"NATIVE_SELECT",
+      "android":"FAILED",
+      "androidEvidence":[
+        "fresh native-select target and exact coordinates were verified",
+        "Android Web OPEN failed pre-dispatch with OWNER_ADMISSION_BLOCKED / FAILED_NO_EFFECT",
+        "Computer Use coordinate path reached READY but Stage61 host returned STAGE61_ACTION_MISMATCH / STOP_NO_REPLAY before safe execution"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"MANUAL_AFTER_ROUND_3"
+    },
+    {
+      "feature":"NESTED_VERTICAL_SCROLL",
+      "android":"FAILED",
+      "androidEvidence":[
+        "live accessibility after direct #inner-scroll navigation still exposed no proven inner-scroll/INNER_* target",
+        "fixture layout confirmed a separate inner scroll box, but JH could not bind an exact live accessibility target; unsafe coordinate fallback was not used"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"MANUAL_AFTER_ROUND_3"
+    },
+    {
+      "feature":"HORIZONTAL_SCROLL",
+      "android":"FAILED",
+      "androidEvidence":[
+        "final exact-region DRAG inspection succeeded as visual_drag_target",
+        "prepare required fresh local approval for GESTURE_DRAG; this harmless scroll could not run automatically and the same session had already shown an invisible approval control",
+        "no action was dispatched"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"MANUAL_AFTER_ROUND_3"
+    },
+    {
+      "feature":"PRESS_KEY",
+      "android":"FAILED",
+      "androidEvidence":[
+        "Round2 Computer Use prepared IME_ENTER but required local approval",
+        "user reported the approval button was not visible",
+        "no separate safe third automatic Android key path exists in the live runtime"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"MANUAL_AFTER_ROUND_3"
+    },
+    {
+      "feature":"RETURN_TO_CHROME_FROM_OTHER_APP",
+      "android":"FAILED_UNVERIFIED",
+      "androidEvidence":[
+        "final alternate path verified the original ChatGPT split pane, then requested last_work_screen",
+        "return receipt said last_work_screen_already_visible with Chrome foreground, which does not prove a transition from a distinct foreground app because Chrome remained visible in split screen"
+      ],
+      "playwrightMobile":"PROVIDER_UNAVAILABLE",
+      "decision":"MANUAL_AFTER_ROUND_3"
+    }
+  ],
+  "resolvedAutomatic":[
+    {"feature":"BACK","winner":"ANDROID","round":1},
+    {"feature":"WAIT_CONDITION","winner":"ANDROID","round":1},
+    {"feature":"SCREENSHOT","winner":"ANDROID","round":1}
+  ],
+  "manualAfterRound3":[
+    "NATIVE_SELECT",
+    "NESTED_VERTICAL_SCROLL",
+    "HORIZONTAL_SCROLL",
+    "PRESS_KEY",
+    "RETURN_TO_CHROME_FROM_OTHER_APP"
+  ],
+  "next":"Disable both failed automatic implementations, preserve evidence in git history, run final regression, then merge if green."
+}
