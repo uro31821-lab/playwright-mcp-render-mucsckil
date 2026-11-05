@@ -231,17 +231,30 @@ test('native app async guards and changed payload stop before the original queue
     f.fixture.onStatus=async()=>f.host.createRuntime(appTask()).start();
     const opened=await f.issueRequest({id:'open-'+change});
     if(change==='target'||change==='focus'){
-      assert.equal(opened.status,'UNKNOWN'); assert.equal(f.jobs.size,0);
+      // The unchanged original command wrapper returns these guard failures
+      // as explicit negative results; only a rejected call is UNKNOWN.
+      assert.equal(opened.status,'BLOCKED');
+      assert.equal(opened.code,change==='target'?'JEBISEO_ORIGINAL_APP_JOB_CHANGED':
+        'JEBISEO_ORIGINAL_JOB_PROTECTION_CHANGED');
+      assert.equal(opened.payload.replayAllowed,false);
+      assert.equal(opened.appWindowVerified,false); assert.equal(f.jobs.size,0);
+      assert.equal(f.fixture.appJob,undefined); assert.equal(f.fixture.lastJob,undefined);
       assert.deepEqual(f.fixture.events,['capture']); continue;
     }
     await f.fixture.finishApp();
+    const originalAppJob=f.fixture.appJob;
     f.fixture.beforeMk=(type,p)=>{if(type==='computer_use_inspect'){
       if(change==='inspect-action')p.action='CLICK'; else p.x=12;
     }};
     f.fixture.onStatus=async()=>f.host.createRuntime(appTask()).runStep({operation:'APP_OBSERVE'});
     const observed=await f.issueRequest({id:change});
-    assert.equal(observed.status,'UNKNOWN'); assert.equal(observed.appWindowVerified,false);
+    assert.equal(observed.status,'BLOCKED');
+    assert.equal(observed.code,'JEBISEO_ORIGINAL_APP_OBSERVATION_CHANGED');
+    assert.equal(observed.payload.replayAllowed,false);
+    assert.equal(observed.appWindowVerified,false);
     assert.equal(f.jobs.size,1);
+    assert.equal(f.jobs.get(originalAppJob.id),originalAppJob);
+    assert.equal(f.fixture.lastJob,originalAppJob); assert.equal(f.fixture.inspectJob,undefined);
     assert.deepEqual(f.fixture.events,['capture','dispatch','complete','capture']);
   }
 });

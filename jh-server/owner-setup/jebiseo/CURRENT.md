@@ -19,7 +19,7 @@ PR 반영 직전 최신 기준 브랜치 `197319f91866351514b95f92e27973c62d46d0
 
 후속 개발 중 [PR #165](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/165)가 병합되어 기준 브랜치가 `e7c6fc94776ebbf8392377624c41c95f0c90fb8a`로 이동했다. Stage73 실패·대체 기록과 Stage75 TripLocation FIX1 patch 기록·검사·CI, 총 6파일 변경을 그대로 보존 병합했다. 제비서 서버·원 인증 소스의 변경은 없었다. 별도 전달물의 설치 안내는 이 작업의 설치 승인이나 현재 APK 변경으로 해석하지 않는다.
 
-최종 반영 직전 main은 `1d9922d8f507522e9cba25c76e7ca85d2bd49374`로 이동했다. Stage76의 별도 TripLocation 완료 기록·검사와 evidence Search 모듈·등록·검사 등 14파일을 기준 브랜치의 원 blob 그대로 보존 병합했다. 기존 composition의 Search 등록과 정확한 blob·역변환 검사도 이미 기준 브랜치에 병합된 원문 그대로다. 제비서 검사를 통과시키려고 보호 원본·pin을 새로 수정하지 않았다. 이 별도 기능 기록을 제비서의 새 API 사용·기기 설치·운영 배포 지시로 해석하지 않는다.
+최종 반영 직전 기준 브랜치는 `1d9922d8f507522e9cba25c76e7ca85d2bd49374`로 이동했다. Stage76의 별도 TripLocation 완료 기록·검사와 evidence Search 모듈·등록·검사 등 14파일을 기준 브랜치의 원 blob 그대로 보존 병합했다. 기존 composition의 Search 등록과 정확한 blob·역변환 검사도 이미 기준 브랜치에 병합된 원문 그대로다. 제비서 검사를 통과시키려고 보호 원본·pin을 새로 수정하지 않았다. 이 별도 기능 기록을 제비서의 새 API 사용·기기 설치·운영 배포 지시로 해석하지 않는다.
 
 이번 ANDROID 반영 전 실제 PR 대상 `jh-fix3-secure-server`의 최신 ref는 `0663e0c3b434f300803e5cf272609032a5e519d3`다. 이전 `1d9922d8…` 이후 Stage77 위치 후보 기록·검사·CI 3개와 evidence Search 후속 요청 처리 3파일, 총 6개 변경을 원 blob 그대로 보존 병합한다. 제비서 파일과 충돌이 없고 원 command 주입·서명·Stage26/44/61·보호 핀은 같다. 별도 `main`은 이번 PR의 병합 대상이 아니며 이 작업의 APK 설치 기준은 바뀌지 않는다.
 
@@ -121,6 +121,8 @@ OPEN은 기존 `describeOpenCompletion`으로 그 작업의 완료 시점 주소
 ## 검사
 
 이번 ANDROID 연결은 기존 GitHub CI에서 검사하며, 최종 head·tree·실행 번호·실제 pass/fail 수는 [Draft PR #145](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/145)에 함께 기록한다. 이번에는 로컬 Node 실행이 가능하여 새 앱 관찰 검사 9개와 새 포트·runtime 검사 13개를 선택 실행했다. 전체 로컬 suite는 원 저장소 의존성이 모두 복구된 checkout이 아니므로 통과했다고 주장하지 않는다. 원본 private binding·실제 생성 composition 경계와 전체 보호 검사는 GitHub의 실제 저장소·기존 lockfile 환경에서 확인한다.
+
+ANDROID 첫 통합 후보 `2575916c8b4983bf7774deac884c1fb99135f9a8`의 [CI #42046198263](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42046198263)는 보호 원본 **10 pass / 0 fail / 0 skip**, 통합 **336 pass / 1 fail / 0 skip**였다. 새 composition 실패 검사의 기대 상태가 잘못됐다. 원 `jhCommandTool56`는 큐 진입 전 guard 예외를 `ok:false / replayAllowed:false` 결과로 반환하므로 해당 상태는 `UNKNOWN`이 아니라 `BLOCKED`다. target·focus·inspect payload 변형 각각의 정확한 차단 코드, 원 jobs/dispatch 불변, 재실행 금지도 함께 검사하도록 기대값을 수정했다. 실행 코드·원 wrapper·보호 기준은 이 수정에서 변경하지 않았다. 수정 뒤 최종 CI 결과는 위 PR의 해당 head 기록을 따른다.
 
 직전 최종 코드 `e61e14c2f435c73b5b876142461489071f6649d6`의 CI 8개는 모두 성공했다. [후보 검사 #42039142621](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42039142621)에서 보호 원본 **10 pass / 0 fail / 0 skip**, 통합 **306 pass / 0 fail / 0 skip**였다. 이는 이번 ANDROID 변경 전의 기록이며 새 코드 검사로 재사용해 표시하지 않는다.
 
