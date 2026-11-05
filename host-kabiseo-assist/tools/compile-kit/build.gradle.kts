@@ -11,6 +11,7 @@ android {
     kotlinOptions { jvmTarget="17" }
 }
 val compilerTool by configurations.creating { isCanBeConsumed=false; isCanBeResolved=true }
+val testTool by configurations.creating { isCanBeConsumed=false; isCanBeResolved=true }
 dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okio:okio-jvm:3.6.0")
@@ -18,7 +19,7 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("com.google.mlkit:text-recognition-korean:16.0.1")
-    testImplementation("junit:junit:4.13.2")
+    testTool("junit:junit:4.13.2")
     compilerTool("org.jetbrains.kotlin:kotlin-compiler-embeddable:1.9.24")
 }
 tasks.register("exportCompileDependencies") {
@@ -26,7 +27,8 @@ tasks.register("exportCompileDependencies") {
         val destination=layout.buildDirectory.dir("compile-kit-input").get().asFile
         destination.mkdirs()
         val rows=mutableListOf<String>()
-        listOf("releaseUnitTestCompileClasspath","compilerTool").forEach { name ->
+        // Test classpath also contains the app project itself; resolve only external compile inputs.
+        listOf("releaseCompileClasspath","testTool","compilerTool").forEach { name ->
             val target=destination.resolve(if(name=="compilerTool") "compiler" else "dependencies")
             target.mkdirs()
             configurations.getByName(name).resolvedConfiguration.resolvedArtifacts.forEach { a ->
