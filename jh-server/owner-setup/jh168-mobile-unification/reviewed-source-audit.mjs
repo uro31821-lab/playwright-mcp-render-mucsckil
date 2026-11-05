@@ -95,6 +95,36 @@ const REVIEWED_TRANSITIONS=Object.freeze([
      'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
       '3245ea53bdd2980ed558a4ff89416824bebf8ac3'
     })
+   }),
+   Object.freeze({
+    reviewedHead:'2bd7bf5d4382f49d19a8922c44021ecd0d0f8e96',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.mjs':
+      'ccddcd6c82e7f868ece98970992f6b23ae5274f6',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs':
+      'aa2ae85cdb053eca975595c129ba9103452893a0',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs':
+      'f17937485cfdd7dc80223f8dedb3f2d2d5195c2b',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs':
+      '15af9ffbb49904aa13edcfe52ebc1a1076dfa033',
+     'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.mjs':
+      '1d38e06ba3b3e02817c680ab51d2786ba27b2139',
+     'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.test.mjs':
+      'c9b41b41b13cc7d4cfe9981fad8c6b6889c7d6d5',
+     'jh-server/owner-setup/jh168-mobile-unification/stage66-verified-mobile-feature-profile.mjs':
+      '046fc7c0a9f7aba9a552d2ff03b45163d3bc05a3',
+     'jh-server/owner-setup/jh168-mobile-unification/stage66-verified-mobile-feature-profile.test.mjs':
+      '011bcab2de268e4e1e21c3391f25fadcb3cc0936'
+    })
+   }),
+   Object.freeze({
+    reviewedHead:'aca4eae97d61edb6797d4b6c65efba5900926524',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
+      '24d691884da7d9a431cb04020dc1f256889187ce',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs':
+      '0fb8c418a175a3d00237317943b6b2b944f150ed'
+    })
    })
   ])
  })

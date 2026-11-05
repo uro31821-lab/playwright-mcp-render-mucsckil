@@ -2,8 +2,8 @@
  * Stage61 source patch for the already-generated JH mobile runtime.
  * It does not install another browser/phone engine. It binds the existing
  * Android Web and Computer Use handlers to one server-owned Stage61 route
- * token and original Secure56 phone receipts. Playwright Mobile remains only
- * a reported targeted gap; this patch never silently invokes it.
+ * token and original Secure56 phone receipts. When verified Android routes
+ * are exhausted, the caller receives an explicit manual handoff.
  */
 const fail=code=>{throw Object.assign(Error(code),{code});};
 const once=(source,before,after,code)=>{
@@ -161,7 +161,7 @@ const HELPER=String.raw`
     try{
       const keys=Reflect.ownKeys(p);
       const expected=["action","command","contextId","requestId","stage61Action",
-        "stage61ComputerOutcome","stage61PlaywrightMobileAvailable","stage61RouteSchema",
+        "stage61ComputerOutcome","stage61RouteSchema",
         "stage61WebOutcome","targetItemRef"];
       const names=keys.every(value=>typeof value==="string")?keys.slice().sort():[];
       const plain=names.every(name=>{const d=Object.getOwnPropertyDescriptor(p,name);
@@ -171,8 +171,7 @@ const HELPER=String.raw`
         !/^item_[a-f0-9]{16}$/.test(p.targetItemRef)||p.action!=="CLICK"||
         p.command!=="오른쪽 화면에서 지정 선택 메뉴 열기"||
         p.stage61RouteSchema!=="JH168_STAGE61_ROUTE_REQUEST_V1"||p.stage61Action!=="SELECT_OPEN"||
-        p.stage61WebOutcome!=="NOT_RUN"||p.stage61ComputerOutcome!=="NOT_RUN"||
-        p.stage61PlaywrightMobileAvailable!==false)
+        p.stage61WebOutcome!=="NOT_RUN"||p.stage61ComputerOutcome!=="NOT_RUN")
         return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_SCOPE_INVALID"};
       const routeToken=jhStage61ContextRoute56.get(p.contextId);
       if(typeof routeToken!=="string"||!routeToken)
@@ -182,7 +181,7 @@ const HELPER=String.raw`
         jhStage61ContextItems56.delete(p.contextId);
         return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_FRESH_REF_REQUIRED",routeToken};
       }
-      const plan=jhStage61Host56.plan({routeToken,action:"SELECT_OPEN",playwrightMobileAvailable:false});
+      const plan=jhStage61Host56.plan({routeToken,action:"SELECT_OPEN"});
       if(plan.ok!==true||plan.provider!=="ANDROID_WEB"||plan.allowed!==true||
         plan.routeToken!==routeToken||plan.replayAllowed!==false||plan.automaticReplay!==false)
         return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY",routeToken};
@@ -190,8 +189,7 @@ const HELPER=String.raw`
       if(phone.ok!==true||phone.routeToken!==routeToken||phone.replayAllowed!==false||
         phone.automaticReplay!==false||phone.stage61RouteSchema!==p.stage61RouteSchema||
         phone.stage61Action!==p.stage61Action||phone.stage61WebOutcome!==p.stage61WebOutcome||
-        phone.stage61ComputerOutcome!==p.stage61ComputerOutcome||
-        phone.stage61PlaywrightMobileAvailable!==p.stage61PlaywrightMobileAvailable)
+        phone.stage61ComputerOutcome!==p.stage61ComputerOutcome)
         return {intended:true,ok:false,code:"OWNER_SELECT_OPEN_ROUTE_NOT_READY",routeToken};
       return {intended:true,ok:true,code:"OWNER_SELECT_OPEN_ROUTE_VERIFIED",
         routeToken,contextId:p.contextId,targetItemRef:p.targetItemRef};
@@ -205,7 +203,7 @@ const HELPER=String.raw`
     try{
       const keys=Reflect.ownKeys(p);
       const expected=["action","command","contextId","requestId","stage61Action",
-        "stage61ComputerOutcome","stage61PlaywrightMobileAvailable","stage61RouteSchema",
+        "stage61ComputerOutcome","stage61RouteSchema",
         "stage61WebOutcome","targetItemRef"];
       const names=keys.every(value=>typeof value==="string")?keys.slice().sort():[];
       const plain=names.every(name=>{const d=Object.getOwnPropertyDescriptor(p,name);
@@ -215,8 +213,7 @@ const HELPER=String.raw`
         !/^item_[a-f0-9]{16}$/.test(p.targetItemRef)||p.action!=="CLICK"||
         p.command!=="오른쪽 화면에서 새로 확인한 옵션 선택"||
         p.stage61RouteSchema!=="JH168_STAGE61_ROUTE_REQUEST_V1"||p.stage61Action!=="SELECT_PICK"||
-        typeof p.stage61WebOutcome!=="string"||p.stage61ComputerOutcome!=="NOT_RUN"||
-        p.stage61PlaywrightMobileAvailable!==false)
+        typeof p.stage61WebOutcome!=="string"||p.stage61ComputerOutcome!=="NOT_RUN")
         return {intended:true,ok:false,code:"OWNER_SELECT_PICK_SCOPE_INVALID"};
       const routeToken=jhStage61ContextRoute56.get(p.contextId);
       if(typeof routeToken!=="string"||!routeToken)
@@ -227,7 +224,7 @@ const HELPER=String.raw`
         jhStage61PreparedPick56.delete(routeToken);
         return {intended:true,ok:false,code:"OWNER_SELECT_PICK_PREPARED_REF_REQUIRED",routeToken};
       }
-      const plan=jhStage61Host56.plan({routeToken,action:"SELECT_PICK",playwrightMobileAvailable:false});
+      const plan=jhStage61Host56.plan({routeToken,action:"SELECT_PICK"});
       if(plan.ok!==true||plan.provider!=="ANDROID_WEB"||plan.allowed!==true||
         plan.routeToken!==routeToken||plan.replayAllowed!==false||plan.automaticReplay!==false)
         return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY",routeToken};
@@ -235,8 +232,7 @@ const HELPER=String.raw`
       if(phone.ok!==true||phone.routeToken!==routeToken||phone.replayAllowed!==false||
         phone.automaticReplay!==false||phone.stage61RouteSchema!==p.stage61RouteSchema||
         phone.stage61Action!==p.stage61Action||phone.stage61WebOutcome!==p.stage61WebOutcome||
-        phone.stage61ComputerOutcome!==p.stage61ComputerOutcome||
-        phone.stage61PlaywrightMobileAvailable!==p.stage61PlaywrightMobileAvailable)
+        phone.stage61ComputerOutcome!==p.stage61ComputerOutcome)
         return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY",routeToken};
       return {intended:true,ok:true,code:"OWNER_SELECT_PICK_ROUTE_VERIFIED",routeToken};
     }catch{return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY"};}
@@ -351,8 +347,7 @@ const HELPER=String.raw`
       stage61RouteSchema:phone.stage61RouteSchema,
       stage61Action:phone.stage61Action,
       stage61WebOutcome:phone.stage61WebOutcome,
-      stage61ComputerOutcome:phone.stage61ComputerOutcome,
-      stage61PlaywrightMobileAvailable:phone.stage61PlaywrightMobileAvailable
+      stage61ComputerOutcome:phone.stage61ComputerOutcome
     });
     return {ok:true,routeToken,stageAction};
   }
@@ -379,7 +374,7 @@ const HELPER=String.raw`
     const next=selectPrepared?.ok===false
       ?{provider:"STOP_NO_REPLAY",code:selectPrepared.code,allowed:false}
       :record.ok===true&&!record.stopped
-      ?jhStage61Host56.plan({routeToken,action:nextAction,playwrightMobileAvailable:false})
+      ?jhStage61Host56.plan({routeToken,action:nextAction})
       :{provider:"STOP_NO_REPLAY",code:record.code||"STAGE61_ROUTE_STATE_STOPPED",allowed:false};
     return {...result,stage61RouteToken:routeToken,stage61RouterHost:record,
       ...(selectPrepared?{stage61SelectPreparedHost:selectPrepared}:{}),

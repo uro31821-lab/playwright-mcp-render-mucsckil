@@ -19,6 +19,12 @@ test('exactly nine legacy web aliases are classified once',()=>{
   ].sort());
 });
 
+test('routing model is Android then manual',()=>{
+  assert.equal(m.routingModel,'ANDROID_THEN_MANUAL');
+  assert.equal(current.routingModel,'ANDROID_THEN_MANUAL');
+  assert.equal(s69.routingModel,'ANDROID_THEN_MANUAL');
+});
+
 test('seven aliases are automatic and select/key are manual',()=>{
   const auto=m.aliases.filter(x=>x.mode.startsWith('AUTO_'));
   const manual=m.aliases.filter(x=>x.mode==='MANUAL_AFTER_ROUND_3');
@@ -27,11 +33,6 @@ test('seven aliases are automatic and select/key are manual',()=>{
   assert.deepEqual(manual.map(x=>x.alias).sort(),['life_web_select','life_web_press_key'].sort());
   assert.equal(m.automaticAliasCount,7);
   assert.equal(m.manualAliasCount,2);
-});
-
-test('automatic aliases never route to Playwright Mobile',()=>{
-  assert.equal(m.playwrightMobileActiveRoutes,0);
-  assert.ok(m.aliases.every(x=>!String(x.route||'').includes('PLAYWRIGHT_MOBILE')));
 });
 
 test('Stage70 manual decisions agree with Stage69 final phone decisions',()=>{
@@ -44,8 +45,8 @@ test('Stage70 manual decisions agree with Stage69 final phone decisions',()=>{
 });
 
 test('Stage67 final matrix retains only three Android winner implementations',()=>{
+  assert.deepEqual(s67.order,['ANDROID','MANUAL']);
   assert.deepEqual(s67.activeAutomaticRoutes.slice().sort(),['BACK','WAIT_CONDITION','SCREENSHOT'].sort());
-  assert.ok(s67.features.every(x=>x.playwrightMobile===null));
 });
 
 test('continuous E2E requires same-id Stage44 focus before multi-step work',()=>{
@@ -57,7 +58,7 @@ test('continuous E2E requires same-id Stage44 focus before multi-step work',()=>
   assert.match(p.commandFocus.sequence[2],/exact command_id/);
 });
 
-test('focused continuous E2E excludes failed routes and covers approved handoff path',()=>{
+test('focused continuous E2E excludes retired routes and covers approved handoff path',()=>{
   const excluded=new Set(p.excludedFromContinuousE2E);
   assert.ok(excluded.has('life_web_select'));
   assert.ok(excluded.has('life_web_press_key'));
@@ -68,8 +69,7 @@ test('focused continuous E2E excludes failed routes and covers approved handoff 
   assert.equal(p.steps.length,8);
   assert.equal(e2e.status,'VERIFIED_PASS');
   assert.equal(e2e.crossEngineContinuity,'WEB -> ANDROID -> WEB verified within one focused command');
-  assert.equal(e2e.playwrightMobileUsed,false);
-  assert.equal(e2e.failedStage69RoutesReplayed,false);
+  assert.equal(e2e.retiredAutomaticRoutesReplayed,false);
   assert.equal(e2e.screenshotRepeated,false);
 });
 
@@ -84,16 +84,15 @@ test('unfocused preflight failure was no-effect and focused run verifies wait cl
   assert.equal(results.get('WEB_READ_AFTER_ANDROID')?.result,'captured index page');
 });
 
-test('Stage70 final state is sealed and no Playwright Mobile route is active',()=>{
+test('Stage70 final state is sealed',()=>{
   assert.equal(current.status,'COMPLETE');
   assert.equal(current.stage69,'COMPLETE');
   assert.equal(current.nineAliasProfile,'LOCKED');
   assert.equal(current.focusedContinuousE2E,'VERIFIED_PASS');
-  assert.equal(current.playwrightMobileActiveRoutes,0);
   assert.equal(current.next,'UNIFIED_ENGINE_BASELINE_READY');
 });
 
-test('no-replay outcomes include both effectful and unknown effects',()=>{
+test('no-replay outcomes include effectful and unknown effects',()=>{
   for(const code of ['FAILED_AFTER_EFFECT','EFFECT_UNKNOWN','PENDING','UNKNOWN']){
     assert.ok(m.noReplayOn.includes(code));
   }

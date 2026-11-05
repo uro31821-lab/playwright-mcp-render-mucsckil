@@ -1,19 +1,19 @@
 {
-  "schema":"JH168_STAGE67_FINAL_MATRIX_V3",
+  "schema":"JH168_STAGE67_ANDROID_MANUAL_MATRIX_V4",
   "order":["ANDROID","MANUAL"],
   "features":[
-    {"feature":"NATIVE_SELECT","android":null,"playwrightMobile":null,"status":"MANUAL_AFTER_ROUND_3"},
-    {"feature":"NESTED_VERTICAL_SCROLL","android":null,"playwrightMobile":null,"status":"MANUAL_AFTER_ROUND_3"},
-    {"feature":"HORIZONTAL_SCROLL","android":null,"playwrightMobile":null,"status":"MANUAL_AFTER_ROUND_3"},
-    {"feature":"BACK","android":"android/back.mjs","playwrightMobile":null,"winner":"ANDROID","status":"RESOLVED_ROUND1"},
-    {"feature":"PRESS_KEY","android":null,"playwrightMobile":null,"status":"MANUAL_AFTER_ROUND_3"},
-    {"feature":"WAIT_CONDITION","android":"android/wait-condition.mjs","playwrightMobile":null,"winner":"ANDROID","status":"RESOLVED_ROUND1"},
-    {"feature":"SCREENSHOT","android":"android/screenshot.mjs","playwrightMobile":null,"winner":"ANDROID","status":"RESOLVED_ROUND1"},
-    {"feature":"RETURN_TO_CHROME_FROM_OTHER_APP","android":null,"playwrightMobile":null,"status":"MANUAL_AFTER_ROUND_3"}
+    {"feature":"NATIVE_SELECT","android":null,"status":"MANUAL_AFTER_ROUND_3"},
+    {"feature":"NESTED_VERTICAL_SCROLL","android":null,"status":"MANUAL_AFTER_ROUND_3"},
+    {"feature":"HORIZONTAL_SCROLL","android":null,"status":"MANUAL_AFTER_ROUND_3"},
+    {"feature":"BACK","android":"android/back.mjs","winner":"ANDROID","status":"RESOLVED_ROUND1"},
+    {"feature":"PRESS_KEY","android":null,"status":"MANUAL_AFTER_ROUND_3"},
+    {"feature":"WAIT_CONDITION","android":"android/wait-condition.mjs","winner":"ANDROID","status":"RESOLVED_ROUND1"},
+    {"feature":"SCREENSHOT","android":"android/screenshot.mjs","winner":"ANDROID","status":"RESOLVED_ROUND1"},
+    {"feature":"RETURN_TO_CHROME_FROM_OTHER_APP","android":null,"status":"MANUAL_AFTER_ROUND_3"}
   ],
   "activeAutomaticRoutes":["BACK","WAIT_CONDITION","SCREENSHOT"],
   "manualAfterRound3":["NATIVE_SELECT","NESTED_VERTICAL_SCROLL","HORIZONTAL_SCROLL","PRESS_KEY","RETURN_TO_CHROME_FROM_OTHER_APP"],
-  "promotionRule":"real-device execution plus readback required; CI/desktop DOM does not equal phone E2E",
-  "eliminationRule":"round winner keeps one implementation; three-round dual failure removes both automatic routes",
+  "promotionRule":"real-device execution plus readback required; CI or desktop DOM does not equal phone E2E",
+  "retirementRule":"three-round unresolved alternate automatic implementations are removed from current code and the feature remains manual",
   "noReplay":["UNKNOWN","PENDING","FAILED_AFTER_EFFECT","EFFECT_UNKNOWN","NEEDS_REVIEW_NO_REPLAY"]
 }

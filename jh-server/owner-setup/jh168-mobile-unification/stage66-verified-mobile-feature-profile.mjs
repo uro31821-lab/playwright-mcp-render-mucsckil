@@ -1,68 +1,33 @@
 /**
- * Stage66 verified mobile feature profile.
+ * Stage66 verified Android/manual mobile feature profile.
  *
  * High-level JH orchestration rule:
- *   verified Android route -> verified Playwright Mobile route -> MANUAL.
+ *   real-phone verified Android route -> MANUAL.
  *
- * Only real-device verified automatic routes are retained here. An unverified
- * provider is never promoted merely because code exists or a lower-level
- * router knows its name. Unknown/effectful failures remain no-replay.
+ * Only real-device verified automatic routes are retained here.
+ * Unknown/effectful failures remain no-replay.
  */
-export const STAGE66_PROFILE_VERSION='JH168_STAGE66_VERIFIED_MOBILE_FEATURE_PROFILE_V1';
+export const STAGE66_PROFILE_VERSION='JH168_STAGE66_VERIFIED_ANDROID_MANUAL_PROFILE_V2';
 
 const AUTOMATIC=Object.freeze({
-  OPEN_RIGHT_URL:Object.freeze({
-    provider:'ANDROID',
-    route:'life_web_navigate',
-    evidence:'RIGHT_ADDRESS_CONFIRMED'
-  }),
-  READ_RIGHT_SCREEN:Object.freeze({
-    provider:'ANDROID',
-    route:'life_web_snapshot/life_android_snapshot',
-    evidence:'RIGHT_PANE_READ_VERIFIED'
-  }),
-  VISIBLE_SAFE_BUTTON_CLICK:Object.freeze({
-    provider:'ANDROID',
-    route:'guided_form.form_activate',
-    evidence:'DIALOG_OPEN_CLOSE_REAL_DEVICE_VERIFIED'
-  }),
-  DIALOG_OPEN:Object.freeze({
-    provider:'ANDROID',
-    route:'guided_form.form_activate',
-    evidence:'DIALOG_VISIBLE_AFTER_DISPATCH'
-  }),
-  DIALOG_CLOSE_BUTTON:Object.freeze({
-    provider:'ANDROID',
-    route:'guided_form.form_activate',
-    evidence:'DIALOG_REMOVED_AFTER_DISPATCH'
-  }),
-  VISIBLE_TEXT_TYPE:Object.freeze({
-    provider:'ANDROID',
-    route:'guided_form.form15_type',
-    evidence:'field_value_verified'
-  }),
-  PAGE_VERTICAL_SCROLL:Object.freeze({
-    provider:'ANDROID',
-    route:'guided_form.form_scroll',
-    evidence:'scroll_viewport_movement_verified'
-  })
+  OPEN_RIGHT_URL:Object.freeze({provider:'ANDROID',route:'life_web_navigate',evidence:'RIGHT_ADDRESS_CONFIRMED'}),
+  READ_RIGHT_SCREEN:Object.freeze({provider:'ANDROID',route:'life_web_snapshot/life_android_snapshot',evidence:'RIGHT_PANE_READ_VERIFIED'}),
+  VISIBLE_SAFE_BUTTON_CLICK:Object.freeze({provider:'ANDROID',route:'guided_form.form_activate',evidence:'REAL_DEVICE_PAGE_STATE_READBACK'}),
+  DIALOG_OPEN:Object.freeze({provider:'ANDROID',route:'guided_form.form_activate',evidence:'DIALOG_VISIBLE_AFTER_DISPATCH'}),
+  DIALOG_CLOSE_BUTTON:Object.freeze({provider:'ANDROID',route:'guided_form.form_activate',evidence:'DIALOG_REMOVED_AFTER_DISPATCH'}),
+  VISIBLE_TEXT_TYPE:Object.freeze({provider:'ANDROID',route:'guided_form.form15_type',evidence:'field_value_verified'}),
+  PAGE_VERTICAL_SCROLL:Object.freeze({provider:'ANDROID',route:'guided_form.form_scroll',evidence:'scroll_viewport_movement_verified'}),
+  BACK:Object.freeze({provider:'ANDROID',route:'native_android_back',evidence:'DESTINATION_TO_INDEX_REAL_DEVICE_VERIFIED'}),
+  WAIT_CONDITION:Object.freeze({provider:'ANDROID',route:'life_web_wait',evidence:'MOBILE_WAIT_CONDITION_CONFIRMED'}),
+  SCREENSHOT:Object.freeze({provider:'ANDROID',route:'phone_consent_then_life_web_screenshot',evidence:'frame_delivered_ephemeral'})
 });
 
 const MANUAL=Object.freeze({
-  NATIVE_SELECT:Object.freeze({reason:'ANDROID_FIELD_LABEL_AMBIGUOUS_AND_PLAYWRIGHT_MOBILE_UNAVAILABLE'}),
-  NESTED_VERTICAL_SCROLL:Object.freeze({reason:'ANDROID_NESTED_SCROLL_TARGETS_NOT_PROVEN_AND_PLAYWRIGHT_MOBILE_UNAVAILABLE'}),
-  HORIZONTAL_SCROLL:Object.freeze({reason:'ANDROID_EXECUTION_NOT_VERIFIED_AND_PLAYWRIGHT_MOBILE_UNAVAILABLE'}),
-  BACK:Object.freeze({reason:'ANDROID_BACK_NAVIGATED_PAGE_IN_DIALOG_TEST'}),
-  PRESS_KEY:Object.freeze({reason:'NOT_REAL_DEVICE_VERIFIED'}),
-  WAIT_CONDITION:Object.freeze({reason:'NOT_REAL_DEVICE_VERIFIED'}),
-  SCREENSHOT:Object.freeze({reason:'NOT_REAL_DEVICE_VERIFIED_WITH_REQUIRED_CONSENT'}),
-  RETURN_TO_CHROME_FROM_OTHER_APP:Object.freeze({reason:'NOT_REAL_DEVICE_VERIFIED'})
-});
-
-export const STAGE66_PLAYWRIGHT_MOBILE=Object.freeze({
- connected:false,
- verifiedFeatures:Object.freeze([]),
- reason:'NO_PHONE_PLAYWRIGHT_MOBILE_EXECUTION_PROVIDER_CONNECTED'
+  NATIVE_SELECT:Object.freeze({reason:'THREE_ROUND_REAL_PHONE_AUTOMATION_NOT_VERIFIED'}),
+  NESTED_VERTICAL_SCROLL:Object.freeze({reason:'EXACT_INNER_TARGET_NOT_PROVEN'}),
+  HORIZONTAL_SCROLL:Object.freeze({reason:'REAL_PHONE_AUTOMATION_NOT_VERIFIED'}),
+  PRESS_KEY:Object.freeze({reason:'LOCAL_APPROVAL_UI_NOT_RELIABLY_AVAILABLE'}),
+  RETURN_TO_CHROME_FROM_OTHER_APP:Object.freeze({reason:'FOREGROUND_TRANSITION_NOT_VERIFIED'})
 });
 
 export function stage66FeaturePlan(feature){
@@ -70,18 +35,12 @@ export function stage66FeaturePlan(feature){
  if(AUTOMATIC[key])return Object.freeze({
   feature:key,...AUTOMATIC[key],manualRequired:false,replayAllowed:false
  });
- if(MANUAL[key]){
-  // Playwright Mobile remains the conceptual second tier, but no feature is
-  // routed to it until a phone-real-device VERIFIED_PASS is recorded.
-  return Object.freeze({
-   feature:key,provider:'MANUAL',manualRequired:true,
-   playwrightMobileTried:false,playwrightMobileAvailable:false,
-   reason:MANUAL[key].reason,replayAllowed:false
-  });
- }
+ if(MANUAL[key])return Object.freeze({
+  feature:key,provider:'MANUAL',manualRequired:true,
+  reason:MANUAL[key].reason,replayAllowed:false
+ });
  return Object.freeze({
   feature:key,provider:'MANUAL',manualRequired:true,
-  playwrightMobileTried:false,playwrightMobileAvailable:false,
   reason:'FEATURE_NOT_VERIFIED',replayAllowed:false
  });
 }
