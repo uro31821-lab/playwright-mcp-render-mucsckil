@@ -2,10 +2,10 @@
  * Compare origin, committed candidate and working files separately so a candidate
  * cannot hide an upstream change by reverting it. No deploy or device authority.
  *
- * A reviewed transition is accepted only when its pre-base commit, reviewed
- * commit, exact protected path set and exact Git blob objects all match. This
+ * A reviewed transition is accepted only when every fixed step has its exact
+ * predecessor, reviewed commit, protected path set and Git blob objects. This
  * preserves fail-closed source review while allowing a separately reviewed
- * protected-source release to become the next fixed lineage.
+ * follow-up test contract to extend, but never silently replace, the lineage.
  */
 import assert from 'node:assert/strict';
 import {execFileSync, spawnSync} from 'node:child_process';
@@ -13,36 +13,29 @@ import {execFileSync, spawnSync} from 'node:child_process';
 const REVIEWED_TRANSITIONS=Object.freeze([
  Object.freeze({
   historicalBaseline:'8596f5ef299d27fa7064ee40a64a99030196774a',
-  preBase:'d4afec4a657d4ad928560624536c01e2df6df1c7',
-  reviewedHead:'ff362d19498583c0c7b581e146e20a4946ad183e',
-  protectedObjects:Object.freeze({
-   'jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.mjs':
-    '0bf1ac0e09380aabf3fb2fefeabc15d905d34417',
-   'jh-server/owner-setup/jh168-mobile-unification/mobile13-action-policy.test.mjs':
-    '69325dca75c15ebf99fba7d3494bc8467e7508c6',
-   'jh-server/owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.mjs':
-    '91b1926a4e1f173d22ac8e3f233245849a12061a',
-   'jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs':
-    '22db043c104333e588aaae3d5f7a68cd10431d80',
-   'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs':
-    'b12e000a1ace7e9c2745a2ad7ce17d1b61e4a161',
-   'jh-server/owner-setup/jh168-mobile-unification/stage38-generated-operator.test.mjs':
-    '711bcd6b92bb3d04cd41b93bb5b7bac94b40bd2c',
-   'jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs':
-    'e862388a9f78b1ac16a1d2d1c5856b65b64b184c',
-   'jh-server/owner-setup/jh168-mobile-unification/stage41-command-lifecycle.test.mjs':
-    '1575f588e7976e60558ef290c85d91f238d5c5e9',
-   'jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs':
-    'b3f394e4e37a1ef761dadc730c9edace6fbbe1b7',
-   'jh-server/owner-setup/jh168-mobile-unification/stage44-device-focus.test.mjs':
-    '039ff80238de62a5e9592509e35d182d630180c9',
-   'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
-    '501bf71e67d5ea77e696559118f06f7c7150205f',
-   'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs':
-    'dea8274e84bed5828da798f85e22e0c01af0ddc2',
-   'jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs':
-    'c026d1aa0351516b48464411083ff4fb4c09fad2'
-  })
+  preBase:'bdd5feb862102857f70133e1da87679fcd393b8d',
+  steps:Object.freeze([
+   Object.freeze({
+    reviewedHead:'96c307c2057d5cee1560684b3f52ce41d3a76378',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs':
+      'b381e0325c1ec300f80828b798ad8310d0bf69de',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs':
+      '10618a7d0167523bfe6834ea56383c525213d7df',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
+      '6c3fc142e60624c5af6f7b46aef32a4dbbd17fe1',
+     'jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs':
+      '473c07d027e45ae1e9f5b472e4cd4040488b1d9e'
+    })
+   }),
+   Object.freeze({
+    reviewedHead:'51dc81b23cd9712de0f057c6009342cad5d5f916',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/mobile13-integrated-contract.test.mjs':
+      '1049d0f86cf6cc4dd2eb3009eecc4dc29a845583'
+    })
+   })
+  ])
  })
 ]);
 
@@ -74,37 +67,53 @@ export function assertReviewedSource({cwd, baseline,
  if(baseDiff||headDiff){
   const transition=REVIEWED_TRANSITIONS.find(v=>v.historicalBaseline===baseline);
   if(transition){
-   const preBase=resolve(transition.preBase),reviewedHead=resolve(transition.reviewedHead);
+   const preBase=resolve(transition.preBase);
    assert.equal(preBase,transition.preBase,'REVIEWED_TRANSITION_PREBASE_MISSING');
-   assert.equal(reviewedHead,transition.reviewedHead,'REVIEWED_TRANSITION_HEAD_MISSING');
    ancestor(baseline,preBase,'HISTORICAL_BASELINE_NOT_ANCESTOR_OF_TRANSITION');
-   ancestor(preBase,reviewedHead,'TRANSITION_PREBASE_NOT_ANCESTOR_OF_REVIEWED_HEAD');
-   const expectedPaths=Object.keys(transition.protectedObjects).sort();
-   const actualPaths=lines(git(['diff','--name-only','--no-renames',preBase,reviewedHead,
-    '--',...paths]));
-   assert.deepEqual(actualPaths,expectedPaths,'REVIEWED_TRANSITION_PROTECTED_PATHS_CHANGED');
-   for(const [path,blob] of Object.entries(transition.protectedObjects)){
-    const entry=`100644 blob ${blob}\t${path}`;
-    assert.equal(git(['ls-tree',reviewedHead,'--',path]),entry,
-     'REVIEWED_TRANSITION_BLOB_CHANGED_'+path);
-    assert.equal(git(['ls-tree',head,'--',path]),entry,
+   assert.ok(Array.isArray(transition.steps)&&transition.steps.length>0,
+    'REVIEWED_TRANSITION_STEPS_REQUIRED');
+   let previous=preBase;
+   const finalObjects=new Map();
+   for(const step of transition.steps){
+    assert.match(step?.reviewedHead||'',/^[a-f0-9]{40}$/,
+     'REVIEWED_TRANSITION_STEP_HEAD_REQUIRED');
+    const reviewedHead=resolve(step.reviewedHead);
+    assert.equal(reviewedHead,step.reviewedHead,'REVIEWED_TRANSITION_HEAD_MISSING');
+    ancestor(previous,reviewedHead,'REVIEWED_TRANSITION_STEP_NOT_DESCENDANT');
+    const expectedPaths=Object.keys(step.protectedObjects||{}).sort();
+    assert.ok(expectedPaths.length>0,'REVIEWED_TRANSITION_STEP_PATHS_REQUIRED');
+    const actualPaths=lines(git(['diff','--name-only','--no-renames',previous,reviewedHead,
+     '--',...paths]));
+    assert.deepEqual(actualPaths,expectedPaths,'REVIEWED_TRANSITION_PROTECTED_PATHS_CHANGED');
+    for(const [path,blob] of Object.entries(step.protectedObjects)){
+     assert.match(blob,/^[a-f0-9]{40}$/,'REVIEWED_TRANSITION_BLOB_REQUIRED_'+path);
+     const entry=`100644 blob ${blob}\t${path}`;
+     assert.equal(git(['ls-tree',reviewedHead,'--',path]),entry,
+      'REVIEWED_TRANSITION_BLOB_CHANGED_'+path);
+     finalObjects.set(path,blob);
+    }
+    previous=reviewedHead;
+   }
+   const finalReviewedHead=previous;
+   for(const [path,blob] of finalObjects){
+    assert.equal(git(['ls-tree',head,'--',path]),`100644 blob ${blob}\t${path}`,
      'HEAD_REVIEWED_TRANSITION_BLOB_CHANGED_'+path);
    }
    if(base===preBase){
-    ancestor(reviewedHead,head,'REVIEWED_TRANSITION_NOT_ANCESTOR_OF_HEAD');
+    ancestor(finalReviewedHead,head,'REVIEWED_TRANSITION_NOT_ANCESTOR_OF_HEAD');
     assert.equal(git(['diff','--no-ext-diff','--no-textconv','--raw','--no-abbrev',
-     '--no-renames',reviewedHead,head,'--',...paths]),'',
+     '--no-renames',finalReviewedHead,head,'--',...paths]),'',
     'HEAD_HAS_UNREVIEWED_PROTECTED_SOURCE_AFTER_TRANSITION');
    }else{
-    ancestor(reviewedHead,base,'REVIEWED_TRANSITION_NOT_ANCESTOR_OF_BASE');
+    ancestor(finalReviewedHead,base,'REVIEWED_TRANSITION_NOT_ANCESTOR_OF_BASE');
     assert.equal(git(['diff','--no-ext-diff','--no-textconv','--raw','--no-abbrev',
-     '--no-renames',reviewedHead,base,'--',...paths]),'',
+     '--no-renames',finalReviewedHead,base,'--',...paths]),'',
     'BASE_HAS_UNREVIEWED_PROTECTED_SOURCE_AFTER_TRANSITION');
     assert.equal(git(['diff','--no-ext-diff','--no-textconv','--raw','--no-abbrev',
      '--no-renames',base,head,'--',...paths]),'',
     'HEAD_HAS_UNREVIEWED_PROTECTED_SOURCE_AFTER_BASE');
    }
-   reviewedTransition=reviewedHead;
+   reviewedTransition=finalReviewedHead;
   }else{
    assert.equal(baseDiff,'','BASE_PROTECTED_SOURCE_CHANGED');
    assert.equal(headDiff,'','HEAD_PROTECTED_SOURCE_CHANGED');

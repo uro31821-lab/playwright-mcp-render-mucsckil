@@ -76,6 +76,7 @@ test('Stage61 refuses raw server before reviewed mobile composition',()=>{
 });
 
 test('full pending-approval and Stage25 production overlay chain ends with exactly one Stage61 layer',async()=>{
+  await withSyntheticEnv(async()=>{
   const env={
     CI:'true',
     NODE_ENV:'test',
@@ -107,4 +108,5 @@ test('full pending-approval and Stage25 production overlay chain ends with exact
   const syntax=spawnSync(process.execPath,['--check',built.runtimeFile],{encoding:'utf8'});
   assert.equal(syntax.status,0,syntax.stderr||syntax.stdout||'full Stage25 runtime syntax failed');
   await import(pathToFileURL(built.runtimeFile).href+'?stage61final='+built.stamp.runtimeSha256);
+  });
 });

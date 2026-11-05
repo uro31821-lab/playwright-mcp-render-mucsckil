@@ -48,6 +48,24 @@ const OWNER='owner-service-stage25-followup-operator.mjs';
 const UNIFIED='unified-service-stage25-followup-operator.mjs';
 const ENTRY='operational-service-stage25-followup-operator.mjs';
 const fail=code=>{throw Object.assign(Error(code),{code});};
+const stage25BuildEnvKey56=key=>key==='CI'||key==='NODE_ENV'||
+  key.startsWith('JH_')||key.startsWith('RENDER_');
+async function withStage25BuildEnv56(env,fn){
+ const keys=new Set(Object.keys(process.env).filter(stage25BuildEnvKey56));
+ for(const key of Object.keys(env||{}))if(stage25BuildEnvKey56(key))keys.add(key);
+ const previous=new Map([...keys].map(key=>[key,process.env[key]]));
+ try{
+  for(const key of keys){
+   const value=env?.[key];
+   if(value===undefined)delete process.env[key];else process.env[key]=String(value);
+  }
+  return await fn();
+ }finally{
+  for(const [key,value] of previous){
+   if(value===undefined)delete process.env[key];else process.env[key]=value;
+  }
+ }
+}
 const ci=env=>env?.CI==='true'&&env.NODE_ENV==='test'&&
   env.JH_OWNER_DEFER_LISTEN==='1'&&env.RENDER_SERVICE_ID===undefined&&
   env.JH_DURABLE_RELEASE===undefined&&env.JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE===undefined;
@@ -193,7 +211,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
 ){
  gate(env);
  if(root!==path.resolve(root))fail('JH_STAGE25_INVALID_ROOT');
- const base=await buildPendingApprovalOperatorEntrypoint56(root,env);
+ const base=await withStage25BuildEnv56(env,()=>buildPendingApprovalOperatorEntrypoint56(root,env));
  const p=paths(root);
  const old=selectPendingApprovalOperatorRuntime56(root,env);
  if(old.sha256!==base.stamp.runtimeSha256||old.file!==base.runtimeFile)
@@ -227,7 +245,7 @@ export async function buildStage25PendingOperatorEntrypoint56(
     runtime.split('computerExecutionReceipts56.issue(').length!==2||
     runtime.split('computerExecutionReceipts56.read(').length!==2||
     runtime.split('resolveSnapshotDigestReadback56({').length!==2||
-    (stage40 && (runtime.split('jhOwnerAdmissionNote40(').length!==3||
+    (stage40 && (runtime.split('jhOwnerAdmissionNote40(').length!==(stage61?4:3)||
       runtime.split('jhOwnerAdmissionTake40(').length!==3))||
     (stage41&&(runtime.split('const jhCommandCauses41=new Map();').length!==2||
       runtime.split('function jhCommandCause41(').length!==2))||
