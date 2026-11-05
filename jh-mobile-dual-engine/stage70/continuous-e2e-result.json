@@ -1,5 +1,5 @@
 {
-  "schema":"JH168_STAGE70_FOCUSED_CONTINUOUS_E2E_RESULT_V1",
+  "schema":"JH168_STAGE70_FOCUSED_CONTINUOUS_E2E_RESULT_V2",
   "status":"VERIFIED_PASS",
   "verifiedAt":"2026-11-05",
   "environment":"REAL_OWNER_PHONE_LEFT_GPT_RIGHT_CHROME",
@@ -23,7 +23,6 @@
   ],
   "crossEngineContinuity":"WEB -> ANDROID -> WEB verified within one focused command",
   "automaticReplay":false,
-  "playwrightMobileUsed":false,
-  "failedStage69RoutesReplayed":false,
+  "retiredAutomaticRoutesReplayed":false,
   "screenshotRepeated":false
 }
