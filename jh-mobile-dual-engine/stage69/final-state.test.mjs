@@ -18,9 +18,10 @@ const manual=[
 ];
 const automatic=['BACK','WAIT_CONDITION','SCREENSHOT'];
 
-test('three-round elimination completed with exactly three automatic winners',()=>{
+test('three-round elimination completed with exactly three Android automatic routes',()=>{
   assert.equal(current.round,3);
   assert.equal(current.maxRounds,3);
+  assert.equal(current.routingModel,'ANDROID_THEN_MANUAL');
   assert.deepEqual(Object.keys(current.automatic).sort(),automatic.slice().sort());
   assert.ok(Object.values(current.automatic).every(v=>v==='ANDROID'));
 });
@@ -37,16 +38,12 @@ test('round progression never reopens resolved winners',()=>{
   assert.deepEqual(r3.resolvedAutomatic.map(x=>x.feature).sort(),automatic.slice().sort());
 });
 
-test('final matrix has no active Playwright Mobile route',()=>{
-  assert.ok(matrix.features.every(x=>x.playwrightMobile===null));
+test('final matrix exposes Android or manual only',()=>{
+  assert.deepEqual(matrix.order,['ANDROID','MANUAL']);
   assert.deepEqual(matrix.activeAutomaticRoutes.slice().sort(),automatic.slice().sort());
   assert.deepEqual(matrix.manualAfterRound3.slice().sort(),manual.slice().sort());
-});
-
-test('manual features have neither automatic route active',()=>{
   for(const f of matrix.features.filter(x=>manual.includes(x.feature))){
     assert.equal(f.android,null);
-    assert.equal(f.playwrightMobile,null);
     assert.equal(f.status,'MANUAL_AFTER_ROUND_3');
   }
 });
