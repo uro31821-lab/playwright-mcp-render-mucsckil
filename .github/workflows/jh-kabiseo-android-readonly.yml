@@ -31,9 +31,12 @@ jobs:
           test -f "$ANDROID_HOME/platforms/android-35/android.jar"
           test -x "$ANDROID_HOME/build-tools/35.0.0/aapt2"
           sha256sum "$ANDROID_HOME/platforms/android-35/android.jar"
+          # Official release checksum: https://gradle.org/release-checksums/#v8.9
+          GRADLE_SHA256="d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab"
+          [[ "$GRADLE_SHA256" =~ ^[a-f0-9]{64}$ ]] || { echo 'Invalid pinned SHA-256; download blocked'; exit 1; }
           mkdir -p "$RUNNER_TEMP/kabiseo-gradle"
           curl --fail --location --retry 2 --connect-timeout 20 --max-time 180 https://downloads.gradle.org/distributions/gradle-8.9-bin.zip -o "$RUNNER_TEMP/kabiseo-gradle/gradle.zip"
-          echo "d725d707bfabd4dfdc958c624003b80accc03f7037b5122c4b1d0ef15cecab  $RUNNER_TEMP/kabiseo-gradle/gradle.zip" | sha256sum --check --strict
+          printf '%s  %s\n' "$GRADLE_SHA256" "$RUNNER_TEMP/kabiseo-gradle/gradle.zip" | sha256sum --check --strict
           unzip -q "$RUNNER_TEMP/kabiseo-gradle/gradle.zip" -d "$RUNNER_TEMP/kabiseo-gradle"
           echo "$RUNNER_TEMP/kabiseo-gradle/gradle-8.9/bin" >> "$GITHUB_PATH"
       - name: Compile Android library and run lint (not APK or phone)
