@@ -1,0 +1,22 @@
+name: JH168 Stage69 round3 candidates
+on:
+  push:
+    branches: [stage69-round2-20261105]
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-mobile-dual-engine/stage69/**'
+      - 'jh-mobile-dual-engine/stage67/**'
+      - '.github/workflows/jh-stage69-round3.yml'
+permissions:
+  contents: read
+jobs:
+  round3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test jh-mobile-dual-engine/stage69/round3-candidates.test.mjs jh-mobile-dual-engine/stage69/round-state.test.mjs
