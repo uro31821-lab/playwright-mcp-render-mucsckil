@@ -1,0 +1,68 @@
+{
+  "schema":"JH168_STAGE73_TRIP_LOCATION_NATIVE_FIX3_MERGE_V1",
+  "status":"READY_FOR_WINDOWS_BUILD_SIGN_INSTALL",
+  "candidate":"JH168-STAGE62-TRIP-LOCATION-NATIVE-SELECT-FIX3-KEEPALIVE-20261105",
+  "artifact":{
+    "name":"JH168_Stage62_TripLocation_NativeSelect_FIX3_KeepAlive_20261105.zip",
+    "sha256":"77ef34a355e96e8abfe43e27b926b5c04bf824a1dd95d66e25b4f775c8c067fd",
+    "bytes":7150011,
+    "entries":523,
+    "zipCrc":"PASS",
+    "libraryFileId":"libfile_20d44092f5c0819194fcd12369a03084",
+    "apkBundled":false,
+    "secretSigningMaterialBundled":false
+  },
+  "merge":{
+    "commonAncestor":"JH168-STAGE61-SCREEN-CONSENT-V10-20261103",
+    "nativeSelectBase":"JH168-STAGE62-NATIVE-SELECT-PICK-FIX2-20261104",
+    "installedParent":"jh168-stage62-native-select-pick-fix3-keepalive",
+    "tripSource":"JH168-STAGE62-TRIP-LOCATION-V1-20261104",
+    "versionCode":168,
+    "versionName":"jh168-stage62-trip-location-native-select-fix3-keepalive",
+    "sourceFiles":433,
+    "sourceManifestSha256":"4620b7a619cae37087374f5a4ca0de6ae7be26d45249432ef2d36b4e71a9b889",
+    "validationFiles":50,
+    "validationManifestSha256":"12172c77406939805f2e3f0d5bbafbdbffe84a4647a52071de901801384865aa"
+  },
+  "prebuildVerification":{
+    "tripDecisionPolicy":"7/7 PASS",
+    "nativeSelectPolicy":"3/3 PASS",
+    "mergedStaticAudit":"22/22 PASS",
+    "updaterStaticAudit":"11/11 PASS",
+    "conflictMarkers":0
+  },
+  "server":{
+    "routingModel":"ANDROID_THEN_MANUAL",
+    "stage71RuntimeCommit":"a06e4643a036fa7cc121ef997bc332a43f2f85df",
+    "renderStatus":"live",
+    "newDeployRequired":false
+  },
+  "currentPhoneBaseline":{
+    "secureActive":true,
+    "appVersionCode":168,
+    "appVersionName":"jh168-stage62-native-select-pick-fix3-keepalive"
+  },
+  "permissions":{
+    "backgroundLocation":false,
+    "locationMode":"APP_IN_USE_ONLY",
+    "remotePermissionGrant":false,
+    "remoteTripStart":false
+  },
+  "safety":{
+    "originalCertificateSha256":"7cc577efe48e865fdbe799b92aa9edf89724631361ae97979f2b8e4a940a288b",
+    "newSigningKeyAllowed":false,
+    "uninstallAllowed":false,
+    "dataResetAllowed":false,
+    "automaticReinstallAllowed":false,
+    "install":"ONE_EXPLICIT_Y_THEN_ADB_INSTALL_R"
+  },
+  "next":[
+    "User extracts the merged ZIP on the verified Windows signing PC",
+    "User connects exactly one unlocked authorized USB phone",
+    "User runs 실행.cmd",
+    "Script must pass source/security/Gradle/signing checks before asking for Y",
+    "User types Y once for update install",
+    "Return RESULT.txt",
+    "Then verify merged versionName, Secure56, KeepAlive persistence, and TripLocation first-run permissions/E2E"
+  ]
+}
