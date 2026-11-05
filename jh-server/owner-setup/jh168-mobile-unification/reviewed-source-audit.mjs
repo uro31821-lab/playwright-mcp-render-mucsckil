@@ -88,6 +88,13 @@ const REVIEWED_TRANSITIONS=Object.freeze([
      'jh-server/owner-setup/jh168-mobile-unification/stage64-feature-fallback.test.mjs':
       'b68cd7b51e02f38fb553e00e46ec8de191caa634'
     })
+   }),
+   Object.freeze({
+    reviewedHead:'f9e8e6e7564624f7fbe56e45d1bc9deaa4a245b6',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
+      '3245ea53bdd2980ed558a4ff89416824bebf8ac3'
+    })
    })
   ])
  })
