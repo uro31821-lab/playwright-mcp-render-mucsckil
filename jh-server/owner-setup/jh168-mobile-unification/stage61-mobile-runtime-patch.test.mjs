@@ -77,7 +77,7 @@ test('patch connects mobile web and computer use to Stage61',()=>{
  assert.match(out,/stage61Action:phone\.stage61Action/);
  assert.match(out,/stage61WebOutcome:phone\.stage61WebOutcome/);
  assert.match(out,/stage61ComputerOutcome:phone\.stage61ComputerOutcome/);
- assert.match(out,/stage61PlaywrightMobileAvailable:phone\.stage61PlaywrightMobileAvailable/);
+ assert.doesNotMatch(out,/retired mobile provider field/i);
  assert.doesNotMatch(out,/if\(phone\.ok!==true\)return phone;Object\.assign\(payload,phone\)/);
  assert.equal(reverseStage61MobileRuntime56(out),fixture);
 });
