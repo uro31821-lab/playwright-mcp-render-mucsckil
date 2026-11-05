@@ -21,12 +21,17 @@ test('a packaged Jebiseo skill alone is unavailable and supplies no Gemini badge
   assert.equal(result.authorizesExecution,false);
 });
 
-test('manual Samsung, YouTube and video sharing needs the current skill but no automatic reply provider',()=>{
+test('Samsung, YouTube and video prepare all three automatic actions without claiming phone readiness',()=>{
   for (const geminiFeature of ['ANDROID','YOUTUBE','VIDEO']) {
     const result=planRoute({...base,intent:{...intent,geminiFlow:'HANDOFF',geminiFeature}});
     assert.equal(result.ready,true);
     assert.equal(result.routeScope,'HANDOFF_PREPARATION');
     assert.equal(result.executionReady,false);
+    assert.equal(result.deliveryMode,'AUTO_TEXT_SELECTION');
+    assert.deepEqual(result.automationStages,['SELECT_REQUEST_TEXT','CLICK_GEMINI_MENU','SUBMIT_GEMINI']);
+    assert.equal(result.automaticHandoffRequested,true);
+    assert.equal(result.requiresNativeHandoffBinding,true);
+    assert.equal(result.manualAllowed,false);
     assert.equal(result.returnToGpt,geminiFeature==='YOUTUBE');
     assert.equal(result.resultDestination,geminiFeature==='YOUTUBE'?'GPT_AFTER_MANUAL_SHARE':'GEMINI');
     assert.equal(result.automaticReturnToGpt,false);
@@ -40,6 +45,21 @@ test('manual Samsung, YouTube and video sharing needs the current skill but no a
       available:{skills:[],capabilities:[]}});
     assert.equal(absent.ready,false);
   }
+});
+
+test('manual delivery is explicit and its existing task choice survives continuation',()=>{
+  for (const deliveryMode of ['TEXT_SELECTION','OPEN_MANUAL']) {
+    const result=planRoute({...base,intent:{...intent,geminiFlow:'HANDOFF',geminiFeature:'YOUTUBE',deliveryMode}});
+    assert.equal(result.deliveryMode,deliveryMode);
+    assert.equal(result.manualAllowed,true);
+    assert.equal(result.automaticHandoffRequested,false);
+    assert.deepEqual(result.automationStages,[]);
+    const activeTask={id:'test:manual-task',threadId:base.threadId,lead:'gemini',helpers:[],mode:'assist',
+      status:'active',conditions:{geminiFlow:'HANDOFF',geminiFeature:'YOUTUBE',deliveryMode},effects:{}};
+    assert.equal(planRoute({...base,activeTask,intent:{kind:'continue'}}).deliveryMode,deliveryMode);
+  }
+  assert.throws(()=>planRoute({...base,intent:{...intent,geminiFlow:'HANDOFF',geminiFeature:'YOUTUBE',
+    deliveryMode:'AUTO_ANY_CLICK'}}),/GEMINI_HANDOFF_DELIVERY_MODE_INVALID/);
 });
 
 test('YouTube continuation preserves uncertainty and the manual return plan without automatic collection',()=>{

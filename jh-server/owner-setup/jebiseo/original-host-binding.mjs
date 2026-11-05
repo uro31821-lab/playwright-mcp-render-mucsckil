@@ -18,6 +18,8 @@ import {describeOpenCompletion} from '../deployment/jh167-open-completion.mjs';
 import {getJebiseoAndroidTarget, inspectJebiseoAndroidAppObservation} from './android-app.mjs';
 import {prepareJebiseoHandoff} from './handoff-request.mjs';
 import {createJebiseoHandoffSession} from './handoff-runtime.mjs';
+import {createJebiseoNativeTextHandoffRuntime as createNativeTextHandoff} from './native-text-handoff-runtime.mjs';
+import {createJebiseoNativeSelectionDescriptor, validateJebiseoNativeSelection} from './native-text-handoff-port.mjs';
 
 const ROUTES = Object.freeze({OPEN: 'life_web_navigate', SNAPSHOT: 'life_web_snapshot',
   OPEN_APP: 'life_android_open', APP_OBSERVE: 'life_android_computer_inspect',
@@ -156,7 +158,7 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     readAuthenticatedRequestScope, readOriginalJobScope, now].some(fn => typeof fn !== 'function'))
     fail('JEBISEO_ORIGINAL_HOST_READERS_REQUIRED');
   const steps = new AsyncLocalStorage(), scheduler = createJebiseoDeviceScheduler();
-  const entries = new Map(), commandTasks = new Map(), handoffs = new Map();
+  const entries = new Map(), commandTasks = new Map(), handoffs = new Map(), nativeHandoffs = new Map();
   let nextInvocationOrdinal = 0;
 
   function currentStep(entry) {
@@ -486,6 +488,7 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     if (!plain(bound) || !nonempty(bound.taskRef) || !nonempty(bound.threadRef))
       fail('JEBISEO_TASK_SCOPE_REQUIRED');
     if (!readAuthenticatedRequestScope()) fail('JEBISEO_AUTHENTICATED_REQUEST_REQUIRED');
+    if (nativeHandoffs.has(bound.taskRef)) fail('JEBISEO_NATIVE_TASK_ALREADY_BOUND');
     const existing = entries.get(bound.taskRef);
     if (existing) {
       if (!isDeepStrictEqual(existing.task, bound)) fail('JEBISEO_TASK_BINDING_CHANGED');
@@ -538,18 +541,51 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     entries.set(bound.taskRef, entry); commandTasks.set(key, bound.taskRef);
     return entry.facade;
   }
+  function createNativeTextHandoffRuntime({request, deviceId = null, commandId = null,
+    nativeSelection = null} = {}) {
+    if (!readAuthenticatedRequestScope()) fail('JEBISEO_AUTHENTICATED_REQUEST_REQUIRED');
+    const prepared = prepareJebiseoHandoff(request);
+    if (prepared.active !== true) fail('JEBISEO_NATIVE_CURRENT_REQUEST_REQUIRED');
+    const descriptor = nativeSelection ?? createJebiseoNativeSelectionDescriptor(prepared);
+    if (!validateJebiseoNativeSelection(prepared, descriptor)) fail('JEBISEO_NATIVE_SELECTION_SCOPE_REQUIRED');
+    const state = readCurrentState();
+    if (!stateIdentity(state) || state.deviceId !== deviceId || state.commandId !== commandId)
+      fail('JEBISEO_ORIGINAL_PHONE_BINDING_REQUIRED');
+    const key = JSON.stringify([state.runtimeId, deviceId, commandId]);
+    if (entries.has(prepared.taskRef) ||
+        (commandTasks.has(key) && commandTasks.get(key) !== prepared.taskRef))
+      fail('JEBISEO_ORIGINAL_TASK_BINDING_REQUIRED');
+    const identity = JSON.stringify([request, deviceId, commandId, descriptor,
+      state.runtimeId, state.secureSessionId, state.deviceDigest]);
+    const saved = nativeHandoffs.get(prepared.taskRef);
+    if (saved) {
+      if (saved.identity !== identity) fail('JEBISEO_NATIVE_TASK_BINDING_CHANGED');
+      return saved.facade;
+    }
+    if (nativeHandoffs.size >= 256) fail('JEBISEO_NATIVE_TASK_CAPACITY');
+    const facade = createNativeTextHandoff({request, deviceId, commandId,
+      nativeSelection: descriptor, scheduler, now,
+      originalHost: {getOriginalTool, readCurrentState, findOriginalReturnedJob,
+        readOriginalJob, readAuthenticatedRequestScope, readOriginalJobScope}});
+    nativeHandoffs.set(prepared.taskRef, {identity, facade}); commandTasks.set(key, prepared.taskRef);
+    return facade;
+  }
   function createHandoffRuntime({request, deviceId = null, commandId = null,
-    deliveryMode = 'TEXT_SELECTION', requiresResultInspection = false} = {}) {
-    if (!['TEXT_SELECTION', 'OPEN_MANUAL'].includes(deliveryMode))
+    deliveryMode = 'AUTO_TEXT_SELECTION', requiresResultInspection = false, nativeSelection = null} = {}) {
+    if (!['AUTO_TEXT_SELECTION', 'TEXT_SELECTION', 'OPEN_MANUAL'].includes(deliveryMode))
       fail('JEBISEO_HANDOFF_DELIVERY_MODE_INVALID');
     if (typeof requiresResultInspection !== 'boolean')
       fail('JEBISEO_HANDOFF_INSPECTION_FLAG_INVALID');
     const prepared = prepareJebiseoHandoff(request);
     if (prepared.active !== true) return createJebiseoHandoffSession({request, deliveryMode,
-      requiresResultInspection});
+      requiresResultInspection, nativeSelection});
+    const descriptor = nativeSelection ?? (deliveryMode === 'AUTO_TEXT_SELECTION'
+      ? createJebiseoNativeSelectionDescriptor(prepared) : null);
+    if (deliveryMode === 'AUTO_TEXT_SELECTION' && !validateJebiseoNativeSelection(prepared, descriptor))
+      fail('JEBISEO_NATIVE_SELECTION_SCOPE_REQUIRED');
     const key = prepared.taskRef;
     const identity = JSON.stringify([prepared.threadRef, prepared.sourceRef,
-      prepared.requestDigest, deviceId, commandId, deliveryMode, requiresResultInspection]);
+      prepared.requestDigest, deviceId, commandId, deliveryMode, requiresResultInspection, descriptor]);
     const saved = handoffs.get(key);
     if (saved) {
       if (saved.identity !== identity) fail('JEBISEO_HANDOFF_TASK_BINDING_CHANGED');
@@ -557,10 +593,10 @@ export function createJebiseoOriginalHostBinding({getOriginalTool, readCurrentSt
     }
     if (handoffs.size >= 256) fail('JEBISEO_HANDOFF_TASK_CAPACITY');
     const facade = createJebiseoHandoffSession({request, deviceId, commandId, deliveryMode,
-      requiresResultInspection,
-      createOriginalRuntime: createRuntime});
+      requiresResultInspection, nativeSelection: descriptor,
+      createOriginalRuntime: createRuntime, createNativeTextHandoffRuntime});
     handoffs.set(key, {identity, facade});
     return facade;
   }
-  return Object.freeze({createRuntime, createHandoffRuntime});
+  return Object.freeze({createRuntime, createHandoffRuntime, createNativeTextHandoffRuntime});
 }

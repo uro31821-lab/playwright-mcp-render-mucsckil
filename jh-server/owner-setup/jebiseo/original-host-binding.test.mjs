@@ -195,21 +195,21 @@ test('explicit OPEN_MANUAL reuses the original bound OPEN and same cached sessio
     request:{...request,requestText:'다른 작업'},deviceId,commandId,deliveryMode:'OPEN_MANUAL'})),/HANDOFF_TASK_BINDING_CHANGED/);
 });
 
-test('Samsung handoff through the original host creates no native/web job or reply requirement', async () => {
+test('explicit manual Samsung handoff creates no native/web job or reply requirement', async () => {
   const f=fixture();
   const request={taskRef:'fixture-samsung-task',threadRef:'fixture-handoff-thread',
     sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'ANDROID',
     target:'삼성 노트',requestText:'선택한 내용을 노트에 저장해 줘'};
-  const session=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId}));
+  const session=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,deliveryMode:'TEXT_SELECTION'}));
   const manual=await f.within(()=>session.start());
   assert.equal(manual.surface,'ANDROID_TEXT_SELECTION_MENU');assert.equal(manual.nextAction,'SELECT_TEXT');
   assert.equal(manual.nativeGeminiRequired,true);assert.equal(manual.deliveryMode,'TEXT_SELECTION');
   assert.equal(manual.externalEffectVerified,false);assert.equal(manual.requestSent,false);
-  assert.equal(await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId})),session);
+  assert.equal(await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,deliveryMode:'TEXT_SELECTION'})),session);
   await assert.rejects(f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,
     deliveryMode:'OPEN_MANUAL'})),/HANDOFF_TASK_BINDING_CHANGED/);
   await assert.rejects(f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,
-    requiresResultInspection:true})),/HANDOFF_TASK_BINDING_CHANGED/);
+    deliveryMode:'TEXT_SELECTION',requiresResultInspection:true})),/HANDOFF_TASK_BINDING_CHANGED/);
   assert.equal(f.jobs.size,0);assert.equal(f.calls.length,0);assert.equal(f.parses.length,0);
 });
 
@@ -219,7 +219,7 @@ test('the original host preserves a current task inspection barrier in selection
     sourceRef:'fixture-user-request',intent:'execute',basis:'direct',feature:'VIDEO',
     requestText:'바다 영상을 만들어 줘'};
   const session=await f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId,
-    requiresResultInspection:true}));
+    deliveryMode:'TEXT_SELECTION',requiresResultInspection:true}));
   assert.equal((await f.within(()=>session.start())).nextAction,'INSPECT_EXISTING');
   assert.equal(session.presentation().preparedPrompt,undefined);
   await assert.rejects(f.within(()=>f.host.createHandoffRuntime({request,deviceId,commandId})),

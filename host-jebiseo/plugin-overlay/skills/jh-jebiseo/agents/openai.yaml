@@ -1,4 +1,4 @@
 interface:
   display_name: "제비서"
-  short_description: "Gemini로 요청 전달·유튜브 분석을 GPT로 수동 공유"
-  default_prompt: "Use $jh-jebiseo to prepare text for Gemini's selection menu, guide the manual return of completed YouTube analysis to this GPT conversation, and leave Samsung and video results in Gemini."
+  short_description: "GPT 글 선택·Gemini 메뉴 클릭·실행 클릭"
+  default_prompt: "Use $jh-jebiseo for the original signed native selection, Ask Gemini menu click, and Gemini submit flow. Display the exact request before starting; report only verified stages and preserve the YouTube manual result return."

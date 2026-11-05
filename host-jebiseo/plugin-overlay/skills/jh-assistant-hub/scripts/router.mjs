@@ -70,8 +70,8 @@ export function planRoute(input) {
     result.helpers = helpersRequested.filter(x => x !== result.lead && !excluded.includes(x));
     result.mode = intent.mode ?? (result.lead === 'guide' ? 'explain' : 'assist');
   }
-  // A manual handoff and return guide can be prepared with the installed skill.
-  // This is not a relaxed Gemini provider capability or permission to dispatch.
+  // Request preparation needs the skill. Actual selection/menu/submit requires
+  // the original signed native binding; route readiness never grants dispatch.
   const handoff = result.lead === 'gemini' && intent.kind !== 'develop' &&
     (intent.geminiFlow === 'HANDOFF' ||
       (continuations.has(intent.kind) && activeTask?.conditions?.geminiFlow === 'HANDOFF'));
@@ -83,7 +83,15 @@ export function planRoute(input) {
     result.resultDestination = feature === 'YOUTUBE' ? 'GPT_AFTER_MANUAL_SHARE' : 'GEMINI';
     result.returnToGpt = feature === 'YOUTUBE';
     result.automaticReturnToGpt = false;
-    result.manualAllowed = true;
+    const deliveryMode = intent.deliveryMode ?? activeTask?.conditions?.deliveryMode ?? 'AUTO_TEXT_SELECTION';
+    check(['AUTO_TEXT_SELECTION', 'TEXT_SELECTION', 'OPEN_MANUAL'].includes(deliveryMode),
+      'GEMINI_HANDOFF_DELIVERY_MODE_INVALID');
+    result.deliveryMode = deliveryMode;
+    result.automaticHandoffRequested = deliveryMode === 'AUTO_TEXT_SELECTION';
+    result.automationStages = result.automaticHandoffRequested
+      ? ['SELECT_REQUEST_TEXT', 'CLICK_GEMINI_MENU', 'SUBMIT_GEMINI'] : [];
+    result.requiresNativeHandoffBinding = result.automaticHandoffRequested;
+    result.manualAllowed = !result.automaticHandoffRequested;
     result.executionReady = false;
   }
   for (const id of [result.lead, ...result.helpers]) {

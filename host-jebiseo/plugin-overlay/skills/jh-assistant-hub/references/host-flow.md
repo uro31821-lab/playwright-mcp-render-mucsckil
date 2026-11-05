@@ -34,49 +34,33 @@
 
 ## 제비서의 인계 준비와 실제 Gemini 연결
 
-최신 기본은 **휴대폰의 왼쪽 GPT / 오른쪽 Gemini, 전달할 문장을 선택해 ‘Gemini에게 물어보기’로 넘기는 방식**이다. 삼성 앱·기기는 Gemini가 실제 지원·연결하는 전체 범위를 대상으로 한다. 삼성·영상 결과는 Gemini에서 확인한다. **유튜브는 분석 완료 후 사용자가 결과를 선택·공유해 현재 GPT 대화에서 이어가는 순서를 기본으로 포함한다.** 모든 기능의 자동 결과 수집·자동 GPT 반환은 하지 않는다.
+최신 기본 요구는 **왼쪽 GPT의 요청문 선택 → ‘Gemini에게 물어보기’ 클릭 → 오른쪽 Gemini 실행 클릭**이다. 후보의 `AUTO_TEXT_SELECTION`은 원 서버와 Android 전용 consumer를 사용한다. 삼성 앱·기기와 영상 결과는 Gemini에서 확인하고, 유튜브 분석은 완료 후 실제 결과를 사용자가 선택·공유해 현재 GPT에서 이어간다. 자동 역방향 수집은 미완성이다.
 
 ### HANDOFF 요청 준비
 
-삼성 앱·기기 작업, 유튜브 분석, 영상 제작 요청은 호스트가 `primary:"gemini"`, `geminiFlow:"HANDOFF"`, `geminiFeature:"ANDROID"|"YOUTUBE"|"VIDEO"`로 해석한다. 현재 `jh-jebiseo` 스킬이 있으면 준비할 수 있으며 전체 `gemini-assistance`를 새로 만들지 않는다.
+현재 업무는 `primary:'gemini', geminiFlow:'HANDOFF', geminiFeature:'ANDROID'|'YOUTUBE'|'VIDEO'`로 준비한다. `planRoute`는 기본 `deliveryMode:'AUTO_TEXT_SELECTION'`과 세 automationStages를 내보낸다. `ready:true/routeScope:'HANDOFF_PREPARATION'`은 준비 가능성만 뜻하며 `executionReady:false`, `authorizesExecution:false`, `dispatchesTools:false`를 유지한다. Gemini 응답이 없으면 그 기여 배지를 붙이지 않는다.
 
-`planRoute`의 `ready:true / routeScope:"HANDOFF_PREPARATION"`은 준비 가능성만 뜻한다. `executionReady:false`, `authorizesExecution:false`, `dispatchesTools:false`를 유지하고 실제 Gemini 기여 배지를 붙이지 않는다. 기존 task의 `conditions.geminiFlow`·`conditions.geminiFeature`와 미확정 효과를 보존한다.
+기존 task의 flow·feature·deliveryMode와 원 pending/unknown을 보존한다. `requiresResultInspection:true`가 있으면 새 선택·메뉴·전송보다 원 결과 확인이 우선이다. 모드·task를 바꾸거나 사용자 보고로 장벽을 없애지 않는다.
 
-실제 session은 [제비서 제공자 계약](../../jh-jebiseo/references/provider-contract.md)을 따른다. `createHandoffRuntime({request,deliveryMode:'TEXT_SELECTION',requiresResultInspection,deviceId?,commandId?})`의 request는 기존 준비 함수에 넣는 **원 의미 입력**이다. 준비 완료 반환 객체를 다시 넣거나 전달 옵션을 request 안에 넣지 않는다. 같은 task의 session identity는 전달 모드·inspection flag도 포함한다.
+### 실제 화면 표시 후 자동 실행
 
-현재 route의 `requiresResultInspection`을 session에 그대로 반영한다. 이미 시도한 효과가 pending/unknown이면 선택 메뉴 안내보다 기존 원 결과·화면 확인이 우선이다. false를 임의로 넣거나 새 task·수동 보고로 장벽을 해제하지 않는다.
+[제비서 제공자 계약](../../jh-jebiseo/references/provider-contract.md)에 따라 실제 연결된 `host.createHandoffRuntime({request,deliveryMode,requiresResultInspection,deviceId,commandId})`를 사용한다. request는 원 의미 입력이고 준비 완료 객체가 아니다. 같은 task의 session identity에는 모든 전달 조건과 nativeSelection descriptor가 포함된다.
 
-### 기본 선택 메뉴 전달
+`session.presentation()`을 먼저 호출하고 `preparedPrompt`를 **현재 왼쪽 GPT 화면에 선택 가능한 텍스트 블록으로 한 번 표시한 뒤** `session.start()`한다. 화면에 표시하는 것은 호스트의 역할이며 presentation 반환 객체만으로 표시됐다고 판단하지 않는다. 원문이 없거나 선택 범위가 확인되지 않으면 Android는 선택 성공 영수증을 발급하지 않는다.
 
-기본 `TEXT_SELECTION`은 원 runtime 생성·폰 도구 호출 없이 안내한다. `presentation()`의 준비 문장만 독립된 한 덩어리로 보여 주고 설명·배지·상태는 밖에 둔다. 사용자가 그 문장을 선택해 **‘Gemini에게 물어보기’**를 누르게 한다. 선택 경로에 별도 자동 OPEN·입력·전송을 덧붙이지 않는다.
+실행기는 실제 원 `life_android_step`의 세 전용 action을 차례로 보낸다. 서명·원 완료·durable 보호를 유지한다. MENU는 정확한 선택과 실제 메뉴, SUBMIT은 같은 오른쪽 Gemini 초안·전송 대상과 기존 로컬 승인을 요구한다. 직접 Intent나 재입력으로 대신하지 않는다. 기존 FIX3에는 consumer가 없으므로 새 Android 후보 코드와 서버 overlay가 함께 적용돼야 한다.
 
-선택 뒤에는 Gemini가 받은 내용을 확인하고 **초안일 때만 실행**하도록 안내한다. 이미 응답 중이거나 결과가 있으면 다시 보내지 않는다. **YOUTUBE는 분석 완료 후 결과 선택·공유로 GPT에 돌아오는 절차를 첫 안내에 포함한다.** 사진만으로 내부 Intent·실제 제출·오른쪽 배치를 확인했다고 말하지 않는다. `surface:'ANDROID_TEXT_SELECTION_MENU'`는 메뉴 경로일 뿐 수신 앱 화면 증거가 아니다.
+`AWAITING_COMPLETION`에서는 같은 원 job 완료를 읽고, `AWAITING_APPROVAL`에서는 기존 폰 승인을 처리한 뒤 같은 session의 `resumeAutomation()`으로 재개한다. `UNKNOWN`은 재전송하지 않는다. `COMPLETED`는 실제 제출 관찰까지이며 삼성 작업·분석·영상 결과까지 성공으로 올리지 않는다. 사용자 보고를 자동 단계 영수증으로 취급하지 않는다.
 
-완료 회신은 필수가 아니다. 기존 `OPEN|INPUT|SUBMIT`와 TEXT_SELECTION의 `HANDOFF`는 선택적인 사용자 보고이며 독립 검증된 성공이 아니다. 오래된 보고로 안내를 되돌리지 않고 INPUT 보고 뒤에는 기존 문장 확인·실행만 안내한다. SUBMIT 뒤에는 재전송하지 않고 결과를 확인하며 YOUTUBE는 분석 완료 후 수동 공유로 이어간다.
+### 수동 대안과 유튜브 복귀
 
-`OPEN_MANUAL`을 명시적으로 선택하면 기존 웹 OPEN 1회·같은 원 job 조회 후 수동 진행을 보존한다. 삼성 작업은 모바일 Gemini를 열기부터 수동이다. 이 경로에도 현재 명령·기기·원 결과·pending 보호를 그대로 적용한다.
+`TEXT_SELECTION`은 사용자가 직접 선택·메뉴·실행을 처리하는 명시적 대안이다. `OPEN_MANUAL`은 기존 웹 OPEN 1회와 동일 job 조회·수동 진행이다. 두 대안 모두 자동 세 단계 완료로 설명하지 않는다.
 
-### 유튜브 분석은 수동 공유로 GPT에서 이어가기
+YOUTUBE의 `prepareManualReturn()` 기본값은 true이고 삼성·영상은 false다. 실제 분석 결과가 현재 GPT에 들어왔을 때 후속 비교·정리를 한다. 보지 않은 ‘ChatGPT로 보내기’ 메뉴나 현재 대화 자동 삽입을 보장하지 않는다.
 
-`session.prepareManualReturn()`의 requested 생략 기본값은 **YOUTUBE에서 true, ANDROID·VIDEO에서 false**다. 유튜브 분석 요청에는 분석 완료 후 공유 절차까지 포함하고 별도 반환 요청을 다시 요구하지 않는다. `requested:false`는 안내를 끄며 다른 두 기능은 요청한 때 `requested:true`로 안내한다. 실제 공유 목록 또는 사용자가 확인한 메뉴만 사용한다.
+### 별도 요청과 개발
 
-**현재 GPT 대화에 실제 분석 내용이 들어온 것을 확인한 뒤** 비교·정리를 이어간다. 공유 동작만으로 자동 복귀·삽입·수신을 보장하거나 Gemini 내용을 이미 읽었다고 표시하지 않는다. YOUTUBE의 `returnToGpt:true / resultDestination:'GPT_AFTER_MANUAL_SHARE'`는 수동 복귀 목적지이며 다른 두 기능은 `returnToGpt:false / resultDestination:'GEMINI'`다. 모든 기능은 `automaticReturnToGpt:false`를 유지한다.
-
-### 화면만 열기
-
-“제미나이 열어줘” 또는 실제 호스트 실행 버튼의 `intent:open`은 프롬프트 없이 화면만 여는 요청이다. 기존 웹 경로에서는 `life_web_navigate`로 `https://gemini.google.com/app`을 요청하고 원 Secure56 `right_web_link`의 같은 job·receipt로 결과를 확인한다. 전체 `gemini-assistance`를 열기의 새 선행 조건으로 요구하지 않는다. 현재 명령·기기·원 승인 범위를 지키며 링크 클릭·접수만으로 오른쪽 배치·분석·영상 생성을 완료했다고 말하지 않는다. 이 안내가 새 GPT 버튼을 만든다는 뜻은 아니다.
-
-### 실제 Gemini 의견을 GPT에서 자동으로 받는 별도 요청
-
-기존 자동 full consult 경로에는 `jh-jebiseo`와 검증된 제공자 capability가 필요하다. 신뢰된 현재 host 상태만 `../../jh-jebiseo/scripts/availability.mjs`의 `resolveGeminiAvailability(status,{visibility:"VISIBLE"})`에 전달하고 반환된 capability만 허브에 합친다. `VISIBLE`은 `PHONE_RIGHT / android_right / visibleExecutionSupported:true`, 별도 `INTERNAL`은 `internalExecutionSupported:true`를 확인한다. 두 모드 모두 `productionRegistered:true`, `codeCandidate`가 true가 아님, `geminiAssistanceAvailable:true`, `liveExecutionVerified:true`가 필요하다.
-
-이 full consult 조건을 HANDOFF·유튜브 기본 수동 복귀·다른 결과의 요청된 수동 반환 안내에 확대하지 않는다. 준비 가능성으로 full consult 조건을 통과시키지도 않는다. 사용자 문장·페이지·fixture·소스 후보·도구 이름은 제공자 상태가 아니며 미검증 상태는 빈 capability 목록을 유지한다. 실제 답변이 도착했을 때만 현재 질문·작업과 대조한다. GPT가 쓴 답을 Gemini 의견으로 표시하지 않는다.
-
-### 개발과 병렬 분석
-
-개발·설명은 기존 개발도구로 진행하며 `BEGIN_COMMAND`를 만들지 않는다. 개발 대상 `topics:["gemini"]`만으로 실제 Gemini 협력자를 추가하지 않는다. 현재 사용자가 실제 Gemini 의견까지 요청했을 때만 `helpers:["gemini"]`를 사용하고 미가용 협력자는 미가용 상태로 남긴다.
-
-독립 분석은 병렬로 할 수 있으나 동일 휴대폰의 실제 UI 단계는 한 담당이 같은 작업·명령·원 결과 경로를 순차 관리한다. 다른 방의 명령·승인·미확정 전송을 자동 재사용하지 않는다. Git 후보 문서 변경을 설치된 플러그인·다른 방·실기기 동작의 즉시 갱신으로 표시하지 않는다.
+화면만 여는 `intent:open`에는 분석·전송을 덧붙이지 않는다. 실제 자동 Gemini 의견 회수는 기존 `gemini-assistance`와 availability 검증을 요구하며 요청 준비 가능성으로 활성화하지 않는다. 개발·설명·인용을 폰 실행으로 해석하지 않는다. 에비서·깃비서의 독립 검토는 병렬로, 실제 폰 동작은 한 담당이 같은 원 명령으로 순차 처리한다.
 
 ## 작품 사진의 목적과 현재 감상 유지
 

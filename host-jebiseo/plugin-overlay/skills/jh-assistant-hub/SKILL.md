@@ -32,7 +32,7 @@ description: "JH 하나에서 비서 이름 없이 자연어로 요청할 때 �
 | 속마음·철학적 조언 | reflection → 쇼비서 | 사용자가 요청한 현재 상담 범위 |
 | 자료 정리 | cleanup → 청비서 | 원래 보존 정책과 실제 정리 도구 |
 | 개인 기준·판단 도움 | personal → 에비서 | 이미 있는 현재 문제를 유지 |
-| 삼성 앱·기기 요청, 영상 제작 | gemini → 제비서 | 전달 문장 선택 → Gemini에게 물어보기, 결과는 Gemini에서 확인 |
+| 삼성 앱·기기 요청, 영상 제작 | gemini → 제비서 | 원 실행기로 요청문 선택 → Gemini 메뉴 클릭 → 실행 클릭, 결과는 Gemini에서 확인 |
 | 유튜브 분석 | gemini → 제비서 | Gemini 분석 → 사용자가 결과 선택·공유 → 현재 GPT 대화에서 실제 받은 내용으로 이어가기 |
 | Gemini 결과를 GPT로 수동 공유 | gemini → 제비서 | 유튜브는 기본 순서에 포함, 다른 기능은 요청한 때만 실제 공유 목록·확인된 메뉴를 안내 |
 | 별도 자동 Gemini 의견 회수 | gemini → 제비서 | 실제 연결과 이번 답변의 근거가 있는 경우만 |
@@ -41,9 +41,11 @@ description: "JH 하나에서 비서 이름 없이 자연어로 요청할 때 �
 
 `memory/evidence/camera/audio/gemini`는 현재 호스트에 실제 경로가 제공되는 경우에만 연결하는 확장 항목이다. 목록에 있다는 것만으로 메모리아·Perplexity·카메라·음향 처리가 구현되었다고 하지 않는다. 특정 서비스·기기를 명시했다면 해당 연결을 확인한다. 실제 경로가 없는 부분만 정확히 알리고 진행 가능한 나머지는 수행한다.
 
-[제비서](../jh-jebiseo/SKILL.md)의 최신 기본 흐름은 **왼쪽 GPT / 오른쪽 Gemini, 전달 문장 선택 → ‘Gemini에게 물어보기’**다. 현재 요청에 필요한 문장만 독립된 한 덩어리로 표시하고 설명·비서 배지는 그 밖에 둔다. 삼성 앱·기기는 Gemini가 실제 지원·연결하는 전체 범위이며 기존 세 앱 목록으로 제한하지 않는다. 삼성·영상 결과는 Gemini에서 확인한다. 유튜브는 분석 완료 후 결과를 선택·공유해 GPT에서 이어가는 순서까지 기본으로 안내하며 별도 반환 요청을 다시 요구하지 않는다. 모든 기능에 자동 답변 수집·자동 GPT 반환은 없다. 현재 대화에 실제 내용이 들어오기 전에는 복귀·삽입·수신 완료를 표시하지 않는다.
+[제비서](../jh-jebiseo/SKILL.md)의 최신 핵심 요구는 **왼쪽 GPT의 글 선택 → ‘Gemini에게 물어보기’ 클릭 → 오른쪽 Gemini 실행 클릭**이다. 기본 `AUTO_TEXT_SELECTION`은 실제 원 서버·Android 전용 실행기를 요구한다. 수동 안내만 만든 뒤 자동 구현이라고 설명하지 않는다. 현재 요청의 문장만 독립된 한 블록으로 먼저 표시하고 `presentation()` → 실제 화면 표시 → `start()` 순서를 지킨다. 설명·배지는 전달문 밖에 둔다.
 
-이 세 기능을 현재 사용자가 요청하면 호스트는 `intent.geminiFlow:'HANDOFF'`와 `geminiFeature:'ANDROID'|'YOUTUBE'|'VIDEO'`를 지정한다. `planRoute`의 `routeScope:'HANDOFF_PREPARATION' / ready:true`는 준비 가능성만 뜻한다. 다음 턴에도 같은 작업의 `conditions.geminiFlow / geminiFeature`와 `requiresResultInspection`을 유지한다. 실제 연결된 session은 `TEXT_SELECTION`을 기본으로 사용하며 폰 도구·별도 자동 OPEN을 호출하지 않는다. 공유 후에는 받은 요청을 확인하고 초안일 때만 실행하도록 안내한다. 명시적 `OPEN_MANUAL` 선택에는 기존 OPEN 1회·동일 job 조회·수동 흐름을 유지한다. 미확정 결과 확인은 전달 방식보다 우선이며 사용자 보고로 장벽을 해제하거나 반복 전송을 안내하지 않는다.
+이 세 기능을 요청하면 `intent.geminiFlow:'HANDOFF'`, `geminiFeature:'ANDROID'|'YOUTUBE'|'VIDEO'`로 준비한다. 허브의 `HANDOFF_PREPARATION/ready:true`는 준비 가능성만 뜻하며 `executionReady:false`를 유지한다. 다음 턴에도 같은 작업의 flow·feature·deliveryMode와 미확정 효과를 이어간다. 실제 동작과 성공은 연결된 원 실행기의 서명 완료·선택 범위·초안·제출 관찰로 판단한다. 기존 승인 대기나 원 완료 대기는 같은 session의 `resumeAutomation()`으로만 처리한다.
+
+삼성 앱·기기는 Gemini가 실제 지원·연결하는 전체 범위를 대상으로 한다. 유튜브 분석 결과의 수동 GPT 복귀는 유지한다. 자동 결과 수집은 별도 미완성 기능이다. `TEXT_SELECTION`과 `OPEN_MANUAL`은 명시적인 수동 대안이며 자동 실패를 성공으로 바꾸지 않는다. 기존 FIX3에는 왼쪽 선택 실행기가 없어 새 후보 APK가 필요하다는 적용 조건도 알린다. 소스·검사·APK 빌드만으로 설치와 휴대폰 성공을 주장하지 않는다.
 
 YOUTUBE는 `returnToGpt:true / resultDestination:'GPT_AFTER_MANUAL_SHARE'`, 다른 두 기능은 `returnToGpt:false / resultDestination:'GEMINI'`이며 모두 `automaticReturnToGpt:false`다. 별도 자동 Gemini 의견 회수에는 기존 `gemini-assistance` 검증을 유지한다. 선택 메뉴 안내·유튜브 기본 수동 복귀·다른 결과의 요청된 수동 반환 때문에 이 capability를 새로 요구하지 않는다. 실제 Gemini 응답이 없으면 GPT의 안내에 제비서 기여 표식을 붙이지 않는다. “제비서를 만들어줘”는 개발 대상이며 외부 질의를 시작하지 않는다. 분석은 병렬로 나눌 수 있지만 같은 휴대폰 실행 명령은 주 담당 하나가 순차 관리한다.
 

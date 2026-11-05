@@ -9,14 +9,14 @@ const request = (feature = 'ANDROID', overrides = {}) => ({
   ...(feature === 'YOUTUBE' ? {youtubeUrl: 'https://youtu.be/abcde12345_'} : {}),
   ...overrides
 });
-const options = feature => ({request: request(feature), deviceId: 'fixture-phone',
+const options = feature => ({request: request(feature), deliveryMode: 'TEXT_SELECTION', deviceId: 'fixture-phone',
   commandId: '1'.repeat(32), createOriginalRuntime() {
     assert.fail('selection menu must not construct any original phone runtime');
   }});
 const report = (session, step) => ({taskRef: session.request.taskRef,
   threadRef: session.request.threadRef, requestDigest: session.request.requestDigest, step});
 
-test('all three features default to text selection even with a valid phone binding', async () => {
+test('all three features use manual selection only when TEXT_SELECTION is explicitly chosen', async () => {
   for (const feature of ['ANDROID', 'YOUTUBE', 'VIDEO']) {
     const session = createJebiseoHandoffSession(options(feature));
     assert.equal(session.deliveryMode, 'TEXT_SELECTION');

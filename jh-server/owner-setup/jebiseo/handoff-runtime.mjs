@@ -1,6 +1,6 @@
-/** Selection-menu handoff by default, with an explicit legacy OPEN option.
- * No input, submit, response capture, video export or new command is dispatched.
- * Manual progress is a user report, never an original-host success receipt.
+/** Native selection/menu/submit automation through the original signed host.
+ * Manual selection and the legacy OPEN path remain explicit alternatives.
+ * No new command, result capture or video export is created by this session.
  */
 import {prepareJebiseoHandoff, createJebiseoManualHandoff} from './handoff-request.mjs';
 import {createJebiseoTask} from './host-runtime.mjs';
@@ -27,15 +27,66 @@ const frozen = value => {
  * The binding must reuse this session for the same task and current request.
  */
 export function createJebiseoHandoffSession({request, deviceId = null, commandId = null,
-  deliveryMode = 'TEXT_SELECTION', requiresResultInspection = false, createOriginalRuntime} = {}) {
-  if (!['TEXT_SELECTION', 'OPEN_MANUAL'].includes(deliveryMode))
+  deliveryMode = 'AUTO_TEXT_SELECTION', requiresResultInspection = false, nativeSelection = null,
+  createOriginalRuntime, createNativeTextHandoffRuntime} = {}) {
+  if (!['AUTO_TEXT_SELECTION', 'TEXT_SELECTION', 'OPEN_MANUAL'].includes(deliveryMode))
     throw Error('JEBISEO_HANDOFF_DELIVERY_MODE_INVALID');
   if (typeof requiresResultInspection !== 'boolean')
     throw Error('JEBISEO_HANDOFF_INSPECTION_FLAG_INVALID');
   const prepared = prepareJebiseoHandoff(request);
-  let original = null, current = prepared, startPromise = null, statusPromise = null;
+  let original = null, native = null, current = prepared, startPromise = null, statusPromise = null;
+  let nativeResumePromise = null;
   let originalJobId = null, originalEffectKey = null, openAttempted = false, manualReportedRank = -1;
   let priorEffectReadback = false;
+
+  const selectionDescriptor = () => nativeSelection ?? Object.freeze({
+    schema: 'jh.jebiseo-native-selection.v1', taskRef: prepared.taskRef,
+    threadRef: prepared.threadRef, sourceRef: prepared.sourceRef,
+    requestDigest: prepared.requestDigest, promptDigest: prepared.promptDigest
+  });
+
+  function automationState(value = {}) {
+    const {prompt: _prompt, ...summary} = prepared;
+    current = frozen({...summary, ...value, deliveryMode,
+      automaticModeRequested: true, automatedOpenAttempted: false,
+      advisoryOnly: false, manualAllowed: false, nativeGeminiRequired: true,
+      deliverySurface: 'ANDROID_NATIVE_TEXT_SELECTION',
+      requiresUserReply: false, automaticReplay: false, automaticReturnToGpt: false,
+      // A native selection or click receipt is not an analysis/app result.
+      resultVerified: false, businessResultVerified: false,
+      geminiReplyVerified: false, externalEffectVerified: false,
+      returnToGpt: prepared.returnToGpt, resultDestination: prepared.resultDestination});
+    return current;
+  }
+
+  function automationBlocked(reason) {
+    return automationState({ok: false, active: true, status: 'AUTOMATION_BLOCKED',
+      code: reason, nextAction: 'NONE', requestSent: false,
+      selectionVerified: false, menuClickVerified: false, submitClickVerified: false,
+      manualExecutionRecommended: false, authorizesExecution: false});
+  }
+
+  async function startNative() {
+    if (!ref(deviceId) || !command(commandId))
+      return automationBlocked('JEBISEO_ORIGINAL_PHONE_BINDING_REQUIRED');
+    if (typeof createNativeTextHandoffRuntime !== 'function')
+      return automationBlocked('JEBISEO_NATIVE_TEXT_HANDOFF_NOT_CONNECTED');
+    if (!prepared.automaticInputFits)
+      return automationBlocked('JEBISEO_NATIVE_PROMPT_LIMIT_EXCEEDED');
+    try {
+      native = createNativeTextHandoffRuntime({request, deviceId, commandId,
+        nativeSelection: selectionDescriptor()});
+      if (typeof native?.start !== 'function' || typeof native?.resume !== 'function')
+        return automationBlocked('JEBISEO_NATIVE_TEXT_HANDOFF_NOT_CONNECTED');
+      return automationState(await native.start());
+    } catch (error) {
+      // The original runtime owns reconciliation after an uncertain effect.
+      return automationState({ok: false, status: 'OBSERVE_EXISTING',
+        code: code(error?.message) ?? 'JEBISEO_NATIVE_HANDOFF_RESPONSE_UNKNOWN',
+        nextAction: 'INSPECT_EXISTING', readbackRequired: true, requestSent: false,
+        manualExecutionRecommended: false, authorizesExecution: false});
+    }
+  }
 
   function manual(step, outcome, extra = {}) {
     if (prepared.active !== true) return prepared;
@@ -61,6 +112,11 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
   }
 
   function inspectExisting() {
+    if (deliveryMode === 'AUTO_TEXT_SELECTION') return automationState({
+      ok: false, status: 'OBSERVE_EXISTING', nextAction: 'INSPECT_EXISTING',
+      code: 'JEBISEO_EXISTING_OUTCOME_REVIEW_REQUIRED', readbackRequired: true,
+      requestSent: false, manualExecutionRecommended: false,
+      instruction: '기존 작업의 결과와 현재 화면을 확인합니다. 글 선택·메뉴 클릭·전송을 반복하지 않습니다.'});
     if (deliveryMode === 'TEXT_SELECTION') return textSelection();
     const guide = manual('OPEN', 'UNKNOWN', {reason: 'CURRENT_TASK_RESULT_INSPECTION_REQUIRED'});
     current = frozen({...guide, manualSteps: [guide.instruction]});
@@ -96,6 +152,7 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
   async function startOnce() {
     if (prepared.active !== true) return prepared;
     if (requiresResultInspection) return inspectExisting();
+    if (deliveryMode === 'AUTO_TEXT_SELECTION') return startNative();
     if (current.userReported === true) return current;
     // The user's existing selection menu owns the handoff. Do not also create
     // an automatic OPEN, input or submission before the user uses that menu.
@@ -146,6 +203,7 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
   }
 
   function readOpenStatus() {
+    if (deliveryMode === 'AUTO_TEXT_SELECTION') return Promise.resolve(current);
     if (statusPromise) return statusPromise;
     statusPromise = Promise.resolve(startPromise).then(readOpenStatusOnce)
       .finally(() => {statusPromise = null;});
@@ -154,6 +212,10 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
 
   function reportManualProgress({taskRef, threadRef, requestDigest, step} = {}) {
     if (prepared.active !== true) return prepared;
+    if (deliveryMode === 'AUTO_TEXT_SELECTION') return frozen({ok: false, active: false,
+      code: 'JEBISEO_NATIVE_PROGRESS_REQUIRES_ORIGINAL_RECEIPT',
+      requestSent: false, resultVerified: false, authorizesExecution: false,
+      automaticReplay: false, automaticReturnToGpt: false});
     const allowedSteps = deliveryMode === 'TEXT_SELECTION'
       ? ['OPEN', 'HANDOFF', 'INPUT', 'SUBMIT'] : ['OPEN', 'INPUT', 'SUBMIT'];
     if (taskRef !== prepared.taskRef || threadRef !== prepared.threadRef ||
@@ -174,6 +236,15 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
   function presentation() {
     if (prepared.active !== true) return prepared;
     if (requiresResultInspection) return inspectExisting();
+    if (deliveryMode === 'AUTO_TEXT_SELECTION') return current === prepared
+      ? frozen({...prepared, deliveryMode, automaticModeRequested: true,
+        manualAllowed: false, nativeGeminiRequired: true,
+        deliverySurface: 'ANDROID_NATIVE_TEXT_SELECTION',
+        nextAction: 'DISPLAY_REQUEST_TEXT', preparedPrompt: prepared.prompt,
+        automationStages: ['SELECT_REQUEST_TEXT', 'CLICK_GEMINI_MENU', 'SUBMIT_GEMINI'],
+        requiresUserReply: false, manualExecutionRecommended: false,
+        selectionVerified: false, menuClickVerified: false, submitClickVerified: false})
+      : current;
     if (deliveryMode === 'TEXT_SELECTION') return current === prepared
       ? frozen({...createJebiseoTextSelectionGuide(prepared), deliveryMode,
         automatedOpenAttempted: false}) : current;
@@ -214,9 +285,26 @@ export function createJebiseoHandoffSession({request, deviceId = null, commandId
   function prepareManualReturn({requested} = {}) {
     if (prepared.active !== true) return prepared;
     return createJebiseoManualReturnGuide(prepared, {requested,
-      requiresResultInspection: requiresResultInspection || priorEffectReadback});
+      requiresResultInspection: requiresResultInspection || priorEffectReadback ||
+        (deliveryMode === 'AUTO_TEXT_SELECTION' && current.readbackRequired === true)});
+  }
+
+  function resumeAutomation() {
+    if (prepared.active !== true) return Promise.resolve(prepared);
+    if (deliveryMode !== 'AUTO_TEXT_SELECTION') return Promise.resolve(current);
+    if (requiresResultInspection) return Promise.resolve(inspectExisting());
+    if (!native) return start();
+    if (nativeResumePromise) return nativeResumePromise;
+    nativeResumePromise = Promise.resolve(startPromise).then(() => native.resume())
+      .then(automationState)
+      .catch(error => automationState({ok: false, status: 'OBSERVE_EXISTING',
+        code: code(error?.message) ?? 'JEBISEO_NATIVE_HANDOFF_RESPONSE_UNKNOWN',
+        nextAction: 'INSPECT_EXISTING', readbackRequired: true, requestSent: false,
+        manualExecutionRecommended: false, authorizesExecution: false}))
+      .finally(() => {nativeResumePromise = null;});
+    return nativeResumePromise;
   }
 
   return Object.freeze({request: prepared, deliveryMode, start, readOpenStatus, reportManualProgress,
-    presentation, prepareManualReturn, view: () => current});
+    presentation, prepareManualReturn, resumeAutomation, view: () => current});
 }

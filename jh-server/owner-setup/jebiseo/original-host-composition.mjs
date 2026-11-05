@@ -8,6 +8,8 @@ import {isDeepStrictEqual} from 'node:util';
 import {createHash} from 'node:crypto';
 import {createJebiseoOriginalHostBinding} from './original-host-binding.mjs';
 import {JEBISEO_ORIGINAL_MOBILE_TOOLS, unwrapJebiseoMobileReply} from './mobile-port.mjs';
+import {isJebiseoNativeCarrier, readJebiseoNativeCarrier,
+  createJebiseoNativeSignedPayload, nativeHandoffJobMatches} from './native-text-handoff-port.mjs';
 
 export const JEBISEO_ORIGINAL_HOST_CANDIDATE_MODE = 'EXPLICIT_JEBISEO_HOST_CANDIDATE_V1';
 const allowed = new Set(JEBISEO_ORIGINAL_MOBILE_TOOLS);
@@ -29,7 +31,7 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
   const httpScope = new AsyncLocalStorage(), toolScope = new AsyncLocalStorage();
   const invocationScope = new AsyncLocalStorage();
   const registries = new WeakMap(), serverRegistries = new WeakMap();
-  const returned = new WeakMap(), snapshotScopes = new WeakMap();
+  const returned = new WeakMap(), snapshotScopes = new WeakMap(), nativePayloads = new WeakMap();
   let installed = false, closed = false, binding = null, registryCount = 0;
 
   function current() {
@@ -111,7 +113,8 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
     }
     // A cached old snapshot is not a new observation, even in the same HTTP
     // request or millisecond. Only this invocation's actual original mk counts.
-    if (['life_android_snapshot', 'life_android_open', 'life_android_computer_inspect'].includes(toolName) &&
+    if ((['life_android_snapshot', 'life_android_open', 'life_android_computer_inspect'].includes(toolName) ||
+        (toolName === 'life_android_step' && isJebiseoNativeCarrier(args))) &&
         snapshotScopes.get(found)?.invocation !== record.invocation) return null;
     return found;
   }
@@ -137,6 +140,10 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
       createHandoffRuntime(input) {
         if (!current()) fail('JEBISEO_AUTHENTICATED_REQUEST_REQUIRED');
         return binding.createHandoffRuntime(input);
+      },
+      createNativeTextHandoffRuntime(input) {
+        if (!current()) fail('JEBISEO_AUTHENTICATED_REQUEST_REQUIRED');
+        return binding.createNativeTextHandoffRuntime(input);
       },
       close() {closed = true; binding = null;}
     });
@@ -199,6 +206,54 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
       try {return await callback();} finally {ended();}
     });
   }
+  function prepareNativeStepPayload(args, {ttlMs} = {}) {
+    if (!isJebiseoNativeCarrier(args)) return null;
+    const scope = current(), invocation = invocationScope.getStore();
+    if (!scope || invocation?.requestScope !== scope.capability || invocation.toolName !== 'life_android_step')
+      fail('JEBISEO_NATIVE_ORIGINAL_INVOCATION_REQUIRED');
+    const state = readCurrentState();
+    if (!isDeepStrictEqual(ownerIdentity(state), invocation.owner) || state.durableHooks !== invocation.durableHooks)
+      fail('JEBISEO_NATIVE_ORIGINAL_BINDING_CHANGED');
+    const expected = {...invocation.arguments}; delete expected.command_id;
+    if (!isDeepStrictEqual(args, expected) || invocation.arguments.command_id !== state.commandId)
+      fail('JEBISEO_NATIVE_ORIGINAL_ARGUMENTS_CHANGED');
+    readJebiseoNativeCarrier(invocation.arguments, {commandId: state.commandId});
+    const admission = nativeDurableAdmission(state.durableHooks);
+    if (admission) fail(admission.code);
+    if (!Number.isSafeInteger(ttlMs) || ttlMs <= 0 || ttlMs > 60000)
+      fail('JEBISEO_NATIVE_ORIGINAL_EXPIRY_REQUIRED');
+    const nowMs = now();
+    const payload = createJebiseoNativeSignedPayload(args, {deviceDigest: state.deviceDigest,
+      nowMs, expiresAtMs: nowMs + ttlMs});
+    nativePayloads.set(invocation, Object.freeze(structuredClone(payload)));
+    return payload;
+  }
+  function nativeDurableAdmission(hooks) {
+    let count;
+    try {count = hooks?.uncertainEffectsForMaintenance();} catch {}
+    if (!Number.isSafeInteger(count) || count < 0)
+      return {allowed: false, code: 'JEBISEO_NATIVE_DURABLE_STATE_UNAVAILABLE', httpStatus: 503};
+    return count === 0 ? null :
+      {allowed: false, code: 'JEBISEO_NATIVE_DURABLE_UNRESOLVED_EFFECT', httpStatus: 409};
+  }
+  /** Poll-time denial only. The original beforeDispatch remains the sole
+   * journal reservation. capture() stores policy, so this job has no row yet.
+   * This closes the queue-to-poll race without changing any generic route.
+   */
+  function beforeNativeDispatch(job) {
+    if (!isJebiseoNativeCarrier(job)) return null;
+    const captured = snapshotScopes.get(job), invocation = captured?.invocation;
+    const deny = () => ({allowed: false, code: 'JEBISEO_NATIVE_DISPATCH_BINDING_CHANGED', httpStatus: 409});
+    try {
+      const state = readCurrentState(), payload = invocation && nativePayloads.get(invocation);
+      if (!installed || closed || !captured || !payload || readOriginalJobs().get(job.id) !== job ||
+          job.status !== 'queued' || !isDeepStrictEqual(ownerIdentity(state), invocation.owner) ||
+          state.durableHooks !== invocation.durableHooks ||
+          !nativeHandoffJobMatches(job, invocation.arguments, state.deviceDigest) ||
+          Object.entries(payload).some(([key, value]) => !isDeepStrictEqual(job[key], value))) return deny();
+      return nativeDurableAdmission(state.durableHooks);
+    } catch {return deny();}
+  }
   function captureOriginalJobScope(job, commandContext) {
     const invocation = invocationScope.getStore();
     // Original public calls outside a candidate invocation keep their complete
@@ -247,9 +302,18 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
             .some(key => Object.hasOwn(job, key)))
         fail('JEBISEO_ORIGINAL_APP_OBSERVATION_CHANGED');
     }
+    const nativeStep = invocation.toolName === 'life_android_step' && isJebiseoNativeCarrier(invocation.arguments);
+    if (nativeStep) {
+      const payload = nativePayloads.get(invocation);
+      if (!payload || !nativeHandoffJobMatches(job, invocation.arguments, state.deviceDigest) ||
+          Object.entries(payload).some(([key, value]) => !isDeepStrictEqual(job[key], value)))
+        fail('JEBISEO_NATIVE_ORIGINAL_SIGNED_PAYLOAD_CHANGED');
+      const admission = nativeDurableAdmission(state.durableHooks);
+      if (admission) fail(admission.code);
+    }
     // This runs after original signing/capture but BEFORE jobs.set/queueing.
     // The observer never changes the signed job or reserves a journal row.
-    const expected = {life_android_snapshot: 'agent_snapshot', life_android_open: 'open_url',
+    const expected = nativeStep ? 'agent_step' : {life_android_snapshot: 'agent_snapshot', life_android_open: 'open_url',
       life_android_computer_inspect: 'computer_use_inspect'}[invocation.toolName];
     if (job.type !== expected || snapshotScopes.has(job)) return;
     snapshotScopes.set(job, Object.freeze({commandId: state.commandId, deviceId: state.deviceId,
@@ -257,7 +321,7 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
       requestScope: scope.capability, invocation}));
   }
   return Object.freeze({install, createRegistry, bindServer, withAuthenticatedRequest,
-    captureOriginalJobScope});
+    captureOriginalJobScope, prepareNativeStepPayload, beforeNativeDispatch});
 }
 
 const PREFIX = 'import {createJebiseoOriginalHostBoundary as jhCreateJebiseoOriginalHost56} from "../jebiseo/original-host-composition.mjs";\n';
@@ -294,7 +358,12 @@ const PAIRS = [
   ['      await transport.handleRequest(req,res,parsedBody);',
     '      await jhJebiseoOriginalHost56.withAuthenticatedRequest(server,authorized,parsedBody,req,res,()=>transport.handleRequest(req,res,parsedBody));'],
   ['  jobs.set(id,j);\n  if(targetDeviceId){',
-    '  jhJebiseoOriginalHost56.captureOriginalJobScope(j,jhCommandContext56.getStore());\n  jobs.set(id,j);\n  if(targetDeviceId){']
+    '  jhJebiseoOriginalHost56.captureOriginalJobScope(j,jhCommandContext56.getStore());\n  jobs.set(id,j);\n  if(targetDeviceId){'],
+  ['    const j=mk("agent_step",args);',
+    '    const nativePayload=jhJebiseoOriginalHost56.prepareNativeStepPayload(args,{ttlMs:SECURE56_JOB_MS});\n' +
+    '    const j=mk("agent_step",nativePayload??args);'],
+  ['durableNativeHooks56?.beforeDispatch(next)',
+    '(jhJebiseoOriginalHost56.beforeNativeDispatch(next)||durableNativeHooks56?.beforeDispatch(next))']
 ];
 const count = (source, anchor) => source.split(anchor).length - 1;
 const REQUIRED = [
