@@ -5,7 +5,7 @@ import {gateRecoveredDispatch} from '../../jh-server/owner-setup/deployment/jh-r
 const fixture=`import x from "x";
 function token56(){}
 function secureResult56(){}
-function textResult(x){return x}
+function textResult(){}
 function mk(){}
 function waitJob(){}
 function exactEnvelope56(){}
@@ -13,35 +13,51 @@ const z={string(){return {optional(){}}}};
 const cuSchema56={action:z.string()};
 async function jhOwnerAdmission155(){return true;}
 async function wrapped(device,commandId,payload){
- const x={beforeDispatch:({record,firstAttempt})=>jhOwnerAdmission155(device,commandId,record,firstAttempt),dispatchAction:async()=>{}};
- return x;
+      const x={
+      beforeDispatch:({record,firstAttempt})=>jhOwnerAdmission155(device,commandId,record,firstAttempt),
+      dispatchAction:async()=>{}
+      };return x;
 }
 function secureCall56(device,mcpToolName,args={}){
- if(device?.error)return Promise.resolve(textResult(device));
- const x=exactEnvelope56(device,mcpToolName,args);if(x.error)return Promise.resolve(textResult(x));
- const j=mk(x.type,x.payload,device.deviceId);return waitJob(j,x.waitMs).then(secureResult56);
-}
-let jhMobileWebCapture56=null;
-async function jhMobileWebFollow56(args,action,command){
- const bound={contextId:args.context_id,itemRef:args.target_item_ref};const requestId=args?.request_id;
- const payload={contextId:bound.contextId,requestId,command,targetItemRef:bound.itemRef,action};
- const result=await jhSplitScreenJob56("split_screen_session_followup",payload,"REVERSIBLE_WRITE","life_android_execute_computer_action",43000);
- return textResult({route:"android_right",automaticReplay:false,...result,...(action==="BACK"?{browserHistoryNavigationVerified:false}:{})});
-}
-async function jhMobileWebRead56(args={}){
- if(args.context_id!==undefined){const result=await jhSplitScreenJob56("split_screen_session_status",{contextId:args.context_id},"READ_ONLY","life_android_capture_work_window");return textResult({route:"android_right",automaticReplay:false,...result});}
- const payload={};const result=await jhSplitScreenJob56("split_screen_session_start",payload,"READ_ONLY","life_android_capture_work_window");
- return textResult({route:"android_right",automaticReplay:false,...result});
-}
-registerOAuthTool("life_web_navigate",{});
-registerOAuthTool("life_web_press_key",{
- title:"Supported RIGHT-pane navigation key",
- description:"Only explicit Android BACK is currently bridged. Enter, Tab, Escape, Arrow keys require verified native action contracts and never silently use server Playwright.",
- inputSchema:{key:z.string(),context_id:z.string().optional(),request_id:z.string().optional()}
-},async(args)=>{
- if(!["BACK","AndroidBack"].includes(args.key))return jhMobileWebReject56("MOBILE_KEY_NOT_VERIFIED",{requestedKey:args.key});
- return jhMobileWebFollow56(args,"BACK","오른쪽 화면에서 Android 뒤로 가기 1회");
-});
+    if(device?.error)return Promise.resolve(textResult(device));
+    const x=exactEnvelope56(device,mcpToolName,args);
+    if(x.error)return Promise.resolve(textResult(x));
+    const j=mk(x.type,x.payload,device.deviceId);
+    return waitJob(j,x.waitMs).then(secureResult56);
+  }
+  let jhMobileWebCapture56=null;
+  async function jhMobileWebFollow56(args,action,command){
+    const bound={contextId:args.context_id,itemRef:args.target_item_ref};
+    const requestId=args?.request_id;
+    const payload={contextId:bound.contextId,requestId,command,targetItemRef:bound.itemRef,action};
+    const result=await jhSplitScreenJob56("split_screen_session_followup",payload,
+      "REVERSIBLE_WRITE","life_android_execute_computer_action",43000);
+    return textResult({route:"android_right",automaticReplay:false,...result,
+      ...(action==="BACK"?{browserHistoryNavigationVerified:false}:{} )});
+  }
+  async function jhMobileWebRead56(args={}){
+    if(args.context_id!==undefined){
+      const result=await jhSplitScreenJob56("split_screen_session_status",
+        {contextId:args.context_id},"READ_ONLY","life_android_capture_work_window");
+      return textResult({route:"android_right",automaticReplay:false,...result});
+    }
+    if(args.goal!==undefined&&(typeof args.goal!=="string"||args.goal.length>2000))return null;
+    const payload={};
+    const result=await jhSplitScreenJob56("split_screen_session_start",payload,
+      "READ_ONLY","life_android_capture_work_window");
+    return textResult({route:"android_right",automaticReplay:false,...result});
+  }
+
+  registerOAuthTool("life_web_navigate",{});
+  registerOAuthTool("life_web_press_key",{
+    title:"Supported RIGHT-pane navigation key",
+    description:"Only explicit Android BACK is currently bridged. Enter, Tab, Escape, Arrow keys require verified native action contracts and never silently use server Playwright.",
+    inputSchema:{key:z.string(),context_id:z.string().optional(),request_id:z.string().optional()}
+  },async(args)=>{
+    if(!["BACK","AndroidBack"].includes(args.key))
+      return jhMobileWebReject56("MOBILE_KEY_NOT_VERIFIED",{requestedKey:args.key});
+    return jhMobileWebFollow56(args,"BACK","오른쪽 화면에서 Android 뒤로 가기 1회");
+  });
 `;
 
 function helper(source){
