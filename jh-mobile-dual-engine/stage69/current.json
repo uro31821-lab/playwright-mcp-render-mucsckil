@@ -1,22 +1,22 @@
 {
-  "schema":"JH168_STAGE69_ROUND3_STATE_V1",
+  "schema":"JH168_STAGE69_FINAL_STATE_V1",
   "round":3,
   "maxRounds":3,
-  "status":"FINAL_ROUND_ALTERNATE_PATHS",
-  "resolved":{
+  "status":"ROUND3_COMPLETE_FINALIZING_REGRESSION",
+  "automatic":{
     "BACK":"ANDROID",
     "WAIT_CONDITION":"ANDROID",
     "SCREENSHOT":"ANDROID"
   },
-  "remaining":[
+  "manual":[
     "NATIVE_SELECT",
     "NESTED_VERTICAL_SCROLL",
     "HORIZONTAL_SCROLL",
     "PRESS_KEY",
     "RETURN_TO_CHROME_FROM_OTHER_APP"
   ],
-  "round3Rule":"Use a materially different final path for each feature. If Android and Playwright Mobile still do not achieve real-phone VERIFIED_PASS, mark MANUAL_AFTER_ROUND_3.",
-  "playwrightMobile":"REAL_PHONE_PROVIDER_UNAVAILABLE",
-  "noAutomaticReplay":["UNKNOWN","PENDING","FAILED_AFTER_EFFECT","NEEDS_REVIEW_NO_REPLAY"],
-  "verificationRequired":"REAL_PHONE_EXECUTION_PLUS_READBACK"
+  "playwrightMobile":"NO_ACTIVE_REAL_PHONE_ROUTES",
+  "noAutomaticReplay":["UNKNOWN","PENDING","FAILED_AFTER_EFFECT","EFFECT_UNKNOWN","NEEDS_REVIEW_NO_REPLAY"],
+  "verificationRequired":"REAL_PHONE_EXECUTION_PLUS_READBACK",
+  "next":"FINAL_REGRESSION_AND_MERGE"
 }
