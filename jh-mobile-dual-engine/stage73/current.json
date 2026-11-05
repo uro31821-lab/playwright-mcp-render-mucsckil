@@ -1,16 +1,29 @@
 {
-  "schema":"JH168_STAGE73_TRIP_LOCATION_NATIVE_FIX3_MERGE_V1",
+  "schema":"JH168_STAGE73_TRIP_LOCATION_NATIVE_FIX3_MERGE_V2",
   "status":"READY_FOR_WINDOWS_BUILD_SIGN_INSTALL",
   "candidate":"JH168-STAGE62-TRIP-LOCATION-NATIVE-SELECT-FIX3-KEEPALIVE-20261105",
   "artifact":{
-    "name":"JH168_Stage62_TripLocation_NativeSelect_FIX3_KeepAlive_20261105.zip",
-    "sha256":"77ef34a355e96e8abfe43e27b926b5c04bf824a1dd95d66e25b4f775c8c067fd",
-    "bytes":7150011,
+    "name":"JH73_TRIP_INSTALL_FIXED.zip",
+    "sha256":"876b26376e81a22fa8fd23c3305e9b247849fac2bc87fce6940883762379c4f0",
+    "bytes":7061479,
     "entries":523,
     "zipCrc":"PASS",
-    "libraryFileId":"libfile_20d44092f5c0819194fcd12369a03084",
+    "libraryFileId":"libfile_feffe56ee1d881918c98c666410e1ef4",
     "apkBundled":false,
-    "secretSigningMaterialBundled":false
+    "secretSigningMaterialBundled":false,
+    "installerType":"BUILD_SIGN_INSTALL_LAUNCHER",
+    "rootLauncher":"INSTALL.cmd",
+    "rootReadme":"00_README_FIRST.txt",
+    "outerWrapperDirectory":false,
+    "maxInternalPath":111,
+    "recommendedExtractPath":"C:\\JH73",
+    "shortPathDeliveryVerified":true
+  },
+  "rejectedDelivery":{
+    "name":"JH168_Stage62_TripLocation_NativeSelect_FIX3_KeepAlive_20261105.zip",
+    "sha256":"77ef34a355e96e8abfe43e27b926b5c04bf824a1dd95d66e25b4f775c8c067fd",
+    "reason":"Long outer wrapper directory raised the longest internal path to 175 characters and Windows Explorer exceeded the effective path limit. The localized root launcher filename was also decoded incorrectly.",
+    "mustNotUse":true
   },
   "merge":{
     "commonAncestor":"JH168-STAGE61-SCREEN-CONSENT-V10-20261103",
@@ -29,7 +42,11 @@
     "nativeSelectPolicy":"3/3 PASS",
     "mergedStaticAudit":"22/22 PASS",
     "updaterStaticAudit":"11/11 PASS",
-    "conflictMarkers":0
+    "conflictMarkers":0,
+    "deliveryZipCrc":"PASS",
+    "deliveryRequiredFiles":"PASS",
+    "deliveryRootLauncher":"PASS",
+    "deliveryLongestInternalPath":"111"
   },
   "server":{
     "routingModel":"ANDROID_THEN_MANUAL",
@@ -54,14 +71,16 @@
     "uninstallAllowed":false,
     "dataResetAllowed":false,
     "automaticReinstallAllowed":false,
-    "install":"ONE_EXPLICIT_Y_THEN_ADB_INSTALL_R"
+    "install":"ONE_EXPLICIT_Y_THEN_ADB_INSTALL_R",
+    "whyNoApkInZip":"The merged APK must be built and signed on the verified Windows signing PC with the existing original certificate. INSTALL.cmd is the installation launcher."
   },
   "next":[
-    "User extracts the merged ZIP on the verified Windows signing PC",
-    "User connects exactly one unlocked authorized USB phone",
-    "User runs 실행.cmd",
+    "Delete or ignore the rejected long-path ZIP",
+    "Extract JH73_TRIP_INSTALL_FIXED.zip completely, preferably to C:\\JH73",
+    "Connect exactly one unlocked authorized USB phone",
+    "Run root INSTALL.cmd",
     "Script must pass source/security/Gradle/signing checks before asking for Y",
-    "User types Y once for update install",
+    "Type Y once for update install",
     "Return RESULT.txt",
     "Then verify merged versionName, Secure56, KeepAlive persistence, and TripLocation first-run permissions/E2E"
   ]
