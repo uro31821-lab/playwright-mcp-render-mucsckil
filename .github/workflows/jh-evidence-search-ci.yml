@@ -27,6 +27,16 @@ jobs:
         id: regression
         # Both original test files run once. No npm/SDK/media setup is needed.
         run: node --test --test-reporter=spec jh-server/owner-setup/evidence/perplexity-search.test.mjs jh-server/owner-setup/evidence/perplexity-search-composition.test.mjs
+      - name: Check no-key smoke script syntax and safe failure
+        run: |
+          bash -n jh-server/owner-setup/evidence/smoke-search.sh
+          set +e
+          output=$(env -u PERPLEXITY_API_KEY bash jh-server/owner-setup/evidence/smoke-search.sh)
+          status=$?
+          set -e
+          test "$status" -eq 2
+          case "$output" in *PERPLEXITY_API_KEY_NOT_AVAILABLE*) ;; *) exit 1 ;; esac
+          echo SMOKE_NO_KEY_NO_REQUEST
       - name: Summarize exact input and gate outcomes
         if: ${{ always() }}
         env:
