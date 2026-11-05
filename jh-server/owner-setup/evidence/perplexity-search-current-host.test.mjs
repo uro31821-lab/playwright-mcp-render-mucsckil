@@ -1,6 +1,6 @@
 /**
- * Current JH Secure56/JH168 offline MCP admission: source-only proof.
- * Do not touch protected production entry, login, APK, devices, real keys or API.
+ * Current JH Secure56/JH168 offline MCP admission: gated runtime composition.
+ * Never start production, touch Android, log real keys or call a paid provider.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,7 +19,7 @@ import {registerJHEvidenceSearchTool} from './perplexity-search.mjs';
 const ROOT=path.resolve(import.meta.dirname,'..');
 const MOCK_KEY='synthetic-test-only-perplexity-xxxxxxxx';
 
-test('actual pinned Secure56 server can accept source-only Search after exact guards, no source mutation', {timeout:30000}, async()=>{
+test('actual pinned Secure56 server assembles one gated Search tool after original guards', {timeout:30000}, async()=>{
  const pin=buildCleanRestartRelease56();
  const release=await import(pathToFileURL(pin.file).href+'?jh-evidence-source-offline=1');
  const runtime=release.buildDurableRoutedOperationalEntrypoint(ROOT);
@@ -27,18 +27,35 @@ test('actual pinned Secure56 server can accept source-only Search after exact gu
  assert(before.includes('jhRequireCommand56'), 'original signed phone guard missing');
  assert(before.includes('jhRegisterArticleReadCandidate'), 'original news guard missing');
  assert(before.includes('const SECURE56_TOOL_CATALOG_DIGEST='), 'original signed Android catalog missing');
- assert(!before.includes('JH_EVIDENCE_SEARCH_ENABLED'));
- const after=patchJHEvidenceSearchRuntime56(before);
+ assert(before.includes('JH_EVIDENCE_SEARCH_ENABLED'));
+ const after=before;
  assert(after.includes("process.env.JH_EVIDENCE_SEARCH_ENABLED==='1'"));
  assert(after.includes("typeof process.env.PERPLEXITY_API_KEY==='string'"));
  assert.equal(after.split('registerJHEvidenceSearchTool({').length-1,1);
  assert.equal(after.split('const SECURE56_TOOL_CATALOG_DIGEST=').length,2);
  assert.equal(after.split('jhRequireCommand56').length,before.split('jhRequireCommand56').length);
- assert.equal(readFileSync(runtime.runtimeFile,'utf8'), before, 'must not edit the generated file itself');
+ assert.equal(after.split('registerJHEvidenceSearchTool({').length-1,1);
+ assert.equal(readFileSync(runtime.runtimeFile,'utf8'), before, 'must not mutate generated file during read-only validation');
  assert(existsSync(path.join(ROOT,'evidence/perplexity-search.mjs')));
  const syntax=spawnSync(process.execPath,['--check','--input-type=module'],{input:after,encoding:'utf8',timeout:10000});
  assert.equal(syntax.status,0, syntax.stderr);
  assert.throws(()=>patchJHEvidenceSearchRuntime56(after),/ANCHOR_CHANGED/);
+ // Prove the generated owner has an explicitly OFF default, and the key
+ // alone never registers an extra OAuth tool.
+ const start=after.indexOf('  // Evidence search: server-side OAuth tool only.');
+ const stop=after.indexOf('  registerOAuthTool("life_status",{',start);
+ assert(start>=0&&stop>start);
+ const snippet=after.slice(start,stop);
+ function registry(env) {
+   const tools=[];
+   const run=new Function('process','registerJHEvidenceSearchTool','registerOAuthTool','z','textResult',snippet);
+   run({env},registerJHEvidenceSearchTool,(name)=>tools.push(name),z,x=>x);
+   return tools;
+ }
+ assert.deepEqual(registry({}),[]);
+ assert.deepEqual(registry({PERPLEXITY_API_KEY:MOCK_KEY}),[]);
+ assert.deepEqual(registry({JH_EVIDENCE_SEARCH_ENABLED:'1'}),[]);
+ assert.deepEqual(registry({JH_EVIDENCE_SEARCH_ENABLED:'1',PERPLEXITY_API_KEY:MOCK_KEY}),['jh_evidence_search']);
 });
 
 test('real MCP client sees tool and receives only mock returned links; ordinary requests have ZERO calls', {timeout:15000}, async()=>{
