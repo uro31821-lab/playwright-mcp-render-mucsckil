@@ -315,8 +315,17 @@ export function selectEbiseoAudioV05(env=process.env){
 }
 export async function main(env=process.env){
  if(!prod(env))fail('JH_STAGE25_EXPLICIT_PENDING_OPERATOR_REQUIRED');
- if(selectEbiseoAudioV05(env)){
-  const root=path.resolve(import.meta.dirname,'..');
+ // Owner startup sets JH_OWNER_DEFER_LISTEN=1 before opening its listener.
+ // Capture the exact checked enablement BEFORE that known internal mutation.
+ const stage26EnabledAtBootstrap=selectStage26CompletionAck56(env);
+ const stage40EnabledAtBootstrap=selectStage40OwnerAdmissionDiagnostics56(env);
+ const stage41EnabledAtBootstrap=selectStage41CommandLifecycle56(env);
+ const stage44EnabledAtBootstrap=selectStage44Focus56(env);
+ const commandDiagnosticsEnabledAtBootstrap=selectMobile13CommandDiagnostics56(env);
+ const stage61EnabledAtBootstrap=selectStage61ApprovalRouting56(env);
+ const ebiseoAudioEnabledAtBootstrap=selectEbiseoAudioV05(env);
+ const root=path.resolve(import.meta.dirname,'..');
+ if(ebiseoAudioEnabledAtBootstrap){
   const {buildCurrentAudioReleaseCandidate}=await import('../ebiseo-audio-v05/audio-compose-current-host.mjs');
   const built=await buildCurrentAudioReleaseCandidate(root,env);
   const module=await import(pathToFileURL(built.entryFile).href+'?sha='+built.candidateSha256);
@@ -328,15 +337,6 @@ export async function main(env=process.env){
   }));
   return running;
  }
- // Owner startup sets JH_OWNER_DEFER_LISTEN=1 before opening its listener.
- // Capture the exact checked enablement BEFORE that known internal mutation.
- const stage26EnabledAtBootstrap=selectStage26CompletionAck56(env);
- const stage40EnabledAtBootstrap=selectStage40OwnerAdmissionDiagnostics56(env);
- const stage41EnabledAtBootstrap=selectStage41CommandLifecycle56(env);
- const stage44EnabledAtBootstrap=selectStage44Focus56(env);
- const commandDiagnosticsEnabledAtBootstrap=selectMobile13CommandDiagnostics56(env);
- const stage61EnabledAtBootstrap=selectStage61ApprovalRouting56(env);
- const root=path.resolve(import.meta.dirname,'..');
  const built=await buildStage25PendingOperatorEntrypoint56(root,env);
  const module=await import(pathToFileURL(built.file).href+'?sha='+built.stamp.operationalSha256);
  if(typeof module.main!=='function')fail('JH_STAGE25_ORIGINAL_OPERATOR_MAIN_MISSING');
