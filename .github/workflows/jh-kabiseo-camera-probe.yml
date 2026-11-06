@@ -1,0 +1,73 @@
+name: JH Kabiseo read-only camera route probe
+on:
+  push:
+    branches: [kabiseo-camera-metadata-v05-20261105]
+    paths: ['tools/kabiseo-camera-probe/**', '.github/workflows/jh-kabiseo-camera-probe.yml']
+permissions: {contents: read}
+jobs:
+  windows-readonly-probe:
+    runs-on: windows-2025
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve previous executable sources and runtime security hold
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin f06963f895227ca2da76f9ecd84f258f1cadfef2
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          git diff --exit-code f06963f895227ca2da76f9ecd84f258f1cadfef2 HEAD -- jh-server host-kabiseo-assist/android host-kabiseo-assist/core host-kabiseo-assist/integration host-kabiseo-assist/server host-kabiseo-assist/tools/runtime-proof
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Package UTF8 BOM scripts for Windows PowerShell 5.1
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP '카비서 점검 배포'
+          New-Item -ItemType Directory $root | Out-Null
+          Copy-Item tools/kabiseo-camera-probe/package/* $root -Recurse
+          $utf8=[Text.UTF8Encoding]::new($true)
+          Get-ChildItem $root -Recurse -Filter *.ps1 | ForEach-Object {[IO.File]::WriteAllText($_.FullName,[IO.File]::ReadAllText($_.FullName),$utf8)}
+          $tests=Join-Path $env:RUNNER_TEMP 'test-probe.ps1'
+          [IO.File]::WriteAllText($tests,[IO.File]::ReadAllText('tools/kabiseo-camera-probe/test_probe.ps1'),$utf8)
+          'KABISEO_PROBE_ROOT='+$root >> $env:GITHUB_ENV
+          'KABISEO_PROBE_TEST='+$tests >> $env:GITHUB_ENV
+      - name: Exercise real Windows PowerShell parser with synthetic diagnostics
+        shell: pwsh
+        run: |
+          & "$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -File $env:KABISEO_PROBE_TEST -ScriptPath "$env:KABISEO_PROBE_ROOT/data/probe.ps1"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify exact extracted CMD path and blocked no-ADB path without phone
+        shell: pwsh
+        run: |
+          $zip=Join-Path $env:RUNNER_TEMP 'KaBiseo-v0.22-CameraRoute-Check.zip'
+          Compress-Archive -Path "$env:KABISEO_PROBE_ROOT/*" -DestinationPath $zip
+          $extract=Join-Path $env:RUNNER_TEMP '압축 해제 경로 공백'
+          Expand-Archive -LiteralPath $zip -DestinationPath $extract
+          $p=[Diagnostics.ProcessStartInfo]::new()
+          $p.FileName="$env:SystemRoot/System32/cmd.exe"
+          $p.Arguments='/d /c ""'+(Join-Path $extract '실행.cmd')+'""'
+          $p.UseShellExecute=$false;$p.RedirectStandardInput=$true;$p.RedirectStandardOutput=$true;$p.RedirectStandardError=$true
+          $p.Environment['PATH']="$env:SystemRoot/System32"
+          foreach($k in @('ANDROID_HOME','ANDROID_SDK_ROOT','LOCALAPPDATA','USERPROFILE')) {$p.Environment[$k]=$extract}
+          $proc=[Diagnostics.Process]::Start($p)
+          $o=$proc.StandardOutput.ReadToEndAsync();$e=$proc.StandardError.ReadToEndAsync()
+          $proc.StandardInput.WriteLine('');$proc.StandardInput.Close()
+          if(-not $proc.WaitForExit(20000)){$proc.Kill();throw 'CMD timeout'}
+          if($proc.ExitCode -ne 2){throw ('Expected no-ADB exit 2, got '+$proc.ExitCode+' '+$e.Result)}
+          $result=[IO.File]::ReadAllText((Join-Path $extract 'RESULT.txt'))
+          if(-not $result.Contains('EXISTING_ADB_NOT_FOUND')){throw 'Missing exact blocked reason'}
+          # No default source/keys, external executable or phone result in the package.
+          $files=@(Get-ChildItem $env:KABISEO_PROBE_ROOT -File -Recurse)
+          if($files.Count -ne 3){throw 'Unexpected payload'}
+          $out=Join-Path $env:RUNNER_TEMP 'kabiseo-probe-output'
+          New-Item -ItemType Directory $out|Out-Null
+          Copy-Item $zip $out
+          $sha=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          @{schema='KABISEO_CAMERA_ROUTE_KIT_V022';status='WINDOWS_PARSER_AND_PACKAGED_BLOCKED_PATH_PASS';gitSha=$env:GITHUB_SHA;runId=$env:GITHUB_RUN_ID;zipSha256=$sha;zipBytes=(Get-Item $zip).Length;physicalDeviceRead=$false;cameraControlVerified=$false;originalJHChanged=$false;newDependencies=0;runtimeHoldUnchanged=$true}|ConvertTo-Json|Set-Content "$out/verification.json" -Encoding utf8
+          Write-Host "KABISEO_ZIP_SHA256=$sha"
+          Write-Host "KABISEO_WINDOWS_PACKAGED_ENTRY_PASS_NO_PHYSICAL_PHONE"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-camera-route-kit-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-probe-output/*
+          if-no-files-found: error
+          retention-days: 14
