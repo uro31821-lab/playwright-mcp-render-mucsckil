@@ -19,11 +19,11 @@ ChatGPT 사진 전송은 필요하지 않다. 기존 JH 안에서 카비서 촬�
 - Open Camera: https://opencamera.sourceforge.io/
   공식 자동수평/구도선/히스토그램/포커스 보조 등 기능 검토. GPLv3-or-later 원본 코드 복제/포함 제외. JH 기존 소스 공개범위와 GPL 의무가 확인될 때만 다시 평가.
 - CameraX Extensions Android 공식: https://developer.android.com/media/camera/camerax/extensions-api
-  OEM AUTO extension은 지원 기기에서 제조사 자동 장면 보정 기능을 사용할 수 있음. 지원하지 않으면 CameraX 기본 AF/AE/AWB. 2026-11-01부터 1.5 이하 extension 지원이 일부 기기에서 감소하여 CameraX 1.6.2 안정판으로 pin.
+  **중요: ExtensionMode.AUTO는 기기에 따라 FACE_RETOUCH 효과를 자동 선택할 수 있어 사용자의 얼굴·몸매 보정 제외 조건과 충돌합니다. 따라서 AUTO를 금지하고 일반 CameraX AF/AE/AWB로 시작합니다. 밝기 샘플이 400ms 간격으로 5회 지속 LOW_LIGHT일 때만, 제조사에서 NIGHT 확장을 지원하면 NIGHT를 1회 적용합니다. 야간 모드 실패 시 원래 CameraX로 복귀하며 무한 재시도/모드진동 금지.** 2026-11-01부터 1.5 이하 extension 지원이 일부 기기에서 감소하여 CameraX 1.6.2 안정판으로 pin.
 
 ## 이번에 직접 작성한 JH 후보
 - host-kabiseo-assist/capture Android library 모듈 선언 및 비공개 Activity.
-- 실제 CameraX Preview/ImageCapture, 카메라 권한 요청, 터치 초점, 3분할 구도선, 제조사 AUTO 우선/기본 모드 fallback, 유효한 촬영 버튼 입력 시 DCIM/JHCamera 갤러리 저장. 카메라 종료 후 이전 JH 앱 화면 복귀.
+- 실제 CameraX Preview/ImageCapture, 카메라 권한 요청, 터치 초점, 3분할 구도선, **기본 AF/AE/AWB + 조건부 야간 NIGHT 확장** (AUTO/얼굴보정 선택 금지), 유효한 촬영 버튼 입력 시 DCIM/JHCamera 갤러리 저장. 카메라 종료 후 이전 JH 앱 화면 복귀.
 - FrameLuma.java: 보정 가능한 자동 AI와 구분하는 밝기 힌트. 프레임은 메모리에서만 처리, finally 닫음.
 - SubjectFramingPolicy.java: 실물 추론 모델 출력이 있을 경우에만 제한된 자동 확대 제안(4연속 안정·기기 범위·가장자리 보존·매뉴얼 우선). 현재 **모델/추론/실제 자동줌 동작은 미연결**. 정책 코드는 물리적으로 카메라를 움직이지 않음.
 - Android Activity는 android:exported=false. Manifest 권한 CAMERA 하나. 카메라 촬영/갤러리 저장을 위해 Android 10 이상만 정상 지원; 기존 앱의 minSdk26을 높이지 않는다.
@@ -42,3 +42,6 @@ ChatGPT 사진 전송은 필요하지 않다. 기존 JH 안에서 카비서 촬�
 4. MediaPipe 모델 자체의 출처/배포 라이선스와 기기 추론 성능을 확인한 뒤 탐지 결과를 프레이밍 로직에 연결하고 실제 자동 확대 E2E를 별도 시험.
 
 결론: 공개 소스 기능은 선택적으로 참조해 **실제 CameraX Activity 후보 코드**를 작성했으나 Android 컴파일/실사용·온디바이스 객체 인식은 아직 완료되지 않았다.
+
+## 얼굴 보정 제외 안전 변경 — 2026-11-07
+Android 공식 ExtensionMode API는 기기 AUTO가 FACE_RETOUCH를 선택할 수 있음을 설명합니다: https://developer.android.com/reference/androidx/camera/extensions/ExtensionMode. 따라서 초기 후보의 AUTO 사용은 부적절했고, 코드에서 명시적으로 제거했습니다. 안정적인 어두운 장면에서 NIGHT만 지원 여부를 검증해 한 번 적용, 그 외에는 CameraX 기본 AE/AF/AWB가 작동합니다. 기기별 Night 실제 결과는 아직 시험하지 않았고, **'AI가 촬영한 사진을 항상 더 예쁘게 만든다'는 효능은 검증되지 않았습니다.** 구도선/밝기 분석은 비AI, 자동 피사체 확대는 모델 및 액추에이터 미연결입니다.
