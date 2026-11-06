@@ -4,6 +4,7 @@ on:
     branches: [jh-fix3-secure-server]
     paths:
       - 'jh-server/owner-setup/ebiseo-audio-v05/**'
+      - 'jh-server/owner-setup/catalog/audio-command-contract.json'
       - 'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'
       - '.github/workflows/jh-ebiseo-audio-v05.yml'
 permissions: {contents: read}
@@ -34,11 +35,17 @@ jobs:
           rm -rf "$RUNNER_TEMP/ebiseo-audio"
           mkdir -p "$RUNNER_TEMP/ebiseo-audio"
           cp -a jh-server "$TMP_HOST"
-          node --input-type=module -e "import {buildDurableRoutedRuntime} from './jh-server/owner-setup/deployment/durable-live-release.mjs'; const x=buildDurableRoutedRuntime(process.argv[1]); console.log(x.file)" "$TMP_ROOT" > "$RUNNER_TEMP/ebiseo-historical-runtime.txt"
+          node --input-type=module -e "import {buildDurableRoutedOperationalEntrypoint} from './jh-server/owner-setup/deployment/durable-live-release.mjs'; const x=buildDurableRoutedOperationalEntrypoint(process.argv[1]); console.log(JSON.stringify(x))" "$TMP_ROOT" > "$RUNNER_TEMP/ebiseo-historical-runtime.txt"
           export EBISEO_TEST_SERVER_RUNTIME="$TMP_ROOT/server-integration/server-durable-native-return-route56.mjs"
           test -f "$EBISEO_TEST_SERVER_RUNTIME"
           echo "EBISEO_PIN_RUNTIME_ACTUAL=$(sha256sum "$EBISEO_TEST_SERVER_RUNTIME" | awk '{print $1}')"
           echo "EBISEO_PIN_DURABLE_ACTUAL=$(sha256sum "$TMP_ROOT/deployment/durable-native-host.mjs" | awk '{print $1}')"
+          echo "EBISEO_PIN_OWNER_ACTUAL=$(sha256sum "$TMP_ROOT/deployment/owner-service-durable-return-route56.mjs" | awk '{print $1}')"
+          echo "EBISEO_PIN_UNIFIED_ACTUAL=$(sha256sum "$TMP_ROOT/deployment/unified-service-durable-return-route56.mjs" | awk '{print $1}')"
+          echo "EBISEO_PIN_OPERATIONAL_ACTUAL=$(sha256sum "$TMP_ROOT/deployment/operational-service-durable-return-route56.mjs" | awk '{print $1}')"
+          echo "EBISEO_PIN_RELEASE_BUILDER_ACTUAL=$(sha256sum "$TMP_ROOT/deployment/durable-clean-restart-news-review-entry.mjs" | awk '{print $1}')"
+          echo "EBISEO_PIN_RELEASE_BASE_ACTUAL=$(sha256sum "$TMP_ROOT/deployment/durable-live-release.mjs" | awk '{print $1}')"
+          echo "EBISEO_PIN_ROUTER_ACTUAL=$(sha256sum "$TMP_ROOT/deployment/published-host-router.mjs" | awk '{print $1}')"
           node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/ebiseo-audio-v05/*.test.mjs
       - name: Release boundary
         run: |
