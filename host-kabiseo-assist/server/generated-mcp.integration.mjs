@@ -46,6 +46,7 @@ async function child(root,out){
     res.once('error',reject);res.once('end',()=>{const text=Buffer.concat(chunks).toString();let value;try{value=JSON.parse(text);}catch{value=text;}resolve({status:res.statusCode,value});});
    });q.once('error',reject);q.setTimeout(20000,()=>q.destroy(Error('TEST_HTTP_TIMEOUT')));q.end(bytes);
   });
+ }
  async function rpc(method,params,authenticated=true){
   const reply=await request('/mcp',{jsonrpc:'2.0',id:++seq,method,params},
    {accept:'application/json, text/event-stream',...(authenticated?{authorization:'Bearer '+bearer}:{})});
