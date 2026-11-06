@@ -38,9 +38,12 @@ try{
     $parser=Run-Case '구문 오류' '' {param($r) Set-Content -LiteralPath (Join-Path $r 'data/probe.ps1') -Value 'function Broken {' -Encoding UTF8}
     Check ($parser.Data.reason -eq 'SCRIPT_PARSE_ERROR' -and $parser.Data.parserErrorIds.Count -gt 0 -and -not $parser.Data.scriptLoadAttempted) 'parse error classified before execution'
     $restricted=Run-Case '제한 정책' 'Restricted'
-    Check ($restricted.Data.reason -eq 'SCRIPT_POLICY_OR_SIGNATURE_BLOCKED' -and $restricted.Data.errorIdentifiers -contains 'PSSecurityException' -and $restricted.Data.effectivePolicy -eq 'Restricted') 'restricted child remains blocked'
+    # Windows emits UnauthorizedAccess without always printing PSSecurityException.
+    # Require the actual failure receipt, nonzero child exit, unchanged policy and
+    # BLOCKED status. Do not turn a policy rejection into a successful file load.
+    Check ($restricted.Exit -eq 2 -and $restricted.Data.status -eq 'BLOCKED' -and $restricted.Data.childExitCode -eq 1 -and $restricted.Data.errorIdentifiers -contains 'UnauthorizedAccess' -and $restricted.Data.effectivePolicy -eq 'Restricted') 'restricted child rejects File with UnauthorizedAccess; no bypass'
     $download=Run-Case '인터넷 표시' 'RemoteSigned' {param($r) Set-Content -LiteralPath (Join-Path $r 'data/probe.ps1') -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3`r`nHostUrl=https://fixture.invalid/PRIVATE_URL_MUST_NOT_EXPORT" -Encoding ASCII}
-    Check ($download.Data.reason -eq 'SCRIPT_POLICY_OR_SIGNATURE_BLOCKED' -and $download.Data.internetZoneDetected) 'internet-origin unsigned script remains blocked'
+    Check ($download.Exit -eq 2 -and $download.Data.status -eq 'BLOCKED' -and $download.Data.childExitCode -eq 1 -and $download.Data.errorIdentifiers -contains 'UnauthorizedAccess' -and $download.Data.effectivePolicy -eq 'RemoteSigned' -and $download.Data.internetZoneDetected) 'downloaded unsigned File rejected; origin marking retained'
     Check (-not ([IO.File]::ReadAllText((Join-Path $download.Root 'RESULT.txt')).Contains('PRIVATE_URL_MUST_NOT_EXPORT'))) 'origin URL is not exported'
     $finalPolicy=@(& "$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe" -NoProfile -Command 'Get-ExecutionPolicy -List | ConvertTo-Json -Compress') -join ''
     Check ($initialPolicy -ceq $finalPolicy) 'runner policies unchanged before and after tests'
