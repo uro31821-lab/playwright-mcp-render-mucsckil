@@ -16,7 +16,15 @@ const privateRoot = '/private/jebiseo-autojs6-lab';
 function launcher(options = {}) {
     const storage = new Map(Object.entries(options.storage || {}));
     const calls = {permissions: 0, adapters: 0, runs: [], sleeps: [], alerts: [], toasts: [],
-        clip: [], observe: 0, recycle: 0, released: 0, closed: 0};
+        clip: [], observe: 0, recycle: 0, released: 0, closed: 0, privateSteps: []};
+    function privateStep(stage) {
+        calls.privateSteps.push(stage);
+        if ((options.privateFailures || []).includes(stage)) {
+            const error = new Error('PRIVATE_STORAGE_DETAIL_MUST_NOT_LEAK');
+            error.javaException = {getClass: () => ({getName: () => 'android.system.ErrnoException'}), errno: 22};
+            throw error;
+        }
+    }
     const choices = (options.choices || [-1]).slice();
     function File(parent, name) { this.path = name ? path.posix.join(String(parent), name) : String(parent); }
     File.prototype.toString = function () { return this.path; };
@@ -29,6 +37,7 @@ function launcher(options = {}) {
     File.prototype.getAbsolutePath = function () { return this.path; };
     File.prototype.renameTo = function (target) {
         assert.equal(path.posix.dirname(this.path), path.posix.dirname(String(target)), 'atomic rename stays on one filesystem');
+        if (String(target).startsWith(privateRoot + '/')) privateStep('RENAME');
         if (options.exportFailure && String(target).endsWith('RESULT_PHONE.json')) return false;
         storage.set(String(target), storage.get(this.path)); storage.delete(this.path); return true;
     };
@@ -45,9 +54,14 @@ function launcher(options = {}) {
                     this.close = () => calls.closed++;
                 },
                 FileOutputStream: function (file) {
-                    this.write = bytes => storage.set(String(file), Buffer.from(bytes).toString('utf8'));
-                    this.getFD = () => ({sync() {}});
-                    this.close = () => {};
+                    const isPrivate = String(file).startsWith(privateRoot + '/');
+                    if (isPrivate) privateStep('FILE_OPEN');
+                    this.write = bytes => {
+                        if (isPrivate) privateStep('WRITE');
+                        storage.set(String(file), Buffer.from(bytes).toString('utf8'));
+                    };
+                    this.getFD = () => ({sync() {if (isPrivate) privateStep('FILE_SYNC');}});
+                    this.close = () => {if (isPrivate) privateStep('CLOSE');};
                 }
             },
             lang: {String: JavaString},
@@ -57,7 +71,9 @@ function launcher(options = {}) {
                 }}}},
             security: {MessageDigest: {getInstance: () => ({digest: bytes => createHash('sha256').update(bytes).digest()})}}
         },
-        android: {system: {Os: {open: () => 1, fsync() {}, close() {}}, OsConstants: {O_RDONLY: 0, O_DIRECTORY: 65536}}},
+        android: {system: {Os: {open: () => {privateStep('DIR_OPEN'); return 1;},
+            fsync() {privateStep('DIR_SYNC');}, close() {privateStep('DIR_CLOSE');}},
+            OsConstants: {O_RDONLY: 0, O_DIRECTORY: 65536}}},
         files: {
             // AutoJs6 6.8.0 exposes neither files.getParent nor files.getDir.
             join: (...values) => path.posix.join(...values),
@@ -96,7 +112,8 @@ function launcher(options = {}) {
         if (name === './phone-launch.js') return phoneLaunch;
         throw new Error('Unexpected module: ' + name);
     }});
-    return {env, calls, storage, run: () => module.exports.runPhone(env)};
+    return {env, calls, storage, run: () => module.exports.runPhone(env),
+        write: (target, value) => module.exports.durableWrite(env, new File(privateRoot), new File(target), value)};
 }
 
 test('read-only phone entry remains available with an unreadable journal and never clears it', () => {
@@ -311,4 +328,61 @@ test('relative or parentless engine sources stop before file reads and any phone
         assert.equal(lab.calls.runs.length, 0);
         assert.equal(lab.calls.permissions, 0);
     }
+});
+
+test('every private result I/O failure is identified while the public report retains the observed outcome', () => {
+    for (const stage of ['FILE_OPEN', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE']) {
+        const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-private-storage-steps', mode: 'probe'};
+        const lab = launcher({privateFailures: [stage], storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
+        const observed = lab.run();
+        assert.equal(observed.status, 'probe_ok', stage + ' must not relabel a screen observation');
+        assert.equal(observed.lastResultStorage.stage, stage);
+        assert.equal(observed.lastResultStorage.errno, 22);
+        const report = JSON.parse(lab.storage.get('/scripts/RESULT_PHONE.json'));
+        assert.equal(report.launchId, request.launchId);
+        assert.equal(report.status, 'probe_ok');
+        assert.match(report.reportText, new RegExp('STORAGE_' + stage + '_FAILED'));
+        assert.doesNotMatch(report.reportText, /PRIVATE_STORAGE_DETAIL_MUST_NOT_LEAK/);
+        assert.equal(lab.calls.runs.length, 1);
+        assert.ok(lab.calls.alerts.some(x => x.title === '결과 파일 저장 확인 필요'));
+        if (stage === 'DIR_SYNC') {
+            assert.ok(lab.storage.has(privateRoot + '/last-result.json'), 'rename can succeed before directory sync fails');
+            assert.ok(lab.calls.privateSteps.includes('DIR_CLOSE'));
+        }
+    }
+});
+
+test('cleanup errors cannot replace the first failed private storage step', () => {
+    for (const stages of [['WRITE', 'CLOSE'], ['FILE_SYNC', 'CLOSE'], ['DIR_SYNC', 'DIR_CLOSE']]) {
+        const lab = launcher({privateFailures: stages});
+        assert.throws(() => lab.write(privateRoot + '/journal.json', {records: []}), error => {
+            assert.equal(error.storageFailure.stage, stages[0]);
+            assert.equal(error.message, 'STORAGE_' + stages[0] + '_FAILED');
+            return true;
+        });
+        assert.ok(lab.calls.privateSteps.includes(stages[1]), 'cleanup still attempted');
+    }
+});
+
+test('encoding failure remains bounded and is never a successful journal persistence', () => {
+    const lab = launcher();
+    const cyclic = {}; cyclic.self = cyclic;
+    assert.throws(() => lab.write(privateRoot + '/journal.json', cyclic), error => {
+        assert.equal(error.storageFailure.stage, 'ENCODE');
+        assert.equal(error.storageFailure.kind, 'TypeError');
+        return true;
+    });
+    assert.ok(lab.calls.privateSteps.includes('CLOSE'));
+    assert.equal(lab.storage.has(privateRoot + '/journal.json'), false);
+});
+
+test('private directory sync failure still rejects journal claim and leaves no in-memory successful claim', () => {
+    const lab = launcher({privateFailures: ['DIR_SYNC']});
+    const journal = createJournal({load: () => null, saveAtomic: value => lab.write(privateRoot + '/journal.json', value)});
+    assert.throws(() => journal.claim('journal-sync-failed', {status: 'running', stage: 'VALIDATE', requestFingerprint: 'a'.repeat(64)}), /STORAGE_DIR_SYNC_FAILED/);
+    assert.equal(journal.get('journal-sync-failed'), null);
+    assert.ok(lab.calls.privateSteps.includes('DIR_SYNC'));
+    const recovered = createJournal({load: () => JSON.parse(lab.storage.get(privateRoot + '/journal.json')), saveAtomic: () => {throw new Error('no replay');}});
+    assert.equal(recovered.unresolved()[0].requestId, 'journal-sync-failed');
+    assert.equal(lab.calls.runs.length, 0);
 });

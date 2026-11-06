@@ -6,7 +6,7 @@ const path = require('node:path');
 const sources = ['core.js', 'autojs-adapter.js', 'journal.js', 'report.js', 'phone-launch.js', 'main.js'];
 const profile = JSON.parse(fs.readFileSync(path.join(__dirname, 'profile.example.json'), 'utf8'));
 const lines = [
-  '// JH 제비서 독립 시험 0.3.1 — AutoJs6에서 실행. JH 운영 미연결.',
+  '// JH 제비서 독립 시험 0.3.2 — AutoJs6에서 실행. JH 운영 미연결.',
   '// Generated with node build-bundle.cjs. Edit source modules, not this file.',
   '(function () {',
   "'use strict';",

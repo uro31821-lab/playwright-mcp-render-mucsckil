@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {formatResult} = require('../report.js');
+const {formatResult, formatSummary} = require('../report.js');
 
 function result(overrides = {}) {
     return Object.assign({schema: 'jebiseo.autojs6.result.v1', requestId: 'phone-report-1', status: 'probe_ok', stage: 'SPLIT', code: 'SPLIT_PROBE_OK',
@@ -128,4 +128,34 @@ test('unresolved original attempts retain identity in exports without disclosing
     assert.ok(!text.includes('wrong-status'));
     assert.ok(!text.includes('invalid id'));
     assert.deepEqual(input, before);
+});
+
+test('target editor diagnostics and private storage metadata exclude values, hints, paths and raw errors', () => {
+    const secret = 'PRIVATE_INPUT_OR_EXCEPTION_VALUE';
+    const input = result({status: 'blocked', code: 'GEMINI_SURFACE_UNVERIFIED',
+        lastResultStorage: {status: 'FAILED', stage: 'DIR_SYNC', kind: 'android.system.ErrnoException', errno: 22, message: secret, path: secret},
+        diagnostics: {targetSurfaceDiagnostics: {titleTextMatches: 0, titleDescriptionMatches: 1, configuredEditorMatches: 0,
+            candidateEditorCount: 12, allEditableCount: 12, eligibleEditableCount: 10, emptyIdCandidateCount: 1, candidatesTruncated: true,
+            text: secret, eligibleEditorCandidates: Array.from({length: 12}, (_, i) => ({windowId: 2,
+                viewId: 'com.google.android.googlequicksearchbox:id/observed_editor_' + i, className: 'android.widget.EditText',
+                bounds: {left: 500, top: 100, right: 900, bottom: 150}, editable: true, visible: true, enabled: true,
+                matchesConfiguredId: false, hasSetTextAction: true, hasSetSelectionAction: true, text: secret, desc: secret, hint: secret, value: secret}))}}});
+    const text = formatResult(input);
+    const projected = details(text);
+    assert.doesNotMatch(text, new RegExp(secret));
+    assert.equal(projected.status, 'blocked');
+    assert.equal(projected.diagnostics.targetSurfaceDiagnostics.eligibleEditorCandidates.length, 8);
+    assert.equal(projected.lastResultStorage.code, 'STORAGE_DIR_SYNC_FAILED');
+    assert.match(formatSummary(input), /설정된 입력칸 일치: 0/);
+    assert.match(formatSummary(input), /DIR_SYNC/);
+    assert.doesNotMatch(formatSummary(input), new RegExp(secret));
+});
+
+test('untrusted storage diagnostic names and unbounded surface counts are not echoed', () => {
+    const text = formatResult(result({lastResultStorage: {status: 'FAILED', stage: 'PRIVATE_PATH', kind: 'PRIVATE_CLASS', errno: 999999},
+        diagnostics: {targetSurfaceDiagnostics: {titleTextMatches: -1, candidateEditorCount: 999999}}}));
+    assert.doesNotMatch(text, /PRIVATE_PATH|PRIVATE_CLASS|999999/);
+    assert.equal(details(text).lastResultStorage.stage, 'UNKNOWN');
+    assert.equal(details(text).lastResultStorage.kind, 'OTHER');
+    assert.deepEqual(details(text).diagnostics.targetSurfaceDiagnostics, {});
 });

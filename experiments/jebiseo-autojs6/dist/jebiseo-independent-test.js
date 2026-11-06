@@ -1,4 +1,4 @@
-// JH 제비서 독립 시험 0.3.1 — AutoJs6에서 실행. JH 운영 미연결.
+// JH 제비서 독립 시험 0.3.2 — AutoJs6에서 실행. JH 운영 미연결.
 // Generated with node build-bundle.cjs. Edit source modules, not this file.
 (function () {
 'use strict';
@@ -64,6 +64,7 @@ factories["./core.js"] = function (exports, module, require) {
 var RESULT_SCHEMA = "jebiseo.autojs6.result.v1";
 var JOURNAL_SCHEMA = "jebiseo.autojs6.journal.v1";
 var SET_SELECTION = 131072;
+var SET_TEXT = 2097152;
 var DEFAULT_INPUT_ID = "com.google.android.googlequicksearchbox:id/assistant_robin_input_collapsed_text_half_sheet";
 var MODES = ["probe", "selection", "more", "handoff", "submit"];
 var TERMINAL = ["selection_verified", "menu_verified", "handoff_verified", "submission_observed", "blocked", "cancelled", "completion_unknown"];
@@ -276,6 +277,47 @@ function targetSurface(request, pair, allowMissing) {
     }
     return {draft: editors[0], title: titles[0], window: pair.target};
 }
+function diagnoseTargetSurface(request, pair) {
+    var report = {titleTextMatches: 0, titleDescriptionMatches: 0, configuredEditorMatches: 0,
+        allEditableCount: 0, eligibleEditableCount: 0, emptyIdCandidateCount: 0,
+        candidateEditorCount: 0, candidatesTruncated: false, eligibleEditorCandidates: []};
+    function count(field) { if (report[field] < 6000) { report[field] += 1; } }
+    pair.target.nodes.forEach(function (node) {
+        var eligible;
+        var hasSetText;
+        var hasSetSelection;
+        var viewId;
+        var className;
+        // This is structural observation only. Hidden/disabled candidates help
+        // diagnose the strict surface gate but never become action selectors.
+        if (!node || node.windowId !== pair.target.id || node.packageName !== request.targetPackage ||
+            typeof node.key !== "string" || !node.key || !Array.isArray(node.path) ||
+            node.path.some(function (part) { return !integer(part) || part < 0; }) ||
+            typeof node.editable !== "boolean" || typeof node.visible !== "boolean" || typeof node.enabled !== "boolean" ||
+            !inside(node.bounds, pair.target.bounds)) { return; }
+        eligible = usableNode(node, pair.target);
+        if (node.editable) {
+            count("allEditableCount");
+            if (eligible) { count("eligibleEditableCount"); }
+            if (eligible && includes(request.targetInputIds, node.viewId)) { count("configuredEditorMatches"); }
+        } else if (eligible) {
+            if (includes(request.targetTitleLabels, node.text)) { count("titleTextMatches"); }
+            if (includes(request.targetTitleLabels, node.desc)) { count("titleDescriptionMatches"); }
+        }
+        hasSetText = Array.isArray(node.actions) && includes(node.actions, SET_TEXT);
+        hasSetSelection = Array.isArray(node.actions) && includes(node.actions, SET_SELECTION);
+        className = typeof node.className === "string" ? node.className : "";
+        if (!node.editable && !/(?:^|\.)[A-Za-z0-9_$]*EditText$/.test(className) && !hasSetText) { return; }
+        count("candidateEditorCount");
+        viewId = typeof node.viewId === "string" ? node.viewId : "";
+        if (!viewId) { count("emptyIdCandidateCount"); }
+        if (report.eligibleEditorCandidates.length >= 8) { report.candidatesTruncated = true; return; }
+        report.eligibleEditorCandidates.push({windowId: node.windowId, viewId: viewId.slice(0, 512), className: className.slice(0, 256),
+            bounds: rectCopy(node.bounds), editable: node.editable, enabled: node.enabled, visible: node.visible,
+            matchesConfiguredId: includes(request.targetInputIds, node.viewId), hasSetTextAction: hasSetText, hasSetSelectionAction: hasSetSelection});
+    });
+    return report;
+}
 function buttonFor(label, window, packageName, ids) {
     var candidates = window.nodes.filter(function (node) {
         return usableNode(node, window) && node.packageName === packageName && !node.editable &&
@@ -371,6 +413,7 @@ function inspect(request, snapshot) {
                 bounds: rectValid(w.bounds) ? rectCopy(w.bounds) : null, active: w.active === true, focused: w.focused === true};
         });
         pair = findPair(r, snapshot, null);
+        report.targetSurfaceDiagnostics = diagnoseTargetSurface(r, pair);
         match = sourceMatch(r, pair);
         surface = targetSurface(r, pair, true);
         report.sourceTextFound = !!match;
@@ -1345,6 +1388,45 @@ function controls(value, observed) {
         return control(item, observed);
     }).filter(function (item) { return item !== null; });
 }
+function surfaceDiagnostics(value) {
+    var input = record(value);
+    var output = {};
+    ['titleTextMatches', 'titleDescriptionMatches', 'configuredEditorMatches', 'candidateEditorCount',
+        'allEditableCount', 'eligibleEditableCount', 'emptyIdCandidateCount'].forEach(function (key) {
+        if (integer(input[key]) && input[key] >= 0 && input[key] <= 6000) output[key] = input[key];
+    });
+    copyBoolean(input, output, 'candidatesTruncated');
+    if (Array.isArray(input.eligibleEditorCandidates)) {
+        output.eligibleEditorCandidates = input.eligibleEditorCandidates.slice(0, 8).filter(function (node) {
+            return node && integer(node.windowId) && bounds(node.bounds);
+        }).map(function (node) {
+            var item = {
+                windowId: node.windowId,
+                viewId: identifier(node.viewId, /^(?:[A-Za-z][A-Za-z0-9_]*\.)*[A-Za-z][A-Za-z0-9_]*:id\/[A-Za-z0-9_.$]+$/, 512),
+                className: identifier(node.className, /^[A-Za-z_$][A-Za-z0-9_.$]*$/, 256),
+                bounds: bounds(node.bounds)
+            };
+            ['editable', 'enabled', 'visible', 'matchesConfiguredId', 'hasSetTextAction', 'hasSetSelectionAction'].forEach(function (key) {
+                copyBoolean(node, item, key);
+            });
+            return item;
+        });
+    }
+    return output;
+}
+function lastResultStorage(value) {
+    var input = record(value);
+    if (input.status === 'SAVED') return {status: 'SAVED'};
+    if (input.status !== 'FAILED') return null;
+    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'UNKNOWN'];
+    var kinds = ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'java.io.IOException',
+        'java.io.FileNotFoundException', 'java.io.SyncFailedException', 'java.lang.SecurityException', 'android.system.ErrnoException'];
+    var stage = stages.indexOf(input.stage) >= 0 ? input.stage : 'UNKNOWN';
+    var output = {status: 'FAILED', stage: stage, code: 'STORAGE_' + stage + '_FAILED',
+        kind: kinds.indexOf(input.kind) >= 0 ? input.kind : 'OTHER'};
+    if (output.kind === 'android.system.ErrnoException' && integer(input.errno) && input.errno > 0 && input.errno <= 4095) output.errno = input.errno;
+    return output;
+}
 function diagnostic(value) {
     var input = record(value);
     var output = {};
@@ -1372,6 +1454,9 @@ function diagnostic(value) {
         list = controls(input[key], key === 'observedMenuControls');
         if (list) output[key] = list;
     });
+    if (input.targetSurfaceDiagnostics && typeof input.targetSurfaceDiagnostics === 'object') {
+        output.targetSurfaceDiagnostics = surfaceDiagnostics(input.targetSurfaceDiagnostics);
+    }
     return output;
 }
 function project(value, options) {
@@ -1408,6 +1493,8 @@ function project(value, options) {
         });
     }
     if (input.diagnostics && typeof input.diagnostics === 'object') output.diagnostics = diagnostic(input.diagnostics);
+    var storage = lastResultStorage(input.lastResultStorage);
+    if (storage) output.lastResultStorage = storage;
     return output;
 }
 function observation(value, yes, no) { return value === true ? yes : (value === false ? no : '미확인'); }
@@ -1434,6 +1521,8 @@ function formatResult(value, options) {
     var labels;
     if (result.mode) lines.push('시험: ' + MODE[result.mode]);
     lines.push('판정: ' + details[0], '확인 단계: ' + STAGE[result.stage], '코드: ' + result.code, '', details[1]);
+    if (result.lastResultStorage) lines.push('', storageLine(result.lastResultStorage));
+    if (d && d.targetSurfaceDiagnostics) lines = lines.concat([''], surfaceLines(d.targetSurfaceDiagnostics));
     if (result.reusedReceipt === true) lines.push('이전에 저장한 결과입니다. 같은 시험을 다시 실행하지 않았습니다.');
     if (d) {
         lines.push('', '화면에서 읽은 내용',
@@ -1468,7 +1557,36 @@ function formatResult(value, options) {
     return lines.join('\n');
 }
 
-module.exports = {formatResult: formatResult};
+function storageLine(storage) {
+    if (storage.status === 'SAVED') return '휴대폰 개인 결과파일: 저장 확인';
+    return '휴대폰 개인 결과파일: 확인 실패 / ' + storage.stage + ' / ' + storage.kind +
+        (integer(storage.errno) ? ' / errno=' + storage.errno : '');
+}
+function surfaceLines(surface) {
+    function measured(key) { return integer(surface[key]) ? String(surface[key]) : '미확인'; }
+    var lines = ['Gemini 식별 진단',
+        '• 제목 글자 일치: ' + measured('titleTextMatches') + ' / 설명 이름 일치: ' + measured('titleDescriptionMatches'),
+        '• 설정된 입력칸 일치: ' + measured('configuredEditorMatches') + ' / 입력칸 후보: ' + measured('candidateEditorCount'),
+        '• 편집 가능한 칸: ' + measured('eligibleEditableCount') + '/' + measured('allEditableCount') + ' / 이름 없는 후보: ' + measured('emptyIdCandidateCount')];
+    if (surface.eligibleEditorCandidates) surface.eligibleEditorCandidates.forEach(function (node, index) {
+        lines.push('• 입력칸 후보 ' + (index + 1) + ': ' + (node.viewId || '(내부 이름 없음)') +
+            ' / ' + (node.className || '(종류 미확인)') +
+            ' / visible=' + String(node.visible) + ' / enabled=' + String(node.enabled));
+    });
+    if (surface.candidatesTruncated === true) lines.push('• 입력칸 후보는 처음 8개만 표시했습니다.');
+    return lines;
+}
+function formatSummary(value, options) {
+    var result = project(value, options);
+    var lines = ['이번 시험 요약', '판정: ' + STATUS[result.status][0], '코드: ' + result.code];
+    if (result.lastResultStorage) lines.push(storageLine(result.lastResultStorage));
+    if (result.diagnostics && result.diagnostics.targetSurfaceDiagnostics) {
+        lines = lines.concat(surfaceLines(result.diagnostics.targetSurfaceDiagnostics));
+    }
+    return lines.join('\n');
+}
+
+module.exports = {formatResult: formatResult, formatSummary: formatSummary};
 
 };
 factories["./phone-launch.js"] = function (exports, module, require) {
@@ -1496,8 +1614,16 @@ function envelope(request, result) {
     if (['probe_ok', 'selection_verified', 'menu_verified', 'handoff_verified', 'submission_observed',
         'blocked', 'cancelled', 'completion_unknown'].indexOf(status) < 0) status = 'unknown';
     if (typeof code !== 'string' || !/^[A-Z][A-Z0-9_]{1,79}$/.test(code)) code = 'PHONE_RUNTIME_ERROR';
-    var formatted = reports.formatResult(result || {}, {mode: valid.mode});
-    if (formatted.length > 60000) throw new Error('PHONE_REPORT_TOO_LARGE');
+    // Keep the actionable diagnosis at the bottom of the Windows console too.
+    var summary = reports.formatSummary(result || {}, {mode: valid.mode});
+    var formatted = reports.formatResult(result || {}, {mode: valid.mode}) + '\n\n' + summary;
+    // The unchanged Windows receiver accepts at most 50,000 UTF-16 code units.
+    // Keep the observed outcome and diagnosis even when detailed JSON is large.
+    if (formatted.length > 50000) {
+        formatted = reports.formatResult(result || {}, {mode: valid.mode, includeDetails: false}) +
+            '\n\n보고서 크기 제한으로 상세 JSON은 생략했습니다.\n\n' + summary;
+    }
+    if (formatted.length > 50000) throw new Error('PHONE_REPORT_TOO_LARGE');
     return {schema: 'jebiseo.phone-result.v1', launchId: valid.launchId,
         recordedAt: new Date().toISOString(), mode: valid.mode, status: status, code: code, reportText: formatted};
 }
@@ -1513,6 +1639,68 @@ var adapter = require('./autojs-adapter.js');
 var journals = require('./journal.js');
 var reports = require('./report.js');
 var phoneLaunch = require('./phone-launch.js');
+
+function storageError(stage, original) {
+    // Only fixed exception types/errno are diagnostic. Never export messages,
+    // stack traces, paths or arbitrary Java object strings.
+    var kind = 'OTHER';
+    var errno = null;
+    try {
+        if (original && ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError'].indexOf(original.name) >= 0) kind = original.name;
+        var cause = original && original.javaException;
+        if (cause && typeof cause.getClass === 'function') {
+            var name = String(cause.getClass().getName());
+            if (['java.io.IOException', 'java.io.FileNotFoundException', 'java.io.SyncFailedException',
+                'java.lang.SecurityException', 'android.system.ErrnoException'].indexOf(name) >= 0) kind = name;
+            if (name === 'android.system.ErrnoException') {
+                var number = Number(cause.errno);
+                if (isFinite(number) && Math.floor(number) === number && number > 0 && number <= 4095) errno = number;
+            }
+        }
+    } catch (ignored) { /* A diagnostic getter must not replace the storage failure. */ }
+    var failure = new Error('STORAGE_' + stage + '_FAILED');
+    failure.storageFailure = {status: 'FAILED', stage: stage, code: failure.message, kind: kind};
+    if (errno !== null) failure.storageFailure.errno = errno;
+    return failure;
+}
+
+function durableWrite(env, root, target, value) {
+    var temporary = null;
+    var stream = null;
+    var directoryFd = null;
+    var failure = null;
+    var stage = 'PREPARE';
+    try {
+        temporary = new env.java.io.File(root, target.getName() + '.new');
+        stage = 'FILE_OPEN';
+        stream = new env.java.io.FileOutputStream(temporary);
+        stage = 'ENCODE';
+        var encoded = new env.java.lang.String(JSON.stringify(value)).getBytes('UTF-8');
+        stage = 'WRITE';
+        stream.write(encoded);
+        stage = 'FILE_SYNC';
+        stream.getFD().sync();
+    } catch (error) { failure = storageError(stage, error); }
+    if (stream !== null) {
+        try { stream.close(); } catch (closeError) { if (failure === null) failure = storageError('CLOSE', closeError); }
+    }
+    if (failure !== null) throw failure;
+    try {
+        stage = 'RENAME';
+        if (!temporary.renameTo(target)) throw new Error('ATOMIC_RENAME_FAILED');
+        stage = 'DIR_OPEN';
+        directoryFd = env.android.system.Os.open(String(root.getAbsolutePath()),
+            env.android.system.OsConstants.O_RDONLY | env.android.system.OsConstants.O_DIRECTORY, 0);
+        stage = 'DIR_SYNC';
+        env.android.system.Os.fsync(directoryFd);
+    } catch (directoryError) { failure = storageError(stage, directoryError); }
+    if (directoryFd !== null) {
+        try { env.android.system.Os.close(directoryFd); }
+        catch (directoryCloseError) { if (failure === null) failure = storageError('DIR_CLOSE', directoryCloseError); }
+    }
+    if (failure !== null) throw failure;
+    return true;
+}
 
 function showResult(env, result, mode) {
     var options = { mode: mode || result.mode, includeDetails: false };
@@ -1599,20 +1787,6 @@ function runPhone(env) {
         if (profile.schema !== 'jebiseo.autojs6.profile.v1') throw new Error('PROFILE_INVALID');
         var dataFile = new File(root, 'journal.json');
         var resultFile = new File(root, 'last-result.json');
-        function durableWrite(target, value) {
-            var temporary = new File(root, target.getName() + '.new');
-            var stream = new env.java.io.FileOutputStream(temporary);
-            try {
-                var encoded = new env.java.lang.String(JSON.stringify(value)).getBytes('UTF-8');
-                stream.write(encoded);
-                stream.getFD().sync();
-            } finally { stream.close(); }
-            if (!temporary.renameTo(target)) throw new Error('ATOMIC_RENAME_FAILED');
-            // Android Os.fsync on the directory makes the rename durable as well.
-            var directoryFd = env.android.system.Os.open(String(root.getAbsolutePath()), env.android.system.OsConstants.O_RDONLY | env.android.system.OsConstants.O_DIRECTORY, 0);
-            try { env.android.system.Os.fsync(directoryFd); } finally { env.android.system.Os.close(directoryFd); }
-            return true;
-        }
         function finish(value) {
             value.mode = mode;
             value.executionEnvironment = 'android-autojs6';
@@ -1620,7 +1794,16 @@ function runPhone(env) {
             value.recordedAt = new Date().toISOString();
             var saveFailed = false;
             var exportFailed = false;
-            try { durableWrite(resultFile, value); } catch (privateError) { saveFailed = true; }
+            // Store the observed result before describing that storage attempt.
+            // This state describes last-result.json only, never the journal.
+            try {
+                durableWrite(env, root, resultFile, value);
+                value.lastResultStorage = {status: 'SAVED'};
+            } catch (privateError) {
+                saveFailed = true;
+                value.lastResultStorage = privateError.storageFailure ||
+                    {status: 'FAILED', stage: 'UNKNOWN', code: 'STORAGE_UNKNOWN_FAILED', kind: 'OTHER'};
+            }
             try { exportResult(value); } catch (publicError) { exportFailed = true; }
             if (launchRequest) {
                 env.toast(exportFailed ? 'PC 결과 전달 실패. 현재 시험을 다시 실행하지 말고 화면을 확인하세요.' :
@@ -1634,7 +1817,7 @@ function runPhone(env) {
             return value;
         }
         var choice = launchRequest ? ['probe', 'selection', 'more', 'handoff', 'submit'].indexOf(mode) :
-            env.dialogs.select('제비서 독립 시험 0.3.1\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
+            env.dialogs.select('제비서 독립 시험 0.3.2\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
             '1. 화면·메뉴 읽기 — 버튼을 누르지 않음',
             '2. 시험 문장 선택까지만',
             '3. ⋯ 열고 Gemini 항목 확인까지만 — 전달 안 함',
@@ -1658,7 +1841,7 @@ function runPhone(env) {
         if (mode !== 'probe') {
             journal = journals.createJournal({
                 load: function () { return dataFile.exists() ? JSON.parse(env.files.read(String(dataFile.getAbsolutePath()))) : null; },
-                saveAtomic: function (value) { return durableWrite(dataFile, value); }
+                saveAtomic: function (value) { return durableWrite(env, root, dataFile, value); }
             });
             var unresolved = journal.unresolved();
             if (unresolved.length) {
@@ -1747,7 +1930,7 @@ function runPhone(env) {
     }
 }
 
-module.exports = { runPhone: runPhone, showResult: showResult };
+module.exports = { runPhone: runPhone, showResult: showResult, durableWrite: durableWrite };
 
 if (typeof context !== 'undefined' && typeof android !== 'undefined') {
     try {

@@ -22,8 +22,16 @@ function envelope(request, result) {
     if (['probe_ok', 'selection_verified', 'menu_verified', 'handoff_verified', 'submission_observed',
         'blocked', 'cancelled', 'completion_unknown'].indexOf(status) < 0) status = 'unknown';
     if (typeof code !== 'string' || !/^[A-Z][A-Z0-9_]{1,79}$/.test(code)) code = 'PHONE_RUNTIME_ERROR';
-    var formatted = reports.formatResult(result || {}, {mode: valid.mode});
-    if (formatted.length > 60000) throw new Error('PHONE_REPORT_TOO_LARGE');
+    // Keep the actionable diagnosis at the bottom of the Windows console too.
+    var summary = reports.formatSummary(result || {}, {mode: valid.mode});
+    var formatted = reports.formatResult(result || {}, {mode: valid.mode}) + '\n\n' + summary;
+    // The unchanged Windows receiver accepts at most 50,000 UTF-16 code units.
+    // Keep the observed outcome and diagnosis even when detailed JSON is large.
+    if (formatted.length > 50000) {
+        formatted = reports.formatResult(result || {}, {mode: valid.mode, includeDetails: false}) +
+            '\n\n보고서 크기 제한으로 상세 JSON은 생략했습니다.\n\n' + summary;
+    }
+    if (formatted.length > 50000) throw new Error('PHONE_REPORT_TOO_LARGE');
     return {schema: 'jebiseo.phone-result.v1', launchId: valid.launchId,
         recordedAt: new Date().toISOString(), mode: valid.mode, status: status, code: code, reportText: formatted};
 }

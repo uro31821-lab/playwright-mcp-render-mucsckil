@@ -103,6 +103,45 @@ function controls(value, observed) {
         return control(item, observed);
     }).filter(function (item) { return item !== null; });
 }
+function surfaceDiagnostics(value) {
+    var input = record(value);
+    var output = {};
+    ['titleTextMatches', 'titleDescriptionMatches', 'configuredEditorMatches', 'candidateEditorCount',
+        'allEditableCount', 'eligibleEditableCount', 'emptyIdCandidateCount'].forEach(function (key) {
+        if (integer(input[key]) && input[key] >= 0 && input[key] <= 6000) output[key] = input[key];
+    });
+    copyBoolean(input, output, 'candidatesTruncated');
+    if (Array.isArray(input.eligibleEditorCandidates)) {
+        output.eligibleEditorCandidates = input.eligibleEditorCandidates.slice(0, 8).filter(function (node) {
+            return node && integer(node.windowId) && bounds(node.bounds);
+        }).map(function (node) {
+            var item = {
+                windowId: node.windowId,
+                viewId: identifier(node.viewId, /^(?:[A-Za-z][A-Za-z0-9_]*\.)*[A-Za-z][A-Za-z0-9_]*:id\/[A-Za-z0-9_.$]+$/, 512),
+                className: identifier(node.className, /^[A-Za-z_$][A-Za-z0-9_.$]*$/, 256),
+                bounds: bounds(node.bounds)
+            };
+            ['editable', 'enabled', 'visible', 'matchesConfiguredId', 'hasSetTextAction', 'hasSetSelectionAction'].forEach(function (key) {
+                copyBoolean(node, item, key);
+            });
+            return item;
+        });
+    }
+    return output;
+}
+function lastResultStorage(value) {
+    var input = record(value);
+    if (input.status === 'SAVED') return {status: 'SAVED'};
+    if (input.status !== 'FAILED') return null;
+    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'UNKNOWN'];
+    var kinds = ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'java.io.IOException',
+        'java.io.FileNotFoundException', 'java.io.SyncFailedException', 'java.lang.SecurityException', 'android.system.ErrnoException'];
+    var stage = stages.indexOf(input.stage) >= 0 ? input.stage : 'UNKNOWN';
+    var output = {status: 'FAILED', stage: stage, code: 'STORAGE_' + stage + '_FAILED',
+        kind: kinds.indexOf(input.kind) >= 0 ? input.kind : 'OTHER'};
+    if (output.kind === 'android.system.ErrnoException' && integer(input.errno) && input.errno > 0 && input.errno <= 4095) output.errno = input.errno;
+    return output;
+}
 function diagnostic(value) {
     var input = record(value);
     var output = {};
@@ -130,6 +169,9 @@ function diagnostic(value) {
         list = controls(input[key], key === 'observedMenuControls');
         if (list) output[key] = list;
     });
+    if (input.targetSurfaceDiagnostics && typeof input.targetSurfaceDiagnostics === 'object') {
+        output.targetSurfaceDiagnostics = surfaceDiagnostics(input.targetSurfaceDiagnostics);
+    }
     return output;
 }
 function project(value, options) {
@@ -166,6 +208,8 @@ function project(value, options) {
         });
     }
     if (input.diagnostics && typeof input.diagnostics === 'object') output.diagnostics = diagnostic(input.diagnostics);
+    var storage = lastResultStorage(input.lastResultStorage);
+    if (storage) output.lastResultStorage = storage;
     return output;
 }
 function observation(value, yes, no) { return value === true ? yes : (value === false ? no : '미확인'); }
@@ -192,6 +236,8 @@ function formatResult(value, options) {
     var labels;
     if (result.mode) lines.push('시험: ' + MODE[result.mode]);
     lines.push('판정: ' + details[0], '확인 단계: ' + STAGE[result.stage], '코드: ' + result.code, '', details[1]);
+    if (result.lastResultStorage) lines.push('', storageLine(result.lastResultStorage));
+    if (d && d.targetSurfaceDiagnostics) lines = lines.concat([''], surfaceLines(d.targetSurfaceDiagnostics));
     if (result.reusedReceipt === true) lines.push('이전에 저장한 결과입니다. 같은 시험을 다시 실행하지 않았습니다.');
     if (d) {
         lines.push('', '화면에서 읽은 내용',
@@ -226,4 +272,33 @@ function formatResult(value, options) {
     return lines.join('\n');
 }
 
-module.exports = {formatResult: formatResult};
+function storageLine(storage) {
+    if (storage.status === 'SAVED') return '휴대폰 개인 결과파일: 저장 확인';
+    return '휴대폰 개인 결과파일: 확인 실패 / ' + storage.stage + ' / ' + storage.kind +
+        (integer(storage.errno) ? ' / errno=' + storage.errno : '');
+}
+function surfaceLines(surface) {
+    function measured(key) { return integer(surface[key]) ? String(surface[key]) : '미확인'; }
+    var lines = ['Gemini 식별 진단',
+        '• 제목 글자 일치: ' + measured('titleTextMatches') + ' / 설명 이름 일치: ' + measured('titleDescriptionMatches'),
+        '• 설정된 입력칸 일치: ' + measured('configuredEditorMatches') + ' / 입력칸 후보: ' + measured('candidateEditorCount'),
+        '• 편집 가능한 칸: ' + measured('eligibleEditableCount') + '/' + measured('allEditableCount') + ' / 이름 없는 후보: ' + measured('emptyIdCandidateCount')];
+    if (surface.eligibleEditorCandidates) surface.eligibleEditorCandidates.forEach(function (node, index) {
+        lines.push('• 입력칸 후보 ' + (index + 1) + ': ' + (node.viewId || '(내부 이름 없음)') +
+            ' / ' + (node.className || '(종류 미확인)') +
+            ' / visible=' + String(node.visible) + ' / enabled=' + String(node.enabled));
+    });
+    if (surface.candidatesTruncated === true) lines.push('• 입력칸 후보는 처음 8개만 표시했습니다.');
+    return lines;
+}
+function formatSummary(value, options) {
+    var result = project(value, options);
+    var lines = ['이번 시험 요약', '판정: ' + STATUS[result.status][0], '코드: ' + result.code];
+    if (result.lastResultStorage) lines.push(storageLine(result.lastResultStorage));
+    if (result.diagnostics && result.diagnostics.targetSurfaceDiagnostics) {
+        lines = lines.concat(surfaceLines(result.diagnostics.targetSurfaceDiagnostics));
+    }
+    return lines.join('\n');
+}
+
+module.exports = {formatResult: formatResult, formatSummary: formatSummary};

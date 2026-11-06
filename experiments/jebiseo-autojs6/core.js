@@ -4,6 +4,7 @@
 var RESULT_SCHEMA = "jebiseo.autojs6.result.v1";
 var JOURNAL_SCHEMA = "jebiseo.autojs6.journal.v1";
 var SET_SELECTION = 131072;
+var SET_TEXT = 2097152;
 var DEFAULT_INPUT_ID = "com.google.android.googlequicksearchbox:id/assistant_robin_input_collapsed_text_half_sheet";
 var MODES = ["probe", "selection", "more", "handoff", "submit"];
 var TERMINAL = ["selection_verified", "menu_verified", "handoff_verified", "submission_observed", "blocked", "cancelled", "completion_unknown"];
@@ -216,6 +217,47 @@ function targetSurface(request, pair, allowMissing) {
     }
     return {draft: editors[0], title: titles[0], window: pair.target};
 }
+function diagnoseTargetSurface(request, pair) {
+    var report = {titleTextMatches: 0, titleDescriptionMatches: 0, configuredEditorMatches: 0,
+        allEditableCount: 0, eligibleEditableCount: 0, emptyIdCandidateCount: 0,
+        candidateEditorCount: 0, candidatesTruncated: false, eligibleEditorCandidates: []};
+    function count(field) { if (report[field] < 6000) { report[field] += 1; } }
+    pair.target.nodes.forEach(function (node) {
+        var eligible;
+        var hasSetText;
+        var hasSetSelection;
+        var viewId;
+        var className;
+        // This is structural observation only. Hidden/disabled candidates help
+        // diagnose the strict surface gate but never become action selectors.
+        if (!node || node.windowId !== pair.target.id || node.packageName !== request.targetPackage ||
+            typeof node.key !== "string" || !node.key || !Array.isArray(node.path) ||
+            node.path.some(function (part) { return !integer(part) || part < 0; }) ||
+            typeof node.editable !== "boolean" || typeof node.visible !== "boolean" || typeof node.enabled !== "boolean" ||
+            !inside(node.bounds, pair.target.bounds)) { return; }
+        eligible = usableNode(node, pair.target);
+        if (node.editable) {
+            count("allEditableCount");
+            if (eligible) { count("eligibleEditableCount"); }
+            if (eligible && includes(request.targetInputIds, node.viewId)) { count("configuredEditorMatches"); }
+        } else if (eligible) {
+            if (includes(request.targetTitleLabels, node.text)) { count("titleTextMatches"); }
+            if (includes(request.targetTitleLabels, node.desc)) { count("titleDescriptionMatches"); }
+        }
+        hasSetText = Array.isArray(node.actions) && includes(node.actions, SET_TEXT);
+        hasSetSelection = Array.isArray(node.actions) && includes(node.actions, SET_SELECTION);
+        className = typeof node.className === "string" ? node.className : "";
+        if (!node.editable && !/(?:^|\.)[A-Za-z0-9_$]*EditText$/.test(className) && !hasSetText) { return; }
+        count("candidateEditorCount");
+        viewId = typeof node.viewId === "string" ? node.viewId : "";
+        if (!viewId) { count("emptyIdCandidateCount"); }
+        if (report.eligibleEditorCandidates.length >= 8) { report.candidatesTruncated = true; return; }
+        report.eligibleEditorCandidates.push({windowId: node.windowId, viewId: viewId.slice(0, 512), className: className.slice(0, 256),
+            bounds: rectCopy(node.bounds), editable: node.editable, enabled: node.enabled, visible: node.visible,
+            matchesConfiguredId: includes(request.targetInputIds, node.viewId), hasSetTextAction: hasSetText, hasSetSelectionAction: hasSetSelection});
+    });
+    return report;
+}
 function buttonFor(label, window, packageName, ids) {
     var candidates = window.nodes.filter(function (node) {
         return usableNode(node, window) && node.packageName === packageName && !node.editable &&
@@ -311,6 +353,7 @@ function inspect(request, snapshot) {
                 bounds: rectValid(w.bounds) ? rectCopy(w.bounds) : null, active: w.active === true, focused: w.focused === true};
         });
         pair = findPair(r, snapshot, null);
+        report.targetSurfaceDiagnostics = diagnoseTargetSurface(r, pair);
         match = sourceMatch(r, pair);
         surface = targetSurface(r, pair, true);
         report.sourceTextFound = !!match;

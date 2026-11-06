@@ -7,6 +7,68 @@ var journals = require('./journal.js');
 var reports = require('./report.js');
 var phoneLaunch = require('./phone-launch.js');
 
+function storageError(stage, original) {
+    // Only fixed exception types/errno are diagnostic. Never export messages,
+    // stack traces, paths or arbitrary Java object strings.
+    var kind = 'OTHER';
+    var errno = null;
+    try {
+        if (original && ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError'].indexOf(original.name) >= 0) kind = original.name;
+        var cause = original && original.javaException;
+        if (cause && typeof cause.getClass === 'function') {
+            var name = String(cause.getClass().getName());
+            if (['java.io.IOException', 'java.io.FileNotFoundException', 'java.io.SyncFailedException',
+                'java.lang.SecurityException', 'android.system.ErrnoException'].indexOf(name) >= 0) kind = name;
+            if (name === 'android.system.ErrnoException') {
+                var number = Number(cause.errno);
+                if (isFinite(number) && Math.floor(number) === number && number > 0 && number <= 4095) errno = number;
+            }
+        }
+    } catch (ignored) { /* A diagnostic getter must not replace the storage failure. */ }
+    var failure = new Error('STORAGE_' + stage + '_FAILED');
+    failure.storageFailure = {status: 'FAILED', stage: stage, code: failure.message, kind: kind};
+    if (errno !== null) failure.storageFailure.errno = errno;
+    return failure;
+}
+
+function durableWrite(env, root, target, value) {
+    var temporary = null;
+    var stream = null;
+    var directoryFd = null;
+    var failure = null;
+    var stage = 'PREPARE';
+    try {
+        temporary = new env.java.io.File(root, target.getName() + '.new');
+        stage = 'FILE_OPEN';
+        stream = new env.java.io.FileOutputStream(temporary);
+        stage = 'ENCODE';
+        var encoded = new env.java.lang.String(JSON.stringify(value)).getBytes('UTF-8');
+        stage = 'WRITE';
+        stream.write(encoded);
+        stage = 'FILE_SYNC';
+        stream.getFD().sync();
+    } catch (error) { failure = storageError(stage, error); }
+    if (stream !== null) {
+        try { stream.close(); } catch (closeError) { if (failure === null) failure = storageError('CLOSE', closeError); }
+    }
+    if (failure !== null) throw failure;
+    try {
+        stage = 'RENAME';
+        if (!temporary.renameTo(target)) throw new Error('ATOMIC_RENAME_FAILED');
+        stage = 'DIR_OPEN';
+        directoryFd = env.android.system.Os.open(String(root.getAbsolutePath()),
+            env.android.system.OsConstants.O_RDONLY | env.android.system.OsConstants.O_DIRECTORY, 0);
+        stage = 'DIR_SYNC';
+        env.android.system.Os.fsync(directoryFd);
+    } catch (directoryError) { failure = storageError(stage, directoryError); }
+    if (directoryFd !== null) {
+        try { env.android.system.Os.close(directoryFd); }
+        catch (directoryCloseError) { if (failure === null) failure = storageError('DIR_CLOSE', directoryCloseError); }
+    }
+    if (failure !== null) throw failure;
+    return true;
+}
+
 function showResult(env, result, mode) {
     var options = { mode: mode || result.mode, includeDetails: false };
     env.dialogs.alert('제비서 독립 시험 결과', reports.formatResult(result, options));
@@ -92,20 +154,6 @@ function runPhone(env) {
         if (profile.schema !== 'jebiseo.autojs6.profile.v1') throw new Error('PROFILE_INVALID');
         var dataFile = new File(root, 'journal.json');
         var resultFile = new File(root, 'last-result.json');
-        function durableWrite(target, value) {
-            var temporary = new File(root, target.getName() + '.new');
-            var stream = new env.java.io.FileOutputStream(temporary);
-            try {
-                var encoded = new env.java.lang.String(JSON.stringify(value)).getBytes('UTF-8');
-                stream.write(encoded);
-                stream.getFD().sync();
-            } finally { stream.close(); }
-            if (!temporary.renameTo(target)) throw new Error('ATOMIC_RENAME_FAILED');
-            // Android Os.fsync on the directory makes the rename durable as well.
-            var directoryFd = env.android.system.Os.open(String(root.getAbsolutePath()), env.android.system.OsConstants.O_RDONLY | env.android.system.OsConstants.O_DIRECTORY, 0);
-            try { env.android.system.Os.fsync(directoryFd); } finally { env.android.system.Os.close(directoryFd); }
-            return true;
-        }
         function finish(value) {
             value.mode = mode;
             value.executionEnvironment = 'android-autojs6';
@@ -113,7 +161,16 @@ function runPhone(env) {
             value.recordedAt = new Date().toISOString();
             var saveFailed = false;
             var exportFailed = false;
-            try { durableWrite(resultFile, value); } catch (privateError) { saveFailed = true; }
+            // Store the observed result before describing that storage attempt.
+            // This state describes last-result.json only, never the journal.
+            try {
+                durableWrite(env, root, resultFile, value);
+                value.lastResultStorage = {status: 'SAVED'};
+            } catch (privateError) {
+                saveFailed = true;
+                value.lastResultStorage = privateError.storageFailure ||
+                    {status: 'FAILED', stage: 'UNKNOWN', code: 'STORAGE_UNKNOWN_FAILED', kind: 'OTHER'};
+            }
             try { exportResult(value); } catch (publicError) { exportFailed = true; }
             if (launchRequest) {
                 env.toast(exportFailed ? 'PC 결과 전달 실패. 현재 시험을 다시 실행하지 말고 화면을 확인하세요.' :
@@ -127,7 +184,7 @@ function runPhone(env) {
             return value;
         }
         var choice = launchRequest ? ['probe', 'selection', 'more', 'handoff', 'submit'].indexOf(mode) :
-            env.dialogs.select('제비서 독립 시험 0.3.1\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
+            env.dialogs.select('제비서 독립 시험 0.3.2\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
             '1. 화면·메뉴 읽기 — 버튼을 누르지 않음',
             '2. 시험 문장 선택까지만',
             '3. ⋯ 열고 Gemini 항목 확인까지만 — 전달 안 함',
@@ -151,7 +208,7 @@ function runPhone(env) {
         if (mode !== 'probe') {
             journal = journals.createJournal({
                 load: function () { return dataFile.exists() ? JSON.parse(env.files.read(String(dataFile.getAbsolutePath()))) : null; },
-                saveAtomic: function (value) { return durableWrite(dataFile, value); }
+                saveAtomic: function (value) { return durableWrite(env, root, dataFile, value); }
             });
             var unresolved = journal.unresolved();
             if (unresolved.length) {
@@ -240,7 +297,7 @@ function runPhone(env) {
     }
 }
 
-module.exports = { runPhone: runPhone, showResult: showResult };
+module.exports = { runPhone: runPhone, showResult: showResult, durableWrite: durableWrite };
 
 if (typeof context !== 'undefined' && typeof android !== 'undefined') {
     try {

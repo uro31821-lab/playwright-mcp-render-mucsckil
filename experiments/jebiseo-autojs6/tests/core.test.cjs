@@ -259,6 +259,149 @@ test("probe has no journal or actions, includes only scoped control labels and w
     assert.equal(unsupported.diagnostics.windows.length, 1, "unsupported probe still diagnoses observed windows");
 });
 
+test("surface diagnostics distinguish a title in description while the text-only gate stays blocked", () => {
+    const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+        const title = snapshot.windows[1].nodes.find(item => item.key === "gemini-title");
+        title.text = "";
+        title.desc = "Gemini";
+    }});
+    const result = core.run(f.req, f.io, null);
+    const diagnostic = result.diagnostics.targetSurfaceDiagnostics;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.code, "GEMINI_SURFACE_UNVERIFIED");
+    assert.equal(diagnostic.titleTextMatches, 0);
+    assert.equal(diagnostic.titleDescriptionMatches, 1);
+    assert.equal(diagnostic.configuredEditorMatches, 1);
+    assert.equal(diagnostic.allEditableCount, 1);
+    assert.equal(diagnostic.eligibleEditableCount, 1);
+    assert.equal(diagnostic.emptyIdCandidateCount, 0);
+    assert.equal(diagnostic.candidateEditorCount, 1);
+    assert.equal(diagnostic.candidatesTruncated, false);
+    assert.deepEqual(f.actions, []);
+    const action = core.run(Object.assign({}, f.req, {mode: "handoff"}), f.io, f.journal);
+    assert.equal(action.code, "GEMINI_SURFACE_UNVERIFIED", "description evidence must not relax title matching");
+    assert.deepEqual(f.actions, []);
+});
+
+test("surface diagnostics expose an alternate editor ID without exporting content or authorizing it", () => {
+    const alternateId = TARGET + ":id/observed_editor_variant";
+    const privateFields = [EXPECTED, "PRIVATE_EDITOR_TEXT", "PRIVATE_EDITOR_DESCRIPTION", "PRIVATE_EDITOR_HINT", "PRIVATE_EDITOR_VALUE", "PRIVATE_CHAT_TEXT"];
+    const f = fixture({request: {mode: "probe"}, inputId: alternateId, initialDraft: privateFields[1], mutateSnapshot(snapshot) {
+        const target = snapshot.windows[1];
+        const editor = target.nodes.find(item => item.key === "gemini-draft");
+        editor.desc = privateFields[2];
+        editor.hint = privateFields[3];
+        editor.value = privateFields[4];
+        editor.actions = [2097152, 131072];
+        target.nodes.push(node(2, "ordinary-private-message", [31], {left: 550, top: 200, right: 900, bottom: 250}, {text: privateFields[5]}));
+    }});
+    const result = core.run(f.req, f.io, null);
+    const diagnostic = result.diagnostics.targetSurfaceDiagnostics;
+    assert.equal(result.status, "blocked");
+    assert.equal(result.code, "GEMINI_SURFACE_UNVERIFIED");
+    assert.equal(diagnostic.titleTextMatches, 1);
+    assert.equal(diagnostic.configuredEditorMatches, 0);
+    assert.equal(diagnostic.candidateEditorCount, 1);
+    assert.deepEqual(diagnostic.eligibleEditorCandidates, [{
+        windowId: 2, viewId: alternateId, className: "android.widget.EditText",
+        bounds: {left: 540, top: 700, right: 900, bottom: 760}, editable: true, enabled: true, visible: true,
+        matchesConfiguredId: false, hasSetTextAction: true, hasSetSelectionAction: true
+    }]);
+    for (const text of privateFields) assert.ok(!JSON.stringify(result).includes(text), "content was not exported: " + text);
+    assert.deepEqual(f.actions, []);
+    assert.equal(core.run(Object.assign({}, f.req, {mode: "submit"}), f.io, f.journal).code, "GEMINI_SURFACE_UNVERIFIED");
+    assert.deepEqual(f.actions, [], "observed candidate IDs are not adopted as selectors");
+});
+
+test("surface candidates are bounded and distinguish editable, EditText, action, hidden, disabled, and empty-ID cases", () => {
+    const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+        const target = snapshot.windows[1];
+        target.nodes = target.nodes.filter(item => item.key !== "gemini-draft");
+        for (let index = 0; index < 10; index += 1) {
+            target.nodes.push(node(2, "candidate-" + index, [40 + index], {left: 550, top: 400, right: 900, bottom: 450}, {
+                viewId: index === 0 ? "" : TARGET + ":id/candidate_" + index,
+                editable: index !== 1 && index !== 2,
+                className: index === 0 || index === 2 ? "android.view.View" : "android.widget.EditText",
+                visible: index !== 1 && index !== 3,
+                enabled: index !== 2 && index !== 4,
+                actions: index === 0 ? [2097152, 131072] : (index === 2 ? [2097152] : [])
+            }));
+        }
+        target.nodes.push(node(2, "selection-only-node", [80], {left: 550, top: 500, right: 900, bottom: 550}, {actions: [131072]}));
+    }});
+    const result = core.run(f.req, f.io, null);
+    const diagnostic = result.diagnostics.targetSurfaceDiagnostics;
+    assert.equal(result.code, "GEMINI_SURFACE_UNVERIFIED");
+    assert.equal(diagnostic.configuredEditorMatches, 0);
+    assert.equal(diagnostic.allEditableCount, 8);
+    assert.equal(diagnostic.eligibleEditableCount, 6);
+    assert.equal(diagnostic.emptyIdCandidateCount, 1);
+    assert.equal(diagnostic.candidateEditorCount, 10);
+    assert.equal(diagnostic.candidatesTruncated, true);
+    assert.equal(diagnostic.eligibleEditorCandidates.length, 8);
+    assert.equal(diagnostic.eligibleEditorCandidates[1].editable, false);
+    assert.equal(diagnostic.eligibleEditorCandidates[1].visible, false);
+    assert.equal(diagnostic.eligibleEditorCandidates[2].hasSetTextAction, true);
+    assert.equal(diagnostic.eligibleEditorCandidates[2].enabled, false);
+    assert.deepEqual(f.actions, []);
+});
+
+test("surface diagnostics exclude invalid, off-window, foreign-package, and other-window candidates", () => {
+    const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+        const target = snapshot.windows[1];
+        const bounds = {left: 550, top: 400, right: 900, bottom: 450};
+        const cases = [
+            {bounds: {left: 500, top: 400, right: 900, bottom: 450}},
+            {bounds: {left: 550, top: 400, right: 550, bottom: 450}},
+            {bounds: {left: NaN, top: 400, right: 900, bottom: 450}},
+            {bounds: null}, {packageName: SOURCE}, {windowId: 99}, {key: null}, {path: null}, {path: [-1]}, {editable: "true"}
+        ];
+        cases.forEach((bad, index) => target.nodes.push(node(2, "invalid-" + index, [40 + index], bounds, Object.assign({
+            editable: true, className: "android.widget.EditText", viewId: TARGET + ":id/excluded_" + index, actions: [2097152]
+        }, bad))));
+        snapshot.windows[0].nodes.push(node(1, "source-editor", [50], {left: 20, top: 400, right: 450, bottom: 450}, {
+            editable: true, className: "android.widget.EditText", viewId: SOURCE + ":id/source_editor", actions: [2097152]
+        }));
+    }});
+    const result = core.run(f.req, f.io, null);
+    const diagnostic = result.diagnostics.targetSurfaceDiagnostics;
+    assert.equal(result.status, "probe_ok");
+    assert.equal(diagnostic.candidateEditorCount, 1);
+    assert.equal(diagnostic.allEditableCount, 1);
+    assert.equal(diagnostic.eligibleEditableCount, 1);
+    assert.equal(diagnostic.configuredEditorMatches, 1);
+    assert.equal(diagnostic.eligibleEditorCandidates[0].viewId, INPUT);
+    assert.ok(!JSON.stringify(diagnostic).includes("excluded_"));
+    assert.ok(!JSON.stringify(diagnostic).includes("source_editor"));
+    assert.deepEqual(f.actions, []);
+});
+
+test("surface diagnostic numeric counts and metadata lengths are bounded", () => {
+    const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+        const target = snapshot.windows[1];
+        target.nodes.find(item => item.key === "gemini-draft").viewId = TARGET + ":id/" + "x".repeat(700);
+        target.nodes.find(item => item.key === "gemini-draft").className = "a".repeat(300) + ".EditText";
+        for (let index = 0; index < 6001; index += 1) {
+            target.nodes.push(node(2, "extra-" + index, [40 + index], {left: 550, top: 400, right: 900, bottom: 450}, {
+                editable: true, viewId: "", text: "PRIVATE_TEXT_NOT_EXPORTED", desc: "PRIVATE_DESC_NOT_EXPORTED"
+            }));
+        }
+    }});
+    const result = core.run(f.req, f.io, null);
+    const diagnostic = result.diagnostics.targetSurfaceDiagnostics;
+    assert.equal(diagnostic.candidateEditorCount, 6000);
+    assert.equal(diagnostic.allEditableCount, 6000);
+    assert.equal(diagnostic.eligibleEditableCount, 6000);
+    assert.equal(diagnostic.emptyIdCandidateCount, 6000);
+    assert.equal(diagnostic.eligibleEditorCandidates.length, 8);
+    assert.equal(diagnostic.candidatesTruncated, true);
+    assert.equal(diagnostic.eligibleEditorCandidates[0].viewId.length, 512);
+    assert.equal(diagnostic.eligibleEditorCandidates[0].className.length, 256);
+    assert.ok(!JSON.stringify(result).includes("PRIVATE_TEXT_NOT_EXPORTED"));
+    assert.ok(!JSON.stringify(result).includes("PRIVATE_DESC_NOT_EXPORTED"));
+    assert.deepEqual(f.actions, []);
+});
+
 test("unknown framework toolbar labels are visible to probe but are never auto-selected", () => {
     function renameMenu(snapshot) {
         const toolbar = snapshot.windows.find(window => window.id === 3);
