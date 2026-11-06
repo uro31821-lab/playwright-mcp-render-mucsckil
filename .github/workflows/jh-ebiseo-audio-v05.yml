@@ -27,8 +27,9 @@ jobs:
           EBISEO_TEST_CURRENT_OWNER_ROOT: ${{ github.workspace }}/jh-server/owner-setup
         run: |
           set -euo pipefail
-          TMP_ROOT="$RUNNER_TEMP/ebiseo-owner"
-          rm -rf "$TMP_ROOT"
+          TMP_ROOT="$RUNNER_TEMP/ebiseo-audio/jh-server/owner-setup"
+          rm -rf "$RUNNER_TEMP/ebiseo-audio"
+          mkdir -p "$(dirname "$TMP_ROOT")"
           cp -a jh-server/owner-setup "$TMP_ROOT"
           node jh-server/owner-setup/ebiseo-audio-v05/audio-compose-current-host.mjs "$TMP_ROOT" --local-test-profile > "$RUNNER_TEMP/ebiseo-build.json"
           export EBISEO_TEST_SERVER_RUNTIME="$TMP_ROOT/server-integration/server-jh168-pending-approval-followup-operator.mjs"
