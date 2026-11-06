@@ -39,7 +39,6 @@ jobs:
           test -f "$EBISEO_TEST_SERVER_RUNTIME"
           echo "EBISEO_PIN_RUNTIME_ACTUAL=$(sha256sum "$EBISEO_TEST_SERVER_RUNTIME" | awk '{print $1}')"
           echo "EBISEO_PIN_DURABLE_ACTUAL=$(sha256sum "$TMP_ROOT/deployment/durable-native-host.mjs" | awk '{print $1}')"
-          node jh-server/owner-setup/ebiseo-audio-v05/audio-compose-current-host.mjs "$TMP_ROOT" --local-test-profile > "$RUNNER_TEMP/ebiseo-build.json"
           node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/ebiseo-audio-v05/*.test.mjs
       - name: Release boundary
         run: |
