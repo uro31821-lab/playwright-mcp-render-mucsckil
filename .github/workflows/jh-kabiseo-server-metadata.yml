@@ -1,0 +1,57 @@
+name: JH Kabiseo server metadata candidate
+on:
+  pull_request:
+    paths:
+      - 'host-kabiseo-assist/server/**'
+      - '.github/workflows/jh-kabiseo-server-metadata.yml'
+permissions: {contents: read}
+jobs:
+  metadata-producer-and-composition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false, path: candidate}
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+          path: baseline
+          ref: 0663e0c3b434f300803e5cf272609032a5e519d3
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+          path: previous
+          ref: 75c265188e1823537d224457d3ddf490bdf6e3d8
+      - name: Node builtin-only producer, capability and patch regressions
+        run: |
+          node --version
+          node --test --test-reporter=spec candidate/host-kabiseo-assist/server/*.test.mjs
+      - name: Preserve previous signer and completion regressions
+        env:
+          KABISEO_BASELINE_FILE: baseline/jh-server/server.mjs
+          KABISEO_PREVIOUS_PRODUCER: previous/host-kabiseo-assist/server/metadata-producer.mjs
+          KABISEO_TRANSPORT_RESULT: ${{ runner.temp }}/kabiseo-server-review/signed-completion-result.json
+        run: node --test --test-reporter=spec candidate/host-kabiseo-assist/server/signed-completion.integration.mjs
+      - name: Test authenticated capability then metadata over localhost HTTP (synthetic device only)
+        env:
+          KABISEO_BASELINE_FILE: baseline/jh-server/server.mjs
+          KABISEO_CAPABILITY_RESULT: ${{ runner.temp }}/kabiseo-server-review/capability-transport-result.json
+        run: node --test --test-reporter=spec candidate/host-kabiseo-assist/server/capability-transport.integration.mjs
+      - name: Restore existing locked generator dependencies without install hooks
+        run: |
+          set -euo pipefail
+          npm ci --prefix baseline/jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix baseline/jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          git -C baseline diff --exit-code -- jh-server/owner-setup/package.json jh-server/owner-setup/package-lock.json jh-server/owner-setup/owner-enrollment/package.json jh-server/owner-setup/owner-enrollment/package-lock.json
+      - name: Compose against existing reviewed runtime without starting server
+        env:
+          KABISEO_BASELINE_COMMIT: 0663e0c3b434f300803e5cf272609032a5e519d3
+        run: node candidate/host-kabiseo-assist/server/compose-review.mjs baseline "$RUNNER_TEMP/kabiseo-server-review"
+      - name: Preserve review evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-server-review-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-server-review/*-result.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -1,0 +1,58 @@
+name: JH Kabiseo Android read-only build
+on:
+  pull_request:
+    paths:
+      - 'host-kabiseo-assist/**'
+      - '.github/workflows/jh-kabiseo-android-readonly.yml'
+permissions:
+  contents: read
+concurrency:
+  group: kabiseo-android-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  android-library-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Re-run synthetic metadata contract tests
+        run: python3 host-kabiseo-assist/tools/test_metadata.py
+      - name: Check actual Android SDK and install checksum-pinned Gradle
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ANDROID_HOME:-}"
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt2"
+          sha256sum "$ANDROID_HOME/platforms/android-35/android.jar"
+          # Official release checksum: https://gradle.org/release-checksums/#v8.9
+          GRADLE_SHA256="d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab"
+          [[ "$GRADLE_SHA256" =~ ^[a-f0-9]{64}$ ]] || { echo 'Invalid pinned SHA-256; download blocked'; exit 1; }
+          mkdir -p "$RUNNER_TEMP/kabiseo-gradle"
+          curl --fail --location --retry 2 --connect-timeout 20 --max-time 180 https://downloads.gradle.org/distributions/gradle-8.9-bin.zip -o "$RUNNER_TEMP/kabiseo-gradle/gradle.zip"
+          printf '%s  %s\n' "$GRADLE_SHA256" "$RUNNER_TEMP/kabiseo-gradle/gradle.zip" | sha256sum --check --strict
+          unzip -q "$RUNNER_TEMP/kabiseo-gradle/gradle.zip" -d "$RUNNER_TEMP/kabiseo-gradle"
+          echo "$RUNNER_TEMP/kabiseo-gradle/gradle-8.9/bin" >> "$GITHUB_PATH"
+      - name: Compile Android library and run lint (not APK or phone)
+        working-directory: host-kabiseo-assist
+        run: gradle --no-daemon --console=plain --stacktrace :core:jar :android:assembleDebug :android:lintDebug
+      - name: Verify built archive and manifest boundaries
+        run: python3 host-kabiseo-assist/tools/verify_android_archive.py
+      - name: Preserve candidate build evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: kabiseo-readonly-android-${{ github.run_id }}
+          path: |
+            host-kabiseo-assist/android/build/outputs/aar/android-debug.aar
+            host-kabiseo-assist/core/build/libs/core.jar
+            host-kabiseo-assist/android/build/reports/lint-results-debug.*
+            host-kabiseo-assist/build/verification/*.json
+          if-no-files-found: warn
+          retention-days: 7

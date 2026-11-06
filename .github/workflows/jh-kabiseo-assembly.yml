@@ -1,0 +1,60 @@
+name: JH Kabiseo attested review assembly
+on:
+  push:
+    branches: [kabiseo-camera-metadata-v05-20261105]
+    paths:
+      - host-kabiseo-assist/server/review-assembly.mjs
+      - host-kabiseo-assist/server/review-assembly-checks.mjs
+      - host-kabiseo-assist/server/assembled-mcp.integration.mjs
+      - .github/workflows/jh-kabiseo-assembly.yml
+  pull_request:
+    paths:
+      - host-kabiseo-assist/server/review-assembly.mjs
+      - host-kabiseo-assist/server/review-assembly-checks.mjs
+      - host-kabiseo-assist/server/assembled-mcp.integration.mjs
+      - .github/workflows/jh-kabiseo-assembly.yml
+permissions:
+  contents: read
+jobs:
+  sealed-review-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+          path: candidate
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+          path: baseline
+          ref: 845c5dfd9925a9f40950f3a873b4e58bfada9990
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.23.4'
+          package-manager-cache: false
+      - name: Syntax and protected source preservation
+        run: |
+          set -euo pipefail
+          for f in review-assembly.mjs review-assembly-checks.mjs assembled-mcp.integration.mjs; do node --check candidate/host-kabiseo-assist/server/$f; done
+          cmp candidate/jh-server/owner-setup/deployment/durable-native-job-policy.mjs baseline/jh-server/owner-setup/deployment/durable-native-job-policy.mjs
+          test "$(git -C baseline rev-parse HEAD)" = 845c5dfd9925a9f40950f3a873b4e58bfada9990
+      - name: Reuse existing locked dependencies without install hooks
+        run: |
+          set -euo pipefail
+          npm ci --prefix baseline/jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix baseline/jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          git -C baseline diff --exit-code
+      - name: Assemble, fault-inject, verify before import and exercise original signed MCP routes
+        run: node candidate/host-kabiseo-assist/server/assembled-mcp.integration.mjs baseline "$RUNNER_TEMP/kabiseo-assembly-evidence"
+      - name: Verify baseline and operational entry unchanged after tests
+        if: always()
+        run: git -C baseline diff --exit-code
+      - name: Retain evidence only; never publish server dependencies, keys or APK
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-assembly-evidence-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-assembly-evidence/*-result.json
+          if-no-files-found: warn
+          retention-days: 7
