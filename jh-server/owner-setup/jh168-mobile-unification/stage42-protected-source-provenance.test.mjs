@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
 import {reverseJH168Mobile13ActionPolicyHost56}
  from './mobile13-action-policy-patch.mjs';
 import {assertReviewedSource} from './reviewed-source-audit.mjs';
@@ -16,7 +17,8 @@ const PRE_MOBILE='2c310f8b4a76d40604416e7dd4cb4976fdd1fc85';
 const REVIEWED_HOST_MEMORY='bd81675725609e67ca7bb2f8dc45f101f0820d8b';
 const REVIEWED_DIAGNOSTIC='8596f5ef299d27fa7064ee40a64a99030196774a';
 const REVIEWED_PR72='c6142bd21ea299a4464124356e9da34b58001900';
-const CURRENT_LIVE_BASE='d4afec4a657d4ad928560624536c01e2df6df1c7';
+const CURRENT_LIVE_BASE='0663e0c3b434f300803e5cf272609032a5e519d3';
+const REVIEWED_EVIDENCE_COMPOSITION_BLOB='b2e8c9ecc0673565744487fe0f6d4444bcb2a4b0';
 const ROOT='jh-server/owner-setup/';
 const git=args=>execFileSync('git',args,{encoding:'utf8',timeout:15000,maxBuffer:20*1024*1024}).trim();
 const show=(sha,path)=>execFileSync('git',['show',sha+':'+path],{encoding:'utf8',timeout:15000,maxBuffer:20*1024*1024});
@@ -69,12 +71,21 @@ test('previous exact PR72 mobile host modifications remain byte-identical and re
  assert.equal(current(host),show(CURRENT_LIVE_BASE,host));
  assert.equal(current(host),show(REVIEWED_PR72,host));
  assert.equal(reverseJH168Mobile13ActionPolicyHost56(current(host)),show(PRE_MOBILE,host));
- for(const other of [ROOT+'deployment/jh167-article-operational-review-composition.mjs',
-  ROOT+'deployment/jh167-connection-v2-assembled-preflight.test.mjs',
+ for(const other of [ROOT+'deployment/jh167-connection-v2-assembled-preflight.test.mjs',
   ROOT+'operational-learning/ANDROID-PRODUCER-COMPATIBILITY.md']){
   assert.equal(current(other),show(CURRENT_LIVE_BASE,other),other);
   assert.equal(current(other),show(REVIEWED_PR72,other),other);
  }
+ const p=ROOT+'deployment/jh167-article-operational-review-composition.mjs';
+ const reviewed=current(p),prior=show(REVIEWED_PR72,p);
+ assert.equal(reviewed,show(CURRENT_LIVE_BASE,p),'JH_EVIDENCE_LIVE_BASE_COMPOSITION_CHANGED');
+ const gitBlob=x=>createHash('sha1').update('blob '+Buffer.byteLength(x)+'\0').update(x).digest('hex');
+ assert.equal(gitBlob(reviewed),REVIEWED_EVIDENCE_COMPOSITION_BLOB,'JH_EVIDENCE_REVIEWED_BLOB_CHANGED');
+ const importLine="import {patchJHEvidenceSearchRuntime56} from '../evidence/perplexity-search-composition.mjs';\n";
+ const oldLine=' return patchJH168MobileWeb13VerifiedMode56(patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate))))));';
+ const newLine=' const verified=patchJH168MobileWeb13VerifiedMode56(patchJH167OpenCompletion56(patchJH167RightPaneOrchestrator56(patchJH167OfficialWebServiceNames56(patchJH167RightWebUrl56(patchJH167ConnectionV2Runtime(candidate))))));\n return patchJHEvidenceSearchRuntime56(verified);';
+ assert.equal(reviewed,importLine+prior.replace(oldLine,newLine),'JH_EVIDENCE_ONLY_REVIEWED_TWO_EDIT_COMPOSITION');
+ assert.equal(reviewed.slice(importLine.length).replace(newLine,oldLine),prior,'JH_EVIDENCE_REVERSE_SCOPE_CHANGED');
 });
 
 test('learning authority and unchanged phone-safety production sources match the current live base',()=>{
