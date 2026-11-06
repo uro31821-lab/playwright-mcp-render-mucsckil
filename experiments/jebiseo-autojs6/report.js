@@ -13,6 +13,8 @@ var STATUS = {
     unknown: ['결과 형식 확인 필요', '확인할 수 없는 결과입니다. 성공으로 판단하지 않습니다.']
 };
 var STAGE = {
+    BOOTSTRAP: '시험 시작 준비', STORAGE: '시험 기록 준비',
+    ACCESSIBILITY: '접근성 준비', ADAPTER: '화면 읽기 기능 준비',
     VALIDATE: '시험 조건 확인', SPLIT: '분할 화면 읽기', SELECT: '시험 문장 선택',
     MORE: '⋯ 메뉴 열기', MENU: 'Gemini 항목 찾기', DRAFT: 'Gemini 입력 내용 확인',
     SUBMIT: '전송 버튼 누르기', VERIFY_SUBMIT: '전송 결과 확인', UNKNOWN: '미확인'
@@ -28,6 +30,7 @@ var UNRESOLVED = {
     completion_unknown: '완료 결과 미확인'
 };
 var HINT = {
+    PHONE_RUNTIME_ERROR: '시험 코드 실행 중 오류가 발생했습니다. 현재 결과를 보존하고 표시된 확인 단계와 코드를 전달하세요.',
     SOURCE_WINDOW_MISSING: '왼쪽에 ChatGPT 앱이 보이는지 확인하세요. PC에서 시험을 시작하기 전 휴대폰 분할 화면을 준비합니다.',
     SOURCE_WINDOW_AMBIGUOUS: 'ChatGPT 창이 여러 개로 읽혔습니다. 시험할 창 하나만 남긴 배치를 확인하세요.',
     TARGET_WINDOW_MISSING: '오른쪽에 Gemini 앱이 보이는지 확인하세요. 앱이 보이는데도 이 코드가 나오면 읽기 결과로 화면 식별 정보를 확인해야 합니다.',

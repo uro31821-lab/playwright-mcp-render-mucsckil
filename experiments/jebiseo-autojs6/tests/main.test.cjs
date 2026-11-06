@@ -20,8 +20,10 @@ function launcher(options = {}) {
     const choices = (options.choices || [-1]).slice();
     function File(parent, name) { this.path = name ? path.posix.join(String(parent), name) : String(parent); }
     File.prototype.toString = function () { return this.path; };
-    File.prototype.exists = function () { return this.path === privateRoot || storage.has(this.path); };
-    File.prototype.mkdirs = function () { return true; };
+    File.prototype.exists = function () { return (this.path === privateRoot && !options.privateStorageFailure) || storage.has(this.path); };
+    File.prototype.mkdirs = function () { return !options.privateStorageFailure; };
+    File.prototype.isAbsolute = function () { return path.posix.isAbsolute(this.path); };
+    File.prototype.getParent = function () { return this.path === '/' ? null : path.posix.dirname(this.path); };
     File.prototype.getName = function () { return path.posix.basename(this.path); };
     File.prototype.length = function () { return Buffer.byteLength(storage.get(this.path) || ''); };
     File.prototype.getAbsolutePath = function () { return this.path; };
@@ -38,7 +40,8 @@ function launcher(options = {}) {
             io: {
                 File,
                 RandomAccessFile: function () {
-                    this.getChannel = () => ({tryLock: () => ({release: () => calls.released++})});
+                    if (options.lockOpenFailure) throw new TypeError('private-runtime-detail');
+                    this.getChannel = () => ({tryLock: () => options.lockBusy ? null : ({release: () => calls.released++})});
                     this.close = () => calls.closed++;
                 },
                 FileOutputStream: function (file) {
@@ -56,12 +59,13 @@ function launcher(options = {}) {
         },
         android: {system: {Os: {open: () => 1, fsync() {}, close() {}}, OsConstants: {O_RDONLY: 0, O_DIRECTORY: 65536}}},
         files: {
-            getParent: value => path.posix.dirname(value), join: (...values) => path.posix.join(...values),
+            // AutoJs6 6.8.0 exposes neither files.getParent nor files.getDir.
+            join: (...values) => path.posix.join(...values),
             exists: value => storage.has(value), read: value => {
                 assert.ok(storage.has(value), 'only an existing file can be read'); return storage.get(value);
             }
         },
-        engines: {myEngine: () => ({source: '/scripts/jebiseo-independent-test.js'})},
+        engines: {myEngine: () => ({source: options.sourcePath || '/scripts/jebiseo-independent-test.js'})},
         embeddedProfile: profile,
         dialogs: {select: () => choices.length ? choices.shift() : 2,
             alert: (title, content) => calls.alerts.push({title, content})},
@@ -204,7 +208,7 @@ test('invalid USB request cannot fall back to a clicked phone choice or run', ()
     assert.throws(() => lab.run(), /LAUNCH_REQUEST_INVALID/);
     assert.equal(lab.calls.permissions, 0);
     assert.equal(lab.calls.runs.length, 0);
-    assert.equal(lab.calls.released, 1);
+    assert.equal(lab.calls.released, 0, 'invalid request stops before private storage or locking');
 });
 
 test('USB mode ignores an old public profile and uses the reviewed bundled settings', () => {
@@ -234,4 +238,77 @@ test('unknown outbound runtime failure exports unknown to the same PC launch', (
     assert.equal(result.status, 'completion_unknown');
     assert.equal(result.launchId, request.launchId);
     assert.equal(lab.calls.runs.length, 1);
+});
+
+test('USB entry works with the official files API shape and Java File parent resolution', () => {
+    const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-native-file-probe', mode: 'probe'};
+    const lab = launcher({storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
+    assert.equal(lab.env.files.getParent, undefined);
+    assert.equal(lab.env.files.getDir, undefined);
+    assert.equal(lab.run().status, 'probe_ok');
+    assert.equal(lab.calls.runs.length, 1);
+    assert.equal(JSON.parse(lab.storage.get('/scripts/RESULT_PHONE.json')).launchId, request.launchId);
+});
+
+test('private storage startup failure returns the current USB result before accessibility or controller access', () => {
+    const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-storage-failure', mode: 'probe'};
+    const lab = launcher({privateStorageFailure: true, storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
+    assert.throws(() => lab.run(), /PRIVATE_STORAGE_UNAVAILABLE/);
+    const report = JSON.parse(lab.storage.get('/scripts/RESULT_PHONE.json'));
+    assert.equal(report.launchId, request.launchId);
+    assert.equal(report.code, 'PRIVATE_STORAGE_UNAVAILABLE');
+    assert.equal(report.status, 'blocked');
+    assert.match(report.reportText, /시험 기록 준비/);
+    assert.equal(lab.calls.permissions, 0);
+    assert.equal(lab.calls.runs.length, 0);
+    assert.equal(lab.calls.closed, 0);
+});
+
+test('unexpected lock-open failure returns bounded startup evidence and never leaks exception text', () => {
+    const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-lock-open-failure', mode: 'probe'};
+    const lab = launcher({lockOpenFailure: true, storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
+    assert.throws(() => lab.run(), /private-runtime-detail/);
+    const report = JSON.parse(lab.storage.get('/scripts/RESULT_PHONE.json'));
+    assert.equal(report.launchId, request.launchId);
+    assert.equal(report.code, 'PHONE_RUNTIME_ERROR');
+    assert.match(report.reportText, /시험 기록 준비/);
+    assert.doesNotMatch(JSON.stringify(report), /private-runtime-detail/);
+    assert.equal(lab.calls.runs.length, 0);
+    assert.equal(lab.calls.closed, 0);
+});
+
+test('outbound startup failure before an exclusive lock cannot claim that no other engine acted', () => {
+    for (const mode of ['handoff', 'submit']) {
+        const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-outbound-startup-failure', mode};
+        const lab = launcher({lockOpenFailure: true, storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
+        assert.throws(() => lab.run(), /private-runtime-detail/);
+        const report = JSON.parse(lab.storage.get('/scripts/RESULT_PHONE.json'));
+        assert.equal(report.launchId, request.launchId);
+        assert.equal(report.status, 'completion_unknown');
+        assert.equal(lab.calls.runs.length, 0);
+    }
+});
+
+test('a duplicate engine never overwrites an in-flight launch result or starts another controller', () => {
+    const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-same-inflight-id', mode: 'submit'};
+    const previous = '{"preserved":"in-flight-evidence"}';
+    const lab = launcher({lockBusy: true, storage: {
+        '/scripts/launch-request.json': JSON.stringify(request), '/scripts/RESULT_PHONE.json': previous
+    }});
+    assert.equal(lab.run(), null);
+    assert.equal(lab.storage.get('/scripts/RESULT_PHONE.json'), previous);
+    assert.equal(lab.calls.runs.length, 0);
+    assert.equal(lab.calls.permissions, 0);
+    assert.equal(lab.calls.released, 0);
+    assert.equal(lab.calls.closed, 1);
+});
+
+test('relative or parentless engine sources stop before file reads and any phone operation', () => {
+    for (const [sourcePath, code] of [['relative.js', 'SCRIPT_PATH_NOT_ABSOLUTE'], ['/', 'SCRIPT_PARENT_MISSING']]) {
+        const lab = launcher({sourcePath, choices: [4]});
+        assert.throws(() => lab.run(), new RegExp(code));
+        assert.equal(lab.storage.size, 0);
+        assert.equal(lab.calls.runs.length, 0);
+        assert.equal(lab.calls.permissions, 0);
+    }
 });

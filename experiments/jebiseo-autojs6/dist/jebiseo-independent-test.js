@@ -1,4 +1,4 @@
-// JH 제비서 독립 시험 0.3.0 — AutoJs6에서 실행. JH 운영 미연결.
+// JH 제비서 독립 시험 0.3.1 — AutoJs6에서 실행. JH 운영 미연결.
 // Generated with node build-bundle.cjs. Edit source modules, not this file.
 (function () {
 'use strict';
@@ -1255,6 +1255,8 @@ var STATUS = {
     unknown: ['결과 형식 확인 필요', '확인할 수 없는 결과입니다. 성공으로 판단하지 않습니다.']
 };
 var STAGE = {
+    BOOTSTRAP: '시험 시작 준비', STORAGE: '시험 기록 준비',
+    ACCESSIBILITY: '접근성 준비', ADAPTER: '화면 읽기 기능 준비',
     VALIDATE: '시험 조건 확인', SPLIT: '분할 화면 읽기', SELECT: '시험 문장 선택',
     MORE: '⋯ 메뉴 열기', MENU: 'Gemini 항목 찾기', DRAFT: 'Gemini 입력 내용 확인',
     SUBMIT: '전송 버튼 누르기', VERIFY_SUBMIT: '전송 결과 확인', UNKNOWN: '미확인'
@@ -1270,6 +1272,7 @@ var UNRESOLVED = {
     completion_unknown: '완료 결과 미확인'
 };
 var HINT = {
+    PHONE_RUNTIME_ERROR: '시험 코드 실행 중 오류가 발생했습니다. 현재 결과를 보존하고 표시된 확인 단계와 코드를 전달하세요.',
     SOURCE_WINDOW_MISSING: '왼쪽에 ChatGPT 앱이 보이는지 확인하세요. PC에서 시험을 시작하기 전 휴대폰 분할 화면을 준비합니다.',
     SOURCE_WINDOW_AMBIGUOUS: 'ChatGPT 창이 여러 개로 읽혔습니다. 시험할 창 하나만 남긴 배치를 확인하세요.',
     TARGET_WINDOW_MISSING: '오른쪽에 Gemini 앱이 보이는지 확인하세요. 앱이 보이는데도 이 코드가 나오면 읽기 결과로 화면 식별 정보를 확인해야 합니다.',
@@ -1534,9 +1537,8 @@ function showResult(env, result, mode) {
 
 function runPhone(env) {
     var File = env.java.io.File;
-    var root = new File(env.context.getFilesDir(), 'jebiseo-autojs6-lab');
-    if (!root.exists() && !root.mkdirs()) throw new Error('PRIVATE_STORAGE_UNAVAILABLE');
-    var lockFile = new env.java.io.RandomAccessFile(new File(root, 'run.lock'), 'rw');
+    var root = null;
+    var lockFile = null;
     var lock = null;
     var keyObserverStarted = false;
     var keyCancelAvailable = false;
@@ -1545,14 +1547,15 @@ function runPhone(env) {
     var coreStarted = false;
     var result = null;
     var exportResult = null;
+    var startupStage = 'BOOTSTRAP';
     try {
-        try { lock = lockFile.getChannel().tryLock(); } catch (busy) { lock = null; }
-        if (lock === null) {
-            env.dialogs.alert('제비서 독립 시험', '이미 시험이 실행 중입니다. 중복으로 실행하지 않습니다.');
-            return null;
-        }
         var sourcePath = String(env.engines.myEngine().source);
-        var scriptDir = env.files.getParent(sourcePath);
+        // AutoJs6 6.8.0 files has no getParent/getDir API. Use java.io.File.
+        var sourceFile = new File(sourcePath);
+        if (!sourceFile.isAbsolute()) throw new Error('SCRIPT_PATH_NOT_ABSOLUTE');
+        var parent = sourceFile.getParent();
+        if (parent === null) throw new Error('SCRIPT_PARENT_MISSING');
+        var scriptDir = String(parent);
         var requestPath = env.files.join(scriptDir, 'launch-request.json');
         if (env.files.exists(requestPath)) {
             if (Number(new File(requestPath).length()) > 2048) throw new Error('LAUNCH_REQUEST_INVALID');
@@ -1571,6 +1574,20 @@ function runPhone(env) {
             } finally { stream.close(); }
             if (!temporary.renameTo(destination)) throw new Error('PHONE_REPORT_RENAME_FAILED');
         };
+        // Prepare the trusted USB result channel before private storage/locking.
+        // Failures below can now finish the current PC wait without rerunning.
+        startupStage = 'STORAGE';
+        root = new File(env.context.getFilesDir(), 'jebiseo-autojs6-lab');
+        if (!root.exists() && !root.mkdirs()) throw new Error('PRIVATE_STORAGE_UNAVAILABLE');
+        lockFile = new env.java.io.RandomAccessFile(new File(root, 'run.lock'), 'rw');
+        try { lock = lockFile.getChannel().tryLock(); } catch (busy) { lock = null; }
+        if (lock === null) {
+            // Another engine may still be processing this same launch. Do not
+            // overwrite its result with a misleading blocked/failed receipt.
+            env.dialogs.alert('제비서 독립 시험', '이미 시험이 실행 중입니다. 중복으로 실행하지 않습니다.');
+            return null;
+        }
+        startupStage = 'VALIDATE';
         var profilePath = env.files.join(scriptDir, 'profile.json');
         if (!env.files.exists(profilePath)) profilePath = env.files.join(scriptDir, 'profile.example.json');
         var profile;
@@ -1617,7 +1634,7 @@ function runPhone(env) {
             return value;
         }
         var choice = launchRequest ? ['probe', 'selection', 'more', 'handoff', 'submit'].indexOf(mode) :
-            env.dialogs.select('제비서 독립 시험 0.3.0\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
+            env.dialogs.select('제비서 독립 시험 0.3.1\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
             '1. 화면·메뉴 읽기 — 버튼을 누르지 않음',
             '2. 시험 문장 선택까지만',
             '3. ⋯ 열고 Gemini 항목 확인까지만 — 전달 안 함',
@@ -1654,6 +1671,7 @@ function runPhone(env) {
                 return finish(blockedResult);
             }
         }
+        startupStage = 'ACCESSIBILITY';
         env.auto.waitFor();
         var cancelled = new env.java.util.concurrent.atomic.AtomicBoolean(false);
         try {
@@ -1671,6 +1689,7 @@ function runPhone(env) {
             Math.ceil(delay / 1000) + '초 뒤 선택한 시험을 시작합니다. ' +
                 (keyCancelAvailable ? '볼륨 아래 버튼은 중지입니다.' : '중지는 AutoJs6의 중지 버튼을 사용하세요.'));
         env.sleep(delay);
+        startupStage = 'ADAPTER';
         var io = adapter.createAdapter(env, { liveDevice: true, cancelled: function () { return cancelled.get() === true; } });
         var request = {
             // The same PC launch always uses the same journal key, including after a crash.
@@ -1707,9 +1726,11 @@ function runPhone(env) {
         if (launchRequest && exportResult) {
             var message = String(failure && failure.message || 'PHONE_RUNTIME_ERROR');
             var failureCode = /^[A-Z0-9_]{3,80}$/.test(message) ? message : 'PHONE_RUNTIME_ERROR';
-            var unknown = coreStarted && (mode === 'handoff' || mode === 'submit');
-            var failed = result || {schema: 'jebiseo.autojs6.result.v1', mode: mode,
-                status: unknown ? 'completion_unknown' : 'blocked', stage: 'UNKNOWN', code: failureCode,
+            // Before acquiring the lock we cannot rule out a different engine
+            // already processing the same outbound launch.
+            var unknown = (coreStarted || lock === null) && (mode === 'handoff' || mode === 'submit');
+            var failed = result || {schema: 'jebiseo.autojs6.result.v1', requestId: launchRequest.launchId, mode: mode,
+                status: unknown ? 'completion_unknown' : 'blocked', stage: coreStarted ? 'UNKNOWN' : startupStage, code: failureCode,
                 executionEnvironment: 'android-autojs6', jhIntegrated: false, liveDeviceVerified: false};
             try { exportResult(failed); } catch (exportError) { /* PC must report missing current result as unknown. */ }
         }
@@ -1721,7 +1742,7 @@ function runPhone(env) {
             if (keyObserverStarted) env.events.recycle();
         } finally {
             try { if (lock !== null) lock.release(); }
-            finally { lockFile.close(); }
+            finally { if (lockFile !== null) lockFile.close(); }
         }
     }
 }
