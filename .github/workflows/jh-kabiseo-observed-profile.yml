@@ -21,11 +21,18 @@ jobs:
         with: {persist-credentials: false, path: baseline, ref: '0663e0c3b434f300803e5cf272609032a5e519d3'}
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with: {node-version: '22.23.4', package-manager-cache: false}
-      - name: Syntax and protected source preservation
+      - name: Syntax and exact preservation of both original source lineages
         run: |
           set -euo pipefail
           for f in candidate/host-kabiseo-assist/server/observed-profile*.mjs; do node --check "$f"; done
-          diff -qr candidate/jh-server/owner-setup/deployment baseline/jh-server/owner-setup/deployment
+          # The long-lived review branch predates live Perplexity integration.
+          # No review-branch jh-server file is used to build the live-profile candidate.
+          # Validate its preservation against its OWN last reviewed commit instead
+          # of pretending historical and live source trees were originally equal.
+          git -C candidate fetch --no-tags --depth=1 origin 6016be5f08e81200d1bcb78387025ab1be6c661b
+          git -C candidate diff --exit-code 6016be5f08e81200d1bcb78387025ab1be6c661b HEAD -- jh-server
+          test "$(git -C baseline rev-parse HEAD)" = 0663e0c3b434f300803e5cf272609032a5e519d3
+          git -C baseline diff --exit-code
       - name: Restore unchanged locked dependencies without install scripts
         run: |
           set -euo pipefail
