@@ -1,0 +1,50 @@
+THIRD-PARTY SOFTWARE AND SOURCE INFORMATION
+
+This independent test delivery includes the following unmodified upstream
+components. The test scripts and Windows launcher are separate files.
+
+AutoJs6 6.8.0
+-------------
+Project: https://github.com/SuperMonster003/AutoJs6
+Release: https://github.com/SuperMonster003/AutoJs6/releases/tag/v6.8.0
+Source for this release:
+https://github.com/SuperMonster003/AutoJs6/tree/b7c88e117d70176058ae0c035194a7c188ffb8c2
+Source archive:
+https://github.com/SuperMonster003/AutoJs6/archive/b7c88e117d70176058ae0c035194a7c188ffb8c2.zip
+
+AutoJs6 is made available under the Mozilla Public License, version 2.0.
+The upstream license is included at licenses/AutoJs6-MPL-2.0.txt, copied
+byte-for-byte from the source commit above. The original APK is included at
+payload/autojs6.apk. It is not modified, rebuilt, or re-signed by this delivery.
+Its upstream notices and bundled dependency licenses remain inside the APK.
+The corresponding source is available at the source links above, without a
+charge from this delivery. No additional restriction is placed on the rights
+provided by the upstream license.
+
+Android SDK Platform-Tools (Windows)
+-----------------------------------
+Official documentation and downloads:
+https://developer.android.com/tools/releases/platform-tools
+Official package metadata:
+https://dl.google.com/android/repository/repository2-1.xml
+Android Debug Bridge source:
+https://android.googlesource.com/platform/packages/modules/adb/
+
+The stable Windows version and its official archive/checksum are recorded in
+assets-evidence.json. The files retained from that verified archive are adb.exe,
+all DLL dependencies supplied in the archive, NOTICE.txt, and source.properties.
+They are copied byte-for-byte to tools/platform-tools/. Unused executables are
+not included.
+
+The archive's upstream notices are retained at tools/platform-tools/NOTICE.txt.
+The license text associated with the selected package in Google's repository
+metadata is retained at licenses/ANDROID_SDK_LICENSE.txt. These upstream texts
+govern their respective components; this notice does not replace those terms.
+
+Verification and scope
+----------------------
+assets.json records the size and SHA-256 of every delivered file other than
+assets.json itself. assets-evidence.json records the actual download or verified
+cache operations and source identities. A file manifest is not a digital
+signature. Source verification and delivery assembly do not establish that the
+test has been installed or passed on a phone.
