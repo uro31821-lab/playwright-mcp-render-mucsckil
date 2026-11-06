@@ -84,7 +84,14 @@ public class JebiseoRawPhoneByteFixture {
     # Negative control: this is the pre-fix invocation with no decoder override.
     $legacy = Invoke-JebProcess $emitter @('stdout', $fixture) 10000
     $legacyRecord = ConvertFrom-JebPhoneResult $legacy.Text $runId 'probe'
-    Assert-Transport ($legacy.ExitCode -eq 0 -and $null -ne $legacyRecord -and $legacyRecord.code -ceq $record.code -and $legacyRecord.reportText -cne $expectedReport) 'legacy_cp949_accepts_ascii_envelope_but_corrupts_korean'
+    $expectedLegacy = [Text.Encoding]::GetEncoding(949).GetString([IO.File]::ReadAllBytes($fixture)).Trim()
+    $legacyJsonAccepted = $null -ne $legacyRecord
+    $legacyDiagnostic = [ordered]@{ consoleCodePage = [Console]::OutputEncoding.CodePage; exitCode = $legacy.ExitCode; timedOut = $legacy.TimedOut; codeUnits = $legacy.Text.Length; expectedCp949CodeUnits = $expectedLegacy.Length; matchesCp949Decoder = ($legacy.Text -ceq $expectedLegacy); equalsUtf8Json = ($legacy.Text -ceq $json); jsonAccepted = $legacyJsonAccepted }
+    Write-Host ('TRANSPORT_LEGACY_DIAGNOSTIC=' + ($legacyDiagnostic | ConvertTo-Json -Compress))
+    # CP949 can also consume a JSON escape or delimiter next to a multibyte
+    # sequence. Corruption is the invariant; parsing the corrupted envelope is
+    # not required for every fixture containing quotes, backslashes and emoji.
+    Assert-Transport ($legacy.ExitCode -eq 0 -and $legacy.Text -ceq $expectedLegacy -and $legacy.Text -cne $json) 'legacy_cp949_matches_wrong_decoder_and_corrupts_utf8_json'
 
     $fixed = Invoke-JebAdb $assets @('stdout', $fixture) 10000
     Assert-Transport ($fixed.ExitCode -eq 0 -and $fixed.Text -ceq $json) 'adb_stdout_decodes_exact_utf8_under_cp949'
@@ -108,7 +115,7 @@ public class JebiseoRawPhoneByteFixture {
     Assert-Transport ($saved -and $stored.phoneReport -ceq $expectedReport -and $text.Contains($expectedReport) -and $text.Contains('제비서 독립 시험 결과')) 'utf8_result_json_and_text_preserve_exact_report'
     $verifier = Invoke-JebProcess (Join-Path $PSHOME 'powershell.exe') @('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $KitRoot 'Confirm-Result.ps1'), '-RunId', $runId, '-Handoff', $handoff) 15000
     Assert-Transport ($verifier.ExitCode -eq 0) 'actual_powershell_verifier_accepts_unicode_result_hashes'
-    $evidence = [ordered]@{ schema = 'jebiseo.windows.utf8-transport-tests.v1'; passed = $checks.Count; cases = $checks.ToArray(); powershell = $PSVersionTable.PSVersion.ToString(); consoleCodePage = 949; legacyCorruptionReproduced = $true; exactUnicodeReportPreserved = $true; originalSystemLocaleChanged = $false; realNativeByteEmitter = $true; realAdb = 0; realPhone = 0; realInstall = 0 }
+    $evidence = [ordered]@{ schema = 'jebiseo.windows.utf8-transport-tests.v1'; passed = $checks.Count; cases = $checks.ToArray(); powershell = $PSVersionTable.PSVersion.ToString(); consoleCodePage = 949; legacyCorruptionReproduced = $true; legacyDiagnostic = $legacyDiagnostic; exactUnicodeReportPreserved = $true; originalSystemLocaleChanged = $false; realNativeByteEmitter = $true; realAdb = 0; realPhone = 0; realInstall = 0 }
     Write-JebNewText $EvidencePath ($evidence | ConvertTo-Json -Depth 4)
 } finally {
     try { if ($consoleReady) { [Console]::OutputEncoding = $previousEncoding } }
