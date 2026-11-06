@@ -85,6 +85,28 @@ test('actual core and adapter complete the mandatory More flow over Android-shap
     assert.equal(flow.lab.state.actionLog.length, attempts, 'same request is never replayed');
 });
 
+test('actual core and adapter stop after More and a delayed owned menu while preserving an existing Gemini draft', () => {
+    const flow = workflow();
+    const originalDraft = 'private existing draft';
+    flow.lab.draft.text = originalDraft;
+    const request = {...flow.request, requestId: 'adapter-core-more', mode: 'more', requestFingerprint: 'b'.repeat(64)};
+    const result = core.run(request, flow.lab.io, flow.journal);
+    assert.equal(result.status, 'menu_verified', JSON.stringify(result));
+    assert.equal(result.code, 'GEMINI_MENU_VERIFIED');
+    assert.equal(result.handoffDispatched, false);
+    assert.equal(result.submissionDispatched, false);
+    assert.equal(result.liveDeviceVerified, false);
+    assert.deepEqual(flow.stages, ['long_press', 'set_selection', 'more']);
+    assert.equal(flow.lab.state.actionLog.some(action => action.window === 33), false, 'the Gemini menu is observed but never clicked');
+    assert.ok(flow.lab.state.clock >= 500, 'the delayed popup was awaited');
+    assert.equal(flow.lab.draft.text, originalDraft);
+    assert.equal(result.diagnostics.geminiMenu[0].text, 'Gemini에게 물어보기');
+    assert.ok(result.diagnostics.observedMenuControls.some(control => control.windowId === 33 && control.text === 'Gemini에게 물어보기'));
+    assert.ok(!JSON.stringify(flow.records.get(request.requestId)).includes(originalDraft));
+    assert.ok(!JSON.stringify(flow.records.get(request.requestId)).includes(flow.expectedText));
+    assert.equal(flow.records.get(request.requestId).status, 'menu_verified');
+});
+
 test('actual adapter refuses a menu target changed after core inspection and core retains an unresolved handoff', () => {
     const flow = workflow();
     flow.lab.state.refreshHook = ({model}) => {

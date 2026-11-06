@@ -188,7 +188,60 @@ test("selection and handoff are separately observable stopping points", () => {
     assert.deepEqual(actionNames(handoff), ["long_press", "set_selection", "toolbar-more", "gemini-menu"]);
 });
 
-test("probe has no journal or actions, includes only redacted control/window metadata", () => {
+test("More-only observes the delayed Gemini menu without handing off or touching an existing draft", () => {
+    const originalDraft = "existing private Gemini draft";
+    const f = fixture({request: {mode: "more"}, initialDraft: originalDraft, menuDelayReads: 2});
+    const result = core.run(f.req, f.io, f.journal);
+    assert.equal(result.status, "menu_verified");
+    assert.equal(result.code, "GEMINI_MENU_VERIFIED");
+    assert.equal(result.stage, "MENU");
+    assert.equal(result.handoffDispatched, false);
+    assert.equal(result.handoffObserved, false);
+    assert.equal(result.submissionDispatched, false);
+    assert.equal(result.submissionObserved, false);
+    assert.equal(result.liveDeviceVerified, false);
+    assert.deepEqual(actionNames(f), ["long_press", "set_selection", "toolbar-more"]);
+    assert.ok(f.state.clock >= f.actionTimes[2] + 100, "menu appearance is observed after the More click");
+    assert.equal(f.state.draft, originalDraft);
+    assert.equal(result.diagnostics.targetDraftEmpty, false);
+    assert.equal(result.diagnostics.geminiMenu[0].text, "Gemini에게 물어보기");
+    assert.ok(result.diagnostics.observedMenuControls.some(item => item.role === "menu_item" && item.text === "Gemini에게 물어보기"));
+    assert.equal(f.records[f.req.requestId].status, "menu_verified");
+    assert.equal(f.journalHistory.some(record => ["handoff_intent", "submit_intent"].includes(record.status)), false);
+    assert.ok(!JSON.stringify({result, records: f.records}).includes(EXPECTED));
+    assert.ok(!JSON.stringify({result, records: f.records}).includes(originalDraft));
+    const attempts = f.actions.length;
+    const reads = f.state.reads;
+    const repeated = core.run(f.req, f.io, f.journal);
+    assert.equal(repeated.status, "menu_verified");
+    assert.equal(repeated.reusedReceipt, true);
+    assert.equal(f.actions.length, attempts);
+    assert.equal(f.state.reads, reads, "a completed More-only request is never replayed");
+});
+
+test("More-only still blocks a changed selection before reporting the menu verified", () => {
+    const f = fixture({request: {mode: "more"}, beforeRead(state) { if (state.more) state.selectionEnd -= 1; }});
+    const result = core.run(f.req, f.io, f.journal);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.code, "SELECTION_CHANGED");
+    assert.deepEqual(actionNames(f), ["long_press", "set_selection", "toolbar-more"]);
+    assert.equal(result.handoffDispatched, false);
+    assert.equal(result.submissionDispatched, false);
+});
+
+test("More-only diagnostics cannot turn an observed menu into a failed action result", () => {
+    const f = fixture({request: {mode: "more"}, mutateSnapshot(snapshot, state) {
+        if (state.more) snapshot.windows[1].nodes.find(item => item.key === "gemini-title").text = "Google";
+    }});
+    const result = core.run(f.req, f.io, f.journal);
+    assert.equal(result.status, "menu_verified");
+    assert.equal(result.code, "GEMINI_MENU_VERIFIED");
+    assert.equal(result.diagnostics.supported, false);
+    assert.equal(result.diagnostics.code, "GEMINI_SURFACE_UNVERIFIED");
+    assert.deepEqual(actionNames(f), ["long_press", "set_selection", "toolbar-more"]);
+});
+
+test("probe has no journal or actions, includes only scoped control labels and window metadata", () => {
     const f = fixture({request: {mode: "probe"}});
     const result = core.run(f.req, f.io, null);
     assert.equal(result.status, "probe_ok");
@@ -197,11 +250,103 @@ test("probe has no journal or actions, includes only redacted control/window met
     assert.deepEqual(f.actions, []);
     assert.deepEqual(f.journalHistory, []);
     assert.equal(result.diagnostics.windows.length, 2);
+    assert.deepEqual(result.diagnostics.observedMenuControls, []);
+    assert.equal(result.diagnostics.sendControls[0].description, "Send");
     assert.ok(!JSON.stringify(result).includes(EXPECTED));
     const missing = fixture({request: {mode: "probe"}, mutateSnapshot(s) { s.windows.splice(1, 1); }});
     const unsupported = core.run(missing.req, missing.io, null);
     assert.equal(unsupported.code, "TARGET_WINDOW_MISSING");
     assert.equal(unsupported.diagnostics.windows.length, 1, "unsupported probe still diagnoses observed windows");
+});
+
+test("unknown framework toolbar labels are visible to probe but are never auto-selected", () => {
+    function renameMenu(snapshot) {
+        const toolbar = snapshot.windows.find(window => window.id === 3);
+        const item = toolbar && toolbar.nodes.find(item => item.key === "gemini-menu");
+        if (item) item.text = "Gemini에서 이어 하기";
+    }
+    const probe = fixture({request: {mode: "probe"}, mutateSnapshot: renameMenu});
+    probe.state.selectionMode = probe.state.more = true;
+    const observed = core.run(probe.req, probe.io, null);
+    assert.equal(observed.status, "probe_ok");
+    assert.equal(observed.diagnostics.geminiMenu.length, 0);
+    assert.ok(observed.diagnostics.observedMenuControls.some(item => item.text === "Gemini에서 이어 하기"));
+    assert.deepEqual(probe.actions, []);
+    const action = fixture({request: {mode: "more"}, mutateSnapshot: renameMenu});
+    const blocked = core.run(action.req, action.io, action.journal);
+    assert.equal(blocked.status, "blocked");
+    assert.equal(blocked.code, "GEMINI_MENU_NOT_FOUND");
+    assert.deepEqual(actionNames(action), ["long_press", "set_selection", "toolbar-more"]);
+    assert.equal(blocked.handoffDispatched, false);
+});
+
+test("probe omits conversation, source content, editable nodes, and foreign or unowned popup labels", () => {
+    const privateDraft = "PRIVATE_DRAFT_NEVER_EXPORTED";
+    const excluded = [EXPECTED, privateDraft, "PRIVATE_CONVERSATION", "PRIVATE_EDITOR", "FOREIGN_POPUP", "UNOWNED_POPUP"];
+    const f = fixture({request: {mode: "probe"}, initialDraft: privateDraft, mutateSnapshot(snapshot) {
+        const source = snapshot.windows[0];
+        const toolbar = snapshot.windows.find(window => window.id === 3);
+        source.nodes.find(item => item.key === "source-text").viewId = "android:id/floating_toolbar_menu_item_text";
+        source.nodes.push(node(1, "ordinary-conversation", [8], {left: 30, top: 350, right: 400, bottom: 390}, {text: "PRIVATE_CONVERSATION"}));
+        toolbar.nodes.push(node(3, "editable-toolbar", [8], toolbar.bounds, {
+            viewId: "android:id/floating_toolbar_menu_item_text", text: "Gemini에게 물어보기", desc: "PRIVATE_EDITOR", editable: true
+        }));
+        toolbar.nodes.push(node(3, "label-with-selection", [9], toolbar.bounds, {
+            viewId: "android:id/floating_toolbar_menu_item_text", text: "검색: " + EXPECTED
+        }));
+        toolbar.nodes.push(node(3, "disabled-toolbar-action", [10], toolbar.bounds, {
+            viewId: "android:id/floating_toolbar_menu_item_text", text: "사용 불가 메뉴", enabled: false
+        }));
+        for (const [id, label, packageName, parentId] of [[8, "FOREIGN_POPUP", "foreign.app", 1], [9, "UNOWNED_POPUP", SOURCE, null]]) {
+            snapshot.windows.push({id, displayId: 0, type: 3, packageName, parentId, active: false, focused: false, layer: 4,
+                bounds: toolbar.bounds, nodes: [node(id, label, [0], toolbar.bounds, {
+                    packageName, viewId: "android:id/floating_toolbar_menu_item_text", text: label
+                })]});
+        }
+    }});
+    f.state.selectionMode = true;
+    const result = core.run(f.req, f.io, null);
+    assert.equal(result.status, "probe_ok");
+    const observed = result.diagnostics.observedMenuControls;
+    assert.deepEqual(observed.map(item => item.text || item.description), ["옵션 더보기", "사용 불가 메뉴"]);
+    assert.equal(observed[1].enabled, false, "disabled controls are observational evidence, not click candidates");
+    assert.deepEqual(result.diagnostics.geminiMenu, [], "an editable field is not a matched menu even with a matching label/ID");
+    for (const text of excluded) assert.ok(!JSON.stringify(result).includes(text), "private/untrusted label omitted: " + text);
+    assert.deepEqual(f.actions, []);
+});
+
+test("probe bounds toolbar observations and labels without treating the extra labels as matches", () => {
+    const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+        const toolbar = snapshot.windows.find(window => window.id === 3);
+        for (let index = 0; index < 20; index += 1) {
+            toolbar.nodes.push(node(3, "unknown-" + index, [index + 1], toolbar.bounds, {
+                text: "메뉴-" + index + ":" + "가".repeat(100), desc: "설명".repeat(60)
+            }));
+        }
+    }});
+    f.state.selectionMode = true;
+    const result = core.run(f.req, f.io, null);
+    assert.equal(result.status, "probe_ok");
+    assert.equal(result.diagnostics.observedMenuControls.length, 16);
+    assert.ok(result.diagnostics.observedMenuControls.every(item => item.text.length <= 80 && item.description.length <= 80));
+    assert.equal(result.diagnostics.geminiMenu.length, 0);
+    assert.deepEqual(f.actions, []);
+});
+
+test("probe reports an actual Send child label rather than its unlabelled clickable ancestor", () => {
+    const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+        const target = snapshot.windows[1];
+        const send = target.nodes.find(item => item.key === "gemini-send");
+        send.desc = "";
+        target.nodes.push(node(2, "actual-send-label", [2, 0], send.bounds, {text: "전송"}));
+    }});
+    const result = core.run(f.req, f.io, null);
+    assert.equal(result.status, "probe_ok");
+    assert.equal(result.diagnostics.sendControls.length, 1);
+    assert.equal(result.diagnostics.sendControls[0].key, "gemini-send");
+    assert.equal(result.diagnostics.sendControls[0].text, "전송");
+    assert.equal(result.diagnostics.sendControls[0].description, "");
+    assert.deepEqual(f.actions, []);
 });
 
 const badWindows = [

@@ -5,8 +5,8 @@ var RESULT_SCHEMA = "jebiseo.autojs6.result.v1";
 var JOURNAL_SCHEMA = "jebiseo.autojs6.journal.v1";
 var SET_SELECTION = 131072;
 var DEFAULT_INPUT_ID = "com.google.android.googlequicksearchbox:id/assistant_robin_input_collapsed_text_half_sheet";
-var MODES = ["probe", "selection", "handoff", "submit"];
-var TERMINAL = ["selection_verified", "handoff_verified", "submission_observed", "blocked", "cancelled", "completion_unknown"];
+var MODES = ["probe", "selection", "more", "handoff", "submit"];
+var TERMINAL = ["selection_verified", "menu_verified", "handoff_verified", "submission_observed", "blocked", "cancelled", "completion_unknown"];
 var TOOLBAR_CONTAINERS = [
     "android:id/floating_popup_container",
     "android:id/floating_toolbar",
@@ -191,7 +191,7 @@ function toolbarNodes(request, snapshot, pair, role) {
         if (!ownedWindow(snapshot, w, pair.source) || !includes([request.sourcePackage, "android", "com.android.systemui"], w.packageName)) { return; }
         w.nodes.forEach(function (node) {
             var trusted;
-            if (!usableNode(node, w) || !includes([request.sourcePackage, "android", "com.android.systemui"], node.packageName)) { return; }
+            if (!usableNode(node, w) || node.editable === true || !includes([request.sourcePackage, "android", "com.android.systemui"], node.packageName)) { return; }
             if (role === "more") {
                 trusted = (node.viewId === "android:id/overflow" && hasToolbarAncestor(node, w)) ||
                     node.viewId === "android:id/floating_toolbar_overflow_button";
@@ -256,12 +256,48 @@ function notCovered(snapshot, target) {
         return w.id !== target.window.id && w.displayId === target.window.displayId && w.layer > target.window.layer && intersection(w.bounds, target.node.bounds) > 0;
     })) { stop("CONTROL_OCCLUDED"); }
 }
-function metadata(target) {
+function diagnosticLabel(value, request) {
+    if (typeof value !== "string" || (request.expectedText && value.indexOf(request.expectedText) !== -1)) { return ""; }
+    return value.slice(0, 80);
+}
+function metadata(target, request) {
     var node = target.node;
-    return {key: node.key, windowId: node.windowId, viewId: node.viewId || "", className: node.className || "", bounds: rectCopy(node.bounds), clickable: node.clickable === true, editable: node.editable === true};
+    var label = target.labelNode || node;
+    return {key: node.key, windowId: node.windowId, viewId: node.viewId || "", className: node.className || "", bounds: rectCopy(node.bounds),
+        clickable: node.clickable === true, editable: node.editable === true,
+        text: diagnosticLabel(label.text, request), description: diagnosticLabel(label.desc, request)};
+}
+function observedMenuControls(request, snapshot, pair, source) {
+    var result = [];
+    snapshot.windows.forEach(function (w) {
+        if (result.length >= 16 || !ownedWindow(snapshot, w, pair.source) ||
+            !includes([request.sourcePackage, "android", "com.android.systemui"], w.packageName)) { return; }
+        w.nodes.forEach(function (node) {
+            var more;
+            var text;
+            var description;
+            // Observation is broader than execution only in label matching and
+            // enabled state. Window ownership and framework toolbar identity
+            // still apply; observing an unknown label never makes it actionable.
+            if (result.length >= 16 || !node || node.windowId !== w.id || node.visible !== true || node.editable === true ||
+                typeof node.key !== "string" || !Array.isArray(node.path) || !inside(node.bounds, w.bounds) ||
+                !includes([request.sourcePackage, "android", "com.android.systemui"], node.packageName) ||
+                includes(TOOLBAR_CONTAINERS, node.viewId) ||
+                (source && source.node.key === node.key && source.window.id === w.id)) { return; }
+            more = (node.viewId === "android:id/overflow" && hasToolbarAncestor(node, w)) ||
+                node.viewId === "android:id/floating_toolbar_overflow_button";
+            if (!more && node.viewId !== "android:id/floating_toolbar_menu_item_text" && !hasToolbarAncestor(node, w)) { return; }
+            text = diagnosticLabel(node.text, request);
+            description = diagnosticLabel(node.desc, request);
+            if (!text && !description) { return; }
+            result.push({role: more ? "more" : "menu_item", text: text, description: description,
+                viewId: node.viewId || "", windowId: w.id, clickable: node.clickable === true, enabled: node.enabled === true});
+        });
+    });
+    return result;
 }
 function inspect(request, snapshot) {
-    var report = {schema: "jebiseo.autojs6.probe.v1", supported: false, code: "INVALID_REQUEST", windows: []};
+    var report = {schema: "jebiseo.autojs6.probe.v1", supported: false, code: "INVALID_REQUEST", windows: [], observedMenuControls: []};
     var r;
     var pair;
     var match;
@@ -282,9 +318,10 @@ function inspect(request, snapshot) {
         report.selectionApi = !!match && Array.isArray(match.node.actions) && includes(match.node.actions, SET_SELECTION);
         report.geminiSurfaceVerified = !!surface;
         report.targetDraftEmpty = !!surface && surface.draft.text === "";
-        report.more = toolbarNodes(r, snapshot, pair, "more").map(metadata);
-        report.geminiMenu = toolbarNodes(r, snapshot, pair, "menu").map(metadata);
-        report.sendControls = controls(r, pair, r.sendLabels, r.targetSendIds).map(metadata);
+        report.observedMenuControls = observedMenuControls(r, snapshot, pair, match);
+        report.more = toolbarNodes(r, snapshot, pair, "more").map(function (target) { return metadata(target, r); });
+        report.geminiMenu = toolbarNodes(r, snapshot, pair, "menu").map(function (target) { return metadata(target, r); });
+        report.sendControls = controls(r, pair, r.sendLabels, r.targetSendIds).map(function (target) { return metadata(target, r); });
         report.supported = !!surface;
         report.code = surface ? "SPLIT_PROBE_OK" : "GEMINI_SURFACE_UNVERIFIED";
     } catch (error) { report.code = error.labCode || "PROBE_FAILED"; }
@@ -510,6 +547,13 @@ function run(request, io, journal) {
             return items.length === 1 ? {context: item, target: items[0], selected: selectedNode} : null;
         }, "GEMINI_MENU_NOT_FOUND");
         verified();
+        if (r.mode === "more") {
+            // Use the snapshot that already proved the owned Gemini item was
+            // visible. Diagnostic support is informational, not a second action
+            // gate, and no handoff intent or Gemini click is created here.
+            result.diagnostics = inspect(r, handoff.context.snapshot);
+            return finish("menu_verified", "GEMINI_MENU_VERIFIED");
+        }
         initialSurface = targetSurface(r, handoff.context.pair, false);
         if (initialSurface.draft.text !== "") { stop("TARGET_DRAFT_CHANGED"); }
         preHandoffEvidence = evidence(r, handoff.context.pair);

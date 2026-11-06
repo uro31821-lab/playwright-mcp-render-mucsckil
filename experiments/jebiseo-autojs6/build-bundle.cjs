@@ -3,10 +3,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 // A single phone-importable file; the generated output is also checked into Git.
-const sources = ['core.js', 'autojs-adapter.js', 'journal.js', 'main.js'];
+const sources = ['core.js', 'autojs-adapter.js', 'journal.js', 'report.js', 'main.js'];
 const profile = JSON.parse(fs.readFileSync(path.join(__dirname, 'profile.example.json'), 'utf8'));
 const lines = [
-  '// JH 제비서 독립 시험 0.1.0 — AutoJs6에서 실행. JH 운영 미연결.',
+  '// JH 제비서 독립 시험 0.2.0 — AutoJs6에서 실행. JH 운영 미연결.',
   '// Generated with node build-bundle.cjs. Edit source modules, not this file.',
   '(function () {',
   "'use strict';",

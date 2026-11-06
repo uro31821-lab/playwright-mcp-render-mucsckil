@@ -4,6 +4,28 @@
 var core = require('./core.js');
 var adapter = require('./autojs-adapter.js');
 var journals = require('./journal.js');
+var reports = require('./report.js');
+
+function showResult(env, result, mode) {
+    var options = { mode: mode || result.mode, includeDetails: false };
+    env.dialogs.alert('제비서 독립 시험 결과', reports.formatResult(result, options));
+    var action = env.dialogs.select('시험 결과 가져오기', [
+        '결과 복사 — 이 대화에 붙여넣기',
+        '상세 결과 보기',
+        '닫기'
+    ]);
+    if (action === 0) {
+        try {
+            if (typeof env.setClip !== 'function') throw new Error('CLIPBOARD_UNAVAILABLE');
+            env.setClip(reports.formatResult(result, { mode: mode || result.mode }));
+            env.toast('이 대화 입력창에 시험 결과를 붙여넣어 주세요.');
+        } catch (clipboardError) {
+            env.dialogs.alert('시험 결과는 보존되어 있습니다', '결과 복사를 완료하지 못했습니다. 결과 화면을 캡처하거나 6번 최근 결과 보기로 다시 확인하세요.');
+        }
+    } else if (action === 1) {
+        env.dialogs.alert('상세 결과', reports.formatResult(result, { mode: mode || result.mode }));
+    }
+}
 
 function runPhone(env) {
     var File = env.java.io.File;
@@ -12,6 +34,7 @@ function runPhone(env) {
     var lockFile = new env.java.io.RandomAccessFile(new File(root, 'run.lock'), 'rw');
     var lock = null;
     var keyObserverStarted = false;
+    var keyCancelAvailable = false;
     try {
         try { lock = lockFile.getChannel().tryLock(); } catch (busy) { lock = null; }
         if (lock === null) {
@@ -28,6 +51,7 @@ function runPhone(env) {
         else throw new Error('PROFILE_MISSING');
         if (profile.schema !== 'jebiseo.autojs6.profile.v1') throw new Error('PROFILE_INVALID');
         var dataFile = new File(root, 'journal.json');
+        var resultFile = new File(root, 'last-result.json');
         function durableWrite(target, value) {
             var temporary = new File(root, target.getName() + '.new');
             var stream = new env.java.io.FileOutputStream(temporary);
@@ -42,23 +66,43 @@ function runPhone(env) {
             try { env.android.system.Os.fsync(directoryFd); } finally { env.android.system.Os.close(directoryFd); }
             return true;
         }
-        var journal = journals.createJournal({
-            load: function () { return dataFile.exists() ? JSON.parse(env.files.read(String(dataFile.getAbsolutePath()))) : null; },
-            saveAtomic: function (value) { return durableWrite(dataFile, value); }
-        });
-        var choice = env.dialogs.select('제비서 독립 시험\n시험 문장: ' + profile.testText, [
-            '1. 읽기 전용 점검',
-            '2. 글 선택까지만 시험',
-            '3. ⋯ → Gemini 전달 시험 — 메뉴에 따라 즉시 전송 가능',
-            '4. Gemini 전송까지 시험 — 위 문장 1회 전송'
+        var choice = env.dialogs.select('제비서 독립 시험 0.2.0\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
+            '1. 화면·메뉴 읽기 — 버튼을 누르지 않음',
+            '2. 시험 문장 선택까지만',
+            '3. ⋯ 열고 Gemini 항목 확인까지만 — 전달 안 함',
+            '4. 문장 선택부터 Gemini에 전달 — 메뉴가 즉시 전송할 수도 있음',
+            '5. 문장 선택부터 Gemini 전송까지 — 시험 문장 1회 전송',
+            '6. 최근 결과 보기·복사 — 화면 조작 없음'
         ]);
         if (choice < 0) return null;
-        var mode = ['probe', 'selection', 'handoff', 'submit'][choice];
+        if (choice === 5) {
+            if (!resultFile.exists()) {
+                env.dialogs.alert('최근 결과 없음', '먼저 1번 화면·메뉴 읽기를 실행하세요.');
+                return null;
+            }
+            var previousResult = JSON.parse(env.files.read(String(resultFile.getAbsolutePath())));
+            showResult(env, previousResult, previousResult.mode);
+            return previousResult;
+        }
+        var mode = ['probe', 'selection', 'more', 'handoff', 'submit'][choice];
         if (!mode) throw new Error('MODE_INVALID');
-        var unresolved = journal.unresolved();
-        if (mode !== 'probe' && unresolved.length) {
-            env.dialogs.alert('이전 시험 결과 확인 필요', '이전 실행의 결과가 미확인입니다. 먼저 읽기 전용 점검으로 현재 화면을 확인합니다.\n' + JSON.stringify(unresolved));
-            return { status: 'blocked', code: 'PREVIOUS_ATTEMPT_UNRESOLVED' };
+        var journal = null;
+        if (mode !== 'probe') {
+            journal = journals.createJournal({
+                load: function () { return dataFile.exists() ? JSON.parse(env.files.read(String(dataFile.getAbsolutePath()))) : null; },
+                saveAtomic: function (value) { return durableWrite(dataFile, value); }
+            });
+            var unresolved = journal.unresolved();
+            if (unresolved.length) {
+                var blockedResult = { schema: 'jebiseo.autojs6.result.v1', mode: mode,
+                    status: 'blocked', stage: 'VALIDATE', code: 'PREVIOUS_ATTEMPT_UNRESOLVED',
+                    executionEnvironment: 'android-autojs6', jhIntegrated: false,
+                    liveDeviceVerified: false, handoffDispatched: false, handoffObserved: false,
+                    submissionDispatched: false, submissionObserved: false,
+                    unresolvedAttempts: unresolved };
+                showResult(env, blockedResult, mode);
+                return blockedResult;
+            }
         }
         env.auto.waitFor();
         var cancelled = new env.java.util.concurrent.atomic.AtomicBoolean(false);
@@ -66,11 +110,17 @@ function runPhone(env) {
             keyObserverStarted = true;
             env.events.observeKey();
             env.events.onKeyDown('volume_down', function () { cancelled.set(true); });
+            keyCancelAvailable = true;
         } catch (keyUnavailable) {
             // AutoJs6's own stop control still terminates the engine. Journal remains claimed.
         }
-        env.toast('분할 화면을 유지하세요. 잠시 뒤 ' + mode + ' 시험을 시작합니다. 볼륨 아래 버튼은 중지입니다.');
-        env.sleep(Math.min(10000, Math.max(2000, Number(profile.startDelayMs) || 3500)));
+        var delay = mode === 'probe' ? (Number(profile.probeDelayMs) || 10000) : (Number(profile.startDelayMs) || 3500);
+        delay = Math.min(15000, Math.max(2000, delay));
+        env.toast(mode === 'probe' ?
+            Math.ceil(delay / 1000) + '초 뒤 현재 화면을 읽습니다. 메뉴를 보고 싶으면 그동안 직접 열어 두세요.' :
+            Math.ceil(delay / 1000) + '초 뒤 선택한 시험을 시작합니다. ' +
+                (keyCancelAvailable ? '볼륨 아래 버튼은 중지입니다.' : '중지는 AutoJs6의 중지 버튼을 사용하세요.'));
+        env.sleep(delay);
         var io = adapter.createAdapter(env, { liveDevice: true, cancelled: function () { return cancelled.get() === true; } });
         var request = {
             requestId: String(env.java.util.UUID.randomUUID().toString()),
@@ -98,13 +148,14 @@ function runPhone(env) {
         }
         request.requestFingerprint = digestHex;
         var result = core.run(request, io, journal);
+        result.mode = mode;
         result.executionEnvironment = 'android-autojs6';
         result.jhIntegrated = false;
         result.recordedAt = new Date().toISOString();
-        durableWrite(new File(root, 'last-result.json'), result);
-        // No full UI dumps or selected text are written to the report.
+        durableWrite(resultFile, result);
+        // Only bounded menu-control labels and metadata, never conversations/drafts.
         env.console.log(JSON.stringify(result, null, 2));
-        env.dialogs.alert('제비서 독립 시험 결과', JSON.stringify(result, null, 2));
+        showResult(env, result, mode);
         return result;
     } finally {
         try {
@@ -118,7 +169,7 @@ function runPhone(env) {
     }
 }
 
-module.exports = { runPhone: runPhone };
+module.exports = { runPhone: runPhone, showResult: showResult };
 
 if (typeof context !== 'undefined' && typeof android !== 'undefined') {
     try {
@@ -126,7 +177,7 @@ if (typeof context !== 'undefined' && typeof android !== 'undefined') {
             auto: auto, android: android, java: java, context: context, device: device,
             files: files, engines: engines, dialogs: dialogs, events: events,
             sleep: sleep, press: press, swipe: swipe, gesture: gesture,
-            toast: toast, console: console,
+            toast: toast, console: console, setClip: setClip,
             embeddedProfile: typeof __JEBISEO_LAB_PROFILE === 'undefined' ? null : __JEBISEO_LAB_PROFILE
         });
     } catch (error) {

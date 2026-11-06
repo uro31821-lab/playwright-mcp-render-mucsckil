@@ -2,6 +2,8 @@
 
 Date: 2026-11-06 (Asia/Seoul)
 
+Current preparation: **0.2.0**, independently test the accessibility/menu stages on the phone. Development continues in draft PR [#173](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/173), branch `experiment/jebiseo-autojs6-20261106`, from experiment commit `11496c31ecf35fb9514922c5741b8ea23f057a0a`.
+
 ## User goal and scope
 
 Develop and test only the native split-screen text handoff independently, then consider JH integration after real-phone feasibility is established. Required sequence includes the previously omitted selection-toolbar More step: selection → More → Gemini menu → matching draft → one submit → observed submission.
@@ -23,12 +25,17 @@ The repository baseline is `uro31821-lab/playwright-mcp-render-mucsckil`, `jh-fi
 - Framework selection-toolbar More detection and separate popup/menu lookup.
 - Actual Gemini UI host, exact editor ID and visible Gemini title; existing drafts and active responses block a new handoff.
 - Atomic local journal and exclusive process lock, with durable handoff/submit intent before consequential clicks.
-- Read-only probe, selection, handoff and full-submit modes. No automatic recovery/replay after unknown execution.
+- Read-only probe, selection, **More-only/menu observation**, handoff and full-submit modes. No automatic recovery/replay after unknown execution.
 - Phone launcher uses a thread-safe cancellation flag and recycles its key observer when finished.
+- Bounded actual selection-toolbar labels appear in probe diagnostics. Unknown observed labels do not become click targets. Editable fields and source/draft text are excluded.
+- More-only mode stops after observing the unique owned Gemini menu, before any Gemini handoff. Nonempty Gemini drafts are preserved.
+- Korean result report, explicit clipboard export, and a recent-result viewer. Viewing saved results needs no accessibility permission or screen read. Unresolved prior attempt metadata remains exportable from the blocked result.
+- Read-only probe permits ten seconds to prepare a manually opened menu. Key-cancellation instructions reflect whether the observer actually registered.
+- User entry guide is `PHONE_TEST_KO.md`; the executable remains one JavaScript file.
 
 ## Verification status
 
-Final offline results and executable hash are recorded in `verification.json` after the final test run. Node tests use synthetic Android-shaped objects and are not evidence of real-phone execution.
+Final local offline results: **91 passed / 0 failed / 0 skipped / 0 cancelled**, Node `v24.22.1`. The commands, input hashes and executable hash are recorded in `verification.json`. Node tests use synthetic Android-shaped objects and are not evidence of real-phone execution. This record covers local verification; remote candidate CI evidence is attached to draft PR #173 separately.
 
 | Gate | State |
 | --- | --- |

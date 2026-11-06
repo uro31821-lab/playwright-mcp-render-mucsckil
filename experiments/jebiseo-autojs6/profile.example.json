@@ -10,6 +10,7 @@
   "timeoutMs": 8000,
   "pollMs": 200,
   "startDelayMs": 3500,
+  "probeDelayMs": 10000,
   "moreLabels": ["옵션 더보기", "더보기", "더 보기", "More options", "More", "⋯", "…"],
   "menuLabels": ["Gemini로 보내기", "Gemini에게 물어보기", "Send to Gemini", "Ask Gemini"],
   "sendLabels": ["보내기", "전송", "Send", "Submit"],
