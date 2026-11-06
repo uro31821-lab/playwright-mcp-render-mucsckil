@@ -1,0 +1,35 @@
+name: JH Ebiseo audio server v0.5.4
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/ebiseo-audio-v05/**'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'
+      - '.github/workflows/jh-ebiseo-audio-v05.yml'
+permissions: {contents: read}
+jobs:
+  audio-server-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Install reviewed owner dependencies only
+        run: npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+      - name: Syntax
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs
+          for f in jh-server/owner-setup/ebiseo-audio-v05/*.mjs; do node --check "$f"; done
+      - name: Audio server and startup contracts
+        env:
+          EBISEO_TEST_CURRENT_OWNER_ROOT: ${{ github.workspace }}/jh-server/owner-setup
+        run: node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/ebiseo-audio-v05/*.test.mjs
+      - name: Release boundary
+        run: |
+          echo APK_BUILD=0
+          echo APK_INSTALL=0
+          echo RENDER_DEPLOY=0
+          echo AUDIO_PHONE_COMMAND=0
+          echo AUTOMATIC_REPLAY=0
