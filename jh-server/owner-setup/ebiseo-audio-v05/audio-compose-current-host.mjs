@@ -33,7 +33,7 @@ const REVIEWED_MODULE_PINS=Object.freeze({
   'audio-completion-fence.mjs':'4d61b00e5613aadd719b635a76c812f3a832a19efa69bfc4f92955243e120cb2',
   'audio-host-adapter.mjs':'11a29424c3d7643f14c47581bf7685ee57e9d34bd495fc542eae787d79eae47f',
   'audio-host-integration.mjs':'1d6d2f71ffa3872652644d23de89b26474ca1685a971aa9e0bddfc1f88fb6bea',
-  'audio-compose-host.mjs':'f101c61a36a30083c6a55496c476a1d5355af0bc96c4d66232f6c58e2b76fe86',
+  'audio-compose-host.mjs':'aa860a99419bc7f134610292bc0cfc73f179d919082aa29ae1b238dc616b16a8',
   'audio-candidate-entry.mjs':'ebd9c40900b6af59e07b76533dd1f0bf2d45d3fa15dc336c028c393a032f2283'
 });
 const selectorSource=String.raw`/* Original parent attestation always runs before the supplementary audio selector. */
