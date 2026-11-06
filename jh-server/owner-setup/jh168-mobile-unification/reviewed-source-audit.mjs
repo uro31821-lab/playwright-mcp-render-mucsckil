@@ -127,12 +127,26 @@ const REVIEWED_TRANSITIONS=Object.freeze([
     })
    }),
    Object.freeze({
+    reviewedHead:'845c5dfd9925a9f40950f3a873b4e58bfada9990',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs':
+      'b2e8c9ecc0673565744487fe0f6d4444bcb2a4b0'
+    })
+   }),
+   Object.freeze({
     reviewedHead:'45894388bbd176503fe2af488a73be6e191af05d',
     protectedObjects:Object.freeze({
      'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs':
       '621f403c4ada10fb959f62e847d61a2ddc23d492',
      'jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs':
       '0515e3a57c09c0fb750acbc2416dd8a150ebbfb9'
+    })
+   }),
+   Object.freeze({
+    reviewedHead:'fc70914d745dfbc7d34494c771af4f982c9511aa',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs':
+      '6db2557a37d222feec288f5d330c556e031509cf'
     })
    })
   ])
