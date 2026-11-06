@@ -14,7 +14,8 @@ def digest(path):
 def certificate_digests(signature_output):
     # Android apksig prints numbered legacy signers or explicit v3 SDK ranges.
     # Source: AOSP apksig 184702d9d18877edf9e5296c4e191cf0aa2b5fbb, ApkSignerTool.java.
-    pattern = re.compile(r'^Signer (?:#\d+|\(minSdkVersion=\d+(?: \(dev release=true\))?, maxSdkVersion=\d+\)) certificate SHA-256 digest: ([a-fA-F0-9]{64})$')
+    # Build-tools 37.0.0 prints the verified v2 certificate with 'V2 Signer:'.
+    pattern = re.compile(r'^(?:V2 Signer:|Signer (?:#\d+|\(minSdkVersion=\d+(?: \(dev release=true\))?, maxSdkVersion=\d+\))) certificate SHA-256 digest: ([a-fA-F0-9]{64})$')
     return [match[1].lower() for line in signature_output.splitlines()
             if (match := pattern.fullmatch(line.strip()))]
 
