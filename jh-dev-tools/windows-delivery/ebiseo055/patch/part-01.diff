@@ -1,0 +1,117 @@
+         if (action == Action.CLOSE) {
+@@ -192,8 +235,9 @@
+             }
+             Entry existing = sessions.get(audioSessionId);
+             if (existing != null) {
+-                // Reaffirmation preserves this route generation. Only an unbound
+-                // candidate has a deadline, reset by a fresh authenticated OPEN.
++                // A later OS-authenticated OPEN upgrades, but a correlated OPEN can
++                // never downgrade, an existing route's admission authority.
++                existing.senderIdentityVerified |= senderIdentityVerified;
+                 existing.boundControllerGeneration = pending ? 0 : controllerGeneration;
+                 existing.startupExpiresAt = pending ? addBounded(now, startupGraceMs) : 0;
+             } else if (sessions.size() == MAX_SESSIONS) {
+@@ -205,7 +249,8 @@
+                     throw new IllegalStateException("ROUTE_GENERATION_EXHAUSTED");
+                 sessions.put(audioSessionId, new Entry(audioSessionId,
+                         "cooperating:" + instanceId + ":" + (++routeGeneration),
+-                        pending ? 0 : controllerGeneration, pending ? addBounded(now, startupGraceMs) : 0));
++                        pending ? 0 : controllerGeneration, pending ? addBounded(now, startupGraceMs) : 0,
++                        senderIdentityVerified));
+                 emptyReason = "WAITING_FOR_AUTHENTICATED_OPEN";
+             }
+         } else rejection = "SESSION_LIMIT_EXCEEDED";
+@@ -275,6 +320,10 @@
+         boolean available = has && !overflow && mediaLocal && candidate != null
+                 && controllerGeneration > 0 && candidate.boundControllerGeneration == controllerGeneration;
+         Entry selected = available ? candidate : null;
++        boolean senderVerified = candidate != null && candidate.senderIdentityVerified;
++        boolean contractCorrelated = candidate != null && !candidate.senderIdentityVerified;
++        String authority = candidate == null ? "NONE" : senderVerified
++                ? "OS_SENDER_IDENTITY" : "STANDARD_AUDIO_EFFECT_CONTRACT_CORRELATED";
+         long startupExpiry = 0;
+         int pendingCount = 0;
+         for (Entry entry : sessions.values()) {
+@@ -297,11 +346,12 @@
+         else if (sessions.isEmpty()) reason = emptyReason;
+         else reason = mediaState == MediaState.LOCAL_PLAYING ? "READY"
+                 : mediaState == MediaState.LOCAL_TRANSITIONING ? "TRANSITIONING" : "PAUSED";
+-        return new Snapshot(running, identityApi, expectedUid > 0, has, available,
++        return new Snapshot(running, identityApi, expectedUid > 0,
++                senderVerified, contractCorrelated, has, available,
+                 available && mediaState == MediaState.LOCAL_PLAYING, targetEventObserved,
+                 unverifiedSenderObserved, overflow, sessions.size(), pendingCount, selected == null ? 0 : selected.session,
+                 selected == null ? -1 : expectedUid,
+                 startupExpiry == 0 ? 0 : Math.max(0, startupExpiry - now), startupExpiry, controllerGeneration,
+-                selected == null ? "" : selected.routeId, reason, rejection, mediaState);
++                selected == null ? "" : selected.routeId, reason, rejection, mediaState, authority);
+     }
+ }
+--- a/development/module/android-src/kr/jh/equalizer/auto/android/CooperatingAudioSessionSource.java
++++ b/development/module/android-src/kr/jh/equalizer/auto/android/CooperatingAudioSessionSource.java
+@@ -28,11 +28,12 @@
+ import kr.jh.equalizer.auto.CooperatingSessionRegistry.Snapshot;
+ 
+ /**
+- * Optional, in-process receiver for a cooperating YouTube Music player. It never
+- * captures sound, launches an Activity/service, reads arbitrary notifications,
+- * polls hidden APIs, requests extra permissions, or trusts a package-name extra.
+- * On API 34+, the player must expose OS-authenticated sender identity. Android
+- * does not require players to do that; unavailable identity remains unavailable.
++ * In-process receiver for Android's standard audio-effect session protocol. It
++ * never captures sound, launches an Activity/service, polls hidden APIs, requests
++ * extra permissions, or trusts a package-name extra by itself. OS-shared sender
++ * identity is preferred. When the broadcaster does not share identity, admission
++ * additionally requires the locally resolved installed UID and exactly one current
++ * local YouTube Music media session.
+  */
+ public final class CooperatingAudioSessionSource implements TrustedPlaybackSource {
+     private final Context context;
+@@ -108,6 +109,9 @@
+         put(result, "running", live);
+         put(result, "receiverRegistered", live && receiverRegistered);
+         put(result, "senderIdentityApiSupported", value.senderIdentityApiSupported);
++        put(result, "senderIdentityVerified", value.senderIdentityVerified);
++        put(result, "standardContractCorrelated", value.standardContractCorrelated);
++        put(result, "sessionAuthority", value.sessionAuthority);
+         put(result, "sourceUidResolved", value.sourceUidAvailable);
+         put(result, "targetSessionEventObserved", value.targetEventObserved);
+         put(result, "unverifiedSenderObserved", value.unverifiedSenderObserved);
+@@ -125,7 +129,8 @@
+                 ? "ROUTE_EVIDENCE_NO_LONGER_CURRENT" : value.reason);
+         put(result, "lastRejectedEvent", value.rejectionReason);
+         put(result, "fixedSessionExpiryEnabled", false);
+-        put(result, "sessionLifetimePolicy", "authenticated_open_until_lifecycle_end");
++        put(result, "sessionLifetimePolicy", "verified_or_correlated_open_until_lifecycle_end");
++        put(result, "sessionAdmissionPolicy", "os_sender_identity_preferred_standard_contract_correlated_fallback");
+         put(result, "continuityRefreshIntervalMs", YouTubeMusicObserver.CONTINUITY_REFRESH_INTERVAL_MS);
+         put(result, "observerSnapshotAgeMs", media == null ? null
+                 : Math.max(0L, now - media.observedAtElapsedRealtimeMs));
+@@ -263,6 +268,16 @@
+         return MediaState.UNKNOWN;
+     }
+ 
++    private static boolean exactLocalMediaSession(YouTubeMusicObserver.Snapshot snapshot) {
++        if (snapshot == null || !snapshot.permissionAccessVerified
++                || snapshot.youtubeMusicSessionCount != 1
++                || snapshot.mediaControllerGeneration <= 0
++                || snapshot.remotePlayback == null || snapshot.remotePlayback) return false;
++        return snapshot.status == YouTubeMusicObserver.Status.PLAYING
++                || snapshot.status == YouTubeMusicObserver.Status.PAUSED
++                || snapshot.status == YouTubeMusicObserver.Status.TRANSITIONING;
++    }
++
+     /** Called synchronously from onReceive; sender identity never outlives the callback. */
+     @SuppressWarnings("deprecation") // Raw Bundle types reject coerced or malformed public extras.
+     private void receiveSessionEvent(BroadcastReceiver receiver, Intent intent, long generation) {
+@@ -280,7 +295,8 @@
+                 else if (AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION.equals(actionText)) action = Action.CLOSE;
+                 else return;
+                 // Re-check both the OS-maintained media card and the installed UID at admission.
+-                registry.updateSourceUid(installedUid(), now);
++                int sourceUid = installedUid();
++                registry.updateSourceUid(sourceUid, now);
+                 YouTubeMusicObserver.Snapshot media = YouTubeMusicNotificationListener.current();
+                 if (media == null) registry.invalidate("OBSERVER_UNAVAILABLE", now);
+                 else registry.observeMedia(media.revision, media.mediaControllerGeneration, mediaState(media), now);
+@@ -290,11 +306,19 @@
