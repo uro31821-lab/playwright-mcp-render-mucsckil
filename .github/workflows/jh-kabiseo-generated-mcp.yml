@@ -5,6 +5,8 @@ on:
     paths:
       - 'host-kabiseo-assist/server/generated-mcp.integration.mjs'
       - 'host-kabiseo-assist/server/source-patch.mjs'
+      - 'host-kabiseo-assist/server/review-durable-policy.mjs'
+      - 'jh-server/owner-setup/deployment/durable-native-job-policy.mjs'
       - '.github/workflows/jh-kabiseo-generated-mcp.yml'
 permissions: {contents: read}
 concurrency:
@@ -22,6 +24,10 @@ jobs:
           persist-credentials: false
           path: baseline
           ref: 0663e0c3b434f300803e5cf272609032a5e519d3
+      - name: Check test syntax and exact additive native policy before restoring packages
+        run: |
+          node --check candidate/host-kabiseo-assist/server/generated-mcp.integration.mjs
+          node candidate/host-kabiseo-assist/server/review-durable-policy.mjs candidate baseline
       - name: Restore original locked dependencies with install scripts disabled
         run: |
           set -euo pipefail
