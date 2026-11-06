@@ -44,9 +44,10 @@ import java.util.concurrent.TimeUnit;
 /**
  * Native camera owned by JH's process. NOT ChatGPT's embedded camera.
  *
- * No model/AI detector is bundled at this stage. If the device supports the OEM
- * AUTO extension, it can apply manufacturer scene processing. Otherwise the
- * ordinary CameraX AE/AF/AWB takes over. Luma analysis is a simple hint only.
+ * No model/AI detector is bundled at this stage. Standard CameraX AE/AF/AWB
+ * handles most scenes. When low light persists, an explicitly NIGHT-only OEM
+ * extension is permitted if supported; AUTO/face retouch are never selected.
+ * Luma analysis is a simple hint and NOT model inference.
  *
  * Camera permission is requested locally; no background camera, automatic
  * shutter, network, photo upload, app switching or face beautification.
@@ -60,6 +61,10 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
     private TextView hint;
     private Button shutter;
     private ProcessCameraProvider provider;
+    private ExtensionsManager extensionsManager;
+    private long lastLumaSampleAt=-1L; // accessed only by one analysis executor thread
+    private int consecutiveDarkSamples; // accessed only by Android main thread
+    private boolean nightModeAttempted;
     private Preview ownPreview;
     private ImageCapture ownCapture;
     private ImageAnalysis ownAnalysis;
@@ -165,6 +170,10 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
     private void openCamera() {
         if(isFinishing()||isDestroyed()||Build.VERSION.SDK_INT<29)return;
         int token=++openingRevision;
+        consecutiveDarkSamples=0;
+        nightModeAttempted=false;
+        lastLumaSampleAt=-1L;
+        extensionsManager=null;
         ListenableFuture<ProcessCameraProvider> future=ProcessCameraProvider.getInstance(this);
         future.addListener(()->{
             if(token!=openingRevision||isFinishing()||isDestroyed())return;
@@ -174,23 +183,37 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
                     ExtensionsManager.getInstanceAsync(getApplicationContext(),provider);
                 extFuture.addListener(()->{
                     if(token!=openingRevision||isFinishing()||isDestroyed())return;
-                    try {
-                        ExtensionsManager manager=extFuture.get();
-                        CameraSelector base=CameraSelector.DEFAULT_BACK_CAMERA;
-                        if(manager.isExtensionAvailable(base,ExtensionMode.AUTO)) {
-                            CameraSelector auto=manager.getExtensionEnabledCameraSelector(base,ExtensionMode.AUTO);
-                            if(bindCamera(auto,true))return;
-                        }
-                    }catch(Exception ignored) {
-                        // An unsupported/broken vendor extension must not stop ordinary capture.
-                    }
+                    try {extensionsManager=extFuture.get();}
+                    catch(Exception ignored){extensionsManager=null;}
+                    // Always begin with neutral AF/AE/AWB; never select vendor AUTO,
+                    // which can include face retouch on supported phones.
                     bindCamera(CameraSelector.DEFAULT_BACK_CAMERA,false);
                 },ContextCompat.getMainExecutor(this));
             }catch(Exception e){show("카메라 시작 실패. 기기 지원 상태를 확인하세요.");}
         },ContextCompat.getMainExecutor(this));
     }
 
-    private boolean bindCamera(CameraSelector selector,boolean autoExtension) {
+    private void maybeEnableNightMode(int token) {
+        if(token!=openingRevision||nightModeAttempted||captureInProgress
+            ||ownAnalysis==null||isFinishing()||isDestroyed())return;
+        if(consecutiveDarkSamples<5)return;
+        nightModeAttempted=true; // once per camera opening, no oscillation/retries
+        try {
+            CameraSelector base=CameraSelector.DEFAULT_BACK_CAMERA;
+            if(extensionsManager!=null
+                &&extensionsManager.isExtensionAvailable(base,ExtensionMode.NIGHT)) {
+                CameraSelector night=extensionsManager.getExtensionEnabledCameraSelector(
+                    base,ExtensionMode.NIGHT);
+                if(bindCamera(night,true))return;
+                // No extension retry; restore ordinary AF/AE/AWB camera if vendor fails.
+                bindCamera(base,false);
+            }
+        }catch(Exception ignored) {
+            if(ownCapture==null)bindCamera(CameraSelector.DEFAULT_BACK_CAMERA,false);
+        }
+    }
+
+    private boolean bindCamera(CameraSelector selector,boolean nightExtension) {
         if(provider==null||isFinishing()||isDestroyed())return false;
         releaseOwnUseCases();
         Preview preview=new Preview.Builder().build();
@@ -200,7 +223,7 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
         ImageAnalysis analysis=null;
         // OEM extensions may only support Preview + ImageCapture. Do not force
         // ImageAnalysis into an extension session or add an unverified ML model.
-        if(!autoExtension){
+        if(!nightExtension){
             analysis=new ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build();
@@ -212,7 +235,7 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
                 :provider.bindToLifecycle(this,selector,preview,capture,analysis);
             ownPreview=preview;ownCapture=capture;ownAnalysis=analysis;camera=opened;
             captureInProgress=false;shutter.setEnabled(true);
-            show(autoExtension?"기기 AI 자동 장면 보정 · 촬영 준비":"자동 초점·자동 노출 · 촬영 준비");
+            show(nightExtension?"야간 촬영 모드 · 촬영 준비":"자동 초점·자동 노출 · 촬영 준비");
             return true;
         }catch(Exception ex) {
             // Do not retry/capture without a valid bound camera.
@@ -225,22 +248,31 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
 
     private void analyzeFrame(ImageProxy frame) {
         try {
+            long now=android.os.SystemClock.elapsedRealtime();
+            if(lastLumaSampleAt>=0&&now-lastLumaSampleAt<400)return;
+            lastLumaSampleAt=now;
             if(frame.getPlanes().length<1)return;
             ImageProxy.PlaneProxy plane=frame.getPlanes()[0];
             ByteBuffer buffer=plane.getBuffer();
             float y=FrameLuma.sampleMean(buffer,frame.getWidth(),frame.getHeight(),
                 plane.getRowStride(),plane.getPixelStride());
             String level=FrameLuma.hint(y);
-            // The hardware keeps managing auto-exposure; no forced exposure feedback loop.
+            int token=openingRevision;
+            // Main thread owns UI, binding and the mode-switch counter.
             runOnUiThread(()->{
-                if(ownAnalysis!=null&&!captureInProgress&&!isFinishing()) {
-                    if("LOW_LIGHT".equals(level))show("어두운 장면 · 자동 노출 작동 중");
-                    else if("VERY_BRIGHT".equals(level))show("밝은 장면 · 자동 노출 작동 중");
-                    else show("자동 초점·자동 노출 · 촬영 준비");
+                if(token!=openingRevision||ownAnalysis==null||captureInProgress||isFinishing())return;
+                if("LOW_LIGHT".equals(level)) {
+                    consecutiveDarkSamples=Math.min(consecutiveDarkSamples+1,5);
+                    show("어두운 장면 · 자동 노출 작동 중");
+                    maybeEnableNightMode(token);
+                } else {
+                    consecutiveDarkSamples=0;
+                    show("VERY_BRIGHT".equals(level)
+                        ?"밝은 장면 · 자동 노출 작동 중":"자동 초점·자동 노출 · 촬영 준비");
                 }
             });
         }catch(RuntimeException ignored) {
-            // Malformed/unsupported Y planes are not a reason to crash the preview.
+            // Invalid Y planes should not stop preview or expose frame bytes.
         }finally{frame.close();}
     }
     private void focusAt(float x,float y) {
@@ -289,6 +321,7 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
     }
     @Override protected void onStop() {
         ++openingRevision;
+        extensionsManager=null;
         releaseOwnUseCases();
         super.onStop();
     }
