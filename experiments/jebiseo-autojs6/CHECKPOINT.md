@@ -1,14 +1,16 @@
 # Independent experiment checkpoint
 
-Date: 2026-11-06 (Asia/Seoul)
+Date: 2026-11-07 (Asia/Seoul)
 
-Current preparation: **0.3.3**, a Windows download/extract/run package for the independent accessibility/menu test. Its parent is v0.3.2 source `701c7b377db5e99f6fdefc76f1704a2e952943c7`. Development continues in draft PR [#173](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/173), branch `experiment/jebiseo-autojs6-20261106`.
+Current preparation: **0.3.4**, a Windows download/extract/run package for the independent accessibility/menu test. Its parent is v0.3.3 source `9ab8eaa68184e2dcedb6c5a1723004c3bba3fb98`. Development continues in draft PR [#173](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/173), branch `experiment/jebiseo-autojs6-20261106`.
 
 ## Latest actual phone observation and correction scope
 
-The v0.3.2 user screenshot shows `PHONE_RESULT_RECEIVED`, `GEMINI_SURFACE_UNVERIFIED`, zero title/description matches and one exact configured eligible editor. Private result persistence reports `DIR_OPEN / OTHER`; the precise platform exception is unknown. The phone-report Korean is corrupted while local console Korean and ASCII report fields remain readable.
+The v0.3.3 user phone and PC screenshots show `SPLIT_PROBE_OK`, exact Gemini editor identification, preserved Korean, and `PHONE_RESULT_RECEIVED`. Private result persistence fails at `DIR_FLAGS / java.lang.NoSuchFieldException`. The editor's empty state is not confirmed. Selection/menu/handoff/submit were not run.
 
-Version 0.3.3 adds the narrowly scoped observed-editor identity path and fresh native surface guard, ADB-specific UTF-8 decoding with actual Windows transport regressions, and exact public Java storage signatures with finer bounded failures. The pinned original Rhino/JVM contract uses a mock Android Os: it verifies real Java interop, not Android filesystem behavior. Actual v0.3.3 phone behavior remains NOT_RUN until the next mode-1 report. CI counts, exact candidate bytes and independent review are recorded in the delivered reports and PR after the run; no local mock pass is phone success.
+Version 0.3.4 removes the unsupported `OsConstants.O_DIRECTORY` dependency. The old code's failure was reproduced with the same pinned Rhino after removing that invented field from the mock. The repair uses public `O_RDONLY`, validates the opened descriptor with `fstat` / `st_mode` / `S_ISDIR`, then fsyncs and always closes it. First failure and durable journal blocking remain. CI additionally checks actual installed Android SDK public signatures, separately from the mock Android Os execution. Bounded editor hint-state booleans are diagnostic only; no field text, selection logic or effect gates are changed.
+
+Actual v0.3.4 phone behavior remains NOT_RUN. The v0.3.3 read-only success does not establish private durability or later action modes. Current CI counts, exact candidate bytes and independent review belong to the delivered reports and PR after verification.
 
 ## Windows preparation update
 
@@ -49,22 +51,22 @@ The repository baseline is `uro31821-lab/playwright-mcp-render-mucsckil`, `jh-fi
 
 ## Verification status
 
-Historical v0.2.0 local offline results: **91 passed / 0 failed / 0 skipped / 0 cancelled**, Node `v24.22.1`. Its commands, input hashes and executable hash remain in `verification.json`. Node tests use synthetic Android-shaped objects and are not evidence of real-phone execution. Current 0.3.3 CI evidence and counts belong to the delivered receipt and draft PR #173.
+Historical v0.2.0 local offline results: **91 passed / 0 failed / 0 skipped / 0 cancelled**, Node `v24.22.1`. Its commands, input hashes and executable hash remain in `verification.json`. Node tests use synthetic Android-shaped objects and are not evidence of real-phone execution. Current 0.3.4 CI evidence and counts belong to the delivered receipt and draft PR #173.
 
 | Gate | State |
 | --- | --- |
 | JavaScript syntax and offline module contracts | See `verification.json` |
 | Cross-module controller + Android adapter fixture | See `verification.json` |
 | One-file bundle generated and syntax checked | See `verification.json` |
-| Actual AutoJs6/Rhino execution | NOT_RUN |
-| Accessibility permission / actual selection menu on user's phone | NOT_RUN |
+| Actual AutoJs6/Rhino execution | v0.3.3 read-only observed; current v0.3.4 NOT_RUN |
+| Accessibility screen read / actual selection menu | v0.3.3 read observed / menu NOT_RUN |
 | Actual split-screen Gemini handoff and submit | NOT_RUN |
 | Existing JH integration / signed receipt flow | NOT_IMPLEMENTED |
 | Production merge / deployment | NOT_PERFORMED |
 
 ## Next action
 
-Extract the new 0.3.3 ZIP, run `실행.cmd` and choose mode 1 only. Reuse the same installed official APK. Read the bottom summary for Gemini identity, private storage and correct Korean. Selection/menu/handoff/submit remain separate later tests; modes 2–5 do not resume a prior mode. A probe or fixture pass is not full-flow success.
+Extract the new 0.3.4 ZIP, run `실행.cmd` and choose mode 1 only. Reuse the same installed official APK. Read the bottom summary for screen reading, private storage and bounded editor hint diagnostics. Selection/menu/handoff/submit remain separate later tests; modes 2–5 do not resume a prior mode. A probe or fixture pass is not full-flow success.
 
 If blocked, use the first stage/code and minimal redacted metadata to adjust only the affected profile/implementation. A missing or uncertain menu handoff/submit result must be reviewed before another write attempt; read-only probe does not clear that record. Do not turn Node test counts into a phone success claim.
 

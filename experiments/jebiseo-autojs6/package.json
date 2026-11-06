@@ -1,6 +1,6 @@
 {
   "name": "jebiseo-autojs6-lab",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "description": "Independent native split-screen text handoff experiment; no JH runtime integration",
   "type": "commonjs",

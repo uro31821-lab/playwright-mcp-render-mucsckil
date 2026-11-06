@@ -1,4 +1,4 @@
-// JH 제비서 독립 시험 0.3.3 — AutoJs6에서 실행. JH 운영 미연결.
+// JH 제비서 독립 시험 0.3.4 — AutoJs6에서 실행. JH 운영 미연결.
 // Generated with node build-bundle.cjs. Edit source modules, not this file.
 (function () {
 'use strict';
@@ -310,6 +310,7 @@ function diagnoseTargetSurface(request, pair) {
         allEditableCount: 0, eligibleEditableCount: 0, emptyIdCandidateCount: 0,
         candidateEditorCount: 0, candidatesTruncated: false, eligibleEditorCandidates: [],
         verificationMethod: "unverified", titlelessObservedEditorVerified: false};
+    var configuredEditor;
     function count(field) { if (report[field] < 6000) { report[field] += 1; } }
     pair.target.nodes.forEach(function (node) {
         var eligible;
@@ -328,7 +329,10 @@ function diagnoseTargetSurface(request, pair) {
         if (node.editable) {
             count("allEditableCount");
             if (eligible) { count("eligibleEditableCount"); }
-            if (eligible && includes(request.targetInputIds, node.viewId)) { count("configuredEditorMatches"); }
+            if (eligible && includes(request.targetInputIds, node.viewId)) {
+                count("configuredEditorMatches");
+                configuredEditor = node;
+            }
         } else if (eligible) {
             if (includes(request.targetTitleLabels, node.text)) { count("titleTextMatches"); }
             if (includes(request.targetTitleLabels, node.desc)) { count("titleDescriptionMatches"); }
@@ -345,6 +349,25 @@ function diagnoseTargetSurface(request, pair) {
             bounds: rectCopy(node.bounds), editable: node.editable, enabled: node.enabled, visible: node.visible,
             matchesConfiguredId: includes(request.targetInputIds, node.viewId), hasSetTextAction: hasSetText, hasSetSelectionAction: hasSetSelection});
     });
+    if (report.configuredEditorMatches === 1) {
+        var supplied = configuredEditor.editorTextDiagnostics;
+        var observed = {};
+        if (typeof configuredEditor.text === "string") { observed.textEmpty = configuredEditor.text === ""; }
+        if (supplied && typeof supplied === "object") {
+            ["hintTextApiAvailable", "showingHintTextApiAvailable"].forEach(function (key) {
+                if (typeof supplied[key] === "boolean") { observed[key] = supplied[key]; }
+            });
+            if (supplied.hintTextApiAvailable === true) {
+                ["hintTextAvailable", "textMatchesHint"].forEach(function (key) {
+                    if (typeof supplied[key] === "boolean") { observed[key] = supplied[key]; }
+                });
+            }
+            if (supplied.showingHintTextApiAvailable === true && typeof supplied.showingHintText === "boolean") {
+                observed.showingHintText = supplied.showingHintText;
+            }
+        }
+        report.configuredEditorText = observed;
+    }
     return report;
 }
 function buttonFor(label, window, packageName, ids) {
@@ -925,18 +948,48 @@ function createAdapter(env, options) {
         return result;
     }
 
+    function editorTextObservation(raw, textValue) {
+        var observation = {textEmpty: textValue === '', hintTextApiAvailable: false, showingHintTextApiAvailable: false};
+        var hint;
+        var showing;
+        // Optional diagnostics never replace getText() or participate in guards.
+        // Keep hint values local; unavailable/throwing APIs have no observed value.
+        try {
+            if (method(raw, 'getHintText')) {
+                hint = string(raw.getHintText());
+                observation.hintTextApiAvailable = true;
+                observation.hintTextAvailable = hint !== '';
+                observation.textMatchesHint = hint !== '' && textValue === hint;
+            }
+        } catch (ignoredHint) { /* Optional observation remains unavailable. */ }
+        try {
+            if (method(raw, 'isShowingHintText')) {
+                showing = raw.isShowingHintText();
+                if (typeof showing === 'boolean') {
+                    observation.showingHintTextApiAvailable = true;
+                    observation.showingHintText = showing;
+                }
+            }
+        } catch (ignoredShowingHint) { /* Optional observation remains unavailable. */ }
+        return observation;
+    }
+
     function nodeInfo(raw, window, path) {
         var actions = asList(raw.getActionList()).map(function (action) { return Number(action.getId()); });
-        return {
+        var textValue = string(raw.getText());
+        var editable = raw.isEditable() === true;
+        var result = {
             key: String(window.displayId) + ':' + String(window.id) + '/' + path.join('.'),
             windowId: Number(raw.getWindowId()), packageName: string(raw.getPackageName()), path: path.slice(),
-            text: string(raw.getText()), desc: string(raw.getContentDescription()),
+            text: textValue, desc: string(raw.getContentDescription()),
             viewId: string(raw.getViewIdResourceName()), className: string(raw.getClassName()),
             bounds: bounds(raw), visible: raw.isVisibleToUser() === true, enabled: raw.isEnabled() === true,
-            clickable: raw.isClickable() === true, editable: raw.isEditable() === true,
+            clickable: raw.isClickable() === true, editable: editable,
             selectionStart: Number(raw.getTextSelectionStart()), selectionEnd: Number(raw.getTextSelectionEnd()),
             actions: actions
         };
+        if (editable) result.editorTextDiagnostics = editorTextObservation(raw, textValue);
+        return result;
     }
 
     function flatten(root, window, budget) {
@@ -1470,6 +1523,17 @@ function surfaceDiagnostics(value) {
     if (['title_and_configured_editor', 'observed_gemini_editor', 'unverified'].indexOf(input.verificationMethod) >= 0) {
         output.verificationMethod = input.verificationMethod;
     }
+    if (output.configuredEditorMatches === 1 && input.configuredEditorText && typeof input.configuredEditorText === 'object') {
+        var editor = record(input.configuredEditorText);
+        var observed = {};
+        ['textEmpty', 'hintTextApiAvailable', 'showingHintTextApiAvailable'].forEach(function (key) { copyBoolean(editor, observed, key); });
+        if (editor.hintTextApiAvailable === true) {
+            copyBoolean(editor, observed, 'hintTextAvailable');
+            copyBoolean(editor, observed, 'textMatchesHint');
+        }
+        if (editor.showingHintTextApiAvailable === true) copyBoolean(editor, observed, 'showingHintText');
+        output.configuredEditorText = observed;
+    }
     if (Array.isArray(input.eligibleEditorCandidates)) {
         output.eligibleEditorCandidates = input.eligibleEditorCandidates.slice(0, 8).filter(function (node) {
             return node && integer(node.windowId) && bounds(node.bounds);
@@ -1492,7 +1556,7 @@ function lastResultStorage(value) {
     var input = record(value);
     if (input.status === 'SAVED') return {status: 'SAVED'};
     if (input.status !== 'FAILED') return null;
-    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_CLASS', 'DIR_METHODS', 'DIR_FLAGS', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'UNKNOWN'];
+    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_CLASS', 'DIR_METHODS', 'DIR_FLAGS', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'DIR_VERIFY', 'UNKNOWN'];
     var kinds = ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'EvalError', 'InternalError', 'JavaException', 'java.io.IOException',
         'java.io.FileNotFoundException', 'java.io.SyncFailedException', 'java.lang.SecurityException', 'android.system.ErrnoException',
         'java.lang.ClassNotFoundException', 'java.lang.NoSuchMethodException', 'java.lang.NoSuchFieldException', 'java.lang.IllegalAccessException',
@@ -1648,6 +1712,13 @@ function surfaceLines(surface) {
     var methods = {title_and_configured_editor: '제목과 설정된 입력칸',
         observed_gemini_editor: '실제 확인한 Gemini 전용 입력칸', unverified: '미확인'};
     if (own(methods, surface.verificationMethod)) lines.push('• 화면 확인 기준: ' + methods[surface.verificationMethod]);
+    if (surface.configuredEditorText) {
+        var editor = surface.configuredEditorText;
+        lines.push('• 입력란 읽힌 문자 비움: ' + observation(editor.textEmpty, '예', '아니오') +
+            ' / 힌트와 일치: ' + observation(editor.textMatchesHint, '예', '아니오'));
+        lines.push('• 힌트 정보: ' + observation(editor.hintTextAvailable, '있음', '없음') +
+            ' / 힌트 표시: ' + observation(editor.showingHintText, '예', '아니오'));
+    }
     if (surface.eligibleEditorCandidates) surface.eligibleEditorCandidates.forEach(function (node, index) {
         lines.push('• 입력칸 후보 ' + (index + 1) + ': ' + (node.viewId || '(내부 이름 없음)') +
             ' / ' + (node.className || '(종류 미확인)') +
@@ -1762,6 +1833,7 @@ function publicDirectoryApi(env) {
         var Class = env.java.lang.Class;
         var osClass = Class.forName('android.system.Os');
         var constantsClass = Class.forName('android.system.OsConstants');
+        var statClass = Class.forName('android.system.StructStat');
         var classType = Class.forName('java.lang.Class');
         var objectType = Class.forName('java.lang.Object');
         var stringType = Class.forName('java.lang.String');
@@ -1774,18 +1846,28 @@ function publicDirectoryApi(env) {
         }
         stage = 'DIR_METHODS';
         var open = osClass.getMethod('open', array(classType, [stringType, intType, intType]));
+        var stat = osClass.getMethod('fstat', array(classType, [fdType]));
         var sync = osClass.getMethod('fsync', array(classType, [fdType]));
         var close = osClass.getMethod('close', array(classType, [fdType]));
+        var isDirectory = constantsClass.getMethod('S_ISDIR', array(classType, [intType]));
         stage = 'DIR_FLAGS';
         var readOnly = Number(constantsClass.getField('O_RDONLY').getInt(null));
-        var directory = Number(constantsClass.getField('O_DIRECTORY').getInt(null));
-        if (!isFinite(readOnly) || Math.floor(readOnly) !== readOnly || readOnly < 0 ||
-            !isFinite(directory) || Math.floor(directory) !== directory || directory <= 0) throw new Error('DIRECTORY_FLAGS_INVALID');
-        var flags = readOnly | directory;
+        if (!isFinite(readOnly) || Math.floor(readOnly) !== readOnly || readOnly < 0) throw new Error('DIRECTORY_FLAGS_INVALID');
+        stage = 'DIR_VERIFY';
+        var mode = statClass.getField('st_mode');
         return {
             open: function (path) {
+                // O_DIRECTORY is not in Android's public OsConstants API.
+                // Open with its public read-only flag, then verify this fd below.
                 return open.invoke(null, array(objectType, [new env.java.lang.String(path),
-                    new env.java.lang.Integer(flags), new env.java.lang.Integer(0)]));
+                    new env.java.lang.Integer(readOnly), new env.java.lang.Integer(0)]));
+            },
+            isDirectory: function (fd) {
+                var status = stat.invoke(null, array(objectType, [fd]));
+                if (status === null) throw new Error('DIRECTORY_STATUS_MISSING');
+                var value = isDirectory.invoke(null, array(objectType, [new env.java.lang.Integer(Number(mode.getInt(status)))]));
+                // A reflected java.lang.Boolean.FALSE may be a truthy JS object.
+                return String(value) === 'true';
             },
             fsync: function (fd) { sync.invoke(null, array(objectType, [fd])); },
             close: function (fd) { close.invoke(null, array(objectType, [fd])); }
@@ -1819,9 +1901,14 @@ function durableWrite(env, root, target, value) {
         stage = 'RENAME';
         if (!temporary.renameTo(target)) throw new Error('ATOMIC_RENAME_FAILED');
         stage = 'DIR_OPEN';
+        if (!root.isDirectory()) throw new Error('PARENT_DIRECTORY_MISSING');
         directoryApi = publicDirectoryApi(env);
         directoryFd = directoryApi.open(String(root.getAbsolutePath()));
         if (directoryFd === null) throw new Error('DIRECTORY_DESCRIPTOR_MISSING');
+        stage = 'DIR_VERIFY';
+        // Keep ownership outside the verifier so every opened fd is closed,
+        // including fstat failures and descriptors that are not directories.
+        if (!directoryApi.isDirectory(directoryFd)) throw new Error('DESCRIPTOR_NOT_A_DIRECTORY');
         stage = 'DIR_SYNC';
         directoryApi.fsync(directoryFd);
     } catch (directoryError) { failure = directoryError.storageFailure ? directoryError : storageError(stage, directoryError); }
@@ -1948,7 +2035,7 @@ function runPhone(env) {
             return value;
         }
         var choice = launchRequest ? ['probe', 'selection', 'more', 'handoff', 'submit'].indexOf(mode) :
-            env.dialogs.select('제비서 독립 시험 0.3.3\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
+            env.dialogs.select('제비서 독립 시험 0.3.4\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
             '1. 화면·메뉴 읽기 — 버튼을 누르지 않음',
             '2. 시험 문장 선택까지만',
             '3. ⋯ 열고 Gemini 항목 확인까지만 — 전달 안 함',

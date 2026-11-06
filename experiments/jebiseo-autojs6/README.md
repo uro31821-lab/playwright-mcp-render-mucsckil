@@ -1,14 +1,26 @@
-# 제비서 독립 시험 0.3.3 — AutoJs6
+# 제비서 독립 시험 0.3.4 — AutoJs6
 
 **글 선택 → 선택 메뉴의 `⋯` → Gemini로 보내기 → Gemini 입력 확인 → 전송 1회**만 따로 시험하는 프로그램입니다. AutoJs6에서 실행합니다. 현재 JH 앱·서버·운영 명령에는 연결하지 않았습니다.
 
-## 0.3.3 실제 관찰에 따른 호환성 수정
+## 0.3.4 실제 저장 오류 수정
+
+0.3.3의 실제 휴대폰·PC 결과에서 `SPLIT_PROBE_OK`, Gemini 입력 화면 식별, 한글 표시와 `PHONE_RESULT_RECEIVED`를 확인했습니다. 개인 결과파일 저장은 `DIR_FLAGS / java.lang.NoSuchFieldException`으로 실패했습니다. 문장 선택·메뉴·전달·전송은 아직 실행하지 않았습니다.
+
+저장 코드가 조회하던 `OsConstants.O_DIRECTORY`는 Android 공개 API와 AOSP 클래스에 없는 필드입니다. 이전 Java 대역이 이 필드를 임의로 제공해 실제 오류를 놓쳤습니다. 해당 필드를 제거한 대역에서 이전 코드를 실행해 같은 실패를 재현했습니다. 새 코드는 공개 `O_RDONLY`로 연 파일 설명자를 `Os.fstat`·`StructStat.st_mode`·`OsConstants.S_ISDIR`로 확인한 뒤 디렉터리일 때만 동기화합니다. 검증 실패 시에도 연 설명자를 닫고, 최초 오류와 저널 차단을 보존합니다. Linux 상수 숫자나 비공개 API를 대신 사용하지 않습니다.
+
+검사는 고정된 공식 Rhino/JVM뿐 아니라 CI에 설치된 실제 Android SDK의 공개 클래스·메서드·필드와도 대조합니다. SDK 검사는 서명 존재 확인이고 Android 파일시스템 실행 검증은 아닙니다. 근거: [OsConstants](https://developer.android.com/reference/android/system/OsConstants), [Os](https://developer.android.com/reference/android/system/Os), [StructStat](https://developer.android.com/reference/android/system/StructStat).
+
+같은 화면에서 빈 입력란 여부가 확인되지 않아, 입력칸의 빈 문자열 여부와 안내 문구 상태를 참·거짓 진단으로만 추가합니다. 글·안내 문구 원문은 공개하지 않고, 안내 문구를 빈 초안으로 간주하거나 클릭 조건을 완화하지 않습니다.
+
+이번에도 먼저 **1번 읽기**로 개인 저장까지 확인합니다. 공식 APK와 Windows 실행기는 0.3.3과 같고 설치된 동일 APK를 재사용합니다. 0.3.4의 실제 휴대폰 결과는 아직 `NOT_RUN`입니다.
+
+## 0.3.3 실제 관찰에 따른 호환성 수정 — 당시 변경 기록
 
 0.3.2 사용자 결과에서 Gemini의 정확한 설정 입력칸이 표시·활성·편집 가능 상태로 1개 관찰됐고, 제목 글자와 설명 이름은 각각 0개였습니다. 이번에는 그 관찰된 패키지와 전용 입력칸 ID가 유일하고 가려지지 않은 경우 제목 없이 화면을 확인합니다. 일반 검색창·유사 ID·임의 설정 ID·다른 앱·다중 입력칸은 이 경로를 사용할 수 없습니다. 기존 초안·선택 범위·미확인 전송의 재실행 차단은 유지합니다.
 
 PC가 UTF-8 휴대폰 결과를 CP949로 읽어 한글이 손상될 수 있던 경계에 ADB 전용 UTF-8 디코더를 지정했습니다. 실제 Windows PowerShell 5.1과 CMD 회귀가 이전 손상 재현, 한글 JSON 수신·파일 저장·표시를 확인합니다.
 
-개인 저장은 `DIR_OPEN / OTHER`에서 실패한 관찰까지만 확정입니다. 권한 문제나 정확한 Java 예외는 아직 확인되지 않았습니다. JavaScript 엔진이 Android Os 클래스 전체를 조사하는 경로 대신 공개 `open(String,int,int)`, `fsync(FileDescriptor)`, `close(FileDescriptor)`를 정확히 조회해 호출하도록 보완했습니다. 클래스·메서드·상수 조회 실패를 분리하고 제한된 예외 종류를 표시합니다. 파일·디렉터리 동기화와 첫 오류·저널 차단을 유지하며 비공개 API·접근 제한 해제는 사용하지 않습니다. 고정된 공식 Rhino JAR의 JVM 검사는 실제 Java 상호운용만 검증하고 Android Os는 대역을 사용합니다.
+당시 개인 저장은 `DIR_OPEN / OTHER`에서 실패한 관찰까지만 확정이었습니다. JavaScript 엔진이 Android Os 클래스 전체를 조사하는 경로 대신 공개 `open(String,int,int)`, `fsync(FileDescriptor)`, `close(FileDescriptor)`를 정확히 조회해 호출하도록 보완했습니다. 그러나 필드 조회에 Android에서 제공하지 않는 `O_DIRECTORY`가 남아 있었습니다. 고정된 공식 Rhino JAR의 JVM 검사도 이 필드를 제공하는 대역으로 실행돼 누락을 찾지 못했습니다. 이 결함과 후속 실제 관찰은 위 0.3.4 수정에서 다룹니다.
 
 다음 실제 기기 확인은 **1번 읽기**입니다. 코드·CI 검증과 실제 폰의 수정 후 성공은 구분합니다. 공식 APK는 그대로이며 설치된 동일 APK를 재사용합니다.
 
@@ -46,7 +58,7 @@ AutoJs6 6.8.0에 없는 `files.getParent()` 호출을 제거하고, 공식 런�
 
 짧은 휴대폰용 순서는 [PHONE_TEST_KO.md](PHONE_TEST_KO.md)에 있습니다. 이번 버전은 **메뉴에 실제로 붙은 이름 읽기**, **`⋯`만 열고 Gemini 항목 확인**, **한글 결과와 복사**, **최근 결과 다시 보기**를 추가했습니다.
 
-1. 공식 [AutoJs6](https://github.com/SuperMonster003/AutoJs6/releases/tag/v6.8.0) 실행 환경을 준비하고, Android가 요구하는 접근성 허용은 휴대폰에서 직접 완료합니다. 이 시험 파일은 기본 JavaScript/Rhino 환경용이며 MCP·Node.js·AI 플러그인을 설치할 필요가 없습니다. 공식 v6.8.0 배포를 확인했지만 해당 APK에서 이 스크립트를 실행하는 검증은 아직 하지 않았습니다.
+1. 공식 [AutoJs6](https://github.com/SuperMonster003/AutoJs6/releases/tag/v6.8.0) 실행 환경을 준비하고, Android가 요구하는 접근성 허용은 휴대폰에서 직접 완료합니다. 이 시험 파일은 기본 JavaScript/Rhino 환경용이며 MCP·Node.js·AI 플러그인을 설치할 필요가 없습니다. 0.3.3의 읽기 전용 시험은 사용자 기기에서 확인했고, 현재 0.3.4와 문장 선택 이후 동작은 별도 확인이 필요합니다.
 2. 왼쪽에는 ChatGPT, 오른쪽에는 Gemini 네이티브 앱을 표시합니다. 분할 화면을 유지한 상태에서 AutoJs6의 떠 있는 스크립트 실행 버튼으로 시험 파일을 시작합니다. AutoJs6 편집기가 전체 화면을 차지한 상태에서는 분할 배치를 확인할 수 없어 중단됩니다.
 3. 첫 실행은 **1. 화면·메뉴 읽기**를 선택합니다. 기본 10초 뒤 현재 화면을 한 번 읽습니다. 메뉴를 직접 열어 관찰하고 싶다면 이 준비 시간 동안 열어 둡니다. 이 모드는 글 선택·메뉴 클릭·전송을 하지 않습니다. 열린 선택 도구모음의 실제 메뉴 이름·설명은 최대 16개까지 결과에 표시됩니다. 관찰만 된 낯선 항목을 자동 클릭 대상으로 추가하지 않습니다.
 4. 관찰 조건이 맞으면 2번(선택), 3번(`⋯` 열기·Gemini 항목 확인), 4번(전달), 5번(전송) 중 필요한 범위를 선택합니다. **3번은 Gemini 항목을 누르지 않습니다.** `Gemini로 보내기` 메뉴 자체가 즉시 질의를 보낼 수도 있으므로 **4번은 외부 전달 동작**입니다. 4·5번은 Gemini 입력란이 비어 있고 응답 생성이 끝난 상태에서 시작합니다.
@@ -65,7 +77,7 @@ AutoJs6 6.8.0에 없는 `files.getParent()` 호출을 제거하고, 공식 런�
 ## 어떤 방식으로 동작하나요?
 
 - 현재 활성 창 한 개에 의존하지 않고 접근성 서비스의 창 목록을 읽습니다. 같은 화면의 왼쪽 ChatGPT와 오른쪽 Gemini를 각각 식별합니다.
-- Gemini를 여는 패키지 `com.google.android.apps.bard`와 현재 JH 원본에서 확인한 실제 화면 호스트 `com.google.android.googlequicksearchbox`를 구분합니다. Google 검색 창을 Gemini로 오인하지 않도록 Gemini 제목과 정확한 입력란 ID를 함께 확인합니다. 새 버전에서 값이 달라졌으면 관찰 없이 자동 완화하지 않습니다.
+- Gemini를 여는 패키지 `com.google.android.apps.bard`와 현재 JH 원본에서 확인한 실제 화면 호스트 `com.google.android.googlequicksearchbox`를 구분합니다. Gemini 제목과 정확한 입력란 ID를 함께 확인하거나, 실제 관찰된 전용 입력란의 유일성·창 소속·가림 여부를 확인합니다. 새 버전에서 값이 달라졌으면 관찰 없이 자동 완화하지 않습니다.
 - 글을 길게 눌러 선택 모드로 들어간 뒤 Android의 선택 API로 정확한 범위를 지정합니다. 직접 드래그가 필요한 경우에는 실제 화면에서 확인한 손잡이 좌표·화면 크기의 보정값이 있어야 하며, 좌표를 추측하지 않습니다. 어떤 경로든 선택된 글을 다시 확인합니다.
 - `android:id/overflow` 같은 실제 선택 툴바 요소와 그 상위 툴바를 확인합니다. ChatGPT 대화의 일반 `⋯` 버튼을 누르는 대상으로 삼지 않습니다.
 - `⋯`를 누른 뒤 새 메뉴가 나타나는 것을 기다리고, 정확한 Gemini 항목을 다시 찾습니다. 팝업이 다른 창에 표시되면 창 소유 관계를 검사합니다.

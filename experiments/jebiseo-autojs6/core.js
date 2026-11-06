@@ -250,6 +250,7 @@ function diagnoseTargetSurface(request, pair) {
         allEditableCount: 0, eligibleEditableCount: 0, emptyIdCandidateCount: 0,
         candidateEditorCount: 0, candidatesTruncated: false, eligibleEditorCandidates: [],
         verificationMethod: "unverified", titlelessObservedEditorVerified: false};
+    var configuredEditor;
     function count(field) { if (report[field] < 6000) { report[field] += 1; } }
     pair.target.nodes.forEach(function (node) {
         var eligible;
@@ -268,7 +269,10 @@ function diagnoseTargetSurface(request, pair) {
         if (node.editable) {
             count("allEditableCount");
             if (eligible) { count("eligibleEditableCount"); }
-            if (eligible && includes(request.targetInputIds, node.viewId)) { count("configuredEditorMatches"); }
+            if (eligible && includes(request.targetInputIds, node.viewId)) {
+                count("configuredEditorMatches");
+                configuredEditor = node;
+            }
         } else if (eligible) {
             if (includes(request.targetTitleLabels, node.text)) { count("titleTextMatches"); }
             if (includes(request.targetTitleLabels, node.desc)) { count("titleDescriptionMatches"); }
@@ -285,6 +289,25 @@ function diagnoseTargetSurface(request, pair) {
             bounds: rectCopy(node.bounds), editable: node.editable, enabled: node.enabled, visible: node.visible,
             matchesConfiguredId: includes(request.targetInputIds, node.viewId), hasSetTextAction: hasSetText, hasSetSelectionAction: hasSetSelection});
     });
+    if (report.configuredEditorMatches === 1) {
+        var supplied = configuredEditor.editorTextDiagnostics;
+        var observed = {};
+        if (typeof configuredEditor.text === "string") { observed.textEmpty = configuredEditor.text === ""; }
+        if (supplied && typeof supplied === "object") {
+            ["hintTextApiAvailable", "showingHintTextApiAvailable"].forEach(function (key) {
+                if (typeof supplied[key] === "boolean") { observed[key] = supplied[key]; }
+            });
+            if (supplied.hintTextApiAvailable === true) {
+                ["hintTextAvailable", "textMatchesHint"].forEach(function (key) {
+                    if (typeof supplied[key] === "boolean") { observed[key] = supplied[key]; }
+                });
+            }
+            if (supplied.showingHintTextApiAvailable === true && typeof supplied.showingHintText === "boolean") {
+                observed.showingHintText = supplied.showingHintText;
+            }
+        }
+        report.configuredEditorText = observed;
+    }
     return report;
 }
 function buttonFor(label, window, packageName, ids) {

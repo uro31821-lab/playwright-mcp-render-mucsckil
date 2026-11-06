@@ -169,18 +169,48 @@ function createAdapter(env, options) {
         return result;
     }
 
+    function editorTextObservation(raw, textValue) {
+        var observation = {textEmpty: textValue === '', hintTextApiAvailable: false, showingHintTextApiAvailable: false};
+        var hint;
+        var showing;
+        // Optional diagnostics never replace getText() or participate in guards.
+        // Keep hint values local; unavailable/throwing APIs have no observed value.
+        try {
+            if (method(raw, 'getHintText')) {
+                hint = string(raw.getHintText());
+                observation.hintTextApiAvailable = true;
+                observation.hintTextAvailable = hint !== '';
+                observation.textMatchesHint = hint !== '' && textValue === hint;
+            }
+        } catch (ignoredHint) { /* Optional observation remains unavailable. */ }
+        try {
+            if (method(raw, 'isShowingHintText')) {
+                showing = raw.isShowingHintText();
+                if (typeof showing === 'boolean') {
+                    observation.showingHintTextApiAvailable = true;
+                    observation.showingHintText = showing;
+                }
+            }
+        } catch (ignoredShowingHint) { /* Optional observation remains unavailable. */ }
+        return observation;
+    }
+
     function nodeInfo(raw, window, path) {
         var actions = asList(raw.getActionList()).map(function (action) { return Number(action.getId()); });
-        return {
+        var textValue = string(raw.getText());
+        var editable = raw.isEditable() === true;
+        var result = {
             key: String(window.displayId) + ':' + String(window.id) + '/' + path.join('.'),
             windowId: Number(raw.getWindowId()), packageName: string(raw.getPackageName()), path: path.slice(),
-            text: string(raw.getText()), desc: string(raw.getContentDescription()),
+            text: textValue, desc: string(raw.getContentDescription()),
             viewId: string(raw.getViewIdResourceName()), className: string(raw.getClassName()),
             bounds: bounds(raw), visible: raw.isVisibleToUser() === true, enabled: raw.isEnabled() === true,
-            clickable: raw.isClickable() === true, editable: raw.isEditable() === true,
+            clickable: raw.isClickable() === true, editable: editable,
             selectionStart: Number(raw.getTextSelectionStart()), selectionEnd: Number(raw.getTextSelectionEnd()),
             actions: actions
         };
+        if (editable) result.editorTextDiagnostics = editorTextObservation(raw, textValue);
+        return result;
     }
 
     function flatten(root, window, budget) {

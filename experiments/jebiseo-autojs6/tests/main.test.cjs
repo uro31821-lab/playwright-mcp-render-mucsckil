@@ -30,6 +30,7 @@ function launcher(options = {}) {
     File.prototype.toString = function () { return this.path; };
     File.prototype.exists = function () { return (this.path === privateRoot && !options.privateStorageFailure) || storage.has(this.path); };
     File.prototype.mkdirs = function () { return !options.privateStorageFailure; };
+    File.prototype.isDirectory = function () { return this.path === privateRoot && !options.parentNotDirectory; };
     File.prototype.isAbsolute = function () { return path.posix.isAbsolute(this.path); };
     File.prototype.getParent = function () { return this.path === '/' ? null : path.posix.dirname(this.path); };
     File.prototype.getName = function () { return path.posix.basename(this.path); };
@@ -50,14 +51,30 @@ function launcher(options = {}) {
         .map(name => [name, {name}]));
     classes['android.system.OsConstants'] = {getField(name) {
         privateStep('DIR_FLAGS');
-        assert.ok(['O_RDONLY', 'O_DIRECTORY'].includes(name));
-        return {getInt(receiver) {assert.equal(receiver, null); return name === 'O_RDONLY' ? 0 : 65536;}};
+        assert.equal(name, 'O_RDONLY', 'only the public SDK flag is exposed; O_DIRECTORY is absent');
+        return {getInt(receiver) {assert.equal(receiver, null); return 0;}};
+    }, getMethod(name, types) {
+        privateStep('DIR_METHODS');
+        assert.equal(name, 'S_ISDIR');
+        assert.equal(types.component, classes['java.lang.Class']);
+        assert.deepEqual(Array.from(types, x => x.name), ['int']);
+        return {invoke(receiver, args) {
+            assert.equal(receiver, null);
+            assert.equal(args.component, classes['java.lang.Object']);
+            assert.ok(args[0] instanceof JavaInteger);
+            // Reflection may return a truthy Java Boolean wrapper for false.
+            return {toString: () => args[0].value === 0x4000 ? 'true' : 'false'};
+        }};
+    }};
+    classes['android.system.StructStat'] = {getField(name) {
+        assert.equal(name, 'st_mode');
+        return {getInt(receiver) {assert.ok(receiver && Number.isInteger(receiver.st_mode)); return receiver.st_mode;}};
     }};
     classes['android.system.Os'] = {getMethod(name, types) {
         privateStep('DIR_METHODS');
         assert.equal(types.component, classes['java.lang.Class']);
         assert.deepEqual(Array.from(types, x => x.name), name === 'open' ? ['java.lang.String', 'int', 'int'] : ['java.io.FileDescriptor']);
-        assert.ok(['open', 'fsync', 'close'].includes(name));
+        assert.ok(['open', 'fstat', 'fsync', 'close'].includes(name));
         return {invoke(receiver, args) {
             assert.equal(receiver, null);
             assert.equal(args.component, classes['java.lang.Object']);
@@ -65,11 +82,15 @@ function launcher(options = {}) {
                 if (name === 'open') {
                     assert.ok(args[0] instanceof JavaString && args[1] instanceof JavaInteger && args[2] instanceof JavaInteger);
                     assert.equal(String(args[0]), privateRoot);
-                    assert.equal(args[1].value, 65536);
+                    assert.equal(args[1].value, 0);
                     assert.equal(args[2].value, 0);
                     privateStep('DIR_OPEN'); return 1;
                 }
                 assert.equal(args[0], 1);
+                if (name === 'fstat') {
+                    privateStep('DIR_VERIFY');
+                    return {st_mode: options.nonDirectory ? 0x8000 : 0x4000};
+                }
                 privateStep(name === 'fsync' ? 'DIR_SYNC' : 'DIR_CLOSE');
             } catch (error) {
                 if (!error.javaException) throw error;
@@ -373,7 +394,7 @@ test('relative or parentless engine sources stop before file reads and any phone
 });
 
 test('every private result I/O failure is identified while the public report retains the observed outcome', () => {
-    for (const stage of ['FILE_OPEN', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_CLASS', 'DIR_METHODS', 'DIR_FLAGS', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE']) {
+    for (const stage of ['FILE_OPEN', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_CLASS', 'DIR_METHODS', 'DIR_FLAGS', 'DIR_OPEN', 'DIR_VERIFY', 'DIR_SYNC', 'DIR_CLOSE']) {
         const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-private-storage-steps', mode: 'probe'};
         const lab = launcher({privateFailures: [stage], storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
         const observed = lab.run();
@@ -388,25 +409,25 @@ test('every private result I/O failure is identified while the public report ret
         assert.doesNotMatch(report.reportText, /PRIVATE_REFLECTION_DETAIL_MUST_NOT_LEAK/);
         assert.equal(lab.calls.runs.length, 1);
         assert.ok(lab.calls.alerts.some(x => x.title === '결과 파일 저장 확인 필요'));
-        if (stage === 'DIR_SYNC') {
+        if (stage === 'DIR_VERIFY' || stage === 'DIR_SYNC') {
             assert.ok(lab.storage.has(privateRoot + '/last-result.json'), 'rename can succeed before directory sync fails');
             assert.ok(lab.calls.privateSteps.includes('DIR_CLOSE'));
         }
     }
 });
 
-test('public directory signatures persist with file and directory sync even when direct class bridging is unavailable', () => {
+test('public directory signatures verify and sync the opened fd without O_DIRECTORY or direct class bridging', () => {
     const lab = launcher({choices: [0, 2]});
     const observed = lab.run();
     assert.equal(observed.lastResultStorage.status, 'SAVED');
     assert.equal(lab.calls.alerts.some(x => x.title === '결과 파일 저장 확인 필요'), false);
-    assert.deepEqual(lab.calls.privateSteps.filter(x => ['FILE_SYNC', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE'].includes(x)),
-        ['FILE_SYNC', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE']);
+    assert.deepEqual(lab.calls.privateSteps.filter(x => ['FILE_SYNC', 'RENAME', 'DIR_OPEN', 'DIR_VERIFY', 'DIR_SYNC', 'DIR_CLOSE'].includes(x)),
+        ['FILE_SYNC', 'RENAME', 'DIR_OPEN', 'DIR_VERIFY', 'DIR_SYNC', 'DIR_CLOSE']);
     assert.equal(JSON.parse(lab.storage.get(privateRoot + '/last-result.json')).status, 'probe_ok');
 });
 
 test('cleanup errors cannot replace the first failed private storage step', () => {
-    for (const stages of [['WRITE', 'CLOSE'], ['FILE_SYNC', 'CLOSE'], ['DIR_SYNC', 'DIR_CLOSE']]) {
+    for (const stages of [['WRITE', 'CLOSE'], ['FILE_SYNC', 'CLOSE'], ['DIR_VERIFY', 'DIR_CLOSE'], ['DIR_SYNC', 'DIR_CLOSE']]) {
         const lab = launcher({privateFailures: stages});
         assert.throws(() => lab.write(privateRoot + '/journal.json', {records: []}), error => {
             assert.equal(error.storageFailure.stage, stages[0]);
@@ -415,6 +436,27 @@ test('cleanup errors cannot replace the first failed private storage step', () =
         });
         assert.ok(lab.calls.privateSteps.includes(stages[1]), 'cleanup still attempted');
     }
+});
+
+test('a reflected false directory result blocks fsync and closes the owned fd exactly once', () => {
+    for (const privateFailures of [[], ['DIR_CLOSE']]) {
+        const lab = launcher({nonDirectory: true, privateFailures});
+        assert.throws(() => lab.write(privateRoot + '/journal.json', {records: []}), error => {
+            assert.equal(error.storageFailure.stage, 'DIR_VERIFY');
+            assert.equal(error.message, 'STORAGE_DIR_VERIFY_FAILED');
+            assert.equal(error.storageFailure.errno, undefined, 'a later close errno must not replace the verification failure');
+            return true;
+        });
+        assert.deepEqual(lab.calls.privateSteps.filter(x => ['DIR_OPEN', 'DIR_VERIFY', 'DIR_SYNC', 'DIR_CLOSE'].includes(x)),
+            ['DIR_OPEN', 'DIR_VERIFY', 'DIR_CLOSE']);
+    }
+});
+
+test('a parent that is no longer a directory is rejected before native open', () => {
+    const lab = launcher({parentNotDirectory: true});
+    assert.throws(() => lab.write(privateRoot + '/journal.json', {records: []}), /STORAGE_DIR_OPEN_FAILED/);
+    assert.equal(lab.calls.privateSteps.includes('DIR_OPEN'), false);
+    assert.equal(lab.calls.privateSteps.includes('DIR_SYNC'), false);
 });
 
 test('encoding failure remains bounded and is never a successful journal persistence', () => {
@@ -429,13 +471,20 @@ test('encoding failure remains bounded and is never a successful journal persist
     assert.equal(lab.storage.has(privateRoot + '/journal.json'), false);
 });
 
-test('private directory sync failure still rejects journal claim and leaves no in-memory successful claim', () => {
-    const lab = launcher({privateFailures: ['DIR_SYNC']});
-    const journal = createJournal({load: () => null, saveAtomic: value => lab.write(privateRoot + '/journal.json', value)});
-    assert.throws(() => journal.claim('journal-sync-failed', {status: 'running', stage: 'VALIDATE', requestFingerprint: 'a'.repeat(64)}), /STORAGE_DIR_SYNC_FAILED/);
-    assert.equal(journal.get('journal-sync-failed'), null);
-    assert.ok(lab.calls.privateSteps.includes('DIR_SYNC'));
-    const recovered = createJournal({load: () => JSON.parse(lab.storage.get(privateRoot + '/journal.json')), saveAtomic: () => {throw new Error('no replay');}});
-    assert.equal(recovered.unresolved()[0].requestId, 'journal-sync-failed');
-    assert.equal(lab.calls.runs.length, 0);
+test('directory verification and sync failures reject journal claims and recovered records still block replay', () => {
+    for (const [options, stage] of [
+        [{privateFailures: ['DIR_VERIFY']}, 'DIR_VERIFY'],
+        [{nonDirectory: true}, 'DIR_VERIFY'],
+        [{privateFailures: ['DIR_SYNC']}, 'DIR_SYNC']
+    ]) {
+        const lab = launcher(options);
+        const journal = createJournal({load: () => null, saveAtomic: value => lab.write(privateRoot + '/journal.json', value)});
+        assert.throws(() => journal.claim('journal-durability-failed', {status: 'running', stage: 'VALIDATE', requestFingerprint: 'a'.repeat(64)}),
+            new RegExp('STORAGE_' + stage + '_FAILED'));
+        assert.equal(journal.get('journal-durability-failed'), null);
+        assert.ok(lab.calls.privateSteps.includes(stage));
+        const recovered = createJournal({load: () => JSON.parse(lab.storage.get(privateRoot + '/journal.json')), saveAtomic: () => {throw new Error('no replay');}});
+        assert.equal(recovered.unresolved()[0].requestId, 'journal-durability-failed');
+        assert.equal(lab.calls.runs.length, 0);
+    }
 });

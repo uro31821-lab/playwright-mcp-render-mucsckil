@@ -14,6 +14,64 @@ function observedSurfaceClick(lab) {
         surfaceGuard: {verificationMethod: 'observed_gemini_editor', ...target(snapshot, 22, observedEditorId)}};
 }
 
+function installEditorHintApis(lab, apis) {
+    const originalWindows = lab.env.auto.service.getWindowsOnAllDisplays;
+    function decorate(raw) {
+        if (!raw) return raw;
+        const originalChild = raw.getChild;
+        raw.getChild = index => decorate(originalChild(index));
+        if (raw.getPackageName() === TARGET && raw.isEditable()) {
+            for (const [name, value] of Object.entries(apis)) raw[name] = value;
+        }
+        return raw;
+    }
+    lab.env.auto.service.getWindowsOnAllDisplays = () => {
+        const groups = originalWindows();
+        return {size: () => groups.size(), valueAt: index => groups.valueAt(index).map(window => {
+            const originalRoot = window.getRoot;
+            window.getRoot = () => decorate(originalRoot());
+            return window;
+        })};
+    };
+}
+
+test('optional hint observations expose booleans without replacing text or changing native guard identity', () => {
+    const lab = fixture();
+    const privateHint = 'PRIVATE_HINT_AND_INPUT_VALUE';
+    lab.draft.text = privateHint;
+    let hint = privateHint;
+    let showing = true;
+    installEditorHintApis(lab, {getHintText: () => hint, isShowingHintText: () => showing});
+    const snapshot = lab.io.read();
+    const draft = target(snapshot, 22, lab.draft.viewId).node;
+    assert.equal(draft.text, privateHint);
+    assert.deepEqual(draft.editorTextDiagnostics, {textEmpty: false, hintTextApiAvailable: true,
+        hintTextAvailable: true, textMatchesHint: true, showingHintTextApiAvailable: true, showingHintText: true});
+    assert.doesNotMatch(JSON.stringify(draft.editorTextDiagnostics), /PRIVATE_HINT|length|value/);
+    hint = 'DIFFERENT_PRIVATE_HINT';
+    showing = false;
+    const click = {kind: 'click', ...target(snapshot, 22, 'test:send'), guards: [draft]};
+    assert.equal(lab.io.perform(click).dispatched, true, 'hint-only changes are not action identity changes');
+    assert.equal(lab.draft.text, privateHint);
+});
+
+test('missing or throwing hint APIs remain unknown while observed empty hints remain distinct', () => {
+    for (const kind of ['missing', 'throws', 'empty']) {
+        const lab = fixture();
+        lab.draft.text = '';
+        if (kind === 'throws') installEditorHintApis(lab, {
+            getHintText() { throw new Error('PRIVATE_HINT_FAILURE'); },
+            isShowingHintText() { throw new Error('PRIVATE_SHOWING_FAILURE'); }
+        });
+        if (kind === 'empty') installEditorHintApis(lab, {getHintText: () => null, isShowingHintText: () => false});
+        const draft = target(lab.io.read(), 22, lab.draft.viewId).node;
+        assert.equal(draft.text, '');
+        assert.deepEqual(draft.editorTextDiagnostics, kind === 'empty' ? {textEmpty: true, hintTextApiAvailable: true,
+            hintTextAvailable: false, textMatchesHint: false, showingHintTextApiAvailable: true, showingHintText: false} :
+            {textEmpty: true, hintTextApiAvailable: false, showingHintTextApiAvailable: false}, kind);
+    }
+});
+
 test('reads inactive source, focused target, popup ownership and other display without active-window fallback', () => {
     const lab = fixture();
     lab.state.windows.push({id: 33, displayId: 0, type: 3, packageName: SOURCE, title: 'Selection', parentId: 11,

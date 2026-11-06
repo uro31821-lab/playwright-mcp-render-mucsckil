@@ -681,6 +681,54 @@ test("the titleless path preserves existing-draft, busy-response, and stale nati
     assert.equal(stale.records[stale.req.requestId].status, "completion_unknown");
 });
 
+test("configured editor hint diagnostics never make nonempty text an empty draft", () => {
+    const secret = "PRIVATE_HINT_OR_EXISTING_DRAFT";
+    function addObservation(snapshot) {
+        const target = snapshot.windows[1];
+        target.nodes = target.nodes.filter(item => item.key !== "gemini-title");
+        target.nodes.find(item => item.key === "gemini-draft").editorTextDiagnostics = {
+            textEmpty: true, hintTextApiAvailable: true, hintTextAvailable: true, textMatchesHint: true,
+            showingHintTextApiAvailable: true, showingHintText: true, hintText: secret, textLength: secret.length
+        };
+    }
+    const probe = fixture({request: {mode: "probe"}, initialDraft: secret, mutateSnapshot: addObservation});
+    const result = core.run(probe.req, probe.io, probe.journal);
+    assert.equal(result.status, "probe_ok");
+    assert.equal(result.code, "SPLIT_PROBE_OK");
+    assert.equal(result.diagnostics.targetDraftEmpty, false);
+    assert.deepEqual(result.diagnostics.targetSurfaceDiagnostics.configuredEditorText, {
+        textEmpty: false, hintTextApiAvailable: true, hintTextAvailable: true, textMatchesHint: true,
+        showingHintTextApiAvailable: true, showingHintText: true
+    });
+    assert.doesNotMatch(JSON.stringify(result), /PRIVATE_HINT_OR_EXISTING_DRAFT|textLength|hintText"/);
+    assert.deepEqual(probe.actions, []);
+    const handoff = fixture({request: {mode: "handoff"}, initialDraft: secret, mutateSnapshot: addObservation});
+    const blocked = core.run(handoff.req, handoff.io, handoff.journal);
+    assert.equal(blocked.code, "TARGET_DRAFT_NOT_EMPTY");
+    assert.equal(blocked.handoffDispatched, false);
+    assert.deepEqual(handoff.actions, []);
+});
+
+test("editor text metadata is restricted to a single configured eligible editor and usable boolean observations", () => {
+    for (const kind of ["hidden", "duplicate", "unavailable"]) {
+        const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+            const target = snapshot.windows[1];
+            const draft = target.nodes.find(item => item.key === "gemini-draft");
+            draft.editorTextDiagnostics = {hintTextApiAvailable: false, hintTextAvailable: true, textMatchesHint: true,
+                showingHintTextApiAvailable: false, showingHintText: true, hintText: "PRIVATE_HINT"};
+            if (kind === "hidden") draft.visible = false;
+            if (kind === "duplicate") target.nodes.push({...clone(draft), key: "second-configured", path: [50]});
+        }});
+        const result = core.run(f.req, f.io, f.journal);
+        const diagnostic = result.diagnostics.targetSurfaceDiagnostics;
+        if (kind === "unavailable") assert.deepEqual(diagnostic.configuredEditorText,
+            {textEmpty: true, hintTextApiAvailable: false, showingHintTextApiAvailable: false});
+        else assert.equal(Object.hasOwn(diagnostic, "configuredEditorText"), false, kind);
+        assert.doesNotMatch(JSON.stringify(result), /PRIVATE_HINT/);
+        assert.deepEqual(f.actions, []);
+    }
+});
+
 test("rejects ambiguous source occurrences and editable ChatGPT composer text", () => {
     const repeated = fixture({sourceText: EXPECTED + " / " + EXPECTED});
     assert.equal(core.run(repeated.req, repeated.io, repeated.journal).code, "SOURCE_TEXT_AMBIGUOUS");

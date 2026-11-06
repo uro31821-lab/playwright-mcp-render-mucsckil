@@ -11,6 +11,10 @@ The pinned JAR is downloaded, verified, compiled against, and executed only in
 a temporary directory. It is never added to the phone bundle or delivery ZIP.
 An optional --rhino-jar path reuses an already downloaded, identically verified
 JAR. Network/compiler failures exit nonzero rather than reporting a skipped PASS.
+CI additionally uses --require-android-sdk to verify the real installed public
+android.jar signatures, with a class loader that cannot see the Android mocks.
+ANDROID_HOME/ANDROID_SDK_ROOT are searched, or --android-jar gives an exact path.
+No SDK, emulator, APK, or other dependency is installed by this test.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -38,7 +43,7 @@ JAR_URL = (
 JAR_SIZE = 3_529_198
 JAR_GIT_BLOB_SHA1 = "0a2e3f98fe331fc8ce19c7eab5acfb935160894c"
 RESULT_PREFIX = "RHINO_STORAGE_RESULT "
-EXPECTED_CASES = ["success", "open", "sync_close", "close"]
+EXPECTED_CASES = ["success", "open", "not_directory", "fstat_close", "sync_close", "close"]
 
 
 def run_process(command: list[str], *, timeout: int = 60) -> subprocess.CompletedProcess[str]:
@@ -77,9 +82,32 @@ def verified_jar(existing: Path | None) -> bytes:
     return payload
 
 
+def android_jar(explicit: Path | None, required: bool) -> Path | None:
+    if explicit is not None:
+        if not explicit.is_file():
+            raise RuntimeError("SDK_INPUT_MISSING: the explicit Android SDK android.jar does not exist")
+        return explicit.resolve()
+    candidates: list[tuple[int, int, Path]] = []
+    for variable in ("ANDROID_HOME", "ANDROID_SDK_ROOT"):
+        location = os.environ.get(variable)
+        if not location:
+            continue
+        for candidate in Path(location).glob("platforms/android-*/android.jar"):
+            version = re.fullmatch(r"android-(\d+)(?:-ext(\d+))?", candidate.parent.name)
+            if candidate.is_file() and version:
+                candidates.append((int(version[1]), int(version[2] or 0), candidate.resolve()))
+    if candidates:
+        return max(candidates)[2]
+    if required:
+        raise RuntimeError("SDK_INPUT_MISSING: --require-android-sdk needs an installed platform android.jar in ANDROID_HOME/ANDROID_SDK_ROOT or --android-jar")
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--rhino-jar", type=Path, help="existing pinned JAR; size and Git blob hash are still verified")
+    parser.add_argument("--android-jar", type=Path, help="installed Android public SDK android.jar for isolated signature verification")
+    parser.add_argument("--require-android-sdk", action="store_true", help="fail if no installed Android public SDK android.jar is available")
     arguments = parser.parse_args()
     experiment = Path(__file__).resolve().parents[1]
     fixtures = experiment / "tests" / "fixtures" / "rhino-storage"
@@ -89,8 +117,9 @@ def main() -> int:
         raise RuntimeError("NOT_RUN: Java runtime is required")
     compiler = compiler_command(java)
     java_sources = sorted(fixtures.rglob("*.java"))
-    if len(java_sources) != 4 or not production_main.is_file():
-        raise RuntimeError("TEST_INPUT_MISSING: expected main.js and four Java fixture sources")
+    if len(java_sources) != 5 or not production_main.is_file():
+        raise RuntimeError("TEST_INPUT_MISSING: expected main.js and five Java fixture sources")
+    sdk_jar = android_jar(arguments.android_jar, arguments.require_android_sdk)
     payload = verified_jar(arguments.rhino_jar)
     with tempfile.TemporaryDirectory(prefix="jebiseo-rhino-storage-") as temporary:
         work = Path(temporary)
@@ -99,25 +128,37 @@ def main() -> int:
         classes = work / "classes"
         classes.mkdir()
         run_process(compiler + ["-encoding", "UTF-8", "-cp", str(jar), "-d", str(classes)] + [str(path) for path in java_sources])
-        execution = run_process([
+        execution_command = [
             java, "-Dfile.encoding=UTF-8", "-cp", os.pathsep.join([str(classes), str(jar)]),
             "StorageInterop", str(production_main), str(fixtures / "storage-harness.js"), str(work / "state")
-        ])
+        ]
+        if sdk_jar is not None:
+            execution_command.append(str(sdk_jar))
+        execution = run_process(execution_command)
         result_lines = [line[len(RESULT_PREFIX):] for line in execution.stdout.splitlines() if line.startswith(RESULT_PREFIX)]
         if len(result_lines) != 1:
             raise RuntimeError("RESULT_MISSING: JVM did not return one current interop result\n" + execution.stdout[-4000:])
         result = json.loads(result_lines[0])
-        if (result.get("androidOsMock") is not True or result.get("passed") != 4 or
+        if (result.get("androidOsMock") is not True or result.get("passed") != len(EXPECTED_CASES) or
                 [item.get("name") for item in result.get("cases", [])] != EXPECTED_CASES or
                 not all(item.get("passed") is True for item in result["cases"])):
-            raise RuntimeError("RESULT_INVALID: expected four successful Java/Rhino interop cases")
+            raise RuntimeError("RESULT_INVALID: expected six successful Java/Rhino interop cases")
+        sdk_result = result.get("androidSdkSurface", {})
+        if sdk_jar is not None and sdk_result != {"status": "VERIFIED", "checkedMembers": 8, "oDirectoryAbsent": True}:
+            raise RuntimeError("SDK_RESULT_INVALID: real Android public SDK signatures were not verified")
+        if sdk_jar is None and sdk_result != {"status": "NOT_RUN"}:
+            raise RuntimeError("SDK_RESULT_INVALID: no SDK was supplied, so verification cannot be reported")
         summary = {
             "suite": "rhino-jvm-storage-interop", "passed": result["passed"], "failed": 0,
             "androidOsMock": True, "phoneE2E": "NOT_RUN",
             "rhinoSourceCommit": AUTOJS_COMMIT, "rhinoGitBlobSha1": JAR_GIT_BLOB_SHA1,
             "mainSha256": hashlib.sha256(production_main.read_bytes()).hexdigest(),
+            "androidSdkSurface": sdk_result,
             "cases": result["cases"]
         }
+        if sdk_jar is not None:
+            summary["androidSdkPlatform"] = sdk_jar.parent.name
+            summary["androidSdkJarSha256"] = hashlib.sha256(sdk_jar.read_bytes()).hexdigest()
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         print("PASS: real pinned Rhino/JVM interoperability; Android Os is a mock, not phone/device validation.")
     return 0

@@ -177,3 +177,47 @@ test('surface verification method is bounded and does not relabel the observed m
     assert.doesNotMatch(invalid, /PRIVATE_UI_TEXT/);
     assert.deepEqual(details(invalid).diagnostics.targetSurfaceDiagnostics, {});
 });
+
+test('configured editor summary shows only boolean hint observations and preserves the probe outcome', () => {
+    const secret = 'PRIVATE_HINT_OR_INPUT_034';
+    const input = result({diagnostics: {targetDraftEmpty: false, targetSurfaceDiagnostics: {configuredEditorMatches: 1,
+        configuredEditorText: {textEmpty: false, hintTextApiAvailable: true, hintTextAvailable: true, textMatchesHint: true,
+            showingHintTextApiAvailable: true, showingHintText: true, hintText: secret, text: secret, length: 987654}}}});
+    const text = formatResult(input);
+    const projected = details(text);
+    assert.equal(projected.status, 'probe_ok');
+    assert.equal(projected.code, 'SPLIT_PROBE_OK');
+    assert.equal(projected.diagnostics.targetDraftEmpty, false);
+    assert.deepEqual(projected.diagnostics.targetSurfaceDiagnostics.configuredEditorText, {textEmpty: false,
+        hintTextApiAvailable: true, hintTextAvailable: true, textMatchesHint: true, showingHintTextApiAvailable: true, showingHintText: true});
+    assert.match(formatSummary(input), /입력란 읽힌 문자 비움: 아니오 \/ 힌트와 일치: 예/);
+    assert.match(formatSummary(input), /힌트 정보: 있음 \/ 힌트 표시: 예/);
+    assert.doesNotMatch(text + formatSummary(input), /PRIVATE_HINT_OR_INPUT_034|987654|"length"/);
+});
+
+test('unavailable or nonboolean editor observations stay unverified and ambiguous editors have no single-editor metadata', () => {
+    const input = result({diagnostics: {targetSurfaceDiagnostics: {configuredEditorMatches: 1, configuredEditorText: {
+        textEmpty: 'PRIVATE_VALUE', hintTextApiAvailable: false, hintTextAvailable: true, textMatchesHint: true,
+        showingHintTextApiAvailable: false, showingHintText: true
+    }}}});
+    assert.deepEqual(details(formatResult(input)).diagnostics.targetSurfaceDiagnostics.configuredEditorText,
+        {hintTextApiAvailable: false, showingHintTextApiAvailable: false});
+    assert.match(formatSummary(input), /입력란 읽힌 문자 비움: 미확인 \/ 힌트와 일치: 미확인/);
+    assert.match(formatSummary(input), /힌트 정보: 미확인 \/ 힌트 표시: 미확인/);
+    assert.doesNotMatch(formatResult(input), /PRIVATE_VALUE/);
+    input.diagnostics.targetSurfaceDiagnostics.configuredEditorMatches = 2;
+    assert.equal(Object.hasOwn(details(formatResult(input)).diagnostics.targetSurfaceDiagnostics, 'configuredEditorText'), false);
+});
+
+test('private DIR_VERIFY failure remains specific without changing the observed phone outcome', () => {
+    for (const [status, code] of [['probe_ok', 'SPLIT_PROBE_OK'], ['completion_unknown', 'PHONE_RUNTIME_ERROR']]) {
+        const input = result({status, code, lastResultStorage: {status: 'FAILED', stage: 'DIR_VERIFY', kind: 'Error',
+            message: 'PRIVATE_DIRECTORY_PATH', path: 'PRIVATE_DIRECTORY_PATH'}});
+        const projected = details(formatResult(input));
+        assert.equal(projected.status, status);
+        assert.equal(projected.code, code);
+        assert.deepEqual(projected.lastResultStorage, {status: 'FAILED', stage: 'DIR_VERIFY', code: 'STORAGE_DIR_VERIFY_FAILED', kind: 'Error'});
+        assert.match(formatSummary(input), /DIR_VERIFY/);
+        assert.doesNotMatch(formatResult(input) + formatSummary(input), /PRIVATE_DIRECTORY_PATH/);
+    }
+});

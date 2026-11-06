@@ -49,6 +49,7 @@ function publicDirectoryApi(env) {
         var Class = env.java.lang.Class;
         var osClass = Class.forName('android.system.Os');
         var constantsClass = Class.forName('android.system.OsConstants');
+        var statClass = Class.forName('android.system.StructStat');
         var classType = Class.forName('java.lang.Class');
         var objectType = Class.forName('java.lang.Object');
         var stringType = Class.forName('java.lang.String');
@@ -61,18 +62,28 @@ function publicDirectoryApi(env) {
         }
         stage = 'DIR_METHODS';
         var open = osClass.getMethod('open', array(classType, [stringType, intType, intType]));
+        var stat = osClass.getMethod('fstat', array(classType, [fdType]));
         var sync = osClass.getMethod('fsync', array(classType, [fdType]));
         var close = osClass.getMethod('close', array(classType, [fdType]));
+        var isDirectory = constantsClass.getMethod('S_ISDIR', array(classType, [intType]));
         stage = 'DIR_FLAGS';
         var readOnly = Number(constantsClass.getField('O_RDONLY').getInt(null));
-        var directory = Number(constantsClass.getField('O_DIRECTORY').getInt(null));
-        if (!isFinite(readOnly) || Math.floor(readOnly) !== readOnly || readOnly < 0 ||
-            !isFinite(directory) || Math.floor(directory) !== directory || directory <= 0) throw new Error('DIRECTORY_FLAGS_INVALID');
-        var flags = readOnly | directory;
+        if (!isFinite(readOnly) || Math.floor(readOnly) !== readOnly || readOnly < 0) throw new Error('DIRECTORY_FLAGS_INVALID');
+        stage = 'DIR_VERIFY';
+        var mode = statClass.getField('st_mode');
         return {
             open: function (path) {
+                // O_DIRECTORY is not in Android's public OsConstants API.
+                // Open with its public read-only flag, then verify this fd below.
                 return open.invoke(null, array(objectType, [new env.java.lang.String(path),
-                    new env.java.lang.Integer(flags), new env.java.lang.Integer(0)]));
+                    new env.java.lang.Integer(readOnly), new env.java.lang.Integer(0)]));
+            },
+            isDirectory: function (fd) {
+                var status = stat.invoke(null, array(objectType, [fd]));
+                if (status === null) throw new Error('DIRECTORY_STATUS_MISSING');
+                var value = isDirectory.invoke(null, array(objectType, [new env.java.lang.Integer(Number(mode.getInt(status)))]));
+                // A reflected java.lang.Boolean.FALSE may be a truthy JS object.
+                return String(value) === 'true';
             },
             fsync: function (fd) { sync.invoke(null, array(objectType, [fd])); },
             close: function (fd) { close.invoke(null, array(objectType, [fd])); }
@@ -106,9 +117,14 @@ function durableWrite(env, root, target, value) {
         stage = 'RENAME';
         if (!temporary.renameTo(target)) throw new Error('ATOMIC_RENAME_FAILED');
         stage = 'DIR_OPEN';
+        if (!root.isDirectory()) throw new Error('PARENT_DIRECTORY_MISSING');
         directoryApi = publicDirectoryApi(env);
         directoryFd = directoryApi.open(String(root.getAbsolutePath()));
         if (directoryFd === null) throw new Error('DIRECTORY_DESCRIPTOR_MISSING');
+        stage = 'DIR_VERIFY';
+        // Keep ownership outside the verifier so every opened fd is closed,
+        // including fstat failures and descriptors that are not directories.
+        if (!directoryApi.isDirectory(directoryFd)) throw new Error('DESCRIPTOR_NOT_A_DIRECTORY');
         stage = 'DIR_SYNC';
         directoryApi.fsync(directoryFd);
     } catch (directoryError) { failure = directoryError.storageFailure ? directoryError : storageError(stage, directoryError); }
@@ -235,7 +251,7 @@ function runPhone(env) {
             return value;
         }
         var choice = launchRequest ? ['probe', 'selection', 'more', 'handoff', 'submit'].indexOf(mode) :
-            env.dialogs.select('제비서 독립 시험 0.3.3\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
+            env.dialogs.select('제비서 독립 시험 0.3.4\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
             '1. 화면·메뉴 읽기 — 버튼을 누르지 않음',
             '2. 시험 문장 선택까지만',
             '3. ⋯ 열고 Gemini 항목 확인까지만 — 전달 안 함',

@@ -115,6 +115,17 @@ function surfaceDiagnostics(value) {
     if (['title_and_configured_editor', 'observed_gemini_editor', 'unverified'].indexOf(input.verificationMethod) >= 0) {
         output.verificationMethod = input.verificationMethod;
     }
+    if (output.configuredEditorMatches === 1 && input.configuredEditorText && typeof input.configuredEditorText === 'object') {
+        var editor = record(input.configuredEditorText);
+        var observed = {};
+        ['textEmpty', 'hintTextApiAvailable', 'showingHintTextApiAvailable'].forEach(function (key) { copyBoolean(editor, observed, key); });
+        if (editor.hintTextApiAvailable === true) {
+            copyBoolean(editor, observed, 'hintTextAvailable');
+            copyBoolean(editor, observed, 'textMatchesHint');
+        }
+        if (editor.showingHintTextApiAvailable === true) copyBoolean(editor, observed, 'showingHintText');
+        output.configuredEditorText = observed;
+    }
     if (Array.isArray(input.eligibleEditorCandidates)) {
         output.eligibleEditorCandidates = input.eligibleEditorCandidates.slice(0, 8).filter(function (node) {
             return node && integer(node.windowId) && bounds(node.bounds);
@@ -137,7 +148,7 @@ function lastResultStorage(value) {
     var input = record(value);
     if (input.status === 'SAVED') return {status: 'SAVED'};
     if (input.status !== 'FAILED') return null;
-    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_CLASS', 'DIR_METHODS', 'DIR_FLAGS', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'UNKNOWN'];
+    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_CLASS', 'DIR_METHODS', 'DIR_FLAGS', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'DIR_VERIFY', 'UNKNOWN'];
     var kinds = ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'EvalError', 'InternalError', 'JavaException', 'java.io.IOException',
         'java.io.FileNotFoundException', 'java.io.SyncFailedException', 'java.lang.SecurityException', 'android.system.ErrnoException',
         'java.lang.ClassNotFoundException', 'java.lang.NoSuchMethodException', 'java.lang.NoSuchFieldException', 'java.lang.IllegalAccessException',
@@ -293,6 +304,13 @@ function surfaceLines(surface) {
     var methods = {title_and_configured_editor: '제목과 설정된 입력칸',
         observed_gemini_editor: '실제 확인한 Gemini 전용 입력칸', unverified: '미확인'};
     if (own(methods, surface.verificationMethod)) lines.push('• 화면 확인 기준: ' + methods[surface.verificationMethod]);
+    if (surface.configuredEditorText) {
+        var editor = surface.configuredEditorText;
+        lines.push('• 입력란 읽힌 문자 비움: ' + observation(editor.textEmpty, '예', '아니오') +
+            ' / 힌트와 일치: ' + observation(editor.textMatchesHint, '예', '아니오'));
+        lines.push('• 힌트 정보: ' + observation(editor.hintTextAvailable, '있음', '없음') +
+            ' / 힌트 표시: ' + observation(editor.showingHintText, '예', '아니오'));
+    }
     if (surface.eligibleEditorCandidates) surface.eligibleEditorCandidates.forEach(function (node, index) {
         lines.push('• 입력칸 후보 ' + (index + 1) + ': ' + (node.viewId || '(내부 이름 없음)') +
             ' / ' + (node.className || '(종류 미확인)') +
