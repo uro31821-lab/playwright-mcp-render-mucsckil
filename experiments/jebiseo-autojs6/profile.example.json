@@ -1,0 +1,18 @@
+{
+  "schema": "jebiseo.autojs6.profile.v1",
+  "sourcePackage": "com.openai.chatgpt",
+  "targetPackage": "com.google.android.googlequicksearchbox",
+  "targetInputIds": ["com.google.android.googlequicksearchbox:id/assistant_robin_input_collapsed_text_half_sheet"],
+  "targetTitleLabels": ["Gemini"],
+  "targetSendIds": [],
+  "targetStopIds": [],
+  "testText": "제비서 독립시험: 이 문장을 받으면 확인이라고만 답해 주세요.",
+  "timeoutMs": 8000,
+  "pollMs": 200,
+  "startDelayMs": 3500,
+  "moreLabels": ["옵션 더보기", "더보기", "더 보기", "More options", "More", "⋯", "…"],
+  "menuLabels": ["Gemini로 보내기", "Gemini에게 물어보기", "Send to Gemini", "Ask Gemini"],
+  "sendLabels": ["보내기", "전송", "Send", "Submit"],
+  "stopLabels": ["응답 중지", "생성 중지", "Stop response", "Stop generating"],
+  "gestureSelection": null
+}

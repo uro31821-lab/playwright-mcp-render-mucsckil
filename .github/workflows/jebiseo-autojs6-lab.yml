@@ -1,0 +1,33 @@
+name: Jebiseo AutoJs6 independent experiment
+
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'experiments/jebiseo-autojs6/**'
+      - '.github/workflows/jebiseo-autojs6-lab.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  offline-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: experiments/jebiseo-autojs6
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Check JavaScript syntax
+        run: npm run check
+      - name: Run offline controller, adapter, and journal contracts
+        run: npm test
+      - name: Rebuild and check the exact phone script
+        run: |
+          npm run build
+          node --check dist/jebiseo-independent-test.js
+          git diff --exit-code -- dist/jebiseo-independent-test.js
