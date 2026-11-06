@@ -35,7 +35,7 @@ jobs:
           rm -rf "$RUNNER_TEMP/ebiseo-audio"
           mkdir -p "$RUNNER_TEMP/ebiseo-audio"
           cp -a jh-server "$TMP_HOST"
-          node --input-type=module -e "import {buildDurableRoutedOperationalEntrypoint} from './jh-server/owner-setup/deployment/durable-live-release.mjs'; const x=buildDurableRoutedOperationalEntrypoint(process.argv[1]); console.log(JSON.stringify(x))" "$TMP_ROOT" > "$RUNNER_TEMP/ebiseo-historical-runtime.txt"
+          node --input-type=module -e "import {buildCleanRestartRelease56} from './jh-server/owner-setup/deployment/durable-clean-restart-news-review-entry.mjs'; import {pathToFileURL} from 'node:url'; const b=buildCleanRestartRelease56(); const m=await import(pathToFileURL(b.file).href+'?sha='+b.sha256); const x=m.buildDurableRoutedOperationalEntrypoint(process.argv[1]); console.log(JSON.stringify(x))" "$TMP_ROOT" > "$RUNNER_TEMP/ebiseo-historical-runtime.txt"
           export EBISEO_TEST_SERVER_RUNTIME="$TMP_ROOT/server-integration/server-durable-native-return-route56.mjs"
           test -f "$EBISEO_TEST_SERVER_RUNTIME"
           echo "EBISEO_PIN_RUNTIME_ACTUAL=$(sha256sum "$EBISEO_TEST_SERVER_RUNTIME" | awk '{print $1}')"
