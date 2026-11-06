@@ -17,7 +17,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - name: Install reviewed owner dependencies only
-        run: npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+        run: |
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
       - name: Syntax
         run: |
           node --check jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs
