@@ -1,0 +1,14 @@
+-  "release": "JH168-STAGE78-LOCATION-ONCE-EBISEO-054-20261106",
+-  "sourceOnlyCandidateStatus": "ORIGINAL_CERTIFICATE_SIGNING_AND_PHONE_VERIFICATION_REQUIRED",
++  "release": "JH169-STAGE82-EBISEO-055-SENDER-IDENTITY-CORRELATION-20261107",
++  "sourceOnlyCandidateStatus": "ORIGINAL_CERTIFICATE_SIGNING_PHONE_INSTALL_AND_AUDIO_E2E_REQUIRED",
+   "candidateLayout": {
+     "left": "ChatGPT",
+     "right": "Gemini"
+@@ -145,5 +146,5 @@
+     "versionName": "jh167-fold8-v5r3-ocr-floating"
+   },
+   "parentSourceIdentityBasis": "SHA-256 of the exact Stage78 data/source-manifest.json bytes before audio transformations",
+-  "ebiseoAudioModuleVersion": "0.5.4"
++  "ebiseoAudioModuleVersion": "0.5.5"
+ }
