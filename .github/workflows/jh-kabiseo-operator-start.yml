@@ -1,0 +1,45 @@
+name: JH Kabiseo original operator startup candidate
+on:
+  push:
+    branches: [kabiseo-camera-metadata-v05-20261105]
+    paths: ['host-kabiseo-assist/server/operator-*.mjs', '.github/workflows/jh-kabiseo-operator-start.yml']
+  pull_request:
+    paths: ['host-kabiseo-assist/server/operator-*.mjs', '.github/workflows/jh-kabiseo-operator-start.yml']
+permissions: {contents: read}
+concurrency:
+  group: kabiseo-operator-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  original-entry-no-listener:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false, path: candidate}
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false, path: baseline, ref: '845c5dfd9925a9f40950f3a873b4e58bfada9990'}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22.23.4', package-manager-cache: false}
+      - name: Validate new code syntax and preserve existing protected sources
+        run: |
+          set -euo pipefail
+          for f in candidate/host-kabiseo-assist/server/operator-*.mjs; do node --check "$f"; done
+          diff -qr candidate/jh-server/owner-setup/deployment baseline/jh-server/owner-setup/deployment
+          git -C baseline diff --exit-code
+      - name: Restore unchanged locked inputs without install hooks
+        run: |
+          npm ci --prefix baseline/jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix baseline/jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Verify actual startup clones and original credential boundary without live service
+        run: node candidate/host-kabiseo-assist/server/operator-start.integration.mjs baseline "$RUNNER_TEMP/kabiseo-operator-evidence"
+      - name: Original source readback
+        if: always()
+        run: git -C baseline diff --exit-code
+      - name: Retain evidence only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-operator-evidence-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-operator-evidence/*-result.json
+          retention-days: 7
+          if-no-files-found: warn
