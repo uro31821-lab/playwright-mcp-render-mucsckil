@@ -1,0 +1,138 @@
+--- a/development/module/src/kr/jh/equalizer/auto/CooperatingSessionRegistry.java
++++ b/development/module/src/kr/jh/equalizer/auto/CooperatingSessionRegistry.java
+@@ -8,9 +8,12 @@
+ 
+ /**
+  * Count-bounded, in-memory bookkeeping for the standard Android audio-effect session
+- * protocol. This class does not authenticate an Intent: its caller must obtain
+- * senderUid/senderPackage from the OS receiver callback, never from extras or
+- * remote JSON. A session generation is deliberately NOT a song occurrence.
++ * protocol. The preferred path uses OS-shared senderUid/senderPackage. Android's
++ * standard audio-effect broadcast does not guarantee that the sender opts into
++ * identity sharing, so a separate fallback may admit the standard contract only
++ * after the caller correlates the exact installed package UID with one current,
++ * local media session. Extras alone or remote JSON are never sufficient. A session
++ * generation is deliberately NOT a song occurrence.
+  * A bound session follows the authenticated OPEN/CLOSE and observed controller
+  * lifecycle, not an elapsed playback limit. The caller must keep observing the
+  * current OS media lifecycle; those observations never authorize a new audio ID.
+@@ -28,23 +31,28 @@
+     /** Immutable diagnostics. Only an available route exposes its authenticated ID. */
+     public static final class Snapshot {
+         public final boolean running, senderIdentityApiSupported, sourceUidAvailable;
++        public final boolean senderIdentityVerified, standardContractCorrelated;
+         public final boolean verifiedSessionPresent, processingRouteAvailable, playing;
+         public final boolean targetEventObserved, unverifiedSenderObserved, sessionLimitExceeded;
+         public final int candidateCount, pendingStartupCount, audioSessionId, authenticatedSourceUid;
+         public final long startupGraceRemainingMs, mediaControllerGeneration;
+         /** Pending startup deadline only. Zero means no pending deadline, including all bound routes. */
+         public final long nextExpiryElapsedRealtimeMs;
+-        public final String routeId, reason, rejectionReason, mediaState;
++        public final String routeId, reason, rejectionReason, mediaState, sessionAuthority;
+ 
+         private Snapshot(boolean running, boolean api, boolean sourceUidAvailable,
++                boolean senderVerified, boolean contractCorrelated,
+                 boolean verifiedPresent, boolean available, boolean playing,
+                 boolean observed, boolean unverifiedObserved, boolean overflow,
+                 int count, int pendingCount, int session, int sourceUid, long startupRemaining,
+                 long nextExpiry, long controllerGeneration,
+-                String routeId, String reason, String rejection, MediaState mediaState) {
++                String routeId, String reason, String rejection, MediaState mediaState,
++                String sessionAuthority) {
+             this.running = running;
+             senderIdentityApiSupported = api;
+             this.sourceUidAvailable = sourceUidAvailable;
++            senderIdentityVerified = senderVerified;
++            standardContractCorrelated = contractCorrelated;
+             verifiedSessionPresent = verifiedPresent;
+             processingRouteAvailable = available;
+             this.playing = playing;
+@@ -62,6 +70,7 @@
+             this.reason = reason;
+             rejectionReason = rejection;
+             this.mediaState = mediaState.name();
++            this.sessionAuthority = sessionAuthority;
+         }
+     }
+ 
+@@ -69,10 +78,13 @@
+         final int session;
+         final String routeId;
+         long boundControllerGeneration, startupExpiresAt;
+-        Entry(int session, String routeId, long boundGeneration, long startupExpiresAt) {
++        boolean senderIdentityVerified;
++        Entry(int session, String routeId, long boundGeneration, long startupExpiresAt,
++                boolean senderIdentityVerified) {
+             this.session = session; this.routeId = routeId;
+             boundControllerGeneration = boundGeneration;
+             this.startupExpiresAt = startupExpiresAt;
++            this.senderIdentityVerified = senderIdentityVerified;
+         }
+     }
+ 
+@@ -160,19 +172,13 @@
+     }
+ 
+     /**
+-     * Records a callback that has already been scoped to the two standard actions.
+-     * An unauthenticated CLOSE must not revoke an authenticated session.
++     * Preferred admission path. A mismatched shared sender can never fall through to
++     * the standard-contract path. An unauthenticated CLOSE cannot revoke a route.
+      */
+     public synchronized Snapshot onSessionEvent(Action action, String declaredPackage,
+             int audioSessionId, int senderUid, String senderPackage, long now) {
+         advance(now);
+-        if (!running) { rejection = "SOURCE_STOPPED"; return build(now); }
+-        if (!clockValid) { rejection = "MONOTONIC_CLOCK_REWOUND"; return build(now); }
+-        if (action == null) { rejection = "INVALID_ACTION"; return build(now); }
+-        if (!sourcePackage.equals(declaredPackage)) {
+-            rejection = "DECLARED_PACKAGE_MISMATCH"; return build(now);
+-        }
+-        targetEventObserved = true;
++        if (!admissionPreamble(action, declaredPackage, now)) return build(now);
+         if (!identityApi || senderUid < 0 || senderPackage == null) {
+             unverifiedSenderObserved = true;
+             rejection = "SENDER_IDENTITY_UNAVAILABLE"; return build(now);
+@@ -180,6 +186,43 @@
+         if (expectedUid <= 0 || senderUid != expectedUid || !sourcePackage.equals(senderPackage)) {
+             rejection = "SENDER_IDENTITY_MISMATCH"; return build(now);
+         }
++        return acceptSessionEvent(action, audioSessionId, true, now);
++    }
++
++    /**
++     * Compatibility path for Android's standard AudioEffect broadcast when the
++     * broadcaster did not opt into API-34 identity sharing. The caller must resolve
++     * declaredPackageUid locally and correlate exactly one current local media
++     * session. This method never accepts a sender mismatch or a package extra alone.
++     */
++    public synchronized Snapshot onCorrelatedSessionEvent(Action action, String declaredPackage,
++            int audioSessionId, int declaredPackageUid, boolean mediaSessionCorrelated, long now) {
++        advance(now);
++        if (!admissionPreamble(action, declaredPackage, now)) return build(now);
++        unverifiedSenderObserved = true;
++        if (!identityApi) { rejection = "SENDER_IDENTITY_API_UNAVAILABLE"; return build(now); }
++        if (expectedUid <= 0 || declaredPackageUid <= 0 || declaredPackageUid != expectedUid) {
++            rejection = "DECLARED_PACKAGE_UID_MISMATCH"; return build(now);
++        }
++        if (!mediaSessionCorrelated) {
++            rejection = "MEDIA_SESSION_CORRELATION_REQUIRED"; return build(now);
++        }
++        return acceptSessionEvent(action, audioSessionId, false, now);
++    }
++
++    private boolean admissionPreamble(Action action, String declaredPackage, long now) {
++        if (!running) { rejection = "SOURCE_STOPPED"; return false; }
++        if (!clockValid) { rejection = "MONOTONIC_CLOCK_REWOUND"; return false; }
++        if (action == null) { rejection = "INVALID_ACTION"; return false; }
++        if (!sourcePackage.equals(declaredPackage)) {
++            rejection = "DECLARED_PACKAGE_MISMATCH"; return false;
++        }
++        targetEventObserved = true;
++        return true;
++    }
++
++    private Snapshot acceptSessionEvent(Action action, int audioSessionId,
++            boolean senderIdentityVerified, long now) {
+         if (audioSessionId <= 0) { rejection = "INVALID_AUDIO_SESSION"; return build(now); }
+         rejection = "NONE";
