@@ -1,0 +1,52 @@
+{
+  "version": 2,
+  "transport": "structured-command-only",
+  "routes": [
+    {
+      "tool": "life_android_audio_status",
+      "jobType": "ebiseo_audio_status",
+      "effect": "READ_ONLY"
+    },
+    {
+      "tool": "life_android_audio_command",
+      "jobType": "ebiseo_audio_command",
+      "effect": "WRITE_REVERSIBLE"
+    }
+  ],
+  "presets": [
+    "genre-rock",
+    "genre-ballad",
+    "genre-edm",
+    "genre-jazz",
+    "genre-classical",
+    "genre-trot",
+    "genre-pop",
+    "genre-hiphop",
+    "vocals",
+    "live",
+    "deepbass",
+    "energy",
+    "instruments",
+    "night",
+    "speech",
+    "flat",
+    "photo"
+  ],
+  "environments": [
+    "preset",
+    "stereo",
+    "wide",
+    "surround",
+    "system"
+  ],
+  "actions": [
+    "start",
+    "stop",
+    "automatic",
+    "query_track",
+    "query_status",
+    "preset",
+    "environment",
+    "enabled"
+  ]
+}

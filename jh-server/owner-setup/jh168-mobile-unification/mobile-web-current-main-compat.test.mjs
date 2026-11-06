@@ -36,8 +36,6 @@ const protectedPaths=[
  'package.json','package-lock.json','jh-server/package.json',
  ROOT+'package.json',ROOT+'package-lock.json',ROOT+'published-baseline/package.json',
  ...publishedFiles.map(p=>':(exclude)'+p),
- // This ONE protected path gets an equally strict exact-blobs-and-reversal audit below.
- ':(exclude)'+ROOT+'deployment/jh167-article-operational-review-composition.mjs',
  ...['mobile-web-current-main-compat.test.mjs','reviewed-source-audit.mjs',
   'reviewed-source-audit.test.mjs','CURRENT-SOURCE-AUDIT.md'].map(p=>':(exclude)'+ROOT+'jh168-mobile-unification/'+p)
 ];

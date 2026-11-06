@@ -1,0 +1,48 @@
+name: JH Ebiseo audio server v0.5.4
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/ebiseo-audio-v05/**'
+      - 'jh-server/owner-setup/catalog/audio-command-contract.json'
+      - 'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs'
+      - '.github/workflows/jh-ebiseo-audio-v05.yml'
+permissions: {contents: read}
+jobs:
+  audio-server-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Install reviewed owner dependencies only
+        run: |
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Syntax
+        run: |
+          node --check jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs
+          for f in jh-server/owner-setup/ebiseo-audio-v05/*.mjs; do node --check "$f"; done
+      - name: Audio server and startup contracts
+        env:
+          EBISEO_TEST_CURRENT_OWNER_ROOT: ${{ github.workspace }}/jh-server/owner-setup
+        run: |
+          set -euo pipefail
+          TMP_HOST="$RUNNER_TEMP/ebiseo-audio/jh-server"
+          TMP_ROOT="$TMP_HOST/owner-setup"
+          rm -rf "$RUNNER_TEMP/ebiseo-audio"
+          mkdir -p "$RUNNER_TEMP/ebiseo-audio"
+          cp -a jh-server "$TMP_HOST"
+          node --input-type=module -e "import {buildCleanRestartRelease56} from './jh-server/owner-setup/deployment/durable-clean-restart-news-review-entry.mjs'; import {pathToFileURL} from 'node:url'; const b=buildCleanRestartRelease56(); const m=await import(pathToFileURL(b.file).href+'?sha='+b.sha256); const x=m.buildDurableRoutedOperationalEntrypoint(process.argv[1]); console.log(JSON.stringify(x))" "$TMP_ROOT" > "$RUNNER_TEMP/ebiseo-historical-runtime.txt"
+          export EBISEO_TEST_SERVER_RUNTIME="$TMP_ROOT/server-integration/server-durable-native-return-route56.mjs"
+          test -f "$EBISEO_TEST_SERVER_RUNTIME"
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/ebiseo-audio-v05/*.test.mjs
+      - name: Release boundary
+        run: |
+          echo APK_BUILD=0
+          echo APK_INSTALL=0
+          echo RENDER_DEPLOY=0
+          echo AUDIO_PHONE_COMMAND=0
+          echo AUTOMATIC_REPLAY=0
