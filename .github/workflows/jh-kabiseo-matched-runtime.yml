@@ -10,7 +10,31 @@ concurrency:
   group: kabiseo-node26-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  execution-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      allowed: ${{ steps.policy.outputs.allowed }}
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Test policy without downloading or invoking target runtime
+        run: python3 -m unittest discover -s host-kabiseo-assist/tools/runtime-proof -p 'test_*.py' -v
+      - name: Read current advisory hold; no runtime job on REVIEW
+        id: policy
+        run: |
+          python3 - <<'PY'
+          import os, sys
+          sys.path.insert(0,'host-kabiseo-assist/tools/runtime-proof')
+          from execution_policy import read_policy
+          r=read_policy('host-kabiseo-assist/tools/runtime-proof/runtime-policy.json','26.13.0')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write('allowed='+str(r['executionAllowed']).lower()+'\n')
+          print('KABISEO_EXECUTION_POLICY='+str(r))
+          PY
   authenticated-runtime-no-live-effects:
+    needs: execution-policy
+    if: needs.execution-policy.outputs.allowed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -20,10 +44,9 @@ jobs:
         with: {persist-credentials: false, path: baseline, ref: '0663e0c3b434f300803e5cf272609032a5e519d3'}
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with: {node-version: '22.23.4', package-manager-cache: false}
-      - name: Reject malformed imports with existing Python; preserve original inputs
+      - name: Preserve original inputs
         run: |
           set -euo pipefail
-          python3 -m unittest discover -s candidate/host-kabiseo-assist/tools/runtime-proof -p 'test_*.py' -v
           git -C candidate fetch --no-tags --depth=1 origin f7411eecb2b4a994a1384177c37d08caf9098f4e
           git -C candidate diff --exit-code f7411eecb2b4a994a1384177c37d08caf9098f4e HEAD -- jh-server host-kabiseo-assist/server
           git -C baseline diff --exit-code
@@ -41,16 +64,20 @@ jobs:
           test ! -e "$AV_DIR"
           sudo install -d -o clamav -g clamav -m 0755 "$AV_DIR"
           echo "KABISEO_AV_DIR=$AV_DIR" >> "$GITHUB_ENV"
-          # FreshClam's service account owns its own folder and log. Do not make
-          # the runner home world-writable or disable existing antivirus services.
           sudo -u clamav timeout 300 freshclam --stdout --datadir="$AV_DIR" --log="$AV_DIR/freshclam.log"
-      - name: Verify official release signature, checksum, archive and ELF antivirus BEFORE new Node execution
+      - name: Recheck policy then verify official release signature, checksum and local antivirus
         id: runtime
         run: |
-          python3 candidate/host-kabiseo-assist/tools/runtime-proof/verify_runtime.py \
-            --work "$RUNNER_TEMP/kabiseo-node26" \
-            --evidence "$RUNNER_TEMP/kabiseo-node26-evidence" \
-            --db "$KABISEO_AV_DIR"
+          python3 - <<'PY'
+          import os, sys
+          from pathlib import Path
+          sys.path.insert(0,'candidate/host-kabiseo-assist/tools/runtime-proof')
+          from execution_policy import guarded_call
+          from verify_runtime import verify, VERSION
+          root=Path(os.environ['RUNNER_TEMP'])
+          guarded_call('candidate/host-kabiseo-assist/tools/runtime-proof/runtime-policy.json',VERSION,
+            lambda:verify(root/'kabiseo-node26',root/'kabiseo-node26-evidence',Path(os.environ['KABISEO_AV_DIR'])))
+          PY
       - name: Execute existing observed-profile integration under exact verified Node26
         env:
           VERIFIED_NODE: ${{ steps.runtime.outputs.node_bin }}
@@ -84,7 +111,7 @@ jobs:
           set -euo pipefail
           git -C baseline diff --exit-code
           git -C candidate diff --exit-code -- jh-server host-kabiseo-assist/server
-      - name: Retain evidence only; never upload Node archive, fonts, private source, APK or keys
+      - name: Retain evidence only; no executable, font, private source, APK or keys
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

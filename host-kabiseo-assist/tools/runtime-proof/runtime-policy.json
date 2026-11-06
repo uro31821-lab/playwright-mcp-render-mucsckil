@@ -1,0 +1,18 @@
+{
+  "schema": "KABISEO_RUNTIME_EXECUTION_POLICY_V018",
+  "version": "26.13.0",
+  "executionAllowed": false,
+  "securityGateVerdict": "REVIEW",
+  "reason": "OFFICIAL_HIGH_SEVERITY_SECURITY_RELEASE_PREANNOUNCEMENT_REQUIRES_REVIEW",
+  "advisoryUrl": "https://nodejs.org/zh-cn/blog/vulnerability/november-2026-security-releases",
+  "advisoryObservedKstDate": "2026-11-06",
+  "announcedReleaseDate": "2026-11-11",
+  "unresolvedFindings": ["Official preannouncement includes HIGH severity for 26.x; exact issue details and application-specific impact not confirmed", "Artifact signature and antivirus success do not resolve upstream software vulnerabilities"],
+  "previousIntegrityAndRuntimeRun": 42227487821,
+  "previousIntegrityEvidencePreserved": true,
+  "previousScopedSafeReceiptSupersededForFurtherExecution": true,
+  "productionDeploymentApproved": false,
+  "liveServiceChangeAuthorized": false,
+  "clearanceReceiptSha256": null,
+  "note": "Historical CI passed before this hold was recorded. Do not rewrite its logs or treat the nested SAFE artifact label as current security approval. No existing live server is stopped or altered by this policy."
+}
