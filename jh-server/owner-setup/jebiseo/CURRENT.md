@@ -6,7 +6,7 @@
 
 ## 이번에 구현한 내용
 
-서버의 `native-text-handoff-port.mjs`와 `native-text-handoff-runtime.mjs`를 원 host binding/composition에 연결했다. 실제 원 `life_android_step`의 세 전용 action을 만들며, 기존 `mk → Secure56 서명 → durable → queue → Stage26 서명 완료`를 유지한다. 사용자 JSON이나 성공 callback으로 실제 폰 영수증을 대신할 수 없다.
+서버의 `native-text-handoff-port.mjs`와 `native-text-handoff-runtime.mjs`를 원 host binding/composition에 연결했다. 실제 MCP 호출 입구는 `native-text-handoff-broker.mjs`가 기존 `life_android_step`의 PREPARE/START/RESUME로 제공하며, 시험용 callback이나 private factory를 직접 호출할 필요가 없다. 실제 원 `life_android_step`의 세 전용 action을 만들며, 기존 `mk → Secure56 서명 → durable → queue → Stage26 서명 완료`를 유지한다. 사용자 JSON이나 성공 callback으로 실제 폰 영수증을 대신할 수 없다.
 
 Android는 검증된 Stage62 FIX3 원본에서 `JebiseoTextHandoffPolicy/Transport/Runtime`을 추가했다. `BridgeService`의 검증된 전체 job에서 전용 분기를 호출한다. 일반 LEFT 클릭·입력 제한, `AndroidAgent`, `AgentFocusPolicy`, `SecureBridge56`, `SiteSwitchPolicy`, `GeminiSubmitReviewPolicy`는 그대로다.
 
@@ -22,7 +22,7 @@ Android는 검증된 Stage62 FIX3 원본에서 `JebiseoTextHandoffPolicy/Transpo
 
 | 범위 | 결과 | 의미 |
 | --- | --- | --- |
-| 서버·원 generated handler·기존 모바일·허브 통합 | **411 passed, 0 failed, 0 skipped** | 실제 후보 오버레이와 원 등록·schema·명령·큐·완료 연결 검사. 기기 결과는 합성 fixture |
+| 서버·원 generated handler·기존 모바일·허브 통합 | **415 passed, 0 failed, 0 skipped** | 실제 후보 오버레이와 정상 등록 도구 PREPARE/START/RESUME, 원 schema·명령·큐·완료 연결 검사. 기기 결과는 합성 fixture |
 | Android JVM 단위 검사 | **1,283 passed, 0 failed, 0 skipped** | 기존 검사와 신규 제비서 9개 포함 |
 | Android release 빌드 | **BUILD SUCCESSFUL** | 실제 Kotlin/Android 컴파일·패키징 완료 |
 | 공개 overlay 재구성 | **428/428 소스 파일 일치** | 원본 복사+두 파일 patch+네 새 파일이 빌드 소스와 바이트 일치 |
@@ -44,11 +44,13 @@ Android는 검증된 Stage62 FIX3 원본에서 `JebiseoTextHandoffPolicy/Transpo
 
 ## 호스트 사용 순서
 
-1. 현재 요청의 원 의미 입력으로 `createHandoffRuntime({request,deliveryMode:'AUTO_TEXT_SELECTION',requiresResultInspection,deviceId,commandId})`를 만든다.
-2. `presentation()`의 정확한 `preparedPrompt`를 현재 왼쪽 GPT 화면에 선택 가능한 한 블록으로 먼저 표시한다. 설명·비서 배지는 밖에 두고 같은 문장을 반복 표시하지 않는다.
-3. 같은 session의 `start()`로 원 실행기에 연결한다. 실제 선택 proof 없이 다음 단계로 진행하지 않는다.
-4. 원 완료 대기 또는 기존 휴대폰 승인 처리 후에는 `resumeAutomation()`을 사용한다. 미확정 클릭은 새 작업으로 다시 보내지 않는다.
-5. 실제 제출 관찰과 삼성 작업·분석·영상 결과를 구분한다. `resultVerified/businessResultVerified/geminiReplyVerified`는 false를 유지한다.
+1. 후보가 적용된 서버의 기존 `life_android_step`에서 `jebiseo_handoff_prepare`를 호출한다. text는 `__JH_JEBISEO_HANDOFF_BROKER_V1__`, value는 `{schema:'JH_JEBISEO_AUTO3_BROKER_V1',mode:'PREPARE',request}`의 JSON 문자열이며 기존 command_id를 유지한다. PREPARE도 원 command fence를 통과하고 폰 동작 없이 현재 요청을 보관한다.
+2. 응답의 정확한 `preparedPrompt`를 현재 왼쪽 GPT 화면에 선택 가능한 한 블록으로 먼저 표시한다. 설명·비서 배지는 밖에 두고 같은 문장을 반복 표시하지 않는다.
+3. 응답이 반환한 `nextArguments` 그대로 `jebiseo_handoff_start`로 이어간다. 내부 같은 session의 `start()`가 실제 선택·메뉴·제출을 실행하며, 원 기기 증거 없이 다음 단계로 진행하지 않는다.
+4. 원 완료 대기 또는 기존 휴대폰 승인 처리 후에는 같은 broker/session의 `jebiseo_handoff_resume`를 사용한다. 후속 요청은 보관 참조와 같은 task/thread/source/digest만 받는다. 외부 proof·receipt·기기 override·callback은 받지 않는다.
+5. 반복 PREPARE는 현재 상태를 보존한다. START 뒤에는 준비 문장·새 START를 다시 내보내지 않는다. 실제 제출 관찰과 삼성 작업·분석·영상 결과는 구분하고 `resultVerified/businessResultVerified/geminiReplyVerified`는 false를 유지한다.
+
+내부 호스트 API는 같은 `createHandoffRuntime` → `presentation()` → 실제 표시 → `start()/resumeAutomation()` 순서다. 현재 설치 서버에 broker가 적용됐다는 근거가 없으면 새 action을 지원한다고 주장하거나 호출하지 않는다.
 
 `nativeSelection`은 요청 참조의 descriptor이며 화면 증거가 아니다. AUTO 모드에 대한 수동 진행 보고는 검증된 클릭 영수증으로 채택하지 않는다. `TEXT_SELECTION`과 `OPEN_MANUAL`은 명시적인 기존 수동 대안이다.
 

@@ -14,7 +14,30 @@
 
 준비 함수는 도구를 실행하지 않는다. 원문·요청 digest와 참조를 보존하며 긴 요청을 조용히 자르지 않는다. 자동 네이티브 경로의 상한은 기존 Gemini 계약인 1200 code points / UTF-8 2048 bytes다. 의미 입력의 `surface`와 `routingModel`은 기존 호환 필드이며 실제 열린 화면의 증거가 아니다.
 
-## 호스트 lifecycle
+## 실제 MCP 도구에서 시작하는 경로
+
+원 서버 후보가 실제 적용된 환경에서는 기존 **`life_android_step`** 도구로 진입한다. 단순한 테스트 callback이나 외부에서 호출할 수 없는 private factory에만 의존하지 않는다. 공개 도구의 이름·schema·endpoint는 유지하고 세 전용 broker action을 원래 인증·command wrapper 안에 연결한다.
+
+```js
+{
+  action: 'jebiseo_handoff_prepare',
+  text: '__JH_JEBISEO_HANDOFF_BROKER_V1__',
+  value: JSON.stringify({
+    schema: 'JH_JEBISEO_AUTO3_BROKER_V1',
+    mode: 'PREPARE',
+    request // 기존 원 의미 요청
+  }),
+  command_id // 현재 유효한 원 JH 명령
+}
+```
+
+PREPARE 응답의 정확한 `preparedPrompt`를 현재 GPT 화면에 한 번 표시한다. 응답이 제공하는 `nextArguments`를 그대로 사용해 START로 이어간다. START/RESUME는 `jebiseo_handoff_start` / `jebiseo_handoff_resume` action, 같은 marker와 command_id, `value` 안의 schema/mode/brokerRef/taskRef/threadRef/sourceRef/requestDigest/promptDigest를 사용한다. `brokerRef`는 현재 인증·기기·세션·명령·runtime에 묶인 보관 session의 참조다. 다른 owner나 변경된 명령에 옮겨 쓰지 않는다.
+
+사용자 입력의 device override, callback, 화면 proof, phone receipt, 승인 token은 받지 않는다. 실제 device·session·runtime은 원 호스트가 읽는다. PREPARE도 원 명령 fence를 확인하며 원문을 표시할 준비만 한다. START는 보관한 session의 `start()`를, RESUME는 시작된 같은 session의 `resumeAutomation()`만 호출한다. 내부 native phase action을 공개 raw 요청으로 우회할 수 없다.
+
+현재 설치 서버에 이 broker가 적용됐다는 근거가 없으면 새 action을 지원한다고 주장하거나 기존 서버에 무작정 호출하지 않는다. 실제 candidate 연결·신규 APK·현재 UI 검증은 별도 적용 단계다.
+
+## 내부 호스트 lifecycle
 
 ```js
 const session = host.createHandoffRuntime({

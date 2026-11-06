@@ -10,6 +10,7 @@ import {createJebiseoOriginalHostBinding} from './original-host-binding.mjs';
 import {JEBISEO_ORIGINAL_MOBILE_TOOLS, unwrapJebiseoMobileReply} from './mobile-port.mjs';
 import {isJebiseoNativeCarrier, readJebiseoNativeCarrier,
   createJebiseoNativeSignedPayload, nativeHandoffJobMatches} from './native-text-handoff-port.mjs';
+import {createJebiseoNativeHandoffBroker, isJebiseoNativeBrokerCarrier} from './native-text-handoff-broker.mjs';
 
 export const JEBISEO_ORIGINAL_HOST_CANDIDATE_MODE = 'EXPLICIT_JEBISEO_HOST_CANDIDATE_V1';
 const allowed = new Set(JEBISEO_ORIGINAL_MOBILE_TOOLS);
@@ -25,14 +26,33 @@ const fail = code => {throw new Error(code);};
  * Creating this object performs no I/O and invokes no original handler.
  */
 export function createJebiseoOriginalHostBoundary({readCurrentState, readOriginalJobs,
-  canInstall, now = Date.now} = {}) {
-  if ([readCurrentState, readOriginalJobs, canInstall, now].some(fn => typeof fn !== 'function'))
+  requireCurrentCommand, canInstall, now = Date.now} = {}) {
+  if ([readCurrentState, readOriginalJobs, requireCurrentCommand, canInstall, now].some(fn => typeof fn !== 'function'))
     fail('JEBISEO_ORIGINAL_HOST_READERS_REQUIRED');
   const httpScope = new AsyncLocalStorage(), toolScope = new AsyncLocalStorage();
   const invocationScope = new AsyncLocalStorage();
   const registries = new WeakMap(), serverRegistries = new WeakMap();
   const returned = new WeakMap(), snapshotScopes = new WeakMap(), nativePayloads = new WeakMap();
   let installed = false, closed = false, binding = null, registryCount = 0;
+  const nativeBroker = createJebiseoNativeHandoffBroker({
+    resolveAuthenticatedOwner() {
+      const scope = current();
+      if (!scope || scope.registeredToolName !== 'life_android_step' || invocationScope.getStore())
+        fail('JEBISEO_BROKER_AUTHENTICATED_TOOL_REQUEST_REQUIRED');
+      if (!/^[a-f0-9]{32}$/.test(scope.suppliedCommandId ?? ''))
+        fail('JEBISEO_BROKER_EXPLICIT_COMMAND_REQUIRED');
+      // Runs INSIDE the original jhCommandTool56. This is the real command
+      // fence, including blocked commands, and marks it for its exit check.
+      const commandId = requireCurrentCommand(), owner = ownerIdentity(readCurrentState());
+      if (commandId !== scope.suppliedCommandId || owner.commandId !== commandId)
+        fail('JEBISEO_BROKER_CURRENT_COMMAND_REQUIRED');
+      return owner;
+    },
+    createHandoffRuntime(input) {
+      if (!current() || !binding) fail('JEBISEO_BROKER_CANDIDATE_INACTIVE');
+      return binding.createHandoffRuntime(input);
+    }
+  });
 
   function current() {
     const scope = toolScope.getStore();
@@ -150,7 +170,18 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
   }
   function createRegistry() {
     registryCount++;
-    const registry = Object.freeze({capture(name, schema, handler) {
+    const registry = Object.freeze({wrapHandler(name, handler) {
+      if (typeof name !== 'string' || typeof handler !== 'function') fail('JEBISEO_ORIGINAL_REGISTRATION_INVALID');
+      if (name !== 'life_android_step') return handler;
+      // Installed or not, the reserved broker namespace must never fall
+      // through to generic Android actions. Ordinary actions are unchanged.
+      return async function(args, ...extra) {
+        if (!isJebiseoNativeBrokerCarrier(args)) return handler.call(this, args, ...extra);
+        if (!current() || !binding) fail('JEBISEO_BROKER_CANDIDATE_INACTIVE');
+        const result = await nativeBroker.handle(args);
+        return {content: [{type: 'text', text: JSON.stringify(result)}]};
+      };
+    }, capture(name, schema, handler) {
       const entries = registries.get(registry);
       if (!entries || typeof name !== 'string' || typeof handler !== 'function' ||
           typeof schema?.parse !== 'function') fail('JEBISEO_ORIGINAL_REGISTRATION_INVALID');
@@ -164,7 +195,8 @@ export function createJebiseoOriginalHostBoundary({readCurrentState, readOrigina
           return handler.apply(this, args);
         const capability = Object.freeze({authenticated: true,
           requestId: args[1]?.requestId ?? http.requestId ?? null, extra: args[1]});
-        const scope = {http, capability, live: true};
+        const scope = {http, capability, live: true, registeredToolName: name,
+          suppliedCommandId: args[0]?.command_id ?? null};
         return toolScope.run(scope, async () => {
           try {return await handler.apply(this, args);} finally {scope.live = false;}
         });
@@ -340,6 +372,7 @@ const jhJebiseoOriginalHost56=jhCreateJebiseoOriginalHost56({
       durableHooks:durableNativeHooks56};
   },
   readOriginalJobs:()=>jobs,
+  requireCurrentCommand:()=>jhRequireCommand56(jhCommandContext56.getStore()?.device),
   canInstall:()=>!httpServer.listening&&jobs.size===0&&devices.size===0&&
     !!durableNativeHooks56&&typeof durableNativeHooks56.beforeDispatch==='function'&&
     typeof durableNativeHooks56.acceptedCompletion==='function'
@@ -352,6 +385,8 @@ const MONITORED = 'async(...a)=>{jhV2State56.activeMcpCalls++;try{const result=a
 const REGISTRATION = 'return server.registerTool(name,{...scoped.config,securitySchemes:oauthSchemes56,_meta:{...(config?._meta||{}),securitySchemes:oauthSchemes56}},' + MONITORED + ');';
 const PAIRS = [
   ['function createMcp(){', 'function createMcp(){\n  const jhJebiseoRegistry56=jhJebiseoOriginalHost56.createRegistry();'],
+  ['const scoped=jhCommandTool56(name,config,jhLearningHandler56(name,handler));',
+    'const scoped=jhCommandTool56(name,config,jhLearningHandler56(name,jhJebiseoRegistry56.wrapHandler(name,handler)));'],
   [REGISTRATION, REGISTRATION.replace(MONITORED,
     'jhJebiseoRegistry56.capture(name,z.object(scoped.config.inputSchema),' + MONITORED + ')')],
   ['  return server;\n}', '  jhJebiseoOriginalHost56.bindServer(server,jhJebiseoRegistry56);\n  return server;\n}'],

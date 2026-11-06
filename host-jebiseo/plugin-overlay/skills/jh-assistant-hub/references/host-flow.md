@@ -44,6 +44,8 @@
 
 ### 실제 화면 표시 후 자동 실행
 
+실제 MCP 진입은 후보가 적용된 서버의 기존 `life_android_step`에서 PREPARE/START/RESUME broker로 제공한다. 정확한 action·marker·value 계약은 제비서 제공자 계약에 있다. PREPARE 응답을 화면에 먼저 표시하고 원 응답의 `nextArguments`로 이어간다. 등록된 도구의 원 인증·명령 경로 안에서만 내부 session에 연결하며 테스트용 callback이 실행 입구가 되지 않는다.
+
 [제비서 제공자 계약](../../jh-jebiseo/references/provider-contract.md)에 따라 실제 연결된 `host.createHandoffRuntime({request,deliveryMode,requiresResultInspection,deviceId,commandId})`를 사용한다. request는 원 의미 입력이고 준비 완료 객체가 아니다. 같은 task의 session identity에는 모든 전달 조건과 nativeSelection descriptor가 포함된다.
 
 `session.presentation()`을 먼저 호출하고 `preparedPrompt`를 **현재 왼쪽 GPT 화면에 선택 가능한 텍스트 블록으로 한 번 표시한 뒤** `session.start()`한다. 화면에 표시하는 것은 호스트의 역할이며 presentation 반환 객체만으로 표시됐다고 판단하지 않는다. 원문이 없거나 선택 범위가 확인되지 않으면 Android는 선택 성공 영수증을 발급하지 않는다.

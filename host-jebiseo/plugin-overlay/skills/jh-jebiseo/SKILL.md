@@ -33,9 +33,9 @@ description: "JH 제비서. 현재 요청을 Gemini에 전달할 때 왼쪽 GPT�
 
 1. 현재 요청에 필요한 내용만 준비한다. 다른 방의 대화·전체 기억·파일을 자동 전달하지 않는다. 준비 자체는 명령 발급이나 전송이 아니다.
 2. 기존 task의 pending/unknown과 `requiresResultInspection`을 유지한다. 미확정 효과가 있으면 원 결과부터 확인하며 새 task·모드 변경·사용자 보고로 같은 전송을 반복하지 않는다.
-3. 실제 연결된 `host.createHandoffRuntime({request,deliveryMode:'AUTO_TEXT_SELECTION',requiresResultInspection,deviceId,commandId})`를 사용한다. request는 준비 함수에 넣는 원 의미 입력이다. 없는 MCP 도구나 mode를 만들지 않는다.
-4. **`presentation()`을 먼저 호출하고 `preparedPrompt`를 현재 GPT 화면에 독립된 선택 가능한 텍스트 블록으로 한 번 표시한 뒤 `start()`를 호출한다.** 동일 문장을 여러 번 표시하거나 설명·배지를 섞지 않는다. 아직 화면에 보이지 않는 문자열을 선택했다고 주장하지 않는다.
-5. 서버와 앱이 선택 → 메뉴 → 실행을 순서대로 처리한다. `AWAITING_COMPLETION`에서는 같은 원 job 완료를 확인한다. 기존 휴대폰의 정확한 대상 승인이 필요하면 `AWAITING_APPROVAL`을 그대로 알리고, 승인 후 같은 session의 `resumeAutomation()`으로 같은 requestId를 재개한다. 새 명령·새 클릭을 생성해 승인이나 미확정 결과를 우회하지 않는다.
+3. 후보가 실제 적용된 서버에서는 기존 `life_android_step`의 `jebiseo_handoff_prepare` → `jebiseo_handoff_start` → 필요한 경우 `jebiseo_handoff_resume` broker를 사용한다. marker는 `__JH_JEBISEO_HANDOFF_BROKER_V1__`, value schema는 `JH_JEBISEO_AUTO3_BROKER_V1`이며 [제공자 계약](references/provider-contract.md)을 따른다. PREPARE의 request는 원 의미 입력이고, 후속 요청은 반환된 `nextArguments`와 같은 session 참조를 사용한다. 미적용 서버에 새 action을 임의로 호출하지 않는다.
+4. **PREPARE가 반환한 `preparedPrompt`를 현재 GPT 화면에 독립된 선택 가능한 텍스트 블록으로 한 번 표시한 뒤 START를 호출한다.** 내부 호스트도 `presentation()` → 실제 화면 표시 → `start()` 순서를 지킨다. 동일 문장을 여러 번 표시하거나 설명·배지를 섞지 않는다. 아직 화면에 보이지 않는 문자열을 선택했다고 주장하지 않는다.
+5. 서버와 앱이 선택 → 메뉴 → 실행을 순서대로 처리한다. `AWAITING_COMPLETION`에서는 같은 원 job 완료를 확인한다. 기존 휴대폰의 정확한 대상 승인이 필요하면 `AWAITING_APPROVAL`을 그대로 알리고, 승인 후 같은 broker/session의 RESUME로 내부 `resumeAutomation()`과 같은 requestId를 재개한다. 새 명령·새 클릭을 생성해 승인이나 미확정 결과를 우회하지 않는다.
 6. `COMPLETED`도 제출 관찰까지의 상태다. 삼성 작업·분석·영상 완료나 GPT 결과 수신을 자동으로 의미하지 않는다. 읽지 않은 답변을 Gemini 결과로 작성하지 않는다.
 
 유효한 현재 명령·기기·세션은 원 호스트에서 얻는다. 임의 명령 ID·영수증·승인 토큰·성공 callback을 사용하지 않는다. 실제 폰 실행은 한 담당이 순차 처리한다. 에비서·깃비서의 소스 검토는 병렬로 진행할 수 있다.

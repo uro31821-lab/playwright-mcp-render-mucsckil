@@ -11,6 +11,8 @@ import {fixtureAndroidAppInspection} from './test-support.mjs';
 import {prepareJebiseoHandoff} from './handoff-request.mjs';
 import {createJebiseoNativeSelectionDescriptor, createJebiseoNativeWireScope,
   createJebiseoNativeWire, nativeHandoffArguments} from './native-text-handoff-port.mjs';
+import {JEBISEO_NATIVE_BROKER_ACTIONS, JEBISEO_NATIVE_BROKER_SCHEMA,
+  JEBISEO_NATIVE_BROKER_MARKER} from './native-text-handoff-broker.mjs';
 import {patchJebiseoOriginalHostComposition, reverseJebiseoOriginalHostComposition,
   JEBISEO_ORIGINAL_HOST_CANDIDATE_MODE} from './original-host-composition.mjs';
 
@@ -176,13 +178,13 @@ function fixtureKernel() {
   }
   function mcpCallerAuthorized56(req){return req.authorized===true;}
   async function issueRequest({authorized:authorization=true,id='fixture-request',signal,
-    method='tools/call',commandId=fixture.currentCommand}={}){
+    method='tools/call',commandId=fixture.currentCommand,toolName='life_status',toolArguments={}}={}){
     const req=Object.assign(new EventEmitter(),{authorized:authorization,complete:true});
     const res=Object.assign(new EventEmitter(),{writableEnded:false});
     fixture.requests.set(id,{req,res});
     const authorized=mcpCallerAuthorized56(req);
     const parsedBody={jsonrpc:'2.0',id,method,
-      params:{name:'life_status',arguments:{command_id:commandId}}};
+      params:{name:toolName,arguments:{...toolArguments,...(commandId===null?{}:{command_id:commandId})}}};
     if(!authorized&&method==='tools/call')return {authenticationRequired:true};
     const server=createMcp();
     const extra={requestId:id,signal,fixtureExtra:true};
@@ -257,6 +259,112 @@ const nativeRequest = () => ({taskRef:'fixture-native-auto3',threadRef:'fixture-
   sourceRef:'fixture-native-source',intent:'execute',basis:'direct',feature:'ANDROID',
   requestText:'삼성 노트에 이 내용을 저장해 줘'});
 const nativeInput = () => ({request:nativeRequest(),deviceId:'fixture-phone',commandId:'1'.repeat(32)});
+const brokerArguments = (mode, fields) => ({action:JEBISEO_NATIVE_BROKER_ACTIONS[mode],
+  text:JEBISEO_NATIVE_BROKER_MARKER,value:JSON.stringify({schema:JEBISEO_NATIVE_BROKER_SCHEMA,mode,...fields})});
+const brokerValue = reply => JSON.parse(reply.content[0].text);
+const callBroker = (f, args, options={}) => f.issueRequest({toolName:'life_android_step',toolArguments:args,...options})
+  .then(brokerValue);
+
+test('ordinary registered life_android_step reaches PREPARE START RESUME without a private callback entry', async () => {
+  const f=await setup();let approved=false;
+  f.fixture.onStatus=()=>assert.fail('feature entry must not use life_status or its injected callback');
+  f.fixture.nativeReply=(_job,wire,result)=>wire.phase==='CLICK_GEMINI_MENU'&&!approved
+    ?{schema:result.schema,phase:wire.phase,requestId:wire.requestId,runDigest:wire.runDigest,
+      ok:false,code:'local_action_approval_required',approvalPending:true,phoneActionDispatched:false,
+      resultVerified:false,automaticReplay:false,businessResultVerified:false}:result;
+  const prepare=brokerArguments('PREPARE',{request:nativeRequest()});
+  const ready=await callBroker(f,prepare,{id:'public-prepare'});
+  assert.equal(ready.status,'PREPARED');assert.equal(ready.nextAction,'DISPLAY_REQUEST_TEXT');
+  assert.equal(ready.preparedPrompt,prepareJebiseoHandoff(nativeRequest()).prompt);
+  assert.match(ready.brokerRef,/^jhb_[a-f0-9]{48}$/);assert.equal(f.jobs.size,0);
+  const repeated=await callBroker(f,prepare,{id:'public-prepare-again'});
+  assert.equal(repeated.brokerRef,ready.brokerRef);assert.equal(f.jobs.size,0);
+  const earlyResume={...ready.nextArguments,action:JEBISEO_NATIVE_BROKER_ACTIONS.RESUME,
+    value:JSON.stringify({...JSON.parse(ready.nextArguments.value),mode:'RESUME'})};
+  assert.equal((await callBroker(f,earlyResume,{id:'public-early-resume'})).code,'JEBISEO_BROKER_START_REQUIRED');
+  assert.equal(f.jobs.size,0);
+
+  const pending=await callBroker(f,ready.nextArguments,{id:'public-start'});
+  assert.equal(pending.status,'AWAITING_APPROVAL');assert.equal(pending.brokerRef,ready.brokerRef);
+  assert.equal(f.jobs.size,2);assert.equal(pending.preparedPrompt,undefined);
+  assert.equal(pending.nextArguments.action,'jebiseo_handoff_resume');
+  const stillPending=await callBroker(f,prepare,{id:'public-prepare-while-pending'});
+  assert.equal(stillPending.status,'AWAITING_APPROVAL');assert.equal(stillPending.preparedPrompt,undefined);
+  assert.equal(stillPending.brokerRef,ready.brokerRef);assert.equal(f.jobs.size,2);
+  await callBroker(f,ready.nextArguments,{id:'public-start-again'});assert.equal(f.jobs.size,2);
+
+  approved=true;
+  const done=await callBroker(f,pending.nextArguments,{id:'public-resume'});
+  assert.equal(done.status,'COMPLETED');assert.equal(done.requestSent,true);
+  assert.equal(done.businessResultVerified,false);assert.equal(done.resultVerified,false);
+  assert.equal(done.nextArguments,undefined);assert.equal(f.jobs.size,4);
+  const jobs=[...f.jobs.values()];
+  assert.equal(jobs[1].value,jobs[2].value);
+  for(const job of jobs)assert.equal(job.commandId,'1'.repeat(32));
+  assert.equal(f.fixture.calls.length,4); // Only actual original phone phases.
+  assert.equal(f.jhV2State56.activeMcpCalls,0);
+  const preserved=await callBroker(f,prepare,{id:'public-prepare-after-done'});
+  assert.equal(preserved.status,'COMPLETED');assert.equal(preserved.preparedPrompt,undefined);
+  assert.equal(preserved.nextArguments,undefined);assert.equal(preserved.brokerRef,ready.brokerRef);
+  assert.equal(f.jobs.size,4);assert.equal(JSON.stringify(done).includes('jhr_'),false);
+});
+
+test('public broker preserves UNKNOWN and rejects caller continuation proof or replacement source', async () => {
+  const f=await setup();f.fixture.onStatus=()=>assert.fail('not a broker entry');
+  f.fixture.nativeReply=(_job,wire,result)=>wire.phase==='SUBMIT_GEMINI'
+    ?{...result,ok:false,resultVerified:false,submissionVerified:false,code:'gemini_submit_dispatched_unverified'}:result;
+  const prepare=brokerArguments('PREPARE',{request:nativeRequest()});
+  const ready=await callBroker(f,prepare,{id:'public-unknown-prepare'});
+  const unknown=await callBroker(f,ready.nextArguments,{id:'public-unknown-start'});
+  assert.equal(unknown.status,'UNKNOWN');assert.equal(f.jobs.size,3);
+  const replay=await callBroker(f,prepare,{id:'public-unknown-prepare-again'});
+  assert.equal(replay.status,'UNKNOWN');assert.equal(replay.brokerRef,ready.brokerRef);
+  assert.equal(replay.preparedPrompt,undefined);assert.equal(replay.nextArguments,undefined);
+  await callBroker(f,ready.nextArguments,{id:'public-unknown-start-again'});assert.equal(f.jobs.size,3);
+  const continuation=JSON.parse(ready.nextArguments.value);
+  const changed={...ready.nextArguments,value:JSON.stringify({...continuation,sourceRef:'different-source'})};
+  assert.equal((await callBroker(f,changed,{id:'public-changed-source'})).code,'JEBISEO_BROKER_REQUEST_SCOPE_CHANGED');
+  const forged={...ready.nextArguments,value:JSON.stringify({...continuation,receipt:'jhr_'+'f'.repeat(48)})};
+  assert.equal((await callBroker(f,forged,{id:'public-forged-proof'})).code,'JEBISEO_BROKER_VALUE_INVALID');
+  const replacement=brokerArguments('PREPARE',{request:{...nativeRequest(),requestText:'다른 전송 요청'}});
+  assert.equal((await callBroker(f,replacement,{id:'public-replacement'})).code,'JEBISEO_BROKER_CURRENT_REQUEST_ALREADY_BOUND');
+  assert.equal(f.jobs.size,3);
+});
+
+test('broker PREPARE uses the original command fence and START keeps device session owner binding', async () => {
+  const f=await setup();const prepare=brokerArguments('PREPARE',{request:nativeRequest()});
+  assert.equal((await callBroker(f,prepare,{id:'broker-missing-command',commandId:null})).code,
+    'JEBISEO_BROKER_EXPLICIT_COMMAND_REQUIRED');
+  assert.equal((await callBroker(f,prepare,{id:'broker-stale-command',commandId:'9'.repeat(32)})).code,
+    'new_command_binding_required_or_discarded');
+  assert.equal(f.jobs.size,0);
+  const ready=await callBroker(f,prepare,{id:'broker-bound-owner'});
+  f.fixture.sessionId='different-secure-session';
+  assert.equal((await callBroker(f,ready.nextArguments,{id:'broker-new-session'})).code,'JEBISEO_BROKER_OWNER_CHANGED');
+  assert.equal(f.jobs.size,0);
+});
+
+test('inactive closed and malformed reserved broker controls never fall through to a generic phone job', async () => {
+  const prepare=brokerArguments('PREPARE',{request:nativeRequest()});
+  const inactive=await setup({install:false});
+  assert.equal((await callBroker(inactive,prepare,{id:'inactive-broker'})).code,'JEBISEO_BROKER_CANDIDATE_INACTIVE');
+  assert.equal(inactive.jobs.size,0);
+  const closed=await setup();closed.host.close();
+  assert.equal((await callBroker(closed,prepare,{id:'closed-broker'})).code,'JEBISEO_BROKER_CANDIDATE_INACTIVE');
+  assert.equal(closed.jobs.size,0);
+  const f=await setup();
+  assert.deepEqual(await f.issueRequest({authorized:false,toolName:'life_android_step',toolArguments:prepare}),
+    {authenticationRequired:true});
+  for(const change of [
+    {action:'jebiseo_handoff_unreviewed'},
+    {text:'__JH_JEBISEO_HANDOFF_BROKER_V999__'},
+    {value:JSON.stringify({schema:JEBISEO_NATIVE_BROKER_SCHEMA,mode:'PREPARE',request:nativeRequest(),nativeSelection:{}})}
+  ]){
+    const result=await callBroker(f,{...prepare,...change},{id:'malformed-broker-'+f.fixture.counter});
+    assert.equal(result.ok,false);assert.match(result.code,/JEBISEO_BROKER_(?:VALUE|CARRIER)_INVALID/);
+  }
+  assert.equal(f.jobs.size,0);assert.equal(f.fixture.calls.length,0);
+});
 
 test('default AUTO3 traverses the real original handler, signed producer and accepted completion joins', async () => {
   const f=await setup(); let runtime;

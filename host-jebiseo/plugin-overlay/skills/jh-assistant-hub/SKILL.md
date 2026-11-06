@@ -43,7 +43,7 @@ description: "JH 하나에서 비서 이름 없이 자연어로 요청할 때 �
 
 [제비서](../jh-jebiseo/SKILL.md)의 최신 핵심 요구는 **왼쪽 GPT의 글 선택 → ‘Gemini에게 물어보기’ 클릭 → 오른쪽 Gemini 실행 클릭**이다. 기본 `AUTO_TEXT_SELECTION`은 실제 원 서버·Android 전용 실행기를 요구한다. 수동 안내만 만든 뒤 자동 구현이라고 설명하지 않는다. 현재 요청의 문장만 독립된 한 블록으로 먼저 표시하고 `presentation()` → 실제 화면 표시 → `start()` 순서를 지킨다. 설명·배지는 전달문 밖에 둔다.
 
-이 세 기능을 요청하면 `intent.geminiFlow:'HANDOFF'`, `geminiFeature:'ANDROID'|'YOUTUBE'|'VIDEO'`로 준비한다. 허브의 `HANDOFF_PREPARATION/ready:true`는 준비 가능성만 뜻하며 `executionReady:false`를 유지한다. 다음 턴에도 같은 작업의 flow·feature·deliveryMode와 미확정 효과를 이어간다. 실제 동작과 성공은 연결된 원 실행기의 서명 완료·선택 범위·초안·제출 관찰로 판단한다. 기존 승인 대기나 원 완료 대기는 같은 session의 `resumeAutomation()`으로만 처리한다.
+이 세 기능을 요청하면 `intent.geminiFlow:'HANDOFF'`, `geminiFeature:'ANDROID'|'YOUTUBE'|'VIDEO'`로 준비한다. 허브의 `HANDOFF_PREPARATION/ready:true`는 준비 가능성만 뜻하며 `executionReady:false`를 유지한다. 다음 턴에도 같은 작업의 flow·feature·deliveryMode와 미확정 효과를 이어간다. 실제 시작은 후보 서버에 연결된 기존 `life_android_step`의 PREPARE/START/RESUME broker를 사용한다. 실제 동작과 성공은 연결된 원 실행기의 서명 완료·선택 범위·초안·제출 관찰로 판단한다. 기존 승인 대기나 원 완료 대기는 같은 session의 `resumeAutomation()`으로만 처리한다.
 
 삼성 앱·기기는 Gemini가 실제 지원·연결하는 전체 범위를 대상으로 한다. 유튜브 분석 결과의 수동 GPT 복귀는 유지한다. 자동 결과 수집은 별도 미완성 기능이다. `TEXT_SELECTION`과 `OPEN_MANUAL`은 명시적인 수동 대안이며 자동 실패를 성공으로 바꾸지 않는다. 기존 FIX3에는 왼쪽 선택 실행기가 없어 새 후보 APK가 필요하다는 적용 조건도 알린다. 소스·검사·APK 빌드만으로 설치와 휴대폰 성공을 주장하지 않는다.
 
