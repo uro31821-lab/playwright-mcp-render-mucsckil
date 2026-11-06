@@ -44,26 +44,39 @@ jobs:
           Expand-Archive -LiteralPath $zip -DestinationPath $extract
           $p=[Diagnostics.ProcessStartInfo]::new()
           $p.FileName="$env:SystemRoot/System32/cmd.exe"
-          $p.Arguments='/d /c ""'+(Join-Path $extract '실행.cmd')+'""'
+          $p.Arguments='/d /s /c ""'+(Join-Path $extract '실행.cmd')+'""'
+          $p.WorkingDirectory=$extract
           $p.UseShellExecute=$false;$p.RedirectStandardInput=$true;$p.RedirectStandardOutput=$true;$p.RedirectStandardError=$true
           $p.Environment['PATH']="$env:SystemRoot/System32"
           foreach($k in @('ANDROID_HOME','ANDROID_SDK_ROOT','LOCALAPPDATA','USERPROFILE')) {$p.Environment[$k]=$extract}
           $proc=[Diagnostics.Process]::Start($p)
           $o=$proc.StandardOutput.ReadToEndAsync();$e=$proc.StandardError.ReadToEndAsync()
-          $proc.StandardInput.WriteLine('');$proc.StandardInput.Close()
+          # EOF handles CMD's final pause; writing to a fast-exited child races.
+          $proc.StandardInput.Close()
           if(-not $proc.WaitForExit(20000)){$proc.Kill();throw 'CMD timeout'}
-          if($proc.ExitCode -ne 2){throw ('Expected no-ADB exit 2, got '+$proc.ExitCode+' '+$e.Result)}
+          Write-Host ('PACKAGED_CMD_EXIT='+$proc.ExitCode)
+          Write-Host $o.GetAwaiter().GetResult()
+          Write-Host $e.GetAwaiter().GetResult()
+          if($proc.ExitCode -ne 2){throw ('Expected no-ADB exit 2, got '+$proc.ExitCode)}
           $result=[IO.File]::ReadAllText((Join-Path $extract 'RESULT.txt'))
           if(-not $result.Contains('EXISTING_ADB_NOT_FOUND')){throw 'Missing exact blocked reason'}
-          # No default source/keys, external executable or phone result in the package.
           $files=@(Get-ChildItem $env:KABISEO_PROBE_ROOT -File -Recurse)
           if($files.Count -ne 3){throw 'Unexpected payload'}
+          $manifest=[ordered]@{}
+          foreach($file in $files){
+            $rel=[IO.Path]::GetRelativePath($env:KABISEO_PROBE_ROOT,$file.FullName)
+            $digest=(Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if((Get-FileHash (Join-Path $extract $rel) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $digest){throw 'Extracted payload mismatch'}
+            $manifest[$rel]=$digest
+          }
           $out=Join-Path $env:RUNNER_TEMP 'kabiseo-probe-output'
           New-Item -ItemType Directory $out|Out-Null
-          Copy-Item $zip $out
+          # Upload clean payload files directly. The downloadable artifact ZIP must
+          # expose 실행.cmd immediately, with no second inner ZIP to extract.
+          Copy-Item "$env:KABISEO_PROBE_ROOT/*" $out -Recurse
           $sha=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
-          @{schema='KABISEO_CAMERA_ROUTE_KIT_V022';status='WINDOWS_PARSER_AND_PACKAGED_BLOCKED_PATH_PASS';gitSha=$env:GITHUB_SHA;runId=$env:GITHUB_RUN_ID;zipSha256=$sha;zipBytes=(Get-Item $zip).Length;physicalDeviceRead=$false;cameraControlVerified=$false;originalJHChanged=$false;newDependencies=0;runtimeHoldUnchanged=$true}|ConvertTo-Json|Set-Content "$out/verification.json" -Encoding utf8
-          Write-Host "KABISEO_ZIP_SHA256=$sha"
+          @{schema='KABISEO_CAMERA_ROUTE_KIT_V022';status='WINDOWS_PARSER_AND_PACKAGED_BLOCKED_PATH_PASS';gitSha=$env:GITHUB_SHA;runId=$env:GITHUB_RUN_ID;testedPackageZipSha256=$sha;payloadSha256=$manifest;physicalDeviceRead=$false;cameraControlVerified=$false;originalJHChanged=$false;newDependencies=0;runtimeHoldUnchanged=$true}|ConvertTo-Json -Depth 4|Set-Content "$out/verification.json" -Encoding utf8
+          Write-Host "KABISEO_TESTED_ZIP_SHA256=$sha"
           Write-Host "KABISEO_WINDOWS_PACKAGED_ENTRY_PASS_NO_PHYSICAL_PHONE"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
