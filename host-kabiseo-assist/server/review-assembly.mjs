@@ -3,12 +3,14 @@
  * an isolated snapshot. No npm, listener, enrollment or device command here.
  * The external expected manifest digest is required before importing the entry.
  * Hash attestation is integrity evidence, not an operator signature/approval.
+ * Construction runs in a different process: a builder's cached original policy
+ * must never silently replace the verified on-disk policy in the runtime process.
  */
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
-import {execFileSync} from 'node:child_process';
+import {execFileSync,spawnSync} from 'node:child_process';
 import {readFileSync,writeFileSync,readdirSync,lstatSync,realpathSync,mkdirSync,copyFileSync,existsSync} from 'node:fs';
 import {applyKabiseoMetadataPatch,reverseKabiseoMetadataPatch} from './source-patch.mjs';
 
@@ -21,6 +23,7 @@ const ORIGINAL_POLICY_BLOB='39be04401aa360ba6bf87370d291bc6096b5c655';
 const SCHEMA='KABISEO_REVIEW_ASSEMBLY_V015';
 const SCOPE='REVIEW_ONLY_NOT_OPERATOR_APPROVED';
 const BINDING='runtimeDigest:jhWorkflowRuntimeDigest56';
+const BUILD_REPORT='KABISEO_ASSEMBLY_BUILD_RESULT=';
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const json=value=>JSON.stringify(value,null,2)+'\n';
 const digest=value=>sha(JSON.stringify(value));
@@ -100,7 +103,7 @@ function identity(parent,template,files){
   templateSha256:sha(template),policySha256:POLICY_SHA,dependencies:files});
 }
 
-export async function buildKabiseoReviewAssembly({baselineRoot,outputRoot}){
+async function buildInFreshProcess({baselineRoot,outputRoot}){
  reviewEnvironment();
  const source=realpathSync(path.resolve(baselineRoot));
  const output=path.resolve(outputRoot);
@@ -143,7 +146,28 @@ export async function buildKabiseoReviewAssembly({baselineRoot,outputRoot}){
  assert.deepEqual(inventory(path.join(source,'jh-server'),{skipBin:true}),sourceBefore,'original baseline must remain byte-identical');
  const expectedManifestSha256=sha(manifestBytes);
  const verified=verifyKabiseoReviewAssembly({outputRoot:output,expectedManifestSha256});
- return {...verified,outputRoot:output,packageRoot,ownerRoot,original,expectedManifestSha256};
+ return {...verified,outputRoot:output,packageRoot,ownerRoot,expectedManifestSha256,builderProcessId:process.pid};
+}
+
+export async function buildKabiseoReviewAssembly({baselineRoot,outputRoot}){
+ reviewEnvironment();
+ const source=path.resolve(baselineRoot),output=path.resolve(outputRoot);
+ const child=spawnSync(process.execPath,[fileURLToPath(import.meta.url),'--kabiseo-build-child',source,output],{
+  env:{PATH:process.env.PATH||'',CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+   JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1'},
+  encoding:'utf8',timeout:90000,maxBuffer:4*1024*1024});
+ if(child.error||child.signal||child.status!==0)throw Error('KABISEO_ISOLATED_BUILD_FAILED\n'+(child.stderr||'')+'\n'+(child.stdout||''));
+ const lines=child.stdout.split('\n').filter(line=>line.startsWith(BUILD_REPORT));
+ if(lines.length!==1)fail('KABISEO_ISOLATED_BUILD_RECEIPT_REQUIRED');
+ const built=JSON.parse(lines[0].slice(BUILD_REPORT.length));
+ if(built.outputRoot!==output||!Number.isSafeInteger(built.builderProcessId)||built.builderProcessId===process.pid)
+  fail('KABISEO_BUILD_PROCESS_SEPARATION_REQUIRED');
+ // This process has not imported any cloned builder/runtime/policy modules.
+ // Recheck bytes here rather than trusting the terminated builder's report.
+ const verified=verifyKabiseoReviewAssembly({outputRoot:output,expectedManifestSha256:built.expectedManifestSha256});
+ if(verified.assemblyId!==built.assemblyId)fail('KABISEO_BUILD_RESULT_MISMATCH');
+ console.log('KABISEO_BUILD_PROCESS_SEPARATION_PASS');
+ return {...built,...verified,builderProcessIsolated:true};
 }
 
 export function verifyKabiseoReviewAssembly({outputRoot,expectedManifestSha256}){
@@ -186,4 +210,11 @@ export async function loadKabiseoReviewAssembly(options){
  const runtime=await import(pathToFileURL(checked.entryFile).href);
  if(runtime.httpServer?.listening!==false)fail('KABISEO_LISTENER_MUST_REMAIN_CLOSED');
  return runtime;
+}
+
+if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
+ if(process.argv.length!==5||process.argv[2]!=='--kabiseo-build-child')fail('KABISEO_BUILD_CHILD_ARGUMENTS_REQUIRED');
+ globalThis.fetch=async()=>{throw Error('KABISEO_BUILD_EXTERNAL_FETCH_FORBIDDEN');};
+ const built=await buildInFreshProcess({baselineRoot:process.argv[3],outputRoot:process.argv[4]});
+ console.log(BUILD_REPORT+JSON.stringify(built));
 }
