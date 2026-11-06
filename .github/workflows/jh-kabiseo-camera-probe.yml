@@ -43,15 +43,16 @@ jobs:
           $extract=Join-Path $env:RUNNER_TEMP '압축 해제 경로 공백'
           Expand-Archive -LiteralPath $zip -DestinationPath $extract
           $p=[Diagnostics.ProcessStartInfo]::new()
-          $p.FileName="$env:SystemRoot/System32/cmd.exe"
-          $p.Arguments='/d /s /c ""'+(Join-Path $extract '실행.cmd')+'""'
+          $p.FileName=Join-Path $env:SystemRoot 'System32\cmd.exe'
+          # Run the actual extracted entry in the Unicode/space-containing folder.
+          # No nested quote parser and no change to the user's entry script.
+          $p.Arguments='/d /c call 실행.cmd'
           $p.WorkingDirectory=$extract
           $p.UseShellExecute=$false;$p.RedirectStandardInput=$true;$p.RedirectStandardOutput=$true;$p.RedirectStandardError=$true
           $p.Environment['PATH']="$env:SystemRoot/System32"
           foreach($k in @('ANDROID_HOME','ANDROID_SDK_ROOT','LOCALAPPDATA','USERPROFILE')) {$p.Environment[$k]=$extract}
           $proc=[Diagnostics.Process]::Start($p)
           $o=$proc.StandardOutput.ReadToEndAsync();$e=$proc.StandardError.ReadToEndAsync()
-          # EOF handles CMD's final pause; writing to a fast-exited child races.
           $proc.StandardInput.Close()
           if(-not $proc.WaitForExit(20000)){$proc.Kill();throw 'CMD timeout'}
           Write-Host ('PACKAGED_CMD_EXIT='+$proc.ExitCode)
@@ -71,8 +72,7 @@ jobs:
           }
           $out=Join-Path $env:RUNNER_TEMP 'kabiseo-probe-output'
           New-Item -ItemType Directory $out|Out-Null
-          # Upload clean payload files directly. The downloadable artifact ZIP must
-          # expose 실행.cmd immediately, with no second inner ZIP to extract.
+          # One unzip exposes 실행.cmd. No inner ZIP or developer-only launcher.
           Copy-Item "$env:KABISEO_PROBE_ROOT/*" $out -Recurse
           $sha=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
           @{schema='KABISEO_CAMERA_ROUTE_KIT_V022';status='WINDOWS_PARSER_AND_PACKAGED_BLOCKED_PATH_PASS';gitSha=$env:GITHUB_SHA;runId=$env:GITHUB_RUN_ID;testedPackageZipSha256=$sha;payloadSha256=$manifest;physicalDeviceRead=$false;cameraControlVerified=$false;originalJHChanged=$false;newDependencies=0;runtimeHoldUnchanged=$true}|ConvertTo-Json -Depth 4|Set-Content "$out/verification.json" -Encoding utf8
