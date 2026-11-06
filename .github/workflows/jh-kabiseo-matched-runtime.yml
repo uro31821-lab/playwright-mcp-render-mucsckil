@@ -1,0 +1,91 @@
+name: JH Kabiseo exact Node26 verified runtime
+on:
+  push:
+    branches: [kabiseo-camera-metadata-v05-20261105]
+    paths:
+      - 'host-kabiseo-assist/tools/runtime-proof/**'
+      - '.github/workflows/jh-kabiseo-matched-runtime.yml'
+permissions: {contents: read}
+concurrency:
+  group: kabiseo-node26-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  authenticated-runtime-no-live-effects:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false, path: candidate}
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false, path: baseline, ref: '0663e0c3b434f300803e5cf272609032a5e519d3'}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22.23.4', package-manager-cache: false}
+      - name: Reject malformed imports with existing Python; preserve original inputs
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s candidate/host-kabiseo-assist/tools/runtime-proof -p 'test_*.py' -v
+          git -C candidate fetch --no-tags --depth=1 origin f7411eecb2b4a994a1384177c37d08caf9098f4e
+          git -C candidate diff --exit-code f7411eecb2b4a994a1384177c37d08caf9098f4e HEAD -- jh-server host-kabiseo-assist/server
+          git -C baseline diff --exit-code
+      - name: Restore original locked dependencies under existing Node22 without install hooks
+        run: |
+          set -euo pipefail
+          npm ci --prefix baseline/jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix baseline/jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Prepare local antivirus from signed Ubuntu repositories, no external sample upload
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y clamav libatomic1
+          mkdir -m 700 "$RUNNER_TEMP/kabiseo-av"
+          timeout 300 freshclam --stdout --datadir="$RUNNER_TEMP/kabiseo-av" --log="$RUNNER_TEMP/kabiseo-freshclam.log" --user="$(id -un)"
+      - name: Verify official release signature, checksum, archive and ELF antivirus BEFORE new Node execution
+        id: runtime
+        run: |
+          python3 candidate/host-kabiseo-assist/tools/runtime-proof/verify_runtime.py \
+            --work "$RUNNER_TEMP/kabiseo-node26" \
+            --evidence "$RUNNER_TEMP/kabiseo-node26-evidence" \
+            --db "$RUNNER_TEMP/kabiseo-av"
+      - name: Execute existing observed-profile integration under exact verified Node26
+        env:
+          VERIFIED_NODE: ${{ steps.runtime.outputs.node_bin }}
+        run: |
+          set -euo pipefail
+          "$VERIFIED_NODE" candidate/host-kabiseo-assist/server/observed-profile.integration.mjs baseline "$RUNNER_TEMP/kabiseo-node26-profile"
+      - name: Verify actual runtime match without upgrading to release approval
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])
+          security=json.loads((root/'kabiseo-node26-evidence/runtime-security-result.json').read_text())
+          profile=json.loads((root/'kabiseo-node26-profile/observed-profile-result.json').read_text())
+          assert security['securityGateVerdict']=='SAFE' and security['runtimeExecuted'] is True
+          assert security['observedVersion']=='v26.13.0' and profile['testNodeVersion']=='v26.13.0'
+          assert profile['status']=='PASS' and profile['finalComparison']['runtimeVersionMatched'] is True
+          assert profile['finalComparison']['profileMismatches']==[]
+          assert profile['finalComparison']['releaseApproved'] is False
+          result={'schema':'KABISEO_MATCHED_RUNTIME_V018','status':'PASS_RUNTIME_MATCH_NOT_RELEASE_APPROVAL',
+            'headSha':os.environ['GITHUB_SHA'],'runId':os.environ['GITHUB_RUN_ID'],
+            'runtimeVersion':'v26.13.0','runtimeSecurity':security,
+            'profileResult':profile,'productionDeployed':False,'phoneCommands':0,'apkRebuilt':False,
+            'actualSavedOwnerStartup':False,'automaticZoomEnabled':False,'restoreVerified':False}
+          (root/'kabiseo-node26-evidence/matched-runtime-result.json').write_text(json.dumps(result,indent=2)+'\n')
+          print('KABISEO_MATCHED_RUNTIME_RESULT='+json.dumps(result))
+          PY
+      - name: Check baseline and protected review sources unchanged after execution
+        if: always()
+        run: |
+          set -euo pipefail
+          git -C baseline diff --exit-code
+          git -C candidate diff --exit-code -- jh-server host-kabiseo-assist/server
+      - name: Retain evidence only; never upload Node archive, fonts, private source, APK or keys
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-node26-evidence-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/kabiseo-node26-evidence/*
+            ${{ runner.temp }}/kabiseo-node26-profile/*-result.json
+          retention-days: 7
+          if-no-files-found: warn
