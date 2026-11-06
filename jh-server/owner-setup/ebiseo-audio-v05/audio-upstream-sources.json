@@ -1,6 +1,6 @@
 {
   "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
-  "sourceCommit": "fd947aff3dd486e1b67c500c3f8c03e9bc3d4fef",
+  "sourceCommit": "fc70914d745dfbc7d34494c771af4f982c9511aa",
   "recordedRuntimeCommit": "a06e4643a036fa7cc121ef997bc332a43f2f85df",
   "runtimeVerifiedLive": false,
   "files": {
@@ -134,7 +134,6 @@
     "owner-setup/jh168-mobile-unification/mobile13-command-diagnostics.mjs": "f215936b8494b08ed4e90e4f272e39e21be562a943a83077d623dc862e2d7782",
     "owner-setup/jh168-mobile-unification/mobile13-fixture-http.mjs": "74722f28f91f070bbc88114410cb32ada223153eb49d6b7595652480238f50d6",
     "owner-setup/jh168-mobile-unification/mobile13-wait-condition.mjs": "cb36080614c347af33910f30e852a80c1c9324c6bbd784c1fccb2f8f76f45d18",
-    "owner-setup/jh168-mobile-unification/reviewed-source-audit.mjs": "851f903d8df2100f7d78ce7f121f9897f16175655623aac7484533d9c87556ce",
     "owner-setup/jh168-mobile-unification/snapshot-digest-readback-patch.mjs": "383c01f662573287880cd32c1e2845976b0d94fdcf63f7d2ff0fe365535ec36d",
     "owner-setup/jh168-mobile-unification/snapshot-digest-readback.mjs": "f767031afc1b84fd4b1a0791be7249e5395ef486e70e815a6e5da7ccee172117",
     "owner-setup/jh168-mobile-unification/split-followup-receipt-patch.mjs": "52a382de18e51ea5a0cdefcfff6874823231a7127af87b774c57176d1c442ecc",
@@ -142,7 +141,7 @@
     "owner-setup/jh168-mobile-unification/split-read-receipt-patch.mjs": "d86b1d56a351f88b350becde34874c22d0c4ae36dd8570c14c2dcd59b6ad2065",
     "owner-setup/jh168-mobile-unification/split-read-receipts.mjs": "c5f4fb5624ffc49a9cb01be551fe0017656d055428f3df062d378033d6b5c96b",
     "owner-setup/jh168-mobile-unification/stage22-generated-server-candidate.mjs": "6448ebff4f3259b3ad0e8d9b2ad475a30d168f64a59a96e5e7598cda4512a5bb",
-    "owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs": "fa5a007bbc2fe462d5a4e1135fb592c96ed215c752cca63235c432a2dd8641f9",
+    "owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs": "c0e02736582848008558f778582bcd506950c2fadc7f6190aa2ed5e0a18ffbc1",
     "owner-setup/jh168-mobile-unification/stage26-completion-delivery-patch.mjs": "a7f3a8dcbf159e60a9304dd970a2ca8da2e49b71c1d30607c09d0e0b5901cf23",
     "owner-setup/jh168-mobile-unification/stage26-completion-delivery-policy.mjs": "5ed399e279822d4f7bd6bdbb63e063f861122e761082e018b0f2a3e7688ac518",
     "owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs": "d55e663061e6436f8d7fe036af205968606ddee27f16a33f77db473b7c46c52f",
