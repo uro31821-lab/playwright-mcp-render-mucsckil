@@ -191,7 +191,7 @@ public class JebiseoHarmlessArgumentProbe {
     $script:mock.Accessibility = 'org.autojs.autojs6/com.stardust.ObsoleteService'
     Assert-JebTest (!(Get-JebPermissionState $script:testAssets 'SYNTHETIC_PHONE').Accessibility) 'stale_accessibility_component_rejected'
     Assert-JebTest (@($script:calls | Where-Object { $_ -match 'settings put|appops set|pm grant|uninstall' }).Count -eq 0) 'permissions_are_only_read_not_granted'
-    Assert-JebTest ((Test-JebAppOpAllowed 'Uid mode: MANAGE_EXTERNAL_STORAGE: allow' 'MANAGE_EXTERNAL_STORAGE') -and (Test-JebAppOpAllowed "Uid mode: SYSTEM_ALERT_WINDOW: allow`nSYSTEM_ALERT_WINDOW: default" 'SYSTEM_ALERT_WINDOW')) 'uid_allow_only_and_uid_allow_over_package_default_accepted'
+    Assert-JebTest ((Test-JebAppOpAllowed 'Uid mode: MANAGE_EXTERNAL_STORAGE: allow' 'MANAGE_EXTERNAL_STORAGE') -and (Test-JebAppOpAllowed "Uid mode: SYSTEM_ALERT_WINDOW: allow`nSYSTEM_ALERT_WINDOW: default" 'SYSTEM_ALERT_WINDOW') -and (Test-JebAppOpAllowed "Uid mode: MANAGE_EXTERNAL_STORAGE: default`nMANAGE_EXTERNAL_STORAGE: allow" 'MANAGE_EXTERNAL_STORAGE')) 'uid_allow_accepted_and_uid_default_falls_back_to_package'
     Assert-JebTest (!(Test-JebAppOpAllowed "Uid mode: MANAGE_EXTERNAL_STORAGE: ignore`nMANAGE_EXTERNAL_STORAGE: allow" 'MANAGE_EXTERNAL_STORAGE') -and !(Test-JebAppOpAllowed "Uid mode: SYSTEM_ALERT_WINDOW: deny`nSYSTEM_ALERT_WINDOW: allow" 'SYSTEM_ALERT_WINDOW')) 'uid_ignore_and_deny_override_package_allow'
     Reset-JebMock
     foreach ($pair in @(@('', 'probe'), @('1', 'probe'), @('2', 'selection'), @('3', 'more'), @('4', 'handoff'), @('5', 'submit'))) {

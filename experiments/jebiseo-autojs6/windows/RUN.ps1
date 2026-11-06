@@ -214,9 +214,14 @@ function Ensure-JebRuntime($Assets, [string]$Serial, [string]$RunDir, [string]$P
 }
 function Test-JebAppOpAllowed([string]$Text, [string]$Operation) {
     $operationPattern = [regex]::Escape($Operation)
-    # AOSP appops get reports UID overrides separately; they take precedence.
+    # AOSP appops get reports UID overrides separately; non-default UID modes win.
     $uidModes = [regex]::Matches($Text, ('(?m)^\s*Uid mode:\s*' + $operationPattern + ':\s*([A-Za-z_]+)(?=\s|;|$)'))
-    if ($uidModes.Count -gt 0) { return ($uidModes.Count -eq 1 -and $uidModes[0].Groups[1].Value -ceq 'allow') }
+    if ($uidModes.Count -gt 1) { return $false }
+    if ($uidModes.Count -eq 1) {
+        $uidMode = $uidModes[0].Groups[1].Value
+        if ($uidMode -ceq 'allow') { return $true }
+        if ($uidMode -cne 'default') { return $false }
+    }
     $packageModes = [regex]::Matches($Text, ('(?m)^\s*' + $operationPattern + ':\s*([A-Za-z_]+)(?=\s|;|$)'))
     return ($packageModes.Count -eq 1 -and $packageModes[0].Groups[1].Value -ceq 'allow')
 }

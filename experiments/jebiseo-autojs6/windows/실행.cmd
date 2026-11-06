@@ -59,7 +59,7 @@ echo Keep this file and POWER_SHELL_ERROR_CHECKLIST.txt.
 )
 if errorlevel 1 goto :JebNoResult
 echo [Jebiseo] Stopped. STATUS=%JEB_STATUS%
-echo RESULT_FILE=%JEB_RESULT_FILE%
+echo RESULT_FILE="%JEB_RESULT_FILE%"
 pause
 exit /b 2
 

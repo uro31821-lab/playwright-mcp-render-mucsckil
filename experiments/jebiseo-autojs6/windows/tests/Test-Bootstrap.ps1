@@ -5,7 +5,8 @@ $KitRoot = [IO.Path]::GetFullPath($KitRoot)
 $work = Join-Path ([IO.Path]::GetTempPath()) ('jebiseo-cmd-' + [guid]::NewGuid().ToString('N'))
 [IO.Directory]::CreateDirectory($work) | Out-Null
 $passed = [Collections.Generic.List[string]]::new()
-function Assert-Bootstrap([bool]$Condition, [string]$Message) { if (!$Condition) { throw ('TEST_FAILED: ' + $Message) } }
+$script:bootstrapDiagnostic = ''
+function Assert-Bootstrap([bool]$Condition, [string]$Message) { if (!$Condition) { throw ('TEST_FAILED: ' + $Message + "`r`n" + $script:bootstrapDiagnostic) } }
 try {
     $original = [IO.File]::ReadAllText((Join-Path $KitRoot '실행.cmd'), [Text.Encoding]::ASCII)
     $bytes = [IO.File]::ReadAllBytes((Join-Path $KitRoot '실행.cmd'))
@@ -46,7 +47,7 @@ public class JebiseoHarmlessBootstrapProcess {
             if (!File.Exists(path) || !File.ReadAllText(path).StartsWith("RUN_ID="+run+Environment.NewLine,StringComparison.Ordinal)) return 1;
             Console.WriteLine("RESULT_FILE="+path);
             return 0;
-        } catch { return 1; }
+        } catch (Exception failure) { Console.Error.WriteLine("SYNTHETIC_STUB_ERROR="+failure.GetType().Name+": "+failure.Message); return 1; }
     }
 }
 '@ -OutputAssembly $stub -OutputType ConsoleApplication | Out-Null
@@ -62,7 +63,8 @@ public class JebiseoHarmlessBootstrapProcess {
         $selected = $stub
         if ($scenario -ceq 'missing-powershell') { $selected = Join-Path $root 'does-not-exist.exe' }
         # Only the test COPY changes the interpreter path; production has no bypass switch.
-        $copy = $original.Replace('set "JEB_PS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"', ('set "JEB_PS=' + $selected + '"'))
+        $batchLiteral = $selected.Replace('%', '%%')
+        $copy = $original.Replace('set "JEB_PS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"', ('set "JEB_PS=' + $batchLiteral + '"'))
         Assert-Bootstrap ($copy -cne $original) 'Fixed interpreter line must be present'
         $entry = Join-Path $root '실행.cmd'
         [IO.File]::WriteAllText($entry, $copy, [Text.Encoding]::ASCII)
@@ -72,11 +74,10 @@ public class JebiseoHarmlessBootstrapProcess {
         try {
             $info = [Diagnostics.ProcessStartInfo]::new()
             $info.FileName = $env:COMSPEC
-            $info.Arguments = '/d /s /c ""' + $entry + '""'
-            $info.WorkingDirectory = $work
+            $info.Arguments = '/d /s /c ""' + $entry + '" <nul"'
+            $info.WorkingDirectory = $root
             $info.UseShellExecute = $false
             $info.CreateNoWindow = $true
-            $info.RedirectStandardInput = $true
             $info.RedirectStandardOutput = $true
             $info.RedirectStandardError = $true
             $info.EnvironmentVariables['TEMP'] = $temp
@@ -85,12 +86,11 @@ public class JebiseoHarmlessBootstrapProcess {
             Assert-Bootstrap ($process.Start()) 'Actual cmd.exe must start'
             $stdout = $process.StandardOutput.ReadToEndAsync()
             $stderr = $process.StandardError.ReadToEndAsync()
-            $process.StandardInput.WriteLine('x')
-            $process.StandardInput.Close()
             if (!$process.WaitForExit(30000)) { try { $process.Kill() } catch { }; throw ('CMD_TIMEOUT: ' + $scenario) }
             $output = $stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()
             $exitCode = $process.ExitCode
         } finally { $process.Dispose() }
+        $script:bootstrapDiagnostic = 'SYNTHETIC_SCENARIO=' + $scenario + "`r`nEXIT_CODE=" + $exitCode + "`r`nACTUAL_CMD_OUTPUT_BEGIN`r`n" + $output + "`r`nACTUAL_CMD_OUTPUT_END"
         Assert-Bootstrap ([IO.File]::ReadAllText((Join-Path $root 'RESULT.txt')) -ceq 'KEEP_PREVIOUS_RESULT') ($scenario + ': previous RESULT preserved')
         Assert-Bootstrap ($output.Contains('RESULT_FILE=')) ($scenario + ': current result path displayed')
         $log = Join-Path $root 'INVOCATIONS.log'
