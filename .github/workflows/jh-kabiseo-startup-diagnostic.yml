@@ -1,0 +1,62 @@
+name: JH Kabiseo PC startup diagnosis no phone
+on:
+  push:
+    branches: [kabiseo-camera-metadata-v05-20261105]
+    paths: ['tools/kabiseo-camera-startup/**', '.github/workflows/jh-kabiseo-startup-diagnostic.yml']
+permissions: {contents: read}
+jobs:
+  windows-startup-diagnostic:
+    runs-on: windows-2025
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve camera probe and every existing app/server/runtime input
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin 4a7bc0985824fd781f24debcc818a962afba0868
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code 4a7bc0985824fd781f24debcc818a962afba0868 HEAD -- jh-server host-kabiseo-assist/android host-kabiseo-assist/core host-kabiseo-assist/integration host-kabiseo-assist/server host-kabiseo-assist/tools/runtime-proof tools/kabiseo-camera-probe
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Package unchanged probe for library-only diagnosis
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP '카비서 PC 시작 진단 FIX1'
+          New-Item -ItemType Directory $root|Out-Null
+          Copy-Item tools/kabiseo-camera-startup/package/* $root -Recurse
+          New-Item -ItemType Directory (Join-Path $root 'data')|Out-Null
+          $original='tools/kabiseo-camera-probe/package/data/probe.ps1'
+          $text=[IO.File]::ReadAllText($original)
+          [IO.File]::WriteAllText((Join-Path $root 'data/probe.ps1'),$text,[Text.UTF8Encoding]::new($true))
+          $entry=Join-Path $root '실행.cmd'
+          $cmd=[IO.File]::ReadAllText($entry) -replace '\r?\n',"`r`n"
+          [IO.File]::WriteAllText($entry,$cmd,[Text.UTF8Encoding]::new($false))
+          $zip=Join-Path $env:RUNNER_TEMP 'startup-test.zip'
+          Compress-Archive -Path "$root/*" -DestinationPath $zip
+          $extract=Join-Path $env:RUNNER_TEMP '실제 압축해제 테스트'
+          Expand-Archive -LiteralPath $zip -DestinationPath $extract
+          foreach($f in Get-ChildItem $root -Recurse -File){$rel=[IO.Path]::GetRelativePath($root,$f.FullName);if((Get-FileHash $f.FullName).Hash -ne (Get-FileHash (Join-Path $extract $rel)).Hash){throw 'ZIP_PAYLOAD_CHANGED'}}
+          "DIAG_PACKAGE=$extract" >> $env:GITHUB_ENV
+      - name: Test actual CMD and 5 policy or payload scenarios without ADB
+        shell: pwsh
+        run: |
+          & tools/kabiseo-camera-startup/test_startup.ps1 -PackageRoot $env:DIAG_PACKAGE -EvidencePath "$env:RUNNER_TEMP/startup-verification.json"
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Prepare only clean payload and evidence
+        shell: pwsh
+        run: |
+          $out=Join-Path $env:RUNNER_TEMP 'kabiseo-startup-kit'
+          New-Item -ItemType Directory $out|Out-Null
+          Copy-Item "$env:DIAG_PACKAGE/*" $out -Recurse
+          Copy-Item "$env:RUNNER_TEMP/startup-verification.json" "$out/verification.json"
+          $manifest=[ordered]@{}
+          foreach($f in Get-ChildItem $out -Recurse -File){$manifest[[IO.Path]::GetRelativePath($out,$f.FullName)]=(Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
+          $manifest|ConvertTo-Json|Set-Content "$out/payload-hashes.json" -Encoding UTF8
+          git diff --exit-code
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-startup-FIX1-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-startup-kit/*
+          retention-days: 14
+          if-no-files-found: error
