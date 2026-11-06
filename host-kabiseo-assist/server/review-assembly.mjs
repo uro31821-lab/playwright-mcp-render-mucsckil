@@ -81,8 +81,19 @@ function copyTree(source,destination){
  }
 }
 function cameraBinding(template,id){
- if(template.split(BINDING).length!==2)fail('KABISEO_CAMERA_BINDING_SEAM_DRIFT');
- return template.replace(BINDING,'runtimeDigest:'+JSON.stringify(id));
+ // The full server legitimately uses its workflow digest in other features.
+ // Replace only the single binding inside the additive camera helper block.
+ const begin='// KABISEO_SERVER_METADATA_V010_BEGIN\n';
+ const end='// KABISEO_SERVER_METADATA_V010_END\n';
+ if(template.split(begin).length!==2||template.split(end).length!==2)fail('KABISEO_CAMERA_BINDING_SEAM_DRIFT');
+ const a=template.indexOf(begin),b=template.indexOf(end,a)+end.length;
+ if(b<=a)fail('KABISEO_CAMERA_BINDING_SEAM_DRIFT');
+ const block=template.slice(a,b);
+ if(block.split(BINDING).length!==2)fail('KABISEO_CAMERA_BINDING_SEAM_DRIFT');
+ const next=block.replace(BINDING,'runtimeDigest:'+JSON.stringify(id));
+ const result=template.slice(0,a)+next+template.slice(b);
+ assert.equal(result.replace('runtimeDigest:'+JSON.stringify(id),BINDING),template);
+ return result;
 }
 function identity(parent,template,files){
  return digest({schema:SCHEMA,node:process.version,parentSha256:sha(parent),

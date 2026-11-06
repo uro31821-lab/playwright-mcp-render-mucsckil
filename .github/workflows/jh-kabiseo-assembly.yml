@@ -17,7 +17,7 @@ permissions:
   contents: read
 jobs:
   sealed-review-only:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
@@ -29,6 +29,10 @@ jobs:
           persist-credentials: false
           path: baseline
           ref: 845c5dfd9925a9f40950f3a873b4e58bfada9990
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22.23.4'
+          package-manager-cache: false
       - name: Syntax and protected source preservation
         run: |
           set -euo pipefail
