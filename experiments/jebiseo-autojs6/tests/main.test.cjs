@@ -43,6 +43,43 @@ function launcher(options = {}) {
     };
     function JavaString(value) { this.value = String(value); }
     JavaString.prototype.getBytes = function () { return Buffer.from(this.value, 'utf8'); };
+    JavaString.prototype.toString = function () { return this.value; };
+    function JavaInteger(value) { assert.ok(Number.isInteger(value)); this.value = value; }
+    JavaInteger.TYPE = {name: 'int'};
+    const classes = Object.fromEntries(['java.lang.Class', 'java.lang.Object', 'java.lang.String', 'java.io.FileDescriptor']
+        .map(name => [name, {name}]));
+    classes['android.system.OsConstants'] = {getField(name) {
+        privateStep('DIR_FLAGS');
+        assert.ok(['O_RDONLY', 'O_DIRECTORY'].includes(name));
+        return {getInt(receiver) {assert.equal(receiver, null); return name === 'O_RDONLY' ? 0 : 65536;}};
+    }};
+    classes['android.system.Os'] = {getMethod(name, types) {
+        privateStep('DIR_METHODS');
+        assert.equal(types.component, classes['java.lang.Class']);
+        assert.deepEqual(Array.from(types, x => x.name), name === 'open' ? ['java.lang.String', 'int', 'int'] : ['java.io.FileDescriptor']);
+        assert.ok(['open', 'fsync', 'close'].includes(name));
+        return {invoke(receiver, args) {
+            assert.equal(receiver, null);
+            assert.equal(args.component, classes['java.lang.Object']);
+            try {
+                if (name === 'open') {
+                    assert.ok(args[0] instanceof JavaString && args[1] instanceof JavaInteger && args[2] instanceof JavaInteger);
+                    assert.equal(String(args[0]), privateRoot);
+                    assert.equal(args[1].value, 65536);
+                    assert.equal(args[2].value, 0);
+                    privateStep('DIR_OPEN'); return 1;
+                }
+                assert.equal(args[0], 1);
+                privateStep(name === 'fsync' ? 'DIR_SYNC' : 'DIR_CLOSE');
+            } catch (error) {
+                if (!error.javaException) throw error;
+                const wrapped = new Error('PRIVATE_REFLECTION_DETAIL_MUST_NOT_LEAK');
+                wrapped.javaException = {getClass: () => ({getName: () => 'java.lang.reflect.InvocationTargetException'}),
+                    getCause: () => error.javaException};
+                throw wrapped;
+            }
+        }};
+    }};
     const env = {
         context: {getFilesDir: () => '/private'},
         java: {
@@ -64,16 +101,21 @@ function launcher(options = {}) {
                     this.close = () => {if (isPrivate) privateStep('CLOSE');};
                 }
             },
-            lang: {String: JavaString},
+            lang: {String: JavaString, Integer: JavaInteger,
+                Class: {forName(name) {
+                    if (name.startsWith('android.system.')) privateStep('DIR_CLASS');
+                    assert.ok(classes[name], 'only explicit public classes are requested'); return classes[name];
+                }},
+                reflect: {Array: {newInstance(component, size) {const array = new Array(size); array.component = component; return array;}}}},
             util: {UUID: {randomUUID: () => ({toString: () => 'launcher-test-id'})},
                 concurrent: {atomic: {AtomicBoolean: function (value) {
                     this.get = () => value; this.set = next => {value = next;};
                 }}}},
             security: {MessageDigest: {getInstance: () => ({digest: bytes => createHash('sha256').update(bytes).digest()})}}
         },
-        android: {system: {Os: {open: () => {privateStep('DIR_OPEN'); return 1;},
-            fsync() {privateStep('DIR_SYNC');}, close() {privateStep('DIR_CLOSE');}},
-            OsConstants: {O_RDONLY: 0, O_DIRECTORY: 65536}}},
+        // A direct NativeJavaClass access may fail before calling Os.open.
+        // Storage must use only the explicitly resolved public signatures.
+        android: Object.defineProperty({}, 'system', {get() {throw new Error('DIRECT_ANDROID_CLASS_BRIDGE_UNAVAILABLE');}}),
         files: {
             // AutoJs6 6.8.0 exposes neither files.getParent nor files.getDir.
             join: (...values) => path.posix.join(...values),
@@ -331,7 +373,7 @@ test('relative or parentless engine sources stop before file reads and any phone
 });
 
 test('every private result I/O failure is identified while the public report retains the observed outcome', () => {
-    for (const stage of ['FILE_OPEN', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE']) {
+    for (const stage of ['FILE_OPEN', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_CLASS', 'DIR_METHODS', 'DIR_FLAGS', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE']) {
         const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-private-storage-steps', mode: 'probe'};
         const lab = launcher({privateFailures: [stage], storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
         const observed = lab.run();
@@ -343,6 +385,7 @@ test('every private result I/O failure is identified while the public report ret
         assert.equal(report.status, 'probe_ok');
         assert.match(report.reportText, new RegExp('STORAGE_' + stage + '_FAILED'));
         assert.doesNotMatch(report.reportText, /PRIVATE_STORAGE_DETAIL_MUST_NOT_LEAK/);
+        assert.doesNotMatch(report.reportText, /PRIVATE_REFLECTION_DETAIL_MUST_NOT_LEAK/);
         assert.equal(lab.calls.runs.length, 1);
         assert.ok(lab.calls.alerts.some(x => x.title === '결과 파일 저장 확인 필요'));
         if (stage === 'DIR_SYNC') {
@@ -350,6 +393,16 @@ test('every private result I/O failure is identified while the public report ret
             assert.ok(lab.calls.privateSteps.includes('DIR_CLOSE'));
         }
     }
+});
+
+test('public directory signatures persist with file and directory sync even when direct class bridging is unavailable', () => {
+    const lab = launcher({choices: [0, 2]});
+    const observed = lab.run();
+    assert.equal(observed.lastResultStorage.status, 'SAVED');
+    assert.equal(lab.calls.alerts.some(x => x.title === '결과 파일 저장 확인 필요'), false);
+    assert.deepEqual(lab.calls.privateSteps.filter(x => ['FILE_SYNC', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE'].includes(x)),
+        ['FILE_SYNC', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE']);
+    assert.equal(JSON.parse(lab.storage.get(privateRoot + '/last-result.json')).status, 'probe_ok');
 });
 
 test('cleanup errors cannot replace the first failed private storage step', () => {

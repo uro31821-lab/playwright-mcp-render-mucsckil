@@ -122,3 +122,46 @@ test('actual adapter refuses a menu target changed after core inspection and cor
     core.run({...flow.request, requestId: 'adapter-core-stale'}, flow.lab.io, flow.journal);
     assert.equal(flow.lab.state.actionLog.length, attempts, 'uncertain handoff does not lead to a retry');
 });
+
+for (const phase of ['handoff', 'submit']) {
+    test('titleless ' + phase + ' rechecks target-editor ambiguity and occlusion in the final native capture', () => {
+        for (const change of ['overlay', 'second-editor']) {
+            const flow = workflow();
+            flow.lab.right.root.children = flow.lab.right.root.children.filter(node => node.text !== 'Gemini');
+            const originalPerform = flow.lab.io.perform;
+            let injected = false;
+            flow.lab.io.perform = action => {
+                const dispatch = phase === 'handoff' ? action.node.viewId === 'android:id/floating_toolbar_menu_item_text' :
+                    action.kind === 'click' && action.window.id === 22;
+                if (dispatch && !injected) {
+                    assert.equal(action.surfaceGuard.verificationMethod, 'observed_gemini_editor');
+                    assert.equal(action.surfaceGuard.window.id, 22);
+                    injected = true;
+                    if (change === 'overlay') {
+                        flow.lab.state.windows.push({id: 44, displayId: 0, type: 4, packageName: '', title: '', parentId: null,
+                            bounds: box(540, 810, 880, 860), active: false, focused: false, layer: 9, root: null});
+                    } else {
+                        flow.lab.right.root.children.push(flow.lab.node({viewId: TARGET + ':id/other_input',
+                            className: 'android.widget.EditText', editable: true, bounds: box(540, 600, 880, 650)}));
+                    }
+                }
+                return originalPerform(action);
+            };
+            const request = {...flow.request, requestId: 'titleless-final-' + phase + '-' + change};
+            const result = core.run(request, flow.lab.io, flow.journal);
+            assert.equal(injected, true, change);
+            assert.equal(result.status, 'completion_unknown', JSON.stringify(result));
+            assert.equal(result.code, change === 'overlay' ? 'TARGET_OCCLUDED' : 'TARGET_EDITOR_AMBIGUOUS');
+            assert.equal(result.handoffDispatched, phase === 'submit');
+            assert.equal(result.submissionDispatched, false);
+            assert.deepEqual(flow.stages, phase === 'handoff' ? ['long_press', 'set_selection', 'more'] :
+                ['long_press', 'set_selection', 'more', 'gemini_menu']);
+            const deniedWindow = phase === 'handoff' ? 33 : 22;
+            assert.equal(flow.lab.state.actionLog.some(action => action.window === deniedWindow && action.id === 16), false);
+            assert.equal(flow.lab.state.touchLog.length, 0);
+            const attempts = flow.lab.state.actionLog.length;
+            core.run(request, flow.lab.io, flow.journal);
+            assert.equal(flow.lab.state.actionLog.length, attempts, 'uncertain outbound phase must not retry');
+        }
+    });
+}

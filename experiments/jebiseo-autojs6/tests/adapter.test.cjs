@@ -6,6 +6,14 @@ const {createAdapter} = require('../autojs-adapter.js');
 
 const {fixture, target, calibration, SOURCE, TARGET, box} = require('./fixtures/android.cjs');
 
+const observedEditorId = TARGET + ':id/assistant_robin_input_collapsed_text_half_sheet';
+function observedSurfaceClick(lab) {
+    lab.draft.viewId = observedEditorId;
+    const snapshot = lab.io.read();
+    return {kind: 'click', ...target(snapshot, 11, 'android:id/overflow'),
+        surfaceGuard: {verificationMethod: 'observed_gemini_editor', ...target(snapshot, 22, observedEditorId)}};
+}
+
 test('reads inactive source, focused target, popup ownership and other display without active-window fallback', () => {
     const lab = fixture();
     lab.state.windows.push({id: 33, displayId: 0, type: 3, packageName: SOURCE, title: 'Selection', parentId: 11,
@@ -101,6 +109,79 @@ test('draft guard is refreshed again before submit, so a concurrent text change 
     lab.state.refreshHook = ({model}) => { if (model === lab.draft) model.text = 'another draft'; };
     assert.equal(lab.io.perform(click).reason, 'NODE_CHANGED');
     assert.equal(lab.state.actionLog.length, 0);
+});
+
+test('observed surface guard permits one current editor while hidden or disabled controls remain ineligible', () => {
+    const lab = fixture();
+    lab.right.root.children.push(lab.node({viewId: TARGET + ':id/hidden_input', editable: true,
+        className: 'android.widget.EditText', visible: false, bounds: box(540, 600, 880, 650)}));
+    lab.right.root.children.push(lab.node({viewId: TARGET + ':id/disabled_input', editable: true,
+        enabled: false, bounds: box(540, 660, 880, 700)}));
+    const action = observedSurfaceClick(lab);
+    assert.equal(lab.io.perform(action).dispatched, true);
+    assert.deepEqual(lab.state.actionLog, [{window: 11, path: [1, 0], id: 16, values: null}]);
+    assert.equal(lab.state.touchLog.length, 0);
+});
+
+test('new target overlay or any second eligible input blocks a source click at the adapter capture', () => {
+    for (const variant of ['overlay', 'editable', 'EditText', 'setText']) {
+        const lab = fixture();
+        const action = observedSurfaceClick(lab);
+        if (variant === 'overlay') {
+            lab.state.windows.push({id: 44, displayId: 0, type: 4, packageName: '', title: '', parentId: null,
+                bounds: box(540, 810, 880, 860), active: false, focused: false, layer: 9, root: null});
+        } else {
+            lab.right.root.children.push(lab.node({viewId: TARGET + ':id/other_input',
+                bounds: box(540, 600, 880, 650), editable: variant === 'editable',
+                className: variant === 'EditText' ? 'android.widget.EditText' : 'android.widget.TextView',
+                actions: variant === 'setText' ? [2097152] : []}));
+        }
+        assert.deepEqual(lab.io.perform(action), {dispatched: false, attempted: false, uncertain: false,
+            reason: variant === 'overlay' ? 'TARGET_OCCLUDED' : 'TARGET_EDITOR_AMBIGUOUS'}, variant);
+        assert.equal(lab.state.actionLog.length, 0, variant + ' must stop the source click');
+        assert.equal(lab.state.touchLog.length, 0, variant + ' must not fall back to coordinates');
+    }
+});
+
+test('observed surface guard refresh rejects a changed editor identity or availability before a source click', () => {
+    const variants = [
+        ['id', model => { model.viewId = TARGET + ':id/changed'; }, 'NODE_CHANGED'],
+        ['class', model => { model.className = 'android.widget.Button'; }, 'NODE_CHANGED'],
+        ['draft', model => { model.text = 'a new draft'; }, 'NODE_CHANGED'],
+        ['editable', model => { model.editable = false; }, 'NODE_CHANGED'],
+        ['visible', model => { model.visible = false; }, 'NODE_UNAVAILABLE'],
+        ['enabled', model => { model.enabled = false; }, 'NODE_UNAVAILABLE'],
+        ['stale', model => { model.stale = true; }, 'NODE_STALE']
+    ];
+    for (const [name, mutate, reason] of variants) {
+        const lab = fixture();
+        const action = observedSurfaceClick(lab);
+        lab.state.refreshHook = ({model}) => { if (model === lab.draft) mutate(model); };
+        assert.deepEqual(lab.io.perform(action), {dispatched: false, attempted: false, uncertain: false, reason}, name);
+        assert.equal(lab.state.actionLog.length, 0, name);
+        assert.equal(lab.state.touchLog.length, 0, name);
+    }
+});
+
+test('malformed or generalized observed-surface guards fail closed', () => {
+    const variants = [
+        guard => null,
+        guard => undefined,
+        guard => ({...guard, verificationMethod: 'any_editable'}),
+        guard => ({...guard, window: {...guard.window, packageName: SOURCE}}),
+        guard => ({...guard, node: {...guard.node, viewId: TARGET + ':id/other_input'}}),
+        guard => ({...guard, node: {...guard.node, windowId: 11}}),
+        guard => ({...guard, node: {...guard.node, actions: null}}),
+        guard => ({...guard, node: {...guard.node, editable: false}})
+    ];
+    for (const mutate of variants) {
+        const lab = fixture();
+        const action = observedSurfaceClick(lab);
+        action.surfaceGuard = mutate(action.surfaceGuard);
+        assert.deepEqual(lab.io.perform(action), {dispatched: false, attempted: false, uncertain: false, reason: 'INVALID_SURFACE_GUARD'});
+        assert.equal(lab.state.actionLog.length, 0);
+        assert.equal(lab.state.touchLog.length, 0);
+    }
 });
 
 test('a higher keyboard/overlay window covering the target stops native and coordinate actions', () => {

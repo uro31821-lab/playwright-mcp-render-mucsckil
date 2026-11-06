@@ -12,6 +12,9 @@
 var ACTION_CLICK = 16;
 var ACTION_LONG_CLICK = 32;
 var ACTION_SET_SELECTION = 131072;
+var ACTION_SET_TEXT = 2097152;
+var OBSERVED_GEMINI_PACKAGE = 'com.google.android.googlequicksearchbox';
+var OBSERVED_GEMINI_INPUT_ID = OBSERVED_GEMINI_PACKAGE + ':id/assistant_robin_input_collapsed_text_half_sheet';
 var SELECTION_START = 'ACTION_ARGUMENT_SELECTION_START_INT';
 var SELECTION_END = 'ACTION_ARGUMENT_SELECTION_END_INT';
 
@@ -349,6 +352,37 @@ function createAdapter(env, options) {
         }
     }
 
+    function verifySurfaceGuard(captured, guard, actionWindow, kind) {
+        // Only the observed titleless Gemini surface uses this additional gate.
+        // Ordinary source guards retain their existing selection-toolbar policy.
+        if (kind !== 'click' || !guard || typeof guard !== 'object' || Array.isArray(guard) ||
+                guard.verificationMethod !== 'observed_gemini_editor' || !guard.window || !guard.node ||
+                guard.window.packageName !== OBSERVED_GEMINI_PACKAGE || guard.window.type !== 1 ||
+                guard.window.displayId !== actionWindow.displayId ||
+                guard.node.windowId !== guard.window.id || guard.node.packageName !== OBSERVED_GEMINI_PACKAGE ||
+                guard.node.viewId !== OBSERVED_GEMINI_INPUT_ID || guard.node.visible !== true ||
+                guard.node.enabled !== true || guard.node.editable !== true ||
+                typeof guard.node.key !== 'string' || !Array.isArray(guard.node.path) ||
+                !Array.isArray(guard.node.actions) || !contains(guard.window.bounds, guard.node.bounds)) {
+            fail('INVALID_SURFACE_GUARD');
+        }
+        var window = matchingWindow(captured.snapshot, guard.window);
+        var current = matchingNode(window, guard.node, true);
+        var candidates = window.nodes.filter(function (node) {
+            return node.windowId === window.id && node.packageName === OBSERVED_GEMINI_PACKAGE &&
+                node.visible === true && node.enabled === true && typeof node.key === 'string' &&
+                Array.isArray(node.path) && contains(window.bounds, node.bounds) &&
+                (node.editable === true || /(?:^|\.)[A-Za-z0-9_$]*EditText$/.test(node.className || '') ||
+                (Array.isArray(node.actions) && node.actions.indexOf(ACTION_SET_TEXT) !== -1));
+        });
+        if (candidates.length !== 1 || candidates[0].key !== current.key ||
+                !samePath(candidates[0].path, current.path)) fail('TARGET_EDITOR_AMBIGUOUS');
+        unobstructed(captured.snapshot, window, current.bounds);
+        var raw = resolve(rawFor(captured, window), current.path);
+        try { verifyNode(nodeInfo(raw, window, current.path), current, true); }
+        finally { recycle(raw); }
+    }
+
     function clickableTarget(captured, window, node) {
         var path = node.path.slice();
         var candidates;
@@ -428,6 +462,7 @@ function createAdapter(env, options) {
             if (current.windowId !== window.id || current.packageName !== window.packageName) fail('NODE_OWNER_MISMATCH');
             unobstructed(captured.snapshot, window, current.bounds, action.kind === 'set_selection');
             verifyGuards(captured, action.guards || [], window);
+            if ('surfaceGuard' in action) verifySurfaceGuard(captured, action.surfaceGuard, window, action.kind);
 
             if (action.kind === 'gesture_select') {
                 gesture = action.gesture;

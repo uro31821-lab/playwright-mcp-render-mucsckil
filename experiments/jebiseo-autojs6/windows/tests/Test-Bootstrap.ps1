@@ -117,7 +117,38 @@ public class JebiseoHarmlessBootstrapProcess {
         }
         $passed.Add($scenario)
     }
-    [pscustomobject]@{ schema = 'jebiseo.windows.bootstrap-tests.v1'; passed = $passed.Count; cases = $passed.ToArray(); actualCmd = $true; syntheticPowerShellProcess = $true; realAdb = 0; realPhone = 0; realInstall = 0; fullE2e = 'NOT_RUN' } | ConvertTo-Json -Depth 4
+    # Exercise an actual CMD -> Windows PowerShell 5.1 process, with a harmless
+    # raw-byte emitter replacing ADB. No phone command or installation is run.
+    $transportEvidence = Join-Path $work 'utf8-transport-evidence.json'
+    $transportScript = Join-Path $PSScriptRoot 'Test-PhoneTransport.ps1'
+    $realPowerShell = Join-Path $PSHOME 'powershell.exe'
+    $process = [Diagnostics.Process]::new()
+    try {
+        $info = [Diagnostics.ProcessStartInfo]::new()
+        $info.FileName = $env:COMSPEC
+        $info.Arguments = '/d /s /c ""' + $realPowerShell + '" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $transportScript + '" -KitRoot "' + $KitRoot + '" -EvidencePath "' + $transportEvidence + '" <nul"'
+        $info.UseShellExecute = $false
+        $info.CreateNoWindow = $true
+        $info.RedirectStandardOutput = $true
+        $info.RedirectStandardError = $true
+        $info.StandardOutputEncoding = [Text.Encoding]::GetEncoding(949)
+        $info.StandardErrorEncoding = [Text.Encoding]::GetEncoding(949)
+        $process.StartInfo = $info
+        Assert-Bootstrap ($process.Start()) 'Actual CMD transport fixture must start'
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        if (!$process.WaitForExit(60000)) { try { $process.Kill() } catch { }; throw 'CMD_UTF8_TRANSPORT_TIMEOUT' }
+        $output = $stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()
+        $exitCode = $process.ExitCode
+    } finally { $process.Dispose() }
+    $script:bootstrapDiagnostic = 'SYNTHETIC_SCENARIO=actual-cp949-utf8-transport' + "`r`nEXIT_CODE=" + $exitCode + "`r`nACTUAL_CMD_OUTPUT_BEGIN`r`n" + $output + "`r`nACTUAL_CMD_OUTPUT_END"
+    Assert-Bootstrap ($exitCode -eq 0 -and (Test-Path -LiteralPath $transportEvidence -PathType Leaf)) 'Actual CP949 transport child must succeed'
+    $transport = [IO.File]::ReadAllText($transportEvidence, [Text.Encoding]::UTF8) | ConvertFrom-Json
+    Assert-Bootstrap ($transport.passed -eq 9 -and $transport.consoleCodePage -eq 949 -and $transport.legacyCorruptionReproduced -and $transport.exactUnicodeReportPreserved) 'CP949 negative control and repaired Unicode transport must pass'
+    Assert-Bootstrap ($output.Contains('제비서 독립 시험 결과') -and $output.Contains('이번 시험 요약') -and $output.Contains('개인 결과 저장: 실패 / DIR_OPEN / OTHER')) 'Local and phone Korean must both survive actual CMD console output'
+    $passed.Add('actual-cp949-utf8-transport')
+
+    [pscustomobject]@{ schema = 'jebiseo.windows.bootstrap-tests.v1'; passed = $passed.Count; cases = $passed.ToArray(); actualCmd = $true; syntheticPowerShellProcess = $true; actualPowerShellTransportProcess = $true; utf8Transport = $transport; realAdb = 0; realPhone = 0; realInstall = 0; fullE2e = 'NOT_RUN' } | ConvertTo-Json -Depth 5
 } finally {
     if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -Force }
 }

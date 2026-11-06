@@ -5,7 +5,9 @@ var RESULT_SCHEMA = "jebiseo.autojs6.result.v1";
 var JOURNAL_SCHEMA = "jebiseo.autojs6.journal.v1";
 var SET_SELECTION = 131072;
 var SET_TEXT = 2097152;
-var DEFAULT_INPUT_ID = "com.google.android.googlequicksearchbox:id/assistant_robin_input_collapsed_text_half_sheet";
+var OBSERVED_GEMINI_PACKAGE = "com.google.android.googlequicksearchbox";
+var OBSERVED_GEMINI_INPUT_ID = OBSERVED_GEMINI_PACKAGE + ":id/assistant_robin_input_collapsed_text_half_sheet";
+var DEFAULT_INPUT_ID = OBSERVED_GEMINI_INPUT_ID;
 var MODES = ["probe", "selection", "more", "handoff", "submit"];
 var TERMINAL = ["selection_verified", "menu_verified", "handoff_verified", "submission_observed", "blocked", "cancelled", "completion_unknown"];
 var TOOLBAR_CONTAINERS = [
@@ -206,21 +208,48 @@ function toolbarNodes(request, snapshot, pair, role) {
     if (result.length > 1) { stop(role === "more" ? "MORE_CONTROL_AMBIGUOUS" : "GEMINI_MENU_AMBIGUOUS"); }
     return result;
 }
-function targetSurface(request, pair, allowMissing) {
+function targetSurface(request, pair, allowMissing, snapshot) {
     var nodes = appNodes(pair.target, request.targetPackage);
     var titles = nodes.filter(function (node) { return !node.editable && includes(request.targetTitleLabels, node.text); });
     var editors = nodes.filter(function (node) { return node.editable === true && includes(request.targetInputIds, node.viewId); });
+    var candidates;
     if (editors.length > 1) { stop("TARGET_EDITOR_AMBIGUOUS"); }
-    if (titles.length === 0 || editors.length === 0) {
-        if (allowMissing) { return null; }
-        stop("GEMINI_SURFACE_UNVERIFIED");
+    if (editors.length === 1 && titles.length > 0) {
+        return {draft: editors[0], title: titles[0], window: pair.target, verificationMethod: "title_and_configured_editor"};
     }
-    return {draft: editors[0], title: titles[0], window: pair.target};
+    // The owner's v0.3.2 probe observed this exact Gemini-specific editor with
+    // no accessible title. This exception is not derived from configurable IDs
+    // or editor text, and still requires one unobscured, eligible input only.
+    if (editors.length === 1 && request.targetPackage === OBSERVED_GEMINI_PACKAGE &&
+        pair.target.packageName === OBSERVED_GEMINI_PACKAGE && editors[0].viewId === OBSERVED_GEMINI_INPUT_ID && snapshot) {
+        candidates = nodes.filter(function (node) {
+            return node.editable === true || /(?:^|\.)[A-Za-z0-9_$]*EditText$/.test(node.className || "") ||
+                (Array.isArray(node.actions) && includes(node.actions, SET_TEXT));
+        });
+        if (candidates.length !== 1) { stop("TARGET_EDITOR_AMBIGUOUS"); }
+        notCovered(snapshot, {node: editors[0], window: pair.target});
+        return {draft: editors[0], title: null, window: pair.target, verificationMethod: "observed_gemini_editor"};
+    }
+    if (allowMissing) { return null; }
+    stop("GEMINI_SURFACE_UNVERIFIED");
+}
+function surfaceGuards(surface) {
+    var guards = [surface.draft];
+    if (surface.title) { guards.push(surface.title); }
+    return guards;
+}
+function surfaceAction(surface, guards) {
+    var extra = {guards: guards};
+    if (surface.verificationMethod === "observed_gemini_editor") {
+        extra.surfaceGuard = {verificationMethod: surface.verificationMethod, window: surface.window, node: surface.draft};
+    }
+    return extra;
 }
 function diagnoseTargetSurface(request, pair) {
     var report = {titleTextMatches: 0, titleDescriptionMatches: 0, configuredEditorMatches: 0,
         allEditableCount: 0, eligibleEditableCount: 0, emptyIdCandidateCount: 0,
-        candidateEditorCount: 0, candidatesTruncated: false, eligibleEditorCandidates: []};
+        candidateEditorCount: 0, candidatesTruncated: false, eligibleEditorCandidates: [],
+        verificationMethod: "unverified", titlelessObservedEditorVerified: false};
     function count(field) { if (report[field] < 6000) { report[field] += 1; } }
     pair.target.nodes.forEach(function (node) {
         var eligible;
@@ -355,7 +384,9 @@ function inspect(request, snapshot) {
         pair = findPair(r, snapshot, null);
         report.targetSurfaceDiagnostics = diagnoseTargetSurface(r, pair);
         match = sourceMatch(r, pair);
-        surface = targetSurface(r, pair, true);
+        surface = targetSurface(r, pair, true, snapshot);
+        report.targetSurfaceDiagnostics.verificationMethod = surface ? surface.verificationMethod : "unverified";
+        report.targetSurfaceDiagnostics.titlelessObservedEditorVerified = !!surface && surface.verificationMethod === "observed_gemini_editor";
         report.sourceTextFound = !!match;
         report.exactSelection = exactSelection(match) === true;
         report.selectionApi = !!match && Array.isArray(match.node.actions) && includes(match.node.actions, SET_SELECTION);
@@ -539,7 +570,10 @@ function run(request, io, journal) {
         context = read();
         binding = {sourceId: context.pair.source.id, targetId: context.pair.target.id, displayId: context.pair.source.displayId,
             width: context.snapshot.display.width, height: context.snapshot.display.height, rotation: context.snapshot.display.rotation};
-        initialSurface = targetSurface(r, context.pair, false);
+        initialSurface = targetSurface(r, context.pair, false, context.snapshot);
+        if (initialSurface.verificationMethod === "observed_gemini_editor") {
+            result.diagnostics = inspect(r, context.snapshot);
+        }
         match = sourceMatch(r, context.pair);
         if (!match) { stop("SOURCE_TEXT_MISSING"); }
         if ((r.mode === "handoff" || r.mode === "submit") && initialSurface.draft.text !== "") { stop("TARGET_DRAFT_NOT_EMPTY"); }
@@ -597,20 +631,20 @@ function run(request, io, journal) {
             result.diagnostics = inspect(r, handoff.context.snapshot);
             return finish("menu_verified", "GEMINI_MENU_VERIFIED");
         }
-        initialSurface = targetSurface(r, handoff.context.pair, false);
+        initialSurface = targetSurface(r, handoff.context.pair, false, handoff.context.snapshot);
         if (initialSurface.draft.text !== "") { stop("TARGET_DRAFT_CHANGED"); }
         preHandoffEvidence = evidence(r, handoff.context.pair);
         if (preHandoffEvidence.stops > 0) { stop("TARGET_BUSY"); }
         cancelled();
         persist("handoff_intent", false);
         handoffIntent = true;
-        perform("click", handoff.target, handoff.context, {guards: [handoff.selected.node, initialSurface.draft, initialSurface.title]});
+        perform("click", handoff.target, handoff.context, surfaceAction(initialSurface, [handoff.selected.node].concat(surfaceGuards(initialSurface))));
         result.handoffDispatched = true;
         persist("handoff_intent", false);
 
         stage("DRAFT");
         context = waitFor(function (item) {
-            var surface = targetSurface(r, item.pair, true);
+            var surface = targetSurface(r, item.pair, true, item.snapshot);
             if (newEvidence(preHandoffEvidence, evidence(r, item.pair))) { stop("MENU_MAY_HAVE_SUBMITTED"); }
             if (!surface) { return null; }
             if (surface.draft.text === r.expectedText) { return item; }
@@ -623,25 +657,26 @@ function run(request, io, journal) {
 
         stage("SUBMIT");
         send = waitFor(function (item) {
-            var surface = targetSurface(r, item.pair, false);
+            var surface = targetSurface(r, item.pair, false, item.snapshot);
             var items;
             if (surface.draft.text !== r.expectedText) { stop("DRAFT_CHANGED_BEFORE_SUBMIT"); }
             if (newEvidence(preHandoffEvidence, evidence(r, item.pair))) { stop("MENU_MAY_HAVE_SUBMITTED"); }
             items = controls(r, item.pair, r.sendLabels, r.targetSendIds);
             if (items.length > 1) { stop("SEND_CONTROL_AMBIGUOUS"); }
-            return items.length === 1 ? {context: item, target: items[0], draft: surface.draft, title: surface.title} : null;
+            return items.length === 1 ? {context: item, target: items[0], draft: surface.draft, title: surface.title,
+                window: surface.window, verificationMethod: surface.verificationMethod} : null;
         }, "SEND_CONTROL_NOT_FOUND");
         beforeSubmit = evidence(r, send.context.pair);
         cancelled();
         persist("submit_intent", false);
         submitIntent = true;
-        perform("click", send.target, send.context, {guards: [send.draft, send.title, send.target.labelNode]});
+        perform("click", send.target, send.context, surfaceAction(send, surfaceGuards(send).concat([send.target.labelNode])));
         result.submissionDispatched = true;
         persist("submit_intent", false);
 
         stage("VERIFY_SUBMIT");
         waitFor(function (item) {
-            var surface = targetSurface(r, item.pair, true);
+            var surface = targetSurface(r, item.pair, true, item.snapshot);
             return surface && surface.draft.text === "" && newEvidence(beforeSubmit, evidence(r, item.pair));
         }, "SUBMISSION_NOT_OBSERVED");
         result.submissionObserved = true;

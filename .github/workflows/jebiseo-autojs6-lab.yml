@@ -33,6 +33,8 @@ jobs:
           git diff --exit-code -- dist/jebiseo-independent-test.js
       - name: Check asset preparation contracts
         run: python3 -m unittest discover -s windows/tests -p 'test_*.py' -v
+      - name: Verify public storage signatures with pinned Rhino and mock Android Os
+        run: python3 tests/run-rhino-storage.py
       - name: Assemble official unmodified binaries
         run: python3 windows/prepare-assets.py --output "$RUNNER_TEMP/jebiseo-oneclick"
       - name: Verify actual APK identity and original signature

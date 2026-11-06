@@ -2,15 +2,21 @@
 
 Date: 2026-11-06 (Asia/Seoul)
 
-Current preparation: **0.3.0**, a Windows download/extract/run package for the independent accessibility/menu test. The v0.2.0 source at `a039a250461d7b4953f6f8edd772472427a212e5` is the parent. Development continues in draft PR [#173](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/173), branch `experiment/jebiseo-autojs6-20261106`.
+Current preparation: **0.3.3**, a Windows download/extract/run package for the independent accessibility/menu test. Its parent is v0.3.2 source `701c7b377db5e99f6fdefc76f1704a2e952943c7`. Development continues in draft PR [#173](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/173), branch `experiment/jebiseo-autojs6-20261106`.
+
+## Latest actual phone observation and correction scope
+
+The v0.3.2 user screenshot shows `PHONE_RESULT_RECEIVED`, `GEMINI_SURFACE_UNVERIFIED`, zero title/description matches and one exact configured eligible editor. Private result persistence reports `DIR_OPEN / OTHER`; the precise platform exception is unknown. The phone-report Korean is corrupted while local console Korean and ASCII report fields remain readable.
+
+Version 0.3.3 adds the narrowly scoped observed-editor identity path and fresh native surface guard, ADB-specific UTF-8 decoding with actual Windows transport regressions, and exact public Java storage signatures with finer bounded failures. The pinned original Rhino/JVM contract uses a mock Android Os: it verifies real Java interop, not Android filesystem behavior. Actual v0.3.3 phone behavior remains NOT_RUN until the next mode-1 report. CI counts, exact candidate bytes and independent review are recorded in the delivered reports and PR after the run; no local mock pass is phone success.
 
 ## Windows preparation update
 
 The user requested one extracted folder and one launcher instead of manual AutoJs6 script import. `windows/prepare-assets.py` assembles the original signed AutoJs6 v6.8.0 APK, official Windows platform-tools, the script and launcher. `windows/audit-apk.py` audits the actual downloaded APK signature and identity in CI. A separate Windows job runs PowerShell 5.1 and real CMD with harmless mock boundaries, and checks the exact candidate hashes and bundled adb startup. The final delivery gate must pin reviewed bytes after CI; this source commit alone does not establish release or phone success.
 
-USB execution uses a bounded launch-request with one mode, a stable journal ID and the reviewed embedded profile. The phone exports only the allowlisted report to the public test folder. The PC reads only a report matching its current launch ID and mode. Android permission grants and split-screen arrangement remain user actions. No actual phone installation, menu click, Gemini transmission or JH integration has been observed during package preparation.
+USB execution uses a bounded launch-request with one mode, a stable journal ID and the reviewed embedded profile. The phone exports only the allowlisted report to the public test folder. The PC reads only a report matching its current launch ID and mode. Android permission grants and split-screen arrangement remain user actions. The user's earlier reports establish installed runtime/script and partial read-only execution; no actual menu click, Gemini transmission or JH integration has passed.
 
-The final offline results below and `verification.json` are historical v0.2.0 evidence. v0.3.0 CI results are recorded in the final delivery evidence and PR.
+The historical offline results below and `verification.json` are v0.2.0 evidence preserved unchanged. Each later delivery has separate current CI and independent-review receipts.
 
 ## User goal and scope
 
@@ -31,7 +37,7 @@ The repository baseline is `uro31821-lab/playwright-mcp-render-mucsckil`, `jh-fi
 - Android accessibility adapter reads all interactive windows and rechecks identity/geometry immediately before each action.
 - Exact selection via accessibility or explicitly calibrated gestures; no guessed text-handle coordinates.
 - Framework selection-toolbar More detection and separate popup/menu lookup.
-- Actual Gemini UI host, exact editor ID and visible Gemini title; existing drafts and active responses block a new handoff.
+- Actual Gemini UI host, exact editor ID and visible Gemini title, or the separately observed titleless editor with fresh identity/uniqueness/occlusion checks; existing drafts and active responses block a new handoff.
 - Atomic local journal and exclusive process lock, with durable handoff/submit intent before consequential clicks.
 - Read-only probe, selection, **More-only/menu observation**, handoff and full-submit modes. No automatic recovery/replay after unknown execution.
 - Phone launcher uses a thread-safe cancellation flag and recycles its key observer when finished.
@@ -43,7 +49,7 @@ The repository baseline is `uro31821-lab/playwright-mcp-render-mucsckil`, `jh-fi
 
 ## Verification status
 
-Final local offline results: **91 passed / 0 failed / 0 skipped / 0 cancelled**, Node `v24.22.1`. The commands, input hashes and executable hash are recorded in `verification.json`. Node tests use synthetic Android-shaped objects and are not evidence of real-phone execution. This record covers local verification; remote candidate CI evidence is attached to draft PR #173 separately.
+Historical v0.2.0 local offline results: **91 passed / 0 failed / 0 skipped / 0 cancelled**, Node `v24.22.1`. Its commands, input hashes and executable hash remain in `verification.json`. Node tests use synthetic Android-shaped objects and are not evidence of real-phone execution. Current 0.3.3 CI evidence and counts belong to the delivered receipt and draft PR #173.
 
 | Gate | State |
 | --- | --- |
@@ -58,7 +64,7 @@ Final local offline results: **91 passed / 0 failed / 0 skipped / 0 cancelled**,
 
 ## Next action
 
-Run the one-file script in AutoJs6 on the user's actual split screen, starting with read-only probe. The installed runtime, source text node, exact selection offsets, framework menu ownership, Gemini surface and send control must be observed. A probe or fixture pass is not full-flow success.
+Extract the new 0.3.3 ZIP, run `실행.cmd` and choose mode 1 only. Reuse the same installed official APK. Read the bottom summary for Gemini identity, private storage and correct Korean. Selection/menu/handoff/submit remain separate later tests; modes 2–5 do not resume a prior mode. A probe or fixture pass is not full-flow success.
 
 If blocked, use the first stage/code and minimal redacted metadata to adjust only the affected profile/implementation. A missing or uncertain menu handoff/submit result must be reviewed before another write attempt; read-only probe does not clear that record. Do not turn Node test counts into a phone success claim.
 

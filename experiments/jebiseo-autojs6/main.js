@@ -13,16 +13,26 @@ function storageError(stage, original) {
     var kind = 'OTHER';
     var errno = null;
     try {
-        if (original && ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError'].indexOf(original.name) >= 0) kind = original.name;
-        var cause = original && original.javaException;
-        if (cause && typeof cause.getClass === 'function') {
+        if (original && ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'EvalError', 'InternalError', 'JavaException'].indexOf(original.name) >= 0) kind = original.name;
+        var cause = original && (original.javaException || original.rhinoException || original);
+        var depth;
+        for (depth = 0; cause && typeof cause.getClass === 'function' && depth < 4; depth++) {
             var name = String(cause.getClass().getName());
             if (['java.io.IOException', 'java.io.FileNotFoundException', 'java.io.SyncFailedException',
-                'java.lang.SecurityException', 'android.system.ErrnoException'].indexOf(name) >= 0) kind = name;
+                'java.lang.SecurityException', 'android.system.ErrnoException', 'java.lang.ClassNotFoundException',
+                'java.lang.NoSuchMethodException', 'java.lang.NoSuchFieldException', 'java.lang.IllegalAccessException',
+                'java.lang.IllegalArgumentException', 'java.lang.NoClassDefFoundError', 'java.lang.ExceptionInInitializerError',
+                'java.lang.reflect.InvocationTargetException', 'org.mozilla.javascript.EvaluatorException',
+                'org.mozilla.javascript.WrappedException'].indexOf(name) >= 0) kind = name;
             if (name === 'android.system.ErrnoException') {
                 var number = Number(cause.errno);
                 if (isFinite(number) && Math.floor(number) === number && number > 0 && number <= 4095) errno = number;
             }
+            if (['java.lang.reflect.InvocationTargetException', 'java.lang.ExceptionInInitializerError',
+                'org.mozilla.javascript.WrappedException'].indexOf(name) < 0 || typeof cause.getCause !== 'function') break;
+            var next = cause.getCause();
+            if (!next || next === cause) break;
+            cause = next;
         }
     } catch (ignored) { /* A diagnostic getter must not replace the storage failure. */ }
     var failure = new Error('STORAGE_' + stage + '_FAILED');
@@ -31,10 +41,50 @@ function storageError(stage, original) {
     return failure;
 }
 
+function publicDirectoryApi(env) {
+    // Select only public Android API signatures, instead of asking Rhino to
+    // reflect every member of android.system.Os. No private API/access override.
+    var stage = 'DIR_CLASS';
+    try {
+        var Class = env.java.lang.Class;
+        var osClass = Class.forName('android.system.Os');
+        var constantsClass = Class.forName('android.system.OsConstants');
+        var classType = Class.forName('java.lang.Class');
+        var objectType = Class.forName('java.lang.Object');
+        var stringType = Class.forName('java.lang.String');
+        var fdType = Class.forName('java.io.FileDescriptor');
+        var intType = env.java.lang.Integer.TYPE;
+        function array(type, values) {
+            var result = env.java.lang.reflect.Array.newInstance(type, values.length);
+            for (var i = 0; i < values.length; i++) result[i] = values[i];
+            return result;
+        }
+        stage = 'DIR_METHODS';
+        var open = osClass.getMethod('open', array(classType, [stringType, intType, intType]));
+        var sync = osClass.getMethod('fsync', array(classType, [fdType]));
+        var close = osClass.getMethod('close', array(classType, [fdType]));
+        stage = 'DIR_FLAGS';
+        var readOnly = Number(constantsClass.getField('O_RDONLY').getInt(null));
+        var directory = Number(constantsClass.getField('O_DIRECTORY').getInt(null));
+        if (!isFinite(readOnly) || Math.floor(readOnly) !== readOnly || readOnly < 0 ||
+            !isFinite(directory) || Math.floor(directory) !== directory || directory <= 0) throw new Error('DIRECTORY_FLAGS_INVALID');
+        var flags = readOnly | directory;
+        return {
+            open: function (path) {
+                return open.invoke(null, array(objectType, [new env.java.lang.String(path),
+                    new env.java.lang.Integer(flags), new env.java.lang.Integer(0)]));
+            },
+            fsync: function (fd) { sync.invoke(null, array(objectType, [fd])); },
+            close: function (fd) { close.invoke(null, array(objectType, [fd])); }
+        };
+    } catch (error) { throw storageError(stage, error); }
+}
+
 function durableWrite(env, root, target, value) {
     var temporary = null;
     var stream = null;
     var directoryFd = null;
+    var directoryApi = null;
     var failure = null;
     var stage = 'PREPARE';
     try {
@@ -56,13 +106,14 @@ function durableWrite(env, root, target, value) {
         stage = 'RENAME';
         if (!temporary.renameTo(target)) throw new Error('ATOMIC_RENAME_FAILED');
         stage = 'DIR_OPEN';
-        directoryFd = env.android.system.Os.open(String(root.getAbsolutePath()),
-            env.android.system.OsConstants.O_RDONLY | env.android.system.OsConstants.O_DIRECTORY, 0);
+        directoryApi = publicDirectoryApi(env);
+        directoryFd = directoryApi.open(String(root.getAbsolutePath()));
+        if (directoryFd === null) throw new Error('DIRECTORY_DESCRIPTOR_MISSING');
         stage = 'DIR_SYNC';
-        env.android.system.Os.fsync(directoryFd);
-    } catch (directoryError) { failure = storageError(stage, directoryError); }
+        directoryApi.fsync(directoryFd);
+    } catch (directoryError) { failure = directoryError.storageFailure ? directoryError : storageError(stage, directoryError); }
     if (directoryFd !== null) {
-        try { env.android.system.Os.close(directoryFd); }
+        try { directoryApi.close(directoryFd); }
         catch (directoryCloseError) { if (failure === null) failure = storageError('DIR_CLOSE', directoryCloseError); }
     }
     if (failure !== null) throw failure;
@@ -184,7 +235,7 @@ function runPhone(env) {
             return value;
         }
         var choice = launchRequest ? ['probe', 'selection', 'more', 'handoff', 'submit'].indexOf(mode) :
-            env.dialogs.select('제비서 독립 시험 0.3.2\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
+            env.dialogs.select('제비서 독립 시험 0.3.3\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
             '1. 화면·메뉴 읽기 — 버튼을 누르지 않음',
             '2. 시험 문장 선택까지만',
             '3. ⋯ 열고 Gemini 항목 확인까지만 — 전달 안 함',

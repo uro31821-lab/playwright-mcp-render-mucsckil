@@ -159,3 +159,21 @@ test('untrusted storage diagnostic names and unbounded surface counts are not ec
     assert.equal(details(text).lastResultStorage.kind, 'OTHER');
     assert.deepEqual(details(text).diagnostics.targetSurfaceDiagnostics, {});
 });
+
+test('surface verification method is bounded and does not relabel the observed mode outcome', () => {
+    for (const method of ['title_and_configured_editor', 'observed_gemini_editor', 'unverified']) {
+        const input = result({status: 'blocked', code: 'SOURCE_TEXT_MISSING', diagnostics: {
+            targetSurfaceDiagnostics: {verificationMethod: method, titlelessObservedEditorVerified: method === 'observed_gemini_editor'}
+        }});
+        const output = details(formatResult(input));
+        assert.equal(output.status, 'blocked');
+        assert.equal(output.code, 'SOURCE_TEXT_MISSING');
+        assert.equal(output.diagnostics.targetSurfaceDiagnostics.verificationMethod, method);
+        assert.match(formatSummary(input), /화면 확인 기준:/);
+    }
+    const invalid = formatResult(result({diagnostics: {targetSurfaceDiagnostics: {
+        verificationMethod: 'PRIVATE_UI_TEXT', titlelessObservedEditorVerified: 'PRIVATE_UI_TEXT'
+    }}}));
+    assert.doesNotMatch(invalid, /PRIVATE_UI_TEXT/);
+    assert.deepEqual(details(invalid).diagnostics.targetSurfaceDiagnostics, {});
+});

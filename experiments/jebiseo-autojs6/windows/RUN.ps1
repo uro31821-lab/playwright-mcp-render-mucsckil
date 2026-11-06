@@ -34,7 +34,7 @@ function ConvertTo-JebProcessArgument([string]$Value) {
     $quoted = [regex]::Replace($quoted, '(\\+)$', '$1$1')
     return '"' + $quoted + '"'
 }
-function Invoke-JebProcess([string]$Exe, [string[]]$Arguments, [int]$TimeoutMs = 30000) {
+function Invoke-JebProcess([string]$Exe, [string[]]$Arguments, [int]$TimeoutMs = 30000, [Text.Encoding]$TextEncoding = $null) {
     $process = [Diagnostics.Process]::new()
     try {
         $info = [Diagnostics.ProcessStartInfo]::new()
@@ -44,6 +44,10 @@ function Invoke-JebProcess([string]$Exe, [string[]]$Arguments, [int]$TimeoutMs =
         $info.CreateNoWindow = $true
         $info.RedirectStandardOutput = $true
         $info.RedirectStandardError = $true
+        if ($null -ne $TextEncoding) {
+            $info.StandardOutputEncoding = $TextEncoding
+            $info.StandardErrorEncoding = $TextEncoding
+        }
         $process.StartInfo = $info
         if (!$process.Start()) { return [pscustomobject]@{ ExitCode = -9001; Text = ''; TimedOut = $false } }
         $stdout = $process.StandardOutput.ReadToEndAsync()
@@ -60,7 +64,8 @@ function Invoke-JebProcess([string]$Exe, [string[]]$Arguments, [int]$TimeoutMs =
     finally { $process.Dispose() }
 }
 function Invoke-JebAdb($Assets, [string[]]$Arguments, [int]$TimeoutMs = 30000) {
-    return Invoke-JebProcess $Assets.adbFullPath $Arguments $TimeoutMs
+    # Android/ADB text is UTF-8; the Windows console code page must not decode it.
+    return Invoke-JebProcess $Assets.adbFullPath $Arguments $TimeoutMs ([Text.UTF8Encoding]::new($false, $true))
 }
 function Invoke-JebRequiredAdb($Assets, [string[]]$Arguments, [string]$Code, [int]$TimeoutMs = 30000) {
     $answer = Invoke-JebAdb $Assets $Arguments $TimeoutMs

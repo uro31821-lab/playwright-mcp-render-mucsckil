@@ -231,7 +231,7 @@ test("More-only still blocks a changed selection before reporting the menu verif
 
 test("More-only diagnostics cannot turn an observed menu into a failed action result", () => {
     const f = fixture({request: {mode: "more"}, mutateSnapshot(snapshot, state) {
-        if (state.more) snapshot.windows[1].nodes.find(item => item.key === "gemini-title").text = "Google";
+        if (state.more) snapshot.windows[1].nodes.find(item => item.key === "gemini-draft").viewId = TARGET + ":id/search_box";
     }});
     const result = core.run(f.req, f.io, f.journal);
     assert.equal(result.status, "menu_verified");
@@ -259,8 +259,9 @@ test("probe has no journal or actions, includes only scoped control labels and w
     assert.equal(unsupported.diagnostics.windows.length, 1, "unsupported probe still diagnoses observed windows");
 });
 
-test("surface diagnostics distinguish a title in description while the text-only gate stays blocked", () => {
-    const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+test("a description-only title cannot authorize an arbitrary configured editor", () => {
+    const otherId = TARGET + ":id/other_configured_editor";
+    const f = fixture({request: {mode: "probe", targetInputIds: [otherId]}, inputId: otherId, mutateSnapshot(snapshot) {
         const title = snapshot.windows[1].nodes.find(item => item.key === "gemini-title");
         title.text = "";
         title.desc = "Gemini";
@@ -277,6 +278,8 @@ test("surface diagnostics distinguish a title in description while the text-only
     assert.equal(diagnostic.emptyIdCandidateCount, 0);
     assert.equal(diagnostic.candidateEditorCount, 1);
     assert.equal(diagnostic.candidatesTruncated, false);
+    assert.equal(diagnostic.verificationMethod, "unverified");
+    assert.equal(diagnostic.titlelessObservedEditorVerified, false);
     assert.deepEqual(f.actions, []);
     const action = core.run(Object.assign({}, f.req, {mode: "handoff"}), f.io, f.journal);
     assert.equal(action.code, "GEMINI_SURFACE_UNVERIFIED", "description evidence must not relax title matching");
@@ -514,13 +517,168 @@ for (const [name, code, mutate] of badWindows) {
     });
 }
 
-test("Google host package requires both Gemini heading and the configured editor identity", () => {
-    for (const options of [{targetTitle: "Google"}, {inputId: TARGET + ":id/search_box"}]) {
+test("Google search and other configured IDs cannot use the observed Gemini editor exception", () => {
+    for (const options of [{inputId: TARGET + ":id/search_box"},
+        {targetTitle: "Google", inputId: TARGET + ":id/search_box", request: {targetInputIds: [TARGET + ":id/search_box"]}},
+        {targetTitle: "Google", inputId: INPUT + "_similar", request: {targetInputIds: [INPUT + "_similar"]}}]) {
         const f = fixture(options);
         const result = core.run(f.req, f.io, f.journal);
         assert.equal(result.code, "GEMINI_SURFACE_UNVERIFIED");
         assert.equal(f.actions.length, 0);
     }
+});
+
+test("the observed unique Gemini editor verifies the actual titleless surface without UI actions", () => {
+    const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+        snapshot.windows[1].nodes = snapshot.windows[1].nodes.filter(item => item.key !== "gemini-title");
+    }});
+    const result = core.run(f.req, f.io, null);
+    const diagnostic = result.diagnostics.targetSurfaceDiagnostics;
+    assert.equal(result.status, "probe_ok");
+    assert.equal(diagnostic.titleTextMatches, 0);
+    assert.equal(diagnostic.titleDescriptionMatches, 0);
+    assert.equal(diagnostic.configuredEditorMatches, 1);
+    assert.equal(diagnostic.eligibleEditableCount, 1);
+    assert.equal(diagnostic.candidateEditorCount, 1);
+    assert.equal(diagnostic.verificationMethod, "observed_gemini_editor");
+    assert.equal(diagnostic.titlelessObservedEditorVerified, true);
+    assert.equal(diagnostic.eligibleEditorCandidates[0].viewId, INPUT);
+    assert.deepEqual(f.actions, []);
+    assert.equal(result.liveDeviceVerified, false, "a structural probe is not phone workflow success");
+});
+
+test("a titleless handoff keeps exact draft guards, omits null title, and submits only after readback", () => {
+    const f = fixture({mutateSnapshot(snapshot) {
+        snapshot.windows[1].nodes = snapshot.windows[1].nodes.filter(item => item.key !== "gemini-title");
+    }});
+    const result = core.run(f.req, f.io, f.journal);
+    assert.equal(result.status, "submission_observed");
+    assert.equal(result.diagnostics.targetSurfaceDiagnostics.verificationMethod, "observed_gemini_editor");
+    assert.deepEqual(actionNames(f), ["long_press", "set_selection", "toolbar-more", "gemini-menu", "gemini-send"]);
+    const menu = f.actions.find(action => action.node.key === "gemini-menu");
+    const send = f.actions.find(action => action.node.key === "gemini-send");
+    assert.ok(menu.guards.every(Boolean));
+    assert.ok(send.guards.every(Boolean));
+    assert.ok(menu.guards.some(item => item.key === "gemini-draft" && item.text === ""));
+    assert.equal(send.guards[0].key, "gemini-draft");
+    assert.equal(send.guards[0].text, EXPECTED);
+    assert.ok(send.guards.some(item => item.key === "gemini-send"), "the Send label remains a dispatch guard");
+    for (const action of [menu, send]) {
+        assert.equal(action.surfaceGuard.verificationMethod, "observed_gemini_editor");
+        assert.equal(action.surfaceGuard.window.packageName, TARGET);
+        assert.equal(action.surfaceGuard.node.viewId, INPUT);
+        assert.equal(action.surfaceGuard.node.windowId, action.surfaceGuard.window.id);
+    }
+    assert.ok(!JSON.stringify(result).includes(EXPECTED));
+    assert.equal(f.records[f.req.requestId].status, "submission_observed");
+});
+
+test("titleless exact-ID evidence still excludes hidden, disabled, noneditable, foreign, and off-window nodes", () => {
+    for (const mutation of [
+        editor => { editor.visible = false; },
+        editor => { editor.enabled = false; },
+        editor => { editor.editable = false; },
+        editor => { editor.packageName = SOURCE; },
+        editor => { editor.windowId = 99; },
+        editor => { editor.bounds.left = 500; }
+    ]) {
+        const f = fixture({mutateSnapshot(snapshot) {
+            snapshot.windows[1].nodes = snapshot.windows[1].nodes.filter(item => item.key !== "gemini-title");
+            mutation(snapshot.windows[1].nodes.find(item => item.key === "gemini-draft"));
+        }});
+        const result = core.run(f.req, f.io, f.journal);
+        assert.equal(result.code, "GEMINI_SURFACE_UNVERIFIED");
+        assert.equal(result.status, "blocked");
+        assert.deepEqual(f.actions, []);
+    }
+});
+
+test("another app cannot inherit the observed-editor exception through a matching ID suffix", () => {
+    const other = "com.example.otherapp";
+    const otherId = other + ":id/assistant_robin_input_collapsed_text_half_sheet";
+    const f = fixture({request: {targetPackage: other, targetInputIds: [otherId]}, inputId: otherId, mutateSnapshot(snapshot) {
+        const target = snapshot.windows[1];
+        target.packageName = other;
+        target.nodes = target.nodes.filter(item => item.key !== "gemini-title");
+        target.nodes.forEach(item => { item.packageName = other; });
+    }});
+    const result = core.run(f.req, f.io, f.journal);
+    assert.equal(result.code, "GEMINI_SURFACE_UNVERIFIED");
+    assert.deepEqual(f.actions, []);
+});
+
+test("a second eligible input candidate makes the titleless surface ambiguous", () => {
+    for (const extra of [
+        {editable: true, className: "android.widget.EditText", viewId: INPUT},
+        {editable: true, className: "android.widget.EditText", viewId: TARGET + ":id/other_input"},
+        {editable: false, className: "android.widget.EditText", viewId: TARGET + ":id/other_input"},
+        {editable: false, className: "android.view.View", actions: [2097152], viewId: TARGET + ":id/other_input"}
+    ]) {
+        const f = fixture({mutateSnapshot(snapshot) {
+            const target = snapshot.windows[1];
+            target.nodes = target.nodes.filter(item => item.key !== "gemini-title");
+            target.nodes.push(node(2, "second-input", [50], {left: 550, top: 400, right: 900, bottom: 450}, extra));
+        }});
+        const result = core.run(f.req, f.io, f.journal);
+        assert.equal(result.status, "blocked");
+        assert.equal(result.code, "TARGET_EDITOR_AMBIGUOUS");
+        assert.deepEqual(f.actions, []);
+    }
+});
+
+test("a higher window covering the titleless editor blocks its identity evidence", () => {
+    const f = fixture({request: {mode: "probe"}, mutateSnapshot(snapshot) {
+        const target = snapshot.windows[1];
+        target.nodes = target.nodes.filter(item => item.key !== "gemini-title");
+        const editor = target.nodes.find(item => item.key === "gemini-draft");
+        snapshot.windows.push({id: 8, displayId: 0, type: 3, packageName: "com.android.systemui", parentId: null,
+            active: true, focused: true, layer: 8, bounds: clone(editor.bounds), nodes: []});
+    }});
+    const result = core.run(f.req, f.io, null);
+    assert.equal(result.status, "blocked");
+    assert.equal(result.code, "CONTROL_OCCLUDED");
+    assert.equal(result.diagnostics.targetSurfaceDiagnostics.verificationMethod, "unverified");
+    assert.equal(result.diagnostics.targetSurfaceDiagnostics.titlelessObservedEditorVerified, false);
+    assert.deepEqual(f.actions, []);
+});
+
+test("titleless identity is rechecked after handoff and retains the unresolved handoff fence", () => {
+    const f = fixture({mutateSnapshot(snapshot, state) {
+        const target = snapshot.windows[1];
+        target.nodes = target.nodes.filter(item => item.key !== "gemini-title");
+        if (state.handoff) target.nodes.find(item => item.key === "gemini-draft").viewId = TARGET + ":id/search_box";
+    }});
+    const result = core.run(f.req, f.io, f.journal);
+    assert.equal(result.status, "completion_unknown");
+    assert.equal(result.code, "HANDOFF_DRAFT_NOT_OBSERVED");
+    assert.equal(result.handoffDispatched, true);
+    assert.equal(result.submissionDispatched, false);
+    assert.equal(actionNames(f).includes("gemini-send"), false);
+    assert.equal(f.records[f.req.requestId].status, "completion_unknown");
+});
+
+test("the titleless path preserves existing-draft, busy-response, and stale native guard refusals", () => {
+    function withoutTitle(snapshot) {
+        snapshot.windows[1].nodes = snapshot.windows[1].nodes.filter(item => item.key !== "gemini-title");
+    }
+    const draft = fixture({initialDraft: EXPECTED, mutateSnapshot: withoutTitle});
+    assert.equal(core.run(draft.req, draft.io, draft.journal).code, "TARGET_DRAFT_NOT_EMPTY");
+    assert.deepEqual(draft.actions, []);
+    const busy = fixture({initialStops: 1, mutateSnapshot: withoutTitle});
+    assert.equal(core.run(busy.req, busy.io, busy.journal).code, "TARGET_BUSY");
+    assert.deepEqual(busy.actions, []);
+    const stale = fixture({mutateSnapshot: withoutTitle, onPerform(action) {
+        if (action.node.key === "gemini-send") {
+            assert.ok(action.guards.some(item => item.key === "gemini-draft"));
+            return {dispatched: false, attempted: false, reason: "NODE_CHANGED"};
+        }
+    }});
+    const result = core.run(stale.req, stale.io, stale.journal);
+    assert.equal(result.status, "completion_unknown");
+    assert.equal(result.code, "NODE_CHANGED");
+    assert.equal(result.submissionDispatched, false);
+    assert.equal(actionNames(stale).filter(name => name === "gemini-send").length, 1);
+    assert.equal(stale.records[stale.req.requestId].status, "completion_unknown");
 });
 
 test("rejects ambiguous source occurrences and editable ChatGPT composer text", () => {

@@ -111,6 +111,10 @@ function surfaceDiagnostics(value) {
         if (integer(input[key]) && input[key] >= 0 && input[key] <= 6000) output[key] = input[key];
     });
     copyBoolean(input, output, 'candidatesTruncated');
+    copyBoolean(input, output, 'titlelessObservedEditorVerified');
+    if (['title_and_configured_editor', 'observed_gemini_editor', 'unverified'].indexOf(input.verificationMethod) >= 0) {
+        output.verificationMethod = input.verificationMethod;
+    }
     if (Array.isArray(input.eligibleEditorCandidates)) {
         output.eligibleEditorCandidates = input.eligibleEditorCandidates.slice(0, 8).filter(function (node) {
             return node && integer(node.windowId) && bounds(node.bounds);
@@ -133,9 +137,12 @@ function lastResultStorage(value) {
     var input = record(value);
     if (input.status === 'SAVED') return {status: 'SAVED'};
     if (input.status !== 'FAILED') return null;
-    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'UNKNOWN'];
-    var kinds = ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'java.io.IOException',
-        'java.io.FileNotFoundException', 'java.io.SyncFailedException', 'java.lang.SecurityException', 'android.system.ErrnoException'];
+    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_CLASS', 'DIR_METHODS', 'DIR_FLAGS', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'UNKNOWN'];
+    var kinds = ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'EvalError', 'InternalError', 'JavaException', 'java.io.IOException',
+        'java.io.FileNotFoundException', 'java.io.SyncFailedException', 'java.lang.SecurityException', 'android.system.ErrnoException',
+        'java.lang.ClassNotFoundException', 'java.lang.NoSuchMethodException', 'java.lang.NoSuchFieldException', 'java.lang.IllegalAccessException',
+        'java.lang.IllegalArgumentException', 'java.lang.NoClassDefFoundError', 'java.lang.ExceptionInInitializerError',
+        'java.lang.reflect.InvocationTargetException', 'org.mozilla.javascript.EvaluatorException', 'org.mozilla.javascript.WrappedException'];
     var stage = stages.indexOf(input.stage) >= 0 ? input.stage : 'UNKNOWN';
     var output = {status: 'FAILED', stage: stage, code: 'STORAGE_' + stage + '_FAILED',
         kind: kinds.indexOf(input.kind) >= 0 ? input.kind : 'OTHER'};
@@ -283,6 +290,9 @@ function surfaceLines(surface) {
         '• 제목 글자 일치: ' + measured('titleTextMatches') + ' / 설명 이름 일치: ' + measured('titleDescriptionMatches'),
         '• 설정된 입력칸 일치: ' + measured('configuredEditorMatches') + ' / 입력칸 후보: ' + measured('candidateEditorCount'),
         '• 편집 가능한 칸: ' + measured('eligibleEditableCount') + '/' + measured('allEditableCount') + ' / 이름 없는 후보: ' + measured('emptyIdCandidateCount')];
+    var methods = {title_and_configured_editor: '제목과 설정된 입력칸',
+        observed_gemini_editor: '실제 확인한 Gemini 전용 입력칸', unverified: '미확인'};
+    if (own(methods, surface.verificationMethod)) lines.push('• 화면 확인 기준: ' + methods[surface.verificationMethod]);
     if (surface.eligibleEditorCandidates) surface.eligibleEditorCandidates.forEach(function (node, index) {
         lines.push('• 입력칸 후보 ' + (index + 1) + ': ' + (node.viewId || '(내부 이름 없음)') +
             ' / ' + (node.className || '(종류 미확인)') +

@@ -1,4 +1,4 @@
-// JH 제비서 독립 시험 0.3.2 — AutoJs6에서 실행. JH 운영 미연결.
+// JH 제비서 독립 시험 0.3.3 — AutoJs6에서 실행. JH 운영 미연결.
 // Generated with node build-bundle.cjs. Edit source modules, not this file.
 (function () {
 'use strict';
@@ -65,7 +65,9 @@ var RESULT_SCHEMA = "jebiseo.autojs6.result.v1";
 var JOURNAL_SCHEMA = "jebiseo.autojs6.journal.v1";
 var SET_SELECTION = 131072;
 var SET_TEXT = 2097152;
-var DEFAULT_INPUT_ID = "com.google.android.googlequicksearchbox:id/assistant_robin_input_collapsed_text_half_sheet";
+var OBSERVED_GEMINI_PACKAGE = "com.google.android.googlequicksearchbox";
+var OBSERVED_GEMINI_INPUT_ID = OBSERVED_GEMINI_PACKAGE + ":id/assistant_robin_input_collapsed_text_half_sheet";
+var DEFAULT_INPUT_ID = OBSERVED_GEMINI_INPUT_ID;
 var MODES = ["probe", "selection", "more", "handoff", "submit"];
 var TERMINAL = ["selection_verified", "menu_verified", "handoff_verified", "submission_observed", "blocked", "cancelled", "completion_unknown"];
 var TOOLBAR_CONTAINERS = [
@@ -266,21 +268,48 @@ function toolbarNodes(request, snapshot, pair, role) {
     if (result.length > 1) { stop(role === "more" ? "MORE_CONTROL_AMBIGUOUS" : "GEMINI_MENU_AMBIGUOUS"); }
     return result;
 }
-function targetSurface(request, pair, allowMissing) {
+function targetSurface(request, pair, allowMissing, snapshot) {
     var nodes = appNodes(pair.target, request.targetPackage);
     var titles = nodes.filter(function (node) { return !node.editable && includes(request.targetTitleLabels, node.text); });
     var editors = nodes.filter(function (node) { return node.editable === true && includes(request.targetInputIds, node.viewId); });
+    var candidates;
     if (editors.length > 1) { stop("TARGET_EDITOR_AMBIGUOUS"); }
-    if (titles.length === 0 || editors.length === 0) {
-        if (allowMissing) { return null; }
-        stop("GEMINI_SURFACE_UNVERIFIED");
+    if (editors.length === 1 && titles.length > 0) {
+        return {draft: editors[0], title: titles[0], window: pair.target, verificationMethod: "title_and_configured_editor"};
     }
-    return {draft: editors[0], title: titles[0], window: pair.target};
+    // The owner's v0.3.2 probe observed this exact Gemini-specific editor with
+    // no accessible title. This exception is not derived from configurable IDs
+    // or editor text, and still requires one unobscured, eligible input only.
+    if (editors.length === 1 && request.targetPackage === OBSERVED_GEMINI_PACKAGE &&
+        pair.target.packageName === OBSERVED_GEMINI_PACKAGE && editors[0].viewId === OBSERVED_GEMINI_INPUT_ID && snapshot) {
+        candidates = nodes.filter(function (node) {
+            return node.editable === true || /(?:^|\.)[A-Za-z0-9_$]*EditText$/.test(node.className || "") ||
+                (Array.isArray(node.actions) && includes(node.actions, SET_TEXT));
+        });
+        if (candidates.length !== 1) { stop("TARGET_EDITOR_AMBIGUOUS"); }
+        notCovered(snapshot, {node: editors[0], window: pair.target});
+        return {draft: editors[0], title: null, window: pair.target, verificationMethod: "observed_gemini_editor"};
+    }
+    if (allowMissing) { return null; }
+    stop("GEMINI_SURFACE_UNVERIFIED");
+}
+function surfaceGuards(surface) {
+    var guards = [surface.draft];
+    if (surface.title) { guards.push(surface.title); }
+    return guards;
+}
+function surfaceAction(surface, guards) {
+    var extra = {guards: guards};
+    if (surface.verificationMethod === "observed_gemini_editor") {
+        extra.surfaceGuard = {verificationMethod: surface.verificationMethod, window: surface.window, node: surface.draft};
+    }
+    return extra;
 }
 function diagnoseTargetSurface(request, pair) {
     var report = {titleTextMatches: 0, titleDescriptionMatches: 0, configuredEditorMatches: 0,
         allEditableCount: 0, eligibleEditableCount: 0, emptyIdCandidateCount: 0,
-        candidateEditorCount: 0, candidatesTruncated: false, eligibleEditorCandidates: []};
+        candidateEditorCount: 0, candidatesTruncated: false, eligibleEditorCandidates: [],
+        verificationMethod: "unverified", titlelessObservedEditorVerified: false};
     function count(field) { if (report[field] < 6000) { report[field] += 1; } }
     pair.target.nodes.forEach(function (node) {
         var eligible;
@@ -415,7 +444,9 @@ function inspect(request, snapshot) {
         pair = findPair(r, snapshot, null);
         report.targetSurfaceDiagnostics = diagnoseTargetSurface(r, pair);
         match = sourceMatch(r, pair);
-        surface = targetSurface(r, pair, true);
+        surface = targetSurface(r, pair, true, snapshot);
+        report.targetSurfaceDiagnostics.verificationMethod = surface ? surface.verificationMethod : "unverified";
+        report.targetSurfaceDiagnostics.titlelessObservedEditorVerified = !!surface && surface.verificationMethod === "observed_gemini_editor";
         report.sourceTextFound = !!match;
         report.exactSelection = exactSelection(match) === true;
         report.selectionApi = !!match && Array.isArray(match.node.actions) && includes(match.node.actions, SET_SELECTION);
@@ -599,7 +630,10 @@ function run(request, io, journal) {
         context = read();
         binding = {sourceId: context.pair.source.id, targetId: context.pair.target.id, displayId: context.pair.source.displayId,
             width: context.snapshot.display.width, height: context.snapshot.display.height, rotation: context.snapshot.display.rotation};
-        initialSurface = targetSurface(r, context.pair, false);
+        initialSurface = targetSurface(r, context.pair, false, context.snapshot);
+        if (initialSurface.verificationMethod === "observed_gemini_editor") {
+            result.diagnostics = inspect(r, context.snapshot);
+        }
         match = sourceMatch(r, context.pair);
         if (!match) { stop("SOURCE_TEXT_MISSING"); }
         if ((r.mode === "handoff" || r.mode === "submit") && initialSurface.draft.text !== "") { stop("TARGET_DRAFT_NOT_EMPTY"); }
@@ -657,20 +691,20 @@ function run(request, io, journal) {
             result.diagnostics = inspect(r, handoff.context.snapshot);
             return finish("menu_verified", "GEMINI_MENU_VERIFIED");
         }
-        initialSurface = targetSurface(r, handoff.context.pair, false);
+        initialSurface = targetSurface(r, handoff.context.pair, false, handoff.context.snapshot);
         if (initialSurface.draft.text !== "") { stop("TARGET_DRAFT_CHANGED"); }
         preHandoffEvidence = evidence(r, handoff.context.pair);
         if (preHandoffEvidence.stops > 0) { stop("TARGET_BUSY"); }
         cancelled();
         persist("handoff_intent", false);
         handoffIntent = true;
-        perform("click", handoff.target, handoff.context, {guards: [handoff.selected.node, initialSurface.draft, initialSurface.title]});
+        perform("click", handoff.target, handoff.context, surfaceAction(initialSurface, [handoff.selected.node].concat(surfaceGuards(initialSurface))));
         result.handoffDispatched = true;
         persist("handoff_intent", false);
 
         stage("DRAFT");
         context = waitFor(function (item) {
-            var surface = targetSurface(r, item.pair, true);
+            var surface = targetSurface(r, item.pair, true, item.snapshot);
             if (newEvidence(preHandoffEvidence, evidence(r, item.pair))) { stop("MENU_MAY_HAVE_SUBMITTED"); }
             if (!surface) { return null; }
             if (surface.draft.text === r.expectedText) { return item; }
@@ -683,25 +717,26 @@ function run(request, io, journal) {
 
         stage("SUBMIT");
         send = waitFor(function (item) {
-            var surface = targetSurface(r, item.pair, false);
+            var surface = targetSurface(r, item.pair, false, item.snapshot);
             var items;
             if (surface.draft.text !== r.expectedText) { stop("DRAFT_CHANGED_BEFORE_SUBMIT"); }
             if (newEvidence(preHandoffEvidence, evidence(r, item.pair))) { stop("MENU_MAY_HAVE_SUBMITTED"); }
             items = controls(r, item.pair, r.sendLabels, r.targetSendIds);
             if (items.length > 1) { stop("SEND_CONTROL_AMBIGUOUS"); }
-            return items.length === 1 ? {context: item, target: items[0], draft: surface.draft, title: surface.title} : null;
+            return items.length === 1 ? {context: item, target: items[0], draft: surface.draft, title: surface.title,
+                window: surface.window, verificationMethod: surface.verificationMethod} : null;
         }, "SEND_CONTROL_NOT_FOUND");
         beforeSubmit = evidence(r, send.context.pair);
         cancelled();
         persist("submit_intent", false);
         submitIntent = true;
-        perform("click", send.target, send.context, {guards: [send.draft, send.title, send.target.labelNode]});
+        perform("click", send.target, send.context, surfaceAction(send, surfaceGuards(send).concat([send.target.labelNode])));
         result.submissionDispatched = true;
         persist("submit_intent", false);
 
         stage("VERIFY_SUBMIT");
         waitFor(function (item) {
-            var surface = targetSurface(r, item.pair, true);
+            var surface = targetSurface(r, item.pair, true, item.snapshot);
             return surface && surface.draft.text === "" && newEvidence(beforeSubmit, evidence(r, item.pair));
         }, "SUBMISSION_NOT_OBSERVED");
         result.submissionObserved = true;
@@ -733,6 +768,9 @@ factories["./autojs-adapter.js"] = function (exports, module, require) {
 var ACTION_CLICK = 16;
 var ACTION_LONG_CLICK = 32;
 var ACTION_SET_SELECTION = 131072;
+var ACTION_SET_TEXT = 2097152;
+var OBSERVED_GEMINI_PACKAGE = 'com.google.android.googlequicksearchbox';
+var OBSERVED_GEMINI_INPUT_ID = OBSERVED_GEMINI_PACKAGE + ':id/assistant_robin_input_collapsed_text_half_sheet';
 var SELECTION_START = 'ACTION_ARGUMENT_SELECTION_START_INT';
 var SELECTION_END = 'ACTION_ARGUMENT_SELECTION_END_INT';
 
@@ -1070,6 +1108,37 @@ function createAdapter(env, options) {
         }
     }
 
+    function verifySurfaceGuard(captured, guard, actionWindow, kind) {
+        // Only the observed titleless Gemini surface uses this additional gate.
+        // Ordinary source guards retain their existing selection-toolbar policy.
+        if (kind !== 'click' || !guard || typeof guard !== 'object' || Array.isArray(guard) ||
+                guard.verificationMethod !== 'observed_gemini_editor' || !guard.window || !guard.node ||
+                guard.window.packageName !== OBSERVED_GEMINI_PACKAGE || guard.window.type !== 1 ||
+                guard.window.displayId !== actionWindow.displayId ||
+                guard.node.windowId !== guard.window.id || guard.node.packageName !== OBSERVED_GEMINI_PACKAGE ||
+                guard.node.viewId !== OBSERVED_GEMINI_INPUT_ID || guard.node.visible !== true ||
+                guard.node.enabled !== true || guard.node.editable !== true ||
+                typeof guard.node.key !== 'string' || !Array.isArray(guard.node.path) ||
+                !Array.isArray(guard.node.actions) || !contains(guard.window.bounds, guard.node.bounds)) {
+            fail('INVALID_SURFACE_GUARD');
+        }
+        var window = matchingWindow(captured.snapshot, guard.window);
+        var current = matchingNode(window, guard.node, true);
+        var candidates = window.nodes.filter(function (node) {
+            return node.windowId === window.id && node.packageName === OBSERVED_GEMINI_PACKAGE &&
+                node.visible === true && node.enabled === true && typeof node.key === 'string' &&
+                Array.isArray(node.path) && contains(window.bounds, node.bounds) &&
+                (node.editable === true || /(?:^|\.)[A-Za-z0-9_$]*EditText$/.test(node.className || '') ||
+                (Array.isArray(node.actions) && node.actions.indexOf(ACTION_SET_TEXT) !== -1));
+        });
+        if (candidates.length !== 1 || candidates[0].key !== current.key ||
+                !samePath(candidates[0].path, current.path)) fail('TARGET_EDITOR_AMBIGUOUS');
+        unobstructed(captured.snapshot, window, current.bounds);
+        var raw = resolve(rawFor(captured, window), current.path);
+        try { verifyNode(nodeInfo(raw, window, current.path), current, true); }
+        finally { recycle(raw); }
+    }
+
     function clickableTarget(captured, window, node) {
         var path = node.path.slice();
         var candidates;
@@ -1149,6 +1218,7 @@ function createAdapter(env, options) {
             if (current.windowId !== window.id || current.packageName !== window.packageName) fail('NODE_OWNER_MISMATCH');
             unobstructed(captured.snapshot, window, current.bounds, action.kind === 'set_selection');
             verifyGuards(captured, action.guards || [], window);
+            if ('surfaceGuard' in action) verifySurfaceGuard(captured, action.surfaceGuard, window, action.kind);
 
             if (action.kind === 'gesture_select') {
                 gesture = action.gesture;
@@ -1396,6 +1466,10 @@ function surfaceDiagnostics(value) {
         if (integer(input[key]) && input[key] >= 0 && input[key] <= 6000) output[key] = input[key];
     });
     copyBoolean(input, output, 'candidatesTruncated');
+    copyBoolean(input, output, 'titlelessObservedEditorVerified');
+    if (['title_and_configured_editor', 'observed_gemini_editor', 'unverified'].indexOf(input.verificationMethod) >= 0) {
+        output.verificationMethod = input.verificationMethod;
+    }
     if (Array.isArray(input.eligibleEditorCandidates)) {
         output.eligibleEditorCandidates = input.eligibleEditorCandidates.slice(0, 8).filter(function (node) {
             return node && integer(node.windowId) && bounds(node.bounds);
@@ -1418,9 +1492,12 @@ function lastResultStorage(value) {
     var input = record(value);
     if (input.status === 'SAVED') return {status: 'SAVED'};
     if (input.status !== 'FAILED') return null;
-    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'UNKNOWN'];
-    var kinds = ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'java.io.IOException',
-        'java.io.FileNotFoundException', 'java.io.SyncFailedException', 'java.lang.SecurityException', 'android.system.ErrnoException'];
+    var stages = ['PREPARE', 'FILE_OPEN', 'ENCODE', 'WRITE', 'FILE_SYNC', 'CLOSE', 'RENAME', 'DIR_CLASS', 'DIR_METHODS', 'DIR_FLAGS', 'DIR_OPEN', 'DIR_SYNC', 'DIR_CLOSE', 'UNKNOWN'];
+    var kinds = ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'EvalError', 'InternalError', 'JavaException', 'java.io.IOException',
+        'java.io.FileNotFoundException', 'java.io.SyncFailedException', 'java.lang.SecurityException', 'android.system.ErrnoException',
+        'java.lang.ClassNotFoundException', 'java.lang.NoSuchMethodException', 'java.lang.NoSuchFieldException', 'java.lang.IllegalAccessException',
+        'java.lang.IllegalArgumentException', 'java.lang.NoClassDefFoundError', 'java.lang.ExceptionInInitializerError',
+        'java.lang.reflect.InvocationTargetException', 'org.mozilla.javascript.EvaluatorException', 'org.mozilla.javascript.WrappedException'];
     var stage = stages.indexOf(input.stage) >= 0 ? input.stage : 'UNKNOWN';
     var output = {status: 'FAILED', stage: stage, code: 'STORAGE_' + stage + '_FAILED',
         kind: kinds.indexOf(input.kind) >= 0 ? input.kind : 'OTHER'};
@@ -1568,6 +1645,9 @@ function surfaceLines(surface) {
         '• 제목 글자 일치: ' + measured('titleTextMatches') + ' / 설명 이름 일치: ' + measured('titleDescriptionMatches'),
         '• 설정된 입력칸 일치: ' + measured('configuredEditorMatches') + ' / 입력칸 후보: ' + measured('candidateEditorCount'),
         '• 편집 가능한 칸: ' + measured('eligibleEditableCount') + '/' + measured('allEditableCount') + ' / 이름 없는 후보: ' + measured('emptyIdCandidateCount')];
+    var methods = {title_and_configured_editor: '제목과 설정된 입력칸',
+        observed_gemini_editor: '실제 확인한 Gemini 전용 입력칸', unverified: '미확인'};
+    if (own(methods, surface.verificationMethod)) lines.push('• 화면 확인 기준: ' + methods[surface.verificationMethod]);
     if (surface.eligibleEditorCandidates) surface.eligibleEditorCandidates.forEach(function (node, index) {
         lines.push('• 입력칸 후보 ' + (index + 1) + ': ' + (node.viewId || '(내부 이름 없음)') +
             ' / ' + (node.className || '(종류 미확인)') +
@@ -1646,16 +1726,26 @@ function storageError(stage, original) {
     var kind = 'OTHER';
     var errno = null;
     try {
-        if (original && ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError'].indexOf(original.name) >= 0) kind = original.name;
-        var cause = original && original.javaException;
-        if (cause && typeof cause.getClass === 'function') {
+        if (original && ['Error', 'TypeError', 'RangeError', 'ReferenceError', 'SyntaxError', 'EvalError', 'InternalError', 'JavaException'].indexOf(original.name) >= 0) kind = original.name;
+        var cause = original && (original.javaException || original.rhinoException || original);
+        var depth;
+        for (depth = 0; cause && typeof cause.getClass === 'function' && depth < 4; depth++) {
             var name = String(cause.getClass().getName());
             if (['java.io.IOException', 'java.io.FileNotFoundException', 'java.io.SyncFailedException',
-                'java.lang.SecurityException', 'android.system.ErrnoException'].indexOf(name) >= 0) kind = name;
+                'java.lang.SecurityException', 'android.system.ErrnoException', 'java.lang.ClassNotFoundException',
+                'java.lang.NoSuchMethodException', 'java.lang.NoSuchFieldException', 'java.lang.IllegalAccessException',
+                'java.lang.IllegalArgumentException', 'java.lang.NoClassDefFoundError', 'java.lang.ExceptionInInitializerError',
+                'java.lang.reflect.InvocationTargetException', 'org.mozilla.javascript.EvaluatorException',
+                'org.mozilla.javascript.WrappedException'].indexOf(name) >= 0) kind = name;
             if (name === 'android.system.ErrnoException') {
                 var number = Number(cause.errno);
                 if (isFinite(number) && Math.floor(number) === number && number > 0 && number <= 4095) errno = number;
             }
+            if (['java.lang.reflect.InvocationTargetException', 'java.lang.ExceptionInInitializerError',
+                'org.mozilla.javascript.WrappedException'].indexOf(name) < 0 || typeof cause.getCause !== 'function') break;
+            var next = cause.getCause();
+            if (!next || next === cause) break;
+            cause = next;
         }
     } catch (ignored) { /* A diagnostic getter must not replace the storage failure. */ }
     var failure = new Error('STORAGE_' + stage + '_FAILED');
@@ -1664,10 +1754,50 @@ function storageError(stage, original) {
     return failure;
 }
 
+function publicDirectoryApi(env) {
+    // Select only public Android API signatures, instead of asking Rhino to
+    // reflect every member of android.system.Os. No private API/access override.
+    var stage = 'DIR_CLASS';
+    try {
+        var Class = env.java.lang.Class;
+        var osClass = Class.forName('android.system.Os');
+        var constantsClass = Class.forName('android.system.OsConstants');
+        var classType = Class.forName('java.lang.Class');
+        var objectType = Class.forName('java.lang.Object');
+        var stringType = Class.forName('java.lang.String');
+        var fdType = Class.forName('java.io.FileDescriptor');
+        var intType = env.java.lang.Integer.TYPE;
+        function array(type, values) {
+            var result = env.java.lang.reflect.Array.newInstance(type, values.length);
+            for (var i = 0; i < values.length; i++) result[i] = values[i];
+            return result;
+        }
+        stage = 'DIR_METHODS';
+        var open = osClass.getMethod('open', array(classType, [stringType, intType, intType]));
+        var sync = osClass.getMethod('fsync', array(classType, [fdType]));
+        var close = osClass.getMethod('close', array(classType, [fdType]));
+        stage = 'DIR_FLAGS';
+        var readOnly = Number(constantsClass.getField('O_RDONLY').getInt(null));
+        var directory = Number(constantsClass.getField('O_DIRECTORY').getInt(null));
+        if (!isFinite(readOnly) || Math.floor(readOnly) !== readOnly || readOnly < 0 ||
+            !isFinite(directory) || Math.floor(directory) !== directory || directory <= 0) throw new Error('DIRECTORY_FLAGS_INVALID');
+        var flags = readOnly | directory;
+        return {
+            open: function (path) {
+                return open.invoke(null, array(objectType, [new env.java.lang.String(path),
+                    new env.java.lang.Integer(flags), new env.java.lang.Integer(0)]));
+            },
+            fsync: function (fd) { sync.invoke(null, array(objectType, [fd])); },
+            close: function (fd) { close.invoke(null, array(objectType, [fd])); }
+        };
+    } catch (error) { throw storageError(stage, error); }
+}
+
 function durableWrite(env, root, target, value) {
     var temporary = null;
     var stream = null;
     var directoryFd = null;
+    var directoryApi = null;
     var failure = null;
     var stage = 'PREPARE';
     try {
@@ -1689,13 +1819,14 @@ function durableWrite(env, root, target, value) {
         stage = 'RENAME';
         if (!temporary.renameTo(target)) throw new Error('ATOMIC_RENAME_FAILED');
         stage = 'DIR_OPEN';
-        directoryFd = env.android.system.Os.open(String(root.getAbsolutePath()),
-            env.android.system.OsConstants.O_RDONLY | env.android.system.OsConstants.O_DIRECTORY, 0);
+        directoryApi = publicDirectoryApi(env);
+        directoryFd = directoryApi.open(String(root.getAbsolutePath()));
+        if (directoryFd === null) throw new Error('DIRECTORY_DESCRIPTOR_MISSING');
         stage = 'DIR_SYNC';
-        env.android.system.Os.fsync(directoryFd);
-    } catch (directoryError) { failure = storageError(stage, directoryError); }
+        directoryApi.fsync(directoryFd);
+    } catch (directoryError) { failure = directoryError.storageFailure ? directoryError : storageError(stage, directoryError); }
     if (directoryFd !== null) {
-        try { env.android.system.Os.close(directoryFd); }
+        try { directoryApi.close(directoryFd); }
         catch (directoryCloseError) { if (failure === null) failure = storageError('DIR_CLOSE', directoryCloseError); }
     }
     if (failure !== null) throw failure;
@@ -1817,7 +1948,7 @@ function runPhone(env) {
             return value;
         }
         var choice = launchRequest ? ['probe', 'selection', 'more', 'handoff', 'submit'].indexOf(mode) :
-            env.dialogs.select('제비서 독립 시험 0.3.2\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
+            env.dialogs.select('제비서 독립 시험 0.3.3\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
             '1. 화면·메뉴 읽기 — 버튼을 누르지 않음',
             '2. 시험 문장 선택까지만',
             '3. ⋯ 열고 Gemini 항목 확인까지만 — 전달 안 함',
