@@ -14,10 +14,20 @@ const OLD_IMPORT='import {selectStage25PendingOperatorRuntime56} from "../jh168-
 const NEW_IMPORT='import {selectKabiseoOperatorRuntime56,assertKabiseoOperatorStart56} from "./kabiseo-operator-binding.mjs";';
 const DEP=OWNER+'/deployment/';
 const exact=(source,old,next)=>{assert.equal(source.split(old).length,2,'single original startup seam required');assert.ok(!source.includes(next));const out=source.replace(old,next);assert.equal(out.replace(next,old),source);return out;};
-function apply(source,edits){let out=source;for(const [old,next] of edits)out=exact(out,old,next);let reversed=out;for(const [old,next] of [...edits].reverse())reversed=exact(reversed,next,old);assert.equal(reversed,source);return out;}
+function apply(source,edits){
+ let out=source;for(const [old,next] of edits)out=exact(out,old,next);
+ // An additive insertion intentionally includes the original statement. Reverse
+ // by the unique full inserted block, then compare the COMPLETE original bytes.
+ let reversed=out;
+ for(const [old,next] of [...edits].reverse()){
+  assert.equal(reversed.split(next).length,2,'single exact reverse seam required');
+  reversed=reversed.replace(next,old);
+ }
+ assert.equal(reversed,source,'original startup must restore byte-for-byte');return out;
+}
 export function composeOperatorStart({reviewRoot,reviewManifestSha256,outputRoot}){
  const parent=verifyKabiseoReviewAssembly({outputRoot:reviewRoot,expectedManifestSha256:reviewManifestSha256});
- const output=path.resolve(outputRoot),source=path.join(parent.outputRoot??path.resolve(reviewRoot),'package');
+ const output=path.resolve(outputRoot),source=path.join(path.resolve(reviewRoot),'package');
  if(existsSync(output)||output.startsWith(path.resolve(reviewRoot)+path.sep)||path.resolve(reviewRoot).startsWith(output+path.sep)||realpathSync(path.dirname(output))!==path.dirname(output))throw Error('KABISEO_START_NEW_OUTPUT_REQUIRED');
  mkdirSync(output,{mode:0o700});cpSync(source,path.join(output,'package'),{recursive:true,errorOnExist:true,force:false,dereference:false});
  const pkg=path.join(output,'package');
