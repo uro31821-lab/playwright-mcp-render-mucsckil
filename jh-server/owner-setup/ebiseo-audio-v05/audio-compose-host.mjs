@@ -7,7 +7,7 @@ import {createPinnedAudioReleaseAuthority} from './audio-release-authority.mjs';
 import {AUDIO_CONTRACT_SHA256,AUDIO_ROUTES,fail} from './audio-contract.mjs';
 
 export const SOURCE_PINS=Object.freeze({
-  runtime:'169d3f17297c9cc2ca298123a7f06ac161ce62a35c84c9e0a8277aa73d65bf21',
+  runtime:'1ce1abf4088c547f4dd54225e812c2ce324ff1ccbbd64dc3cb301795c11c9960',
   durableHost:'c697aa4c3811fcd5dbf4baa41afb2d6328b7ad33cb04137e05cb45bb822cd12e',
   durablePolicy:'cad7cbb2458946900ac6ad3de5e942175da9d1e24a53922eb35851e6349a017e',
   journal:'7bf45d5ca86b8c62fef6bacf090afc6f4052efc5be09c87431d01598b7aefc30',
