@@ -1,0 +1,59 @@
+name: JH Ebiseo 0.5.4 Windows delivery
+
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-dev-tools/windows-delivery/ebiseo054/**'
+      - '.github/workflows/jh-ebiseo054-windows.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jh-ebiseo054-windows-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-delivery:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Require Windows PowerShell 5.1 and parse production scripts
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw 'Windows PowerShell 5.1 is required' }
+          $PSVersionTable.PSVersion.ToString()
+          $scripts = @(Get-ChildItem -LiteralPath './jh-dev-tools/windows-delivery/ebiseo054/data' -Filter '*.ps1' -File)
+          if ($scripts.Count -ne 3) { throw 'Expected exactly the entry, core and result verifier scripts' }
+          foreach ($script in $scripts) {
+            $parseTokens = $null
+            $parseErrors = $null
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile($script.FullName, [ref]$parseTokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) { throw ('Parse failure in ' + $script.Name + ': ' + $parseErrors[0].Message) }
+            $functions = $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true)
+            foreach ($function in @($functions)) {
+              if (Get-Alias -Name $function.Name -ErrorAction SilentlyContinue) { throw ('Function/alias collision: ' + $function.Name) }
+            }
+          }
+          Write-Output ('JH_WINDOWS_PARSE_FILES=' + $scripts.Count)
+      - name: Verify original-signer and one-attempt contracts with synthetic data
+        run: |
+          & './jh-dev-tools/windows-delivery/ebiseo054/tests/Test-EbiseoInstaller.ps1' -KitRoot './jh-dev-tools/windows-delivery/ebiseo054'
+          if (-not $?) { throw 'Ebiseo installer mock regressions failed' }
+      - name: Verify actual CMD bootstrap with harmless process stubs
+        run: |
+          & './jh-dev-tools/windows-delivery/ebiseo054/tests/Test-EbiseoBootstrap.ps1' -KitRoot './jh-dev-tools/windows-delivery/ebiseo054'
+          if (-not $?) { throw 'Ebiseo CMD bootstrap regressions failed' }
+      - name: Report verification boundary
+        run: |
+          Write-Output 'REAL_GRADLE=NOT_RUN'
+          Write-Output 'REAL_SIGNING_KEY=NOT_USED'
+          Write-Output 'REAL_ADB_PHONE=NOT_USED'
+          Write-Output 'INSTALL=NOT_RUN'
+          Write-Output 'SERVER_DEPLOY=NOT_RUN'

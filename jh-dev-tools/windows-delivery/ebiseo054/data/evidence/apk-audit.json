@@ -1,0 +1,153 @@
+{
+  "inspectedAtUtc": "2026-11-06T04:06:41.529655+00:00",
+  "scope": "Read-only APK metadata/alignment/signature/DEX definition inspection; no signing, installation or device operation",
+  "apk": "/workspace/scratch/0100362999b0/ebiseo-armed-0.5.4/android/app/build/outputs/apk/release/app-release-unsigned.apk",
+  "bytes": 48984719,
+  "sha256": "d136e5203b6547b90e4b01455765dd32e1819b22b76586b0e3d3bb3c20b9bc31",
+  "sourceManifestSha256": "d6c9485bbe9c6302b25795fc1f5c3c4d3c5b891b70b9426be3e705f9a422d200",
+  "buildResultSha256": "91fc09ca7c604f76758e1560de200222b0789792ca3a2b79e1d2f33d133dfc68",
+  "packageName": "com.koreanlifehub.bridge",
+  "versionCode": 168,
+  "versionName": "jh168-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo054",
+  "minSdk": 26,
+  "targetSdk": 35,
+  "compileSdk": 35,
+  "debuggable": false,
+  "debuggableManifestLines": [],
+  "zipCrcVerified": true,
+  "zipalign4ByteVerified": true,
+  "unsignedConfirmed": true,
+  "v1SignatureEntries": [],
+  "apkSigningBlockMagicPresent": false,
+  "signingPerformed": false,
+  "deviceInstallPerformed": false,
+  "inspections": [
+    {
+      "log": "apk-badging.log",
+      "command": [
+        "/workspace/scratch/0100362999b0/build054-env/sdk/build-tools/35.0.0/aapt",
+        "dump",
+        "badging",
+        "/workspace/scratch/0100362999b0/ebiseo-armed-0.5.4/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+      ],
+      "exitCode": 0,
+      "sha256": "a70795c55b9fdbe4449966653603a32b512697d3b82850899cf8f79c28f97f14"
+    },
+    {
+      "log": "apk-manifest.log",
+      "command": [
+        "/workspace/scratch/0100362999b0/build054-env/sdk/build-tools/35.0.0/aapt",
+        "dump",
+        "xmltree",
+        "/workspace/scratch/0100362999b0/ebiseo-armed-0.5.4/android/app/build/outputs/apk/release/app-release-unsigned.apk",
+        "AndroidManifest.xml"
+      ],
+      "exitCode": 0,
+      "sha256": "907b21858b0c548312b98559f149d7872501629c6fa304f48cf2d36978717553"
+    },
+    {
+      "log": "apk-alignment.log",
+      "command": [
+        "/workspace/scratch/0100362999b0/build054-env/sdk/build-tools/35.0.0/zipalign",
+        "-c",
+        "-v",
+        "4",
+        "/workspace/scratch/0100362999b0/ebiseo-armed-0.5.4/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+      ],
+      "exitCode": 0,
+      "sha256": "433f6c88cb0c1732c00bcad4874c04fa3f03928492feee1d3c998e06660d3638"
+    },
+    {
+      "log": "apk-signature.log",
+      "command": [
+        "/workspace/scratch/0100362999b0/build054-env/sdk/build-tools/35.0.0/apksigner",
+        "verify",
+        "--verbose",
+        "--print-certs",
+        "/workspace/scratch/0100362999b0/ebiseo-armed-0.5.4/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+      ],
+      "exitCode": 1,
+      "sha256": "1413af210d1627fde4f14e31934eb5d9d031684e4f7a5c3371a74b3bdeb8764c"
+    }
+  ],
+  "newCodeDexMarkers": {
+    "dexFiles": [
+      "classes.dex",
+      "classes2.dex"
+    ],
+    "markerLocations": {
+      "ActivationStatus": [
+        "classes2.dex"
+      ],
+      "WAITING_FOR_PLAYBACK": [
+        "classes2.dex"
+      ],
+      "WAITING_FOR_SESSION": [
+        "classes2.dex"
+      ],
+      "applicationVerified": [
+        "classes2.dex"
+      ],
+      "activationJson": [
+        "classes2.dex"
+      ],
+      "armed": [
+        "classes2.dex"
+      ],
+      "COMMAND_SUPERSEDED": [
+        "classes2.dex"
+      ],
+      "REUSE_CURRENT_PLAYBACK": [
+        "classes2.dex"
+      ]
+    },
+    "requiredClassDefinitions": [
+      "Lkr/jh/equalizer/auto/AudioCommandDispatcher;",
+      "Lkr/jh/equalizer/auto/AudioStartPolicy;",
+      "Lkr/jh/equalizer/auto/AudioStartPolicy$ActivationStatus;",
+      "Lkr/jh/equalizer/auto/android/AndroidAutoSoundRuntime;"
+    ],
+    "missingClassDefinitions": []
+  },
+  "sourceAssetIdentity": {
+    "versionName": "jh168-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo054",
+    "releaseId": "JH168-STAGE78-LOCATION-ONCE-EBISEO-054-20261106",
+    "ebiseoAudioModuleVersion": "0.5.4",
+    "parentSourceIdentitySha256": "eb30625d627ec7c9ee80efaa8ac74cfb26dc6bc9fe86e32f261b1c26d833a2ea"
+  },
+  "testFakeExclusion": {
+    "inspection": "actual DEX class definitions, not platform reference strings",
+    "definedClassCounts": {
+      "classes.dex": 8401,
+      "classes2.dex": 4449
+    },
+    "harnessFakeTopLevelTypesInspected": [
+      "Landroid/content/ComponentName;",
+      "Landroid/content/Context;",
+      "Landroid/content/Intent;",
+      "Landroid/media/MediaMetadata;",
+      "Landroid/media/audiofx/AudioEffect;",
+      "Landroid/media/audiofx/Equalizer;",
+      "Landroid/media/audiofx/Virtualizer;",
+      "Landroid/media/session/MediaController;",
+      "Landroid/media/session/MediaSession;",
+      "Landroid/media/session/MediaSessionManager;",
+      "Landroid/media/session/PlaybackState;",
+      "Landroid/os/Handler;",
+      "Landroid/os/Looper;",
+      "Landroid/os/SystemClock;",
+      "Landroid/provider/Settings;",
+      "Landroid/service/notification/NotificationListenerService;",
+      "Lorg/json/JSONArray;",
+      "Lorg/json/JSONObject;"
+    ],
+    "forbiddenClassDefinitions": {},
+    "testAssetEntries": [],
+    "passed": true
+  },
+  "limits": [
+    "DEX code/marker presence is not an Android runtime or audible DSP test.",
+    "The original JH signing identity remains required before installation."
+  ],
+  "status": "PASS_UNSIGNED_DEVELOPMENT_ARTIFACT"
+}

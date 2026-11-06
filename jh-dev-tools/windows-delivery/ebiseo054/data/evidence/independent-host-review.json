@@ -1,0 +1,64 @@
+{
+  "schema": "jh.ebiseo.independent-source-review.v1",
+  "reviewer": "/root/ebiseo054_core_review",
+  "reviewedAtUtc": "2026-11-06T03:54:46.096702+00:00",
+  "reviewStatus": "PASS_SOURCE_REVIEW_AND_RUNTIME_CONTRACT",
+  "scope": "Three module production Java changes and two release-only Android host files; no approval to deploy/sign/install",
+  "moduleSourceCount": 22,
+  "moduleFileSetPreserved": true,
+  "moduleChanges": {
+    "src/kr/jh/equalizer/auto/AudioStartPolicy.java": {
+      "beforeSha256": "f15f87dcece4b34a09e426922e53a978f0defa1a0896071d9feae6e2147e5222",
+      "approvedSha256": "eb15122691b953c68536505e637ff7e6f5dba9ef8bef41dfdab3d0bda183ba41"
+    },
+    "src/kr/jh/equalizer/auto/AudioCommandDispatcher.java": {
+      "beforeSha256": "fef1b38c9fe086c1fbd9c0c79d6f8e93e8da231d04a0d7d2c8ba99f96d0ab306",
+      "approvedSha256": "0d4e0e391d09a8dc3f8f00ae5a67b314286765f3a18c3c5f1db56f3e80272ae3"
+    },
+    "android-src/kr/jh/equalizer/auto/android/AndroidAutoSoundRuntime.java": {
+      "beforeSha256": "f94049d0c88e1b90b6008b4f5667998d2037b150b0cfeb1835028e783e606051",
+      "approvedSha256": "2b8c1b64029622866652bbec511cf3e7319595ffbc1f6d8c50ff025a7cdbaf13"
+    }
+  },
+  "hostChanges": {
+    "app/build.gradle.kts": {
+      "beforeSha256": "95de48ac4d30cc5325bd58f2397394b0280d37cd7b95b7321fb0ade36de0d9b9",
+      "approvedSha256": "c7a1bc671973355c92f0abdc7664e05bfe120d6ec375f185934ad6d755f50c43"
+    },
+    "app/src/main/assets/jh-release.json": {
+      "beforeSha256": "cdf45c3571c8e807603c504bf83925c0d497d2f2afe41cb79c59ee2c73214d63",
+      "approvedSha256": "b6146872f939870563502807f5dd299e97b952293f960dd68ff6702df24f56eb"
+    }
+  },
+  "reviewedProperties": [
+    "START no longer emits player launch recommendation for confirmed absence; waits for playback",
+    "Rejected main-thread refresh scheduling still dispatches only through the existing host gate and mutation ticket admission",
+    "Metadata can classify waiting but cannot create an audio-session identity or ACTIVE proof",
+    "Runtime lifecycle is captured once when serializing activation status and applicationVerified",
+    "Existing native epoch/revision/readback validation, cooperating source provenance, and STOP ordering remain unchanged",
+    "Only version/release identifiers and descriptive candidate metadata changed in host; app id, versionCode, SDK, signing, permission and BridgeService remain unchanged"
+  ],
+  "tests": {
+    "runtimeBoundaryHarness": {
+      "status": "PASS",
+      "summary": {
+        "tests": 15,
+        "passed": 15,
+        "failed": 0,
+        "assertions": 273
+      },
+      "report": "runtime-contract-results.json",
+      "reportSha256": "a3e40e3dce222595de732d1f983f138b97e83d394d7dc4ba35809a719a09b7f3",
+      "scope": "Actual runtime, coordinator, dispatcher, store and provider source; deterministic test-only Android/JSON and native-port receipt boundaries"
+    },
+    "androidBuild": "NOT_RUN_BY_REVIEWER"
+  },
+  "remainingLimits": [
+    "Queued main-thread observation is still asynchronous; host timeout can reject a delayed command and requires status confirmation rather than an assumed save",
+    "Real Android/YTM authenticated OPEN availability and native audibility remain unverified",
+    "This is source review, not device continuity or deployment evidence"
+  ],
+  "phoneInstalled": false,
+  "productionDeployed": false,
+  "updatedAtUtc": "2026-11-06T04:00:08.124520+00:00"
+}

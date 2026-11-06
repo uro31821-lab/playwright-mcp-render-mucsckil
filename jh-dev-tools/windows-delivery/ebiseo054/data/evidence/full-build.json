@@ -1,0 +1,37 @@
+{
+  "startedAt": "2026-11-06T04:01:52.707941+00:00",
+  "source": "/workspace/scratch/0100362999b0/ebiseo-armed-0.5.4/android",
+  "sourceManifestSha256": "d6c9485bbe9c6302b25795fc1f5c3c4d3c5b891b70b9426be3e705f9a422d200",
+  "commandWithoutSystemProxyValues": [
+    "/workspace/scratch/0100362999b0/build054-env/gradle/bin/gradle",
+    "--no-daemon",
+    "--console=plain",
+    "--max-workers=2",
+    "--stacktrace",
+    ":app:testReleaseUnitTest",
+    ":app:lintRelease",
+    ":app:assembleRelease"
+  ],
+  "existingProxyConfigurationPassedToJvm": true,
+  "tlsValidationEnabled": true,
+  "networkResolutionEnabled": true,
+  "systemPublicTruststore": "/etc/ssl/certs/java/cacerts",
+  "environment": {
+    "JAVA_HOME": "/workspace/scratch/0100362999b0/build054-env/jdk",
+    "GRADLE_USER_HOME": "/workspace/scratch/0100362999b0/build054-env/gradle-user-home",
+    "ANDROID_HOME": "/workspace/scratch/0100362999b0/build054-env/sdk",
+    "ANDROID_SDK_ROOT": "/workspace/scratch/0100362999b0/build054-env/sdk"
+  },
+  "status": "PASS",
+  "offline": false,
+  "sourceAndDependencyVersionsModified": false,
+  "signingPerformed": false,
+  "deviceInstallPerformed": false,
+  "serverOperationPerformed": false,
+  "priorAttempts": [
+    "full-build-attempt1-offline.json"
+  ],
+  "finishedAt": "2026-11-06T04:06:29.387887+00:00",
+  "exitCode": 0,
+  "elapsedSeconds": 276.68
+}
