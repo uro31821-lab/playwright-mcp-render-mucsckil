@@ -3,5 +3,5 @@ dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories { google(); mavenCentral() }
 }
-rootProject.name = "KaBiseo-ReadOnly-Android-Candidate"
-include(":core", ":android")
+rootProject.name = "KaBiseo-Review-Android-Candidate"
+include(":core", ":android", ":capture")
