@@ -4,6 +4,10 @@ chcp 65001 >nul
 set "KABISEO_START_ROOT=%~dp0"
 set "KABISEO_START_ID=%RANDOM%-%RANDOM%-%RANDOM%"
 set "KABISEO_PS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+REM Limit this child process to OS-bundled Windows PowerShell modules. A pwsh7
+REM parent through cmd can otherwise pass incompatible module paths. SETLOCAL
+REM restores this variable at exit; no policy, registry, profile or disk edits.
+set "PSModulePath=%SystemRoot%\System32\WindowsPowerShell\v1.0\Modules"
 echo KaBiseo startup check FIX1. No phone connection is needed.
 echo This checks script loading only. It does not start ADB or change security settings.
 if not exist "%KABISEO_PS%" goto missing_ps
