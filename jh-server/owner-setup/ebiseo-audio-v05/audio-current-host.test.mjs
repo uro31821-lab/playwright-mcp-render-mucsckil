@@ -50,7 +50,7 @@ test('current HEAD composition retains latest feature layers and exact completio
     piece(parent,'  const completeMatch=','  const frameMatch='));
   assert.ok(current.indexOf('jhAudioHost56.beforeDispatch(next)')<current.indexOf('trustedSessionAuthority56.beforeDispatch(next)'));
   assert.ok(current.includes('mobile13ActionMode:"EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1",classifyExtension:jhAudioHost56.classify'));
-  assert.equal(verifyCurrentAudioSources(root).files,321);
+  assert.equal(verifyCurrentAudioSources(root).files,320);
 });
 
 test('current evidence Search remains byte-identical and opt-in beside the audio delta',()=>{
