@@ -34,9 +34,10 @@ jobs:
           rm -rf "$RUNNER_TEMP/ebiseo-audio"
           mkdir -p "$RUNNER_TEMP/ebiseo-audio"
           cp -a jh-server "$TMP_HOST"
-          node jh-server/owner-setup/ebiseo-audio-v05/audio-compose-current-host.mjs "$TMP_ROOT" --local-test-profile > "$RUNNER_TEMP/ebiseo-build.json"
-          export EBISEO_TEST_SERVER_RUNTIME="$TMP_ROOT/server-integration/server-jh168-pending-approval-followup-operator.mjs"
+          node --input-type=module -e "import {buildDurableRoutedRuntime} from './jh-server/owner-setup/deployment/durable-live-release.mjs'; const x=buildDurableRoutedRuntime(process.argv[1]); console.log(x.file)" "$TMP_ROOT" > "$RUNNER_TEMP/ebiseo-historical-runtime.txt"
+          export EBISEO_TEST_SERVER_RUNTIME="$TMP_ROOT/server-integration/server-durable-native-return-route56.mjs"
           test -f "$EBISEO_TEST_SERVER_RUNTIME"
+          node jh-server/owner-setup/ebiseo-audio-v05/audio-compose-current-host.mjs "$TMP_ROOT" --local-test-profile > "$RUNNER_TEMP/ebiseo-build.json"
           node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/ebiseo-audio-v05/*.test.mjs
       - name: Release boundary
         run: |
