@@ -305,8 +305,29 @@ export async function buildStage25PendingOperatorEntrypoint56(
   unifiedFile:p.unified,stampFile:p.stamp,stamp,originalOperatorPreserved:true,
   listenerStarted:false,apkChanged:false,productionEnabled:false});
 }
+const EBISEO_AUDIO_ENABLE='EXPLICIT_EBISEO_AUDIO_V05';
+export function selectEbiseoAudioV05(env=process.env){
+ const flag=env.JH_EBISEO_AUDIO_ENABLE;
+ if(flag===undefined||flag==='')return false;
+ if(flag!==EBISEO_AUDIO_ENABLE)fail('JH_EBISEO_AUDIO_FLAG_INVALID');
+ if(!prod(env))fail('JH_EBISEO_AUDIO_EXISTING_OPERATOR_REQUIRED');
+ return true;
+}
 export async function main(env=process.env){
  if(!prod(env))fail('JH_STAGE25_EXPLICIT_PENDING_OPERATOR_REQUIRED');
+ if(selectEbiseoAudioV05(env)){
+  const root=path.resolve(import.meta.dirname,'..');
+  const {buildCurrentAudioReleaseCandidate}=await import('../ebiseo-audio-v05/audio-compose-current-host.mjs');
+  const built=await buildCurrentAudioReleaseCandidate(root,env);
+  const module=await import(pathToFileURL(built.entryFile).href+'?sha='+built.candidateSha256);
+  if(typeof module.main!=='function')fail('JH_EBISEO_AUDIO_MAIN_MISSING');
+  const running=await module.main(env);
+  console.log('JH_EBISEO_AUDIO_V05_ACTIVE '+JSON.stringify({
+   schema:'EBISEO_AUDIO_STAGE71_CANDIDATE_V1',candidateSha256:built.candidateSha256,
+   baseCatalogChanged:false,automaticReplayAllowed:false,apkChanged:false
+  }));
+  return running;
+ }
  // Owner startup sets JH_OWNER_DEFER_LISTEN=1 before opening its listener.
  // Capture the exact checked enablement BEFORE that known internal mutation.
  const stage26EnabledAtBootstrap=selectStage26CompletionAck56(env);
