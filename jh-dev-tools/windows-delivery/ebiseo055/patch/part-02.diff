@@ -1,0 +1,105 @@
+                 if (!(pkg instanceof String) || !(session instanceof Integer)) {
+                     current = registry.rejectEvent("MALFORMED_EVENT", now);
+                 } else {
+-                    // These API 34 methods are OS sender identity, not caller-supplied extras.
++                    // API 34 returns identity only when the broadcaster opted into
++                    // sharing it. A real mismatch is always rejected. When both
++                    // fields are absent, use the standard contract only after exact
++                    // installed-UID and current local media-session correlation.
+                     int senderUid = receiver.getSentFromUid();
+                     String senderPackage = receiver.getSentFromPackage();
+-                    current = registry.onSessionEvent(action, (String)pkg, (Integer)session,
+-                            senderUid, senderPackage, now);
++                    if (senderUid > 0 || senderPackage != null) {
++                        current = registry.onSessionEvent(action, (String)pkg, (Integer)session,
++                                senderUid, senderPackage, now);
++                    } else {
++                        current = registry.onCorrelatedSessionEvent(action, (String)pkg, (Integer)session,
++                                sourceUid, exactLocalMediaSession(media), now);
++                    }
+                 }
+             }
+         } catch (RuntimeException malformedOrUnavailable) {
+--- a/development/module/tests/CooperatingSessionRegistryTest.java
++++ b/development/module/tests/CooperatingSessionRegistryTest.java
+@@ -16,6 +16,7 @@
+         run("metadata alone never supplies an audio route", CooperatingSessionRegistryTest::metadataOnly);
+         run("matching OS sender and unique local playback admit one positive session", CooperatingSessionRegistryTest::authenticatedOpen);
+         run("package extras and incomplete or mismatched sender identity cannot authorize", CooperatingSessionRegistryTest::spoofedOpen);
++        run("standard contract fallback requires installed UID and one correlated local session", CooperatingSessionRegistryTest::correlatedOpen);
+         run("authenticated matching close revokes the current route", CooperatingSessionRegistryTest::close);
+         run("unauthenticated or wrong-session close cannot revoke a valid route", CooperatingSessionRegistryTest::spoofedClose);
+         run("multiple sessions block selection until matching close resolves ambiguity", CooperatingSessionRegistryTest::multipleSessions);
+@@ -96,6 +97,31 @@
+         noRoute(unsupported, "identity API required");
+         eq("SENDER_IDENTITY_API_UNAVAILABLE", unsupported.reason, "old API diagnostic");
+     }
++    private static void correlatedOpen() {
++        CooperatingSessionRegistry r = playing();
++        noRoute(r.onCorrelatedSessionEvent(Action.OPEN, PKG, 23, UID + 1, true, 101),
++                "installed UID mismatch");
++        noRoute(r.onCorrelatedSessionEvent(Action.OPEN, PKG, 23, UID, false, 102),
++                "media correlation required");
++        noRoute(r.onCorrelatedSessionEvent(Action.OPEN, "evil.example", 23, UID, true, 103),
++                "declared package mismatch");
++        Snapshot accepted = r.onCorrelatedSessionEvent(Action.OPEN, PKG, 23, UID, true, 104);
++        check(accepted.processingRouteAvailable && accepted.standardContractCorrelated,
++                "standard contract correlated route accepted");
++        check(!accepted.senderIdentityVerified && accepted.unverifiedSenderObserved,
++                "OS identity remains explicitly unshared");
++        eq("STANDARD_AUDIO_EFFECT_CONTRACT_CORRELATED", accepted.sessionAuthority,
++                "fallback authority is visible");
++        Snapshot upgraded = r.onSessionEvent(Action.OPEN, PKG, 23, UID, PKG, 105);
++        check(upgraded.senderIdentityVerified && !upgraded.standardContractCorrelated,
++                "later shared sender identity upgrades the route");
++        eq("OS_SENDER_IDENTITY", upgraded.sessionAuthority, "upgraded authority");
++        Snapshot closed = r.onCorrelatedSessionEvent(Action.CLOSE, PKG, 23, UID, true, 106);
++        noRoute(closed, "correlated matching close");
++        r.start(UID, false, 107); media(r, 1, MediaState.LOCAL_PLAYING, 107);
++        Snapshot oldApi = r.onCorrelatedSessionEvent(Action.OPEN, PKG, 24, UID, true, 108);
++        noRoute(oldApi, "fallback is not exposed without the API-34 receiver boundary");
++    }
+     private static void close() {
+         CooperatingSessionRegistry r = playing(); open(r, 23, 101);
+         Snapshot s = r.onSessionEvent(Action.CLOSE, PKG, 23, UID, PKG, 102);
+--- a/development/module/runtime-contract-tests/java/kr/jh/equalizer/auto/android/AndroidRuntimeContractTest.java
++++ b/development/module/runtime-contract-tests/java/kr/jh/equalizer/auto/android/AndroidRuntimeContractTest.java
+@@ -118,11 +118,15 @@
+         JSONObject status() { return complete(AudioCommand.queryStatus()); }
+         Preferences saved() throws Exception { return new AtomicAutoSoundStore(context).load(); }
+         void open(int session,int senderUid,String senderPackage) {
++            openDeclared(session, senderUid, senderPackage, SOURCE);
++        }
++        void openDeclared(int session,int senderUid,String senderPackage,String declaredPackage) {
+             context.broadcastForTest(new Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
+-                    .putExtraForTest(AudioEffect.EXTRA_PACKAGE_NAME,SOURCE)
++                    .putExtraForTest(AudioEffect.EXTRA_PACKAGE_NAME,declaredPackage)
+                     .putExtraForTest(AudioEffect.EXTRA_AUDIO_SESSION,Integer.valueOf(session)),senderUid,senderPackage,false);
+             Handler.runAllDue();
+         }
++        void openUnshared(int session) { open(session,-1,null); }
+         void closeSession(int session) {
+             context.broadcastForTest(new Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION)
+                     .putExtraForTest(AudioEffect.EXTRA_PACKAGE_NAME,SOURCE)
+@@ -162,6 +166,7 @@
+         run("pause resume genre change and elapsed five minutes preserve armed policy",AndroidRuntimeContractTest::continuousArmed);
+         run("STOP releases effects while observation continues and old failure cannot resurrect",AndroidRuntimeContractTest::stopAndRestart);
+         run("sender identity mismatch and session zero never grant a native route",AndroidRuntimeContractTest::untrustedSession);
++        run("unshared sender identity uses only the correlated standard contract",AndroidRuntimeContractTest::unsharedStandardContract);
+         run("authenticated CLOSE before late START cannot revive the closed route",AndroidRuntimeContractTest::closedSession);
+         JSONObject result=new JSONObject().put("tests",scenarios).put("passed",passed)
+                 .put("failed",scenarios-passed).put("assertions",assertions);
+@@ -319,6 +324,31 @@
+             equal(0,f.effects.applies,"neither impostor UID nor session zero can create a native target");
+         }
+     }
++    private static void unsharedStandardContract() throws Exception {
++        try(Fixture f=new Fixture(true,true)) {
++            f.openUnshared(77);
++            JSONObject active=f.complete(AudioCommand.start());
++            activation(active,true,"ACTIVE",true);
++            JSONObject connection=object(active,"sessionConnection");
++            check(connection.optBoolean("standardContractCorrelated",false),
++                    "unshared identity is admitted only as correlated standard contract");
++            check(!connection.optBoolean("senderIdentityVerified",true),
++                    "status never mislabels fallback as OS-shared identity");
