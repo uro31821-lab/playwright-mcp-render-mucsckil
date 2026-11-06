@@ -129,8 +129,6 @@ const REVIEWED_TRANSITIONS=Object.freeze([
    Object.freeze({
     reviewedHead:'45894388bbd176503fe2af488a73be6e191af05d',
     protectedObjects:Object.freeze({
-     'jh-server/owner-setup/deployment/jh167-article-operational-review-composition.mjs':
-      'b2e8c9ecc0673565744487fe0f6d4444bcb2a4b0',
      'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs':
       '621f403c4ada10fb959f62e847d61a2ddc23d492',
      'jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs':
