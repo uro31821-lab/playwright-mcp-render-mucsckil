@@ -44,7 +44,8 @@ jobs:
           if($gradle -notmatch 'cameraX = "1.6.2"' -or $gradle -match 'latest.release|mediapipe|tensorflow'){throw 'UNPINNED_DEPENDENCY'}
           $java=[IO.File]::ReadAllText("$root/src/main/java/com/jh/kabiseo/capture/JhSmartCaptureActivity.java")
           if($java -match 'HttpURLConnection|WebView|ACTION_SEND|com.openai.chatgpt|setZoomRatio\('){throw 'UNEXPECTED_AUTOMATION'}
-          if($java -notmatch 'ExtensionMode.AUTO' -or $java -notmatch 'takePicture' -or $java -notmatch 'MediaStore'){throw 'REQUIRED_CAMERA_PATH_MISSING'}
+          if($java -match 'ExtensionMode[.]AUTO|ExtensionMode[.]FACE_RETOUCH'){throw 'FACE_RETOUCH_RISK_FORBIDDEN'}
+          if($java -notmatch 'ExtensionMode.NIGHT' -or $java -notmatch 'consecutiveDarkSamples' -or $java -notmatch 'takePicture' -or $java -notmatch 'MediaStore'){throw 'REQUIRED_CAMERA_PATH_MISSING'}
           $out=Join-Path $env:GITHUB_WORKSPACE 'native-camera-review'
           New-Item -ItemType Directory $out|Out-Null
           @{
