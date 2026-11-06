@@ -1,0 +1,44 @@
+{
+  "schema": "JH_EBISEO055_SENDER_IDENTITY_FIX_VERIFICATION_V1",
+  "generatedAtUtc": "2026-11-06T16:55:57.040287+00:00",
+  "rootCause": "Android API 34 sender identity is optional unless the broadcaster enables identity sharing; the old code rejected the standard AudioEffect OPEN even when one trusted local YouTube Music media session was present.",
+  "liveFailureReproduced": {
+    "code": "SENDER_IDENTITY_UNAVAILABLE",
+    "verifiedSessionPresent": false,
+    "processingRouteAvailable": false,
+    "youtubeMusicSessionCount": 1,
+    "permissionAccessVerified": true,
+    "sourceUidResolved": true
+  },
+  "fix": {
+    "preferred": "OS sender UID+package exact match",
+    "fallback": "exact declared YouTube Music package + locally resolved installed UID + exactly one current local non-remote media session + positive audio session ID",
+    "senderMismatchFallsBack": false
+  },
+  "tests": {
+    "portablePolicyTests": 140,
+    "portableAssertions": 4128,
+    "portableFailed": 0,
+    "runtimeScenarios": 16,
+    "runtimeAssertions": 301,
+    "runtimeFailed": 0,
+    "androidBoundaryScenarios": 26,
+    "androidBoundaryAssertions": 304,
+    "androidBoundaryFailed": 0
+  },
+  "androidFullGradleBuild": "NOT_RUN_IN_CURRENT_LINUX_ENV_NO_GRADLE_DISTRIBUTION",
+  "windowsBuild": "NOT_RUN",
+  "originalCertificateSigning": "NOT_RUN",
+  "phoneInstall": "NOT_RUN",
+  "audibleEq": "NOT_RUN",
+  "sourceManifestSha256": "d1fc58f1bddaf24dc7cb1a0cde662523d7c42d2897a5251cfd831310340342ab",
+  "sourceFiles": 463,
+  "application": {
+    "id": "com.koreanlifehub.bridge",
+    "versionCode": 169,
+    "versionName": "jh169-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo055"
+  },
+  "automaticReplayAllowed": false,
+  "uninstallOrDataReset": false,
+  "serverDeployRequired": false
+}
