@@ -1,0 +1,33 @@
+{
+  "schema": "JH_EBISEO056_STANDARD_SESSION_VERIFICATION_V1",
+  "candidate": "JH170-EBISEO056-STANDARD-AUDIO-SESSION-20261107",
+  "rootCauseCorrection": "Sender UID/package identity was an unnecessary private admission gate. Android equalizer routing requires the standard positive audio session ID, not broadcaster identity.",
+  "sourceManifestSha256": "a69c35553bc783f7b29616dfa70b5b3f4484010f4a82f257a86d4babab249dc7",
+  "sourceFiles": 463,
+  "portable": {"tests": 132, "assertions": 3841, "failed": 0},
+  "runtime": {"tests": 15, "passed": 15, "failed": 0, "assertions": 285},
+  "androidBoundary": {"tests": 26, "passed": 26, "failed": 0, "assertions": 304, "hardwareAudioValidated": false},
+  "deliveryStaticChecks": {
+    "correctVersion": true,
+    "singleInstallCommand": true,
+    "noUninstall": true,
+    "noNewKey": true,
+    "noRenderDeploy": true,
+    "sourceManifestPinned": true,
+    "cmdRoutes056": true,
+    "withdraws055": true
+  },
+  "application": {
+    "id": "com.koreanlifehub.bridge",
+    "versionCode": 170,
+    "versionName": "jh170-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo056"
+  },
+  "windowsBuild": "NOT_RUN",
+  "originalCertificateSigning": "NOT_RUN",
+  "phoneInstall": "NOT_RUN",
+  "audibleEq": "NOT_RUN",
+  "serverDeployRequired": false,
+  "automaticReplayAllowed": false,
+  "uninstallOrDataReset": false,
+  "supersedes": ["JH_Ebiseo_0.5.5_SessionFix_OneClick.zip"]
+}

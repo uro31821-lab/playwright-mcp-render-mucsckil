@@ -1,0 +1,64 @@
+{
+  "schema": "JH_EBISEO_PREBUILT_RELEASE_V1",
+  "status": "VERIFIED_PREBUILT_UNSIGNED_CANDIDATE",
+  "candidate": "JH-EBISEO054-STAGE78-PREBUILT-20261106",
+  "moduleVersion": "0.5.4",
+  "application": {
+    "id": "com.koreanlifehub.bridge",
+    "versionCode": 168,
+    "versionName": "jh168-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo054",
+    "minSdk": 26,
+    "targetSdk": 35,
+    "debuggable": false
+  },
+  "signing": {
+    "certificateSha256": "7cc577efe48e865fdbe799b92aa9edf89724631361ae97979f2b8e4a940a288b",
+    "alias": "androiddebugkey"
+  },
+  "allowedInstalledVersionNames": [
+    "jh168-stage62-trip-location-native-select-fix3-keepalive-fix1",
+    "jh168-stage77-location-once-native-select-fix3-keepalive-fix1",
+    "jh168-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo053"
+  ],
+  "payload": {
+    "path": "data/JH-Ebiseo-0.5.4-unsigned.apk",
+    "sha256": "d136e5203b6547b90e4b01455765dd32e1819b22b76586b0e3d3bb3c20b9bc31",
+    "bytes": 48984719
+  },
+  "sourceManifestSha256": "d6c9485bbe9c6302b25795fc1f5c3c4d3c5b891b70b9426be3e705f9a422d200",
+  "evidence": [
+    {
+      "path": "data/evidence/full-build.json",
+      "sha256": "91fc09ca7c604f76758e1560de200222b0789792ca3a2b79e1d2f33d133dfc68"
+    },
+    {
+      "path": "data/evidence/unit-results.json",
+      "sha256": "1a30db117b437109545461f8cd459490708483faf3b78ca5f94eae832cd1be5e"
+    },
+    {
+      "path": "data/evidence/lint-summary.json",
+      "sha256": "8c5d99444cb252d8203b227b4bed5978084f6d4db4f601add48932ad84322a7c"
+    },
+    {
+      "path": "data/evidence/source-integrity.json",
+      "sha256": "01b29eb2d248f9566d2914a4293e7d9b798c3a541cbe7d50097e1975bed34062"
+    },
+    {
+      "path": "data/evidence/apk-audit.json",
+      "sha256": "ab1dfe6f41ca30c044183cf218d45c2756c1e17405b05f2007fcabf34de16c7e"
+    },
+    {
+      "path": "data/evidence/independent-host-review.json",
+      "sha256": "81fb7edd1489896e44bf69e3461987720ee3ba048b0869ce9b00f3335678a6ce"
+    },
+    {
+      "path": "data/evidence/source-manifest.json",
+      "sha256": "d6c9485bbe9c6302b25795fc1f5c3c4d3c5b891b70b9426be3e705f9a422d200"
+    }
+  ],
+  "releaseProfile": {
+    "status": "EXTERNAL_PINNED_PROFILE_REQUIRED",
+    "windows51Execution": "SEE_EXTERNAL_DELIVERY_RECEIPT",
+    "phoneInstall": "LOCAL_RESULT_REQUIRED"
+  }
+}

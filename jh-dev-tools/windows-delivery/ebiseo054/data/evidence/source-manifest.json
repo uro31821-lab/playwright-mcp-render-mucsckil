@@ -1,0 +1,2326 @@
+{
+  "schema": "jh.ebiseo.source-manifest.v05",
+  "candidate": "JH168_STAGE78_LOCATION_ONCE_EBISEO_AUDIO_054",
+  "moduleVersion": "0.5.4",
+  "androidBaseline": "jh168-stage77-location-once-native-select-fix3-keepalive-fix1",
+  "baselineManifestSha256": "eb30625d627ec7c9ee80efaa8ac74cfb26dc6bc9fe86e32f261b1c26d833a2ea",
+  "fileCount": 463,
+  "verificationScope": "complete immutable source set; no signing/install/runtime claim",
+  "files": [
+    {
+      "path": "android/app/build.gradle.kts",
+      "size": 1789,
+      "sha256": "c7a1bc671973355c92f0abdc7664e05bfe120d6ec375f185934ad6d755f50c43"
+    },
+    {
+      "path": "android/app/libs/okhttp-4.12.0.jar",
+      "size": 789531,
+      "sha256": "b1050081b14bb7a3a7e55a4d3ef01b5dcfabc453b4573a4fc019767191d5f4e0"
+    },
+    {
+      "path": "android/app/libs/okio-jvm-3.6.0.jar",
+      "size": 359580,
+      "sha256": "67543f0736fc422ae927ed0e504b98bc5e269fda0d3500579337cb713da28412"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "size": 6115,
+      "sha256": "28ba034b98c1174ec1016e54447a41233d5669f29d1453d845f2a7f6d49eef64"
+    },
+    {
+      "path": "android/app/src/main/assets/Kotlin-LICENSE.txt",
+      "size": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "android/app/src/main/assets/Kotlin-NOTICE.txt",
+      "size": 482,
+      "sha256": "ea7099352103ade6a6918bc7efb00f8bcd43db0e76b2da2e83237c0bc0ff1b19"
+    },
+    {
+      "path": "android/app/src/main/assets/jh-release.json",
+      "size": 7807,
+      "sha256": "b6146872f939870563502807f5dd299e97b952293f960dd68ff6702df24f56eb"
+    },
+    {
+      "path": "android/app/src/main/assets/jh-visual-output/index.html",
+      "size": 181754,
+      "sha256": "2e68d9b862f274b36ae178a7599785f980c64d4869fec7d1cd41b64673e6622e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AgentFocusPolicy.kt",
+      "size": 4955,
+      "sha256": "b1aeda9126e54fed05f4ece9b3c54e3bafcf800ad773a6277fa6ca9a30452eeb"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidAgent.kt",
+      "size": 42720,
+      "sha256": "830b922bb661086728927821a40b6175fd1a9afcf6dcdb3c80b3501daa47a878"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidComputerUseActionApproval.kt",
+      "size": 10433,
+      "sha256": "ce5cfe6bd1997d4be60adf3ed3e96880efb04ad99478abcd1b2a4b6bcfd0b35b"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidComputerUseApprovalOverlay.kt",
+      "size": 7032,
+      "sha256": "b53436d188f416ddf8f9202b79f5bef7a6610562f8b053b8e87a66b200e657e0"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidComputerUseDispatchAuthorization.kt",
+      "size": 837,
+      "sha256": "143ff44f38d0a17b653856ef409653eee9cb66a76977bc163e8e7b794291603f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidComputerUseFrameBroker.kt",
+      "size": 2605,
+      "sha256": "a6a05c13d8bbe9e72170069a6a1737f2769962b4a02fd15610af4cd1bebb1594"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidComputerUseLocalPromptPolicy.kt",
+      "size": 4448,
+      "sha256": "a4349296ee7a5a5beb7e9d0b4471b9978951310c15cafa7a880ae095e31ea070"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidComputerUseRuntime.kt",
+      "size": 42953,
+      "sha256": "13104a4689d8880a3959f3f83297543226b3dc7203bf0c287be702b990133351"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidComputerUseScreenConsent.kt",
+      "size": 12666,
+      "sha256": "f2c91460f6925674ccb13a8013d0a2cbabd6432929710d50b11e98fbc19dfe56"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidComputerUseScreenshotRuntime.kt",
+      "size": 6386,
+      "sha256": "ee1d2c333bf32346a975f955379d48d0499daa12833fbf9e3e2d7847f6294379"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidComputerUseTransport.kt",
+      "size": 26526,
+      "sha256": "031c7f08acd6c1e0e803a00a2fe053595b3f0f9ce87cee64a3ebaad5b827ae62"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidJhWorkMemoryBootstrap.kt",
+      "size": 1106,
+      "sha256": "cfb253a6fcea680111f1a7997a8089ee921a819b643f3b6d15ea5ea761f30b45"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidJhWorkMemoryEncryptedStore.kt",
+      "size": 3133,
+      "sha256": "d7fb3e9c1555c63150841ac4c04fa2149fbb36bdf543b273f77886d2697f5427"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidJhWorkMemoryRuntime.kt",
+      "size": 937,
+      "sha256": "296b53da3cd8f4521ffaf2566afdb4eda2222731afe93a85ba6c89d8c6877ab0"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidLifeWorkspace.kt",
+      "size": 6852,
+      "sha256": "609351a528a258117163ab46bf994d10e362f5702ef2ee4d8b7768d958a92852"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidOwnerEnrollmentRuntime.kt",
+      "size": 3675,
+      "sha256": "16449d1ac3b43aba4450bbabfebe55e6561c38c260ab1cba45a0ce514f2aad5a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidPersonalContextPersistence.kt",
+      "size": 8729,
+      "sha256": "9d54fcbd511769154dcf426e729b3d19ee2ba5a6de23b01cd7d7e917b9d7e79d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidScrollTargetPolicy.kt",
+      "size": 7096,
+      "sha256": "c87e3d7f17e5a014d57af5875e44ea16c6b79b299145d4ddc155b26e0917e503"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidTrustedDeviceKey.kt",
+      "size": 3792,
+      "sha256": "84929e09e1c9c588483b6bfd2c0396bf61939926283e15d9fe39c22893dbba34"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidTrustedDeviceWorkspace.kt",
+      "size": 4842,
+      "sha256": "5f324d080f9bc34f971a3456361310cc2e2e887910af7ea0ad2c97f64b3d8410"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidTrustedReconnectRuntime.kt",
+      "size": 1796,
+      "sha256": "44ba15944643b39ea54bdfd9293ab861fd3247b9915af1c3edcad037810a7534"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidVisualRegionCropper.kt",
+      "size": 2746,
+      "sha256": "51bef4736539a32d082fe54ce98626062c80504f6e2a5d517895b6ebc612dbca"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/AndroidWindowCaptureBackend.kt",
+      "size": 3737,
+      "sha256": "e175d7a68450e6c8fdc9813924628809ccf9a487544c7e69d9ad34c5aaccd84a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/BridgeService.kt",
+      "size": 106676,
+      "sha256": "f0228e89e52441d316d564fcb8a9fd980c0d0835c853fa3ad681d2662dc8bea4"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/BrowserLauncher.kt",
+      "size": 2549,
+      "sha256": "20426366192d69fc6682d9090003b6653ee0f0c055d1d521f8eea360bfaac9c6"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/BundledKoreanOcrProvider.kt",
+      "size": 6876,
+      "sha256": "c4a88c51733f331267d8a456c87a6fd1b9fc37f8da4f84b107106b4d502ccbf5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/BundledOcrController.kt",
+      "size": 3053,
+      "sha256": "08453ba6ca95cbc7b6deb5bda1c8a3f9ab4469885017e534966dafa0fbfa5eae"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ChatGptReturnLifecycle.kt",
+      "size": 1469,
+      "sha256": "f27685704561145c0e92fc10c84d0d88cda0c131685e5554eea0ff916dcdb21f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ChatGptReturnOverlay.kt",
+      "size": 5627,
+      "sha256": "5d4f40d7c7d7124ca1b07a85ad668d2d5547d21547b01de19d284027074b650e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ChatGptReturnPolicy.kt",
+      "size": 6583,
+      "sha256": "1535f529c232a0248d62594938b7cce2d3cd147600f016f74af5fb59481130b3"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ChatGptReturnRuntime.kt",
+      "size": 7304,
+      "sha256": "80fd6a120b1736346ff8513bbb4f6e6a67605d09854944e76385afeab6de0bac"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ChatPaneIdentity.kt",
+      "size": 1739,
+      "sha256": "b794383f86eef4621db550a9f3b5cee54004c22a7211ce6ef28829635513e50e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ChoiceMetadata.kt",
+      "size": 1990,
+      "sha256": "2463b6c7c8fc64f7f1eb19915fbc26ec0ebbb2e5b88915611b7f3c360c9cfd02"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ChromeOverflowPopupCompletionPolicy.kt",
+      "size": 3146,
+      "sha256": "3447d5a122d9af4e57a197ee00dae10c0c4073c8694f7e7a989e6d01b6acbb77"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ChromeOverflowReadbackConsistencyPolicy.kt",
+      "size": 5153,
+      "sha256": "9417e98e3a1fd7879fab9387c2b67e9e426546458ef4450eafb9d3cec58d70f6"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ChromeVisualTargetFilter.kt",
+      "size": 1691,
+      "sha256": "130ac70feb2aab19310a7315b15bef2b20e2f11a7c239b7c20f77ff98f2241ee"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ClickOcclusionEvidence.kt",
+      "size": 2954,
+      "sha256": "affd28c46a440f8191b915fd95fa8a56142090bd3a65aaa6bb55db1ee5a69a42"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/CommandDiscardDiagnostics.kt",
+      "size": 938,
+      "sha256": "6a43b9f826c7df2a205202562a8ae0757e41fbc2ba346d8d0ea7bdac93f5b4b0"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/CompletionDeliveryRouting.kt",
+      "size": 752,
+      "sha256": "0820e845599e6cdfb0f2e103476676e3ce96582d765a297d48c5365180b99af2"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/CompletionDeliveryTracker.kt",
+      "size": 2793,
+      "sha256": "d87f46e90d33bf4add7a29d4370f46400299e0bbb35ff9950cc512a87a709d91"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/CompletionResultRedeliveryPolicy.kt",
+      "size": 1601,
+      "sha256": "abc8f9bbbdb6ad741dedaf4fbe29cef1d1dff7f5c832ea228644bc4b21aeb4d5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/CredentialVault.kt",
+      "size": 2999,
+      "sha256": "fdee8e135597a03ff351f75ae464c4ab708699f8469d253e19c13a50d083b2ef"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/Fold8NativePhotoReviewPolicy.kt",
+      "size": 1572,
+      "sha256": "783052789cc677b91da66e6e8601562565eb236acb4c15939d5896d00b74813d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/Fold8PaneContinuityPolicy.kt",
+      "size": 1859,
+      "sha256": "b45bc3c773b5fe43250d91946bc561787442d0c39f2baade51087e538be2977f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/Fold8ScrollReadbackPolicy.kt",
+      "size": 1954,
+      "sha256": "4346f0e9d2d7c28714e989ab341c8e052ed1f1dd7d36b5d816c419e5b44487db"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/FoldableScrollStrategyPolicy.kt",
+      "size": 1763,
+      "sha256": "5b732d474580e5f2973a64629c31428fa52b969c7cb898aeb846143071b3fbfa"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/Form15Addon.kt",
+      "size": 19601,
+      "sha256": "91b5a7be2b4eac6b9d2b17724c81ab42cf8cbf8f753810153326835b9244cc12"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/Form15Format.kt",
+      "size": 4411,
+      "sha256": "abe28d40d2b1bda42de18804f75a8e40aa41893e675ff142a3623ad96cbd070c"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/FormChoices.kt",
+      "size": 13806,
+      "sha256": "b8bb0fb7a01e50f9bedf11dcc1f06868860fadcbfc860a1ce7959b25e3baa3cb"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/FormLabels.kt",
+      "size": 6619,
+      "sha256": "694ae323122330c8c42ece1806f3824289e78d6fe731e541d3139d1e01246f4a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/FormPolicy.kt",
+      "size": 8236,
+      "sha256": "0131115c962c36c408e59b93f2fabfccc89004253443b84ea2d33e4b488b4045"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/FormTransport.kt",
+      "size": 4580,
+      "sha256": "586eede602016b1333e1d607781bb719f51a358c44f11dba07528dc10ecaa5d4"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/GeminiLocalSubmitReceiptPolicy.kt",
+      "size": 3389,
+      "sha256": "deca1bdfd91987b303ca0584b47c99bb6f9828068d0b09e74a873fb771b6939a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/GeminiNativeContract.kt",
+      "size": 1407,
+      "sha256": "807a9968cd295dd419b828cd93cc1febe4bdee39b2d73b9bb06472d49fda7900"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/GeminiNativeScopeRuntime.kt",
+      "size": 1788,
+      "sha256": "8a8c94492061e782a84b13e26e31b7fdafdb844cbb177dc798d28020d9583da7"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/GeminiRightCommandPolicy.kt",
+      "size": 1498,
+      "sha256": "5ee9fee3471f6213284c7d3966ea0b16ee55e768c3ef12556cec1acf70c27c34"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/GeminiRightPanePolicy.kt",
+      "size": 1459,
+      "sha256": "f71aa08da67eac8bd62896124da1bca6b4264c96076554fe3b815d08fcee7e92"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/GeminiSubmitReviewPolicy.kt",
+      "size": 3367,
+      "sha256": "23d2330b336078faf4c1e635c22b44a9cd837e64adae453ffeb3729a782c4cd2"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/GoogleOwnerSignIn.kt",
+      "size": 2573,
+      "sha256": "9e478775a7bc1218c517aee7b7104ea630bb8521a7398bc635725bf03aea43d8"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/GuidedForms.kt",
+      "size": 30728,
+      "sha256": "e927048eddbdd75cd3e3a102ce46b1c46206804a50074a0c0ac4c2399df33855"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/InputReadback.kt",
+      "size": 3438,
+      "sha256": "248c1991c273a469802a43cb152e57151851371842793f12598e0439c8004fa6"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168HorizontalScrollPolicy.kt",
+      "size": 9007,
+      "sha256": "ffb1083a1ff119c9ec65d3a7074a02d832a17feac2b2f6405be8c5cb03321316"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168InputFocusPolicy.kt",
+      "size": 1182,
+      "sha256": "e27acd9be8aa01880db442cc19437fcc4450f8cc25a7f5609ac11e99ab779409"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168NestedScrollPolicy.kt",
+      "size": 7397,
+      "sha256": "546753d4461ac5bf4387c60cb15bad34df2cca3488868739c4eb32610fd64b9b"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168OriginalSecure56NativeDispatch12.kt",
+      "size": 7767,
+      "sha256": "c087092a7ac2b8b404afd631454fe82c2c21d4ffe9b0f51ec002f1a961f9dc93"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168RightHorizontalScrollRuntime.kt",
+      "size": 18603,
+      "sha256": "8c03a8a386c309657b685a875594955d9289569fef9f9b53f929cea2eae0a728"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168RightNativeExecutor.kt",
+      "size": 11003,
+      "sha256": "ca963c78eefb94e6bdb8b4f5f15a8e72ce473f167707318c890c98263c957649"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168RightNativePolicy.kt",
+      "size": 6433,
+      "sha256": "5dfcd7ccdf4143ce75625dfc7e9af3954e8a01cfa29424d8a4c704e5b4718ebd"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168RightVerticalPolicy.kt",
+      "size": 3440,
+      "sha256": "485232c7e6d1aadc0902c6560ecb039d5cb1a25958da39ade4f97aa44e17a282"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168RightVerticalScrollRuntime.kt",
+      "size": 26445,
+      "sha256": "0a69dc716e34e59672e9ba6a72c0ddd35ce487533c135c92733d700d6d441854"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage15ImeFocusGate.kt",
+      "size": 1212,
+      "sha256": "b31e97f21df333ceb0119953653a835ad0f096957a42fef01809af4f74756662"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage50SelectWindowDiagnostic.kt",
+      "size": 4410,
+      "sha256": "41965e4b79662c0bd5582aafd9b7cd50511c7a29409edc9223bf3e2400fc1244"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage50SelectWindowPolicy.kt",
+      "size": 4130,
+      "sha256": "310b8bc32f7ee278cd7f96af808e20026c59eb6fb0f1c5b3d11e0dfb6412572a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage54PopupObservation.kt",
+      "size": 8287,
+      "sha256": "c7cfc4cc20c8a5f9f4ffdfdeb48aedaaed5baacefe7ba2ec570c3939de67e7be"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage54PopupObservationPolicy.kt",
+      "size": 7563,
+      "sha256": "fcd020139032d5e7710889b8c1904a352e49e02c8998cc01d75fceaa2e8c75b6"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage55PopupPairCapture.kt",
+      "size": 5633,
+      "sha256": "632b2904ae0815b7b4fba06dae5ac3ee1603210202bf022d4787345a497b3939"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage55PopupPairPolicy.kt",
+      "size": 4806,
+      "sha256": "8e22b8fb4923e6dcfdf61828a7a9e79d59d8eba2596fcffb3f5df513bb5b047a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage61RightPaneRouter.kt",
+      "size": 23920,
+      "sha256": "464a4dc19abe5232aabb5de664fe38ca979b0b6e2b00e0429832cf312caabf84"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage62NativeSelectOptionPolicy.kt",
+      "size": 4523,
+      "sha256": "ccb0c8cc7ad03b058b24d94a1f69ec314fdb08b2f4653e5fe1b059b8791d6b0f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JH168Stage62NativeSelectOptionRuntime.kt",
+      "size": 18775,
+      "sha256": "afaf788db724096bc5a737715d7166a51d70ee40388e57d243c8857411970a48"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JhApprovalAutomationPolicy.kt",
+      "size": 4120,
+      "sha256": "8dd1fdd7d550b8cf2f6e9dfa288fb02f7d6f217bd4d230e7b7a190cf4d799b2d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JhAutoAudioTransport.java",
+      "size": 9536,
+      "sha256": "7b9408f6643dc99cdb50212c3088ea5f0b6933e1b81d78a9286713d85556e1ad"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JhRecovery19Policy.kt",
+      "size": 9498,
+      "sha256": "0cc378c7b1e062a7f3fba47bfc1486f31bc4151f6ca07c137d1c94f2bca95c60"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JhWorkMemoryCodec.kt",
+      "size": 7170,
+      "sha256": "99d2193bc4f5f981c8c87944e3618f54edb227c20fc6c0ea48b8a1ed481c9f8f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JhWorkMemoryCoordinator.kt",
+      "size": 4446,
+      "sha256": "1f5ec70967bf6ed88425b635c055a74659b91eb0157a515698ed0a16a5be636e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/JhWorkMemoryResume.kt",
+      "size": 23551,
+      "sha256": "7373aa0ad36198e296e8bfce8a01117c66441750b0c1f2d619ceaea66d8d8e7f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/KakaoAccountOcrEvidence.kt",
+      "size": 3771,
+      "sha256": "beeadaf17621c12f81936311ed1db360053f08e1503ab2984f327df75cb9c3d9"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/KeyboardViewportPolicy.kt",
+      "size": 1079,
+      "sha256": "6a82855535a0d61c26029c526a422de95e1d3f491073e0e9d307ffb053c7f822"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LastWorkReturnPolicy.kt",
+      "size": 5399,
+      "sha256": "11aeb41767242088ff00b36f48e148688ba35efee0fa841a6b95dabd19b83625"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LastWorkScreenRuntime.kt",
+      "size": 9540,
+      "sha256": "61d20551386246dbf5d50ce0bcd2d4084b61aa1e55ea1fd1e37b0c1bfe33a89f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LayoutAdaptation.kt",
+      "size": 2132,
+      "sha256": "0a9215be24781ef7e99997b99b5fd6cc64d2f3e830fe5bc14b7a643f5d6bd86e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LeftWebMode.kt",
+      "size": 2653,
+      "sha256": "9769c58ed26536316832ee35dc1b57da8e49b142a0f7b9313aea735bb2247d3f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LifeHomeActivity.kt",
+      "size": 17179,
+      "sha256": "c7b940feca9ed544e00e98006d1c0850d2ed874e0fbe531bad06253835ee4808"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LinkClickAssist.kt",
+      "size": 4688,
+      "sha256": "3b2a00893cd725921d151ea59b907d28f6962821146006e7366893cfcd897d03"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LinkInputPolicy.kt",
+      "size": 4133,
+      "sha256": "c2fc91f92dfc5fd88743163d70ef458b2d606b70b22bd460edcf548e098e90b3"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LinkPolicy.kt",
+      "size": 5546,
+      "sha256": "c13b2e9fc461389a9456d13c662af6cca8434232ad9d00ed67e9d434312e90d1"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LinkReceiverActivity.kt",
+      "size": 4636,
+      "sha256": "85e51b91c97ece4ac835a7a58b5485214a87d6b9b201962d2cf1f8540464072e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LinkRouteTicket.kt",
+      "size": 1385,
+      "sha256": "dc5d89b9ffa32aacffe22dad7f7cb8f22c3d6de97b93e8ed6f1ff33a9698f5f5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LinkSettings.kt",
+      "size": 5732,
+      "sha256": "6621de4b8d5d9b03e1d8fe8a7fa64c1d459848b3c37ce35976b1e40873b93934"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LinkSplitController.kt",
+      "size": 12512,
+      "sha256": "2c890bc2e13167291c8fd1f68c05c36cfb6f92458546c56dd6002cfabe5e566b"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LocalOcrProvider.kt",
+      "size": 5644,
+      "sha256": "85b765396d36ddb905612ba8894c68edf927046c74606fee90854995f9e2265e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LocationOnceActivity.kt",
+      "size": 4962,
+      "sha256": "62bbff10907fd1c1501978f509b0817c483fadea6899ca7a029f7ee57380993b"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LocationOnceController.kt",
+      "size": 10437,
+      "sha256": "99233444c3f066c21fcf12f94e003c9ca77d0e9e734c660608f50d650d81b36d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/LoginAssist.kt",
+      "size": 3154,
+      "sha256": "bcad581f630611bd998a53b97291f47d8b840d1b910aac6bcf8ba18f80e6ae58"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/MainActivity.kt",
+      "size": 28060,
+      "sha256": "7b8f8d031e1f235df6ec02116d01f3f7e00ee121bb4c500b1088af1934e27229"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/NativeSplitTransitionPolicy.kt",
+      "size": 1284,
+      "sha256": "35031420d8ba461c2f99789a9e1c187c585bca419ac446b0cac26a86714e67d0"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/NativeTaskLaunchPolicy.kt",
+      "size": 1033,
+      "sha256": "3c89cb7ed71c0f55449035480f8cecb36678809b22445bc6e8d3da35911a7655"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/NativeTaskLauncher.kt",
+      "size": 9757,
+      "sha256": "58b8537ebf5d021d282a2384c204c0eee73b16f10f0b33607f2ea716fe7bd8f1"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/NewCommandClickPolicy.kt",
+      "size": 955,
+      "sha256": "dbf0acd6bbb107a74c6d333a529d1fa0a05ad295588d50cda926eeb688fd8811"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/NolWebAssist.kt",
+      "size": 1473,
+      "sha256": "fe32e1e4cb6c03977e2d768733240c9ca2024c6046b733b3485ed1a55e5e6607"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OneShotLocationMemory.kt",
+      "size": 2654,
+      "sha256": "e92f9fc3db0d0c314b54c0700b6c95ed724209da690bcf0f6bb2150cd89827a3"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OneShotLocationPolicy.kt",
+      "size": 1824,
+      "sha256": "e5e8fdcfd9763a4b745ebcc3007380979050bec795487f8a5e69593439711caa"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorAgentHandoffEngine.kt",
+      "size": 19209,
+      "sha256": "9449ceff91db70bdeb0cc1a707bf366271b3c02434778b3063afe67364495707"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorAndroidComputerUseAdapter.kt",
+      "size": 18779,
+      "sha256": "338c940f891999d59e308fc7f35bbb4e7c9267421ef4cea16f070c92ef50ca9d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorApprovalEngine.kt",
+      "size": 10525,
+      "sha256": "83a362a333377b23d1d48ddb4c34580bcfcaa9a32ba132d92901b93a41cf4397"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorBackgroundContinuationEngine.kt",
+      "size": 44205,
+      "sha256": "3f7ff7ac264766876f29e08905622481ec1234bd39cdbdd4792322c7942dbc49"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorContextConsentLedger.kt",
+      "size": 16822,
+      "sha256": "a531dc0d98ec76c10e7e0262fb22acb029ab16b9f31e9ea88ff5ff3b877e7470"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorContextStack.kt",
+      "size": 4407,
+      "sha256": "a0bed7305b00e0b886f6a0f91208c1747edb7ddceef8a3c5a13acc8a85e237fa"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorContextSyncEngine.kt",
+      "size": 8642,
+      "sha256": "e033e7945d193adb6a763c3a151e2105259c1b0d1408599867119ddb8f163567"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorDescriptorSimulation.kt",
+      "size": 3086,
+      "sha256": "a138ad5c34f7df837d80c6a79fd818c35238a284f2e3da78ce17d88cefe84c75"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorDynamicToolRouter.kt",
+      "size": 27503,
+      "sha256": "970c95503f3259808c642a3833c17f9708829bc884996bb3af391d4fca337d8e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorErrorRecoveryEngine.kt",
+      "size": 28429,
+      "sha256": "8fd2020da09a9dd594b14b7cf6186a80cf4aea475f99fa3f04f86c7388d7c0bf"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorEventBus.kt",
+      "size": 11156,
+      "sha256": "76e2159bcd8ac1e6cbbad1b58ddbcfef8ebf5b6768cc20a1cb3e8d4e695d77d7"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorGoalManager.kt",
+      "size": 14008,
+      "sha256": "746e5fe0d727edd881c5282ca0aa1cedfdde7fed59d390f207faeaeca4b1de9d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorHandoff.kt",
+      "size": 4400,
+      "sha256": "4e793261154eefa385051b61724f6207e46dab530e1d6344b97b2cb3d90bd07b"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeCheckpointHttpsPort.kt",
+      "size": 4884,
+      "sha256": "073c15798c748bf53c9a623f1cd5a70079afe233bf7405ceeb8c7fd10cfa4e02"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeCheckpointStore.kt",
+      "size": 787,
+      "sha256": "6a0e5a4e5e44ddefca52a679700a3018ea0d8a3aa152d24be9dbea7228a61e99"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeContentRecovery.kt",
+      "size": 20992,
+      "sha256": "3e678cf275c7fed355d903e4f57606dff1b4c4518393edb05bd3d0ca6efcf448"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeController.kt",
+      "size": 18037,
+      "sha256": "fec092fcb9a92d9780eadfebbfa6a36ca2ae3d1c8cdb6fef1ed14101de32e409"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeExecutionRuntime.kt",
+      "size": 12180,
+      "sha256": "6807ee93a9b2edd12fbb4292640fd088c265217a18ad7434f971480417283a77"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeGptWire.kt",
+      "size": 1461,
+      "sha256": "6a8ebf8876e04e11e86992daa5c2809510b5ffacf8f0c54e80229ab4cbb22194"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeHost.kt",
+      "size": 14591,
+      "sha256": "889c9c83fb21fa5aa1af92c47f406e9a0301d2b60cc56784af1439b527556470"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeJournal.kt",
+      "size": 10717,
+      "sha256": "40331b04394ae9ca8b56593a4d0fe62f94f4e8a6cf4c415c3589355317887652"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeQueue.kt",
+      "size": 9767,
+      "sha256": "9a09e8cd5a6434471fe600c2c715cf4fb209299478f6c0025c009ddcc7acaae0"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeQueueWorker.kt",
+      "size": 8682,
+      "sha256": "28bf83970211bf7d067fbb1d1c07e77b33bd0afb0d029a23e1869e87b7d0290c"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeReconciliation.kt",
+      "size": 10446,
+      "sha256": "0c07eef04ab8314ef21083c21b01ab868be0f06b85dae28c0f669ebada7023ca"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeRegisteredDirectory.kt",
+      "size": 4882,
+      "sha256": "1a9eff995910d59d673c0d3da0bf463703c34da8370adaf1d839f68abbf7c38d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeRemoteJournal.kt",
+      "size": 10006,
+      "sha256": "849221bbbb04f303e64822e3040a92b31423b0f2c16937848cebe7720312eff5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeRemoteTasks.kt",
+      "size": 18473,
+      "sha256": "d36e03de16fadf89698e9f6d720c63d938474beeac8094a4c50146f65b50ab8e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeSession.kt",
+      "size": 15606,
+      "sha256": "fba2438e13c9ad5255413530ffb21ecd9ef67424a8dac417361f3e6384c6b983"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeSkills.kt",
+      "size": 9201,
+      "sha256": "6be213ab0b7528541a02278d5d233ddf8c1f3344d589bd21f14a2be245df6ba1"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeTaskCatalog.kt",
+      "size": 7914,
+      "sha256": "890fac1baffd6fa12003046915524714aad9aadef6b337280933ea2532730c10"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeToolCatalog.kt",
+      "size": 3598,
+      "sha256": "c347199a75367699ffc4582e63b13b378875daf273ce261d835bc613dce0b8f7"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeWorkLoop.kt",
+      "size": 5466,
+      "sha256": "f0345cf81e1b79103041ad4281caf9d31f39057759193ce3309ee4bb836467cf"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLifeWorkerJournal.kt",
+      "size": 10683,
+      "sha256": "0cfef71acb60479178f58a0ff982eb784c7e0d6caa3082d40476541aac05f06e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorLiveBinding.kt",
+      "size": 4374,
+      "sha256": "c584fe541122ea26d37ffbad7dbea923662e7aa3f932cc5d69254d400169c263"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorMcpWorkflowBinding.kt",
+      "size": 2672,
+      "sha256": "8431eca3108efe1e3f3aa05d8e33a1b71906256ebfa0835d9c701cd9862378cd"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorMemoriaConnectorPort.kt",
+      "size": 7813,
+      "sha256": "02cc792f2c72d0c08dae2b859bef57045265fc8aa8c1828e32f3205abb1912df"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorMemoriaJson.kt",
+      "size": 10791,
+      "sha256": "956c727376ce70ca66e5b6775160833dd49aa071ca0cac76c655de8a1667620c"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorMemoriaReadback.kt",
+      "size": 13744,
+      "sha256": "d55bbbd731b33d100764b5f1217384a0d18286a6432f3d2908439f23f6828357"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorOpenAIAgentRuntimeAdapter.kt",
+      "size": 14506,
+      "sha256": "060eeb9f312b3c1c9a1afb9a8c09e5c76cbc104c5aa60e24c56f7e094ab10634"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorPersonalContext.kt",
+      "size": 30202,
+      "sha256": "2522a805a2206ea2fa99727e6688a6c8f5e1cae751117c00bd49041e90adf8bd"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorPersonalContextResolver.kt",
+      "size": 7864,
+      "sha256": "2f8efc849faaf9364f7be6aebca34aaff8b7d9763458785cf73ea566d93d0db3"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorPlanner.kt",
+      "size": 1470,
+      "sha256": "8d88ac6ccc8ad0672305635c36eb6c8fa0fb51e763a24d2502e8166e4876e4c2"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorPolicy.kt",
+      "size": 4478,
+      "sha256": "0d2462638af0c5b35bacbf893a95c1a740d79d9255da1a8649b799bd26179fa3"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorProactiveProposalEngine.kt",
+      "size": 26756,
+      "sha256": "934fd7125ac744f90353db4ff2d17bfdc6c53d246429efd7bd263ff85530558a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorProviderDiscovery.kt",
+      "size": 4192,
+      "sha256": "bc92084db0bc28e0a307a707b401fa784f4df63dce05059e3e183ed8069a8b7d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorReadOnlyExecutor.kt",
+      "size": 24822,
+      "sha256": "8f59f8814e0073151eebd2c8660586be8629b8eb0e708d3eba579ffa206f8c5e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorReadOnlySimulation.kt",
+      "size": 1842,
+      "sha256": "5fd669514f1524665694a31b148507993ba26f3e2aa031aeb3e0f0f97de3642a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorReadOnlyToolBinding.kt",
+      "size": 7703,
+      "sha256": "899bc2c83c3a81072feb50db069f050392a7c0c09fdc2deea408685814723a43"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorRecovery.kt",
+      "size": 2639,
+      "sha256": "16213488efe8d7063f3a764ebc2dd7a3aa936fd98e5f58a57a6677401c604664"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorResultIntegrator.kt",
+      "size": 2698,
+      "sha256": "771da7c8e78fba8970d0a17540a885fc6f0909001acb334f1a6073e018804a7f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorResultVerificationEngine.kt",
+      "size": 15406,
+      "sha256": "4085df4874e6c29393b6937ff957a21b74bac2e86b9dc1a859610a81478db384"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorSecureContextPersistence.kt",
+      "size": 25813,
+      "sha256": "c14a4b9f710b9996a6252f42b51f4d1dd67e6a330d25e07b2dffd085bfbb4df7"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorState.kt",
+      "size": 3862,
+      "sha256": "41c23d86432e39e55801f2ce1e5fc9a5fa18037261c2076e2a90b1968dce7702"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorTaskGraph.kt",
+      "size": 7737,
+      "sha256": "4387d9a8703af172894f01b8d13868a45340ffb1bea653823dbb288322939c51"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorToolDescriptorAdapter.kt",
+      "size": 9034,
+      "sha256": "a2aeddaf693ad4d1885cd337b588f98ba57ab53e67a4a5690067592613c579fb"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorTransactionManager.kt",
+      "size": 26211,
+      "sha256": "9628144ff228ee59b18ac22ee7e9a87dd339c5a6d2791045941aa3e83ee72e46"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorTurnResumeStore.kt",
+      "size": 9093,
+      "sha256": "ec23617039930d943fd7b34ae97a2751ccaef6db46d03cc6abec10ac0af21dd6"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorTurnSession.kt",
+      "size": 5117,
+      "sha256": "f9a85ac7e54da44c56ec02dd4eb7c17e97ff066a08498536315ebc8f4f631fbb"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorUnifiedMemoryResolver.kt",
+      "size": 17408,
+      "sha256": "c65f39cc0299cb46ebed0582ddd9bb94af6bd6d0837ab1b49819a70d32d8b551"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorWorkflowComposer.kt",
+      "size": 5054,
+      "sha256": "7e35a5cd8a7ad9ecfd68474841a9ab4140d5de1aaf5db4f39005ab032891677a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OrchestratorWorkflowMemory.kt",
+      "size": 25860,
+      "sha256": "736f1a15d3e08e915aadd96ff46276d2d9122a26b326304abd71e3813763ee1b"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OriginBoundClickGuard.kt",
+      "size": 1764,
+      "sha256": "60dfa50ab0b1c22c2bd9b13650a96ca6e1864793f724702753de64ee0fe61301"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OwnerEnrollmentController.kt",
+      "size": 10679,
+      "sha256": "613d4fa6a7687c1d47684d9843ecdcf70fcc9cef5cf6fc0bae597489f0af1386"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/OwnerEnrollmentWire.kt",
+      "size": 10895,
+      "sha256": "e362b6bf49ec19ecb41568eb1c6fbeabfc5e38ff98ce360a28dc9655fc35f3e8"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/PairingResponseTime.kt",
+      "size": 2586,
+      "sha256": "33222b3673061e90d2986571a29db87176879a0dcca72705b198850a7f272e47"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/PaneAccess.kt",
+      "size": 3746,
+      "sha256": "42be9df50c2ba2267ad1ad78f3a5a9b7e973987a9200aa447df7b303989de62e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/PanePolicy.kt",
+      "size": 5036,
+      "sha256": "30c9bafcd0b66ba9b01a3c9de287065c8c9c8d01067d07234e13712434c671d5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/PersonalTemplates.kt",
+      "size": 2989,
+      "sha256": "0c619438f183df48655e9a57d2156c8683cd0248a600852e434f4baeef65aa3e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/RightPaneBackResultPolicy.kt",
+      "size": 419,
+      "sha256": "7f1c8209b849959d3d3b5578d7997d010c5f35f32ac7abd412259d79bd981779"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/RightPaneContextEngine.kt",
+      "size": 47259,
+      "sha256": "d7c27c816e7ed7614e6e656f6e08452f8fb1d00c3f2fb8fe9fde42305690db4c"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/RightPaneContextRuntime.kt",
+      "size": 46505,
+      "sha256": "7a0d1bc9f902ab097ffd578c8104527ffd544c3ce408e54877662a7f93485dd0"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SamsungRightPaneSwapPolicy.kt",
+      "size": 6405,
+      "sha256": "84d83730eeb1557eb744c7dec59b67e562fde2fdbb12c8924161664895dd0e1a"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SamsungRightPaneSwitcher.kt",
+      "size": 17924,
+      "sha256": "d3fbfcd8c51e021b369ce6fdf0dbcd82cc3c0a6ab52cf38831f0f6bb5199e9a4"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SamsungSplitAppPicker.kt",
+      "size": 7662,
+      "sha256": "cc04313d91f89b8a7941e93c44e9aa166c89fce199140147d43a9795692fb5c5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SamsungSplitAppPickerPolicy.kt",
+      "size": 3081,
+      "sha256": "bb881377a67ed1067c9593e14337ee1018379bcc55decc3b42a96f105995f206"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SamsungSplitSetup.kt",
+      "size": 7580,
+      "sha256": "84a10ae2d6e8ff42ebbde02b60148683e7f1bd2599c60a29db599bc54b2fb1bf"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ScreenAiScopeEvidence.kt",
+      "size": 1645,
+      "sha256": "529067141cdc14dd30b2db39aad690c8d284a03c1c9c1884615cc7f9686cd123"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ScreenConsentFloatingGate.kt",
+      "size": 527,
+      "sha256": "e23d13c1dc663c7908521e762ab81df5e45d9c4e83919fb7cef11d291989bbf8"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ScreenConsentNotification.kt",
+      "size": 16125,
+      "sha256": "c0a1950aa2ffa2213cc7f3fa98fb9b4f8059548cb3430789a8ff6577dd8bad19"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ScreenTableReader.kt",
+      "size": 6851,
+      "sha256": "a201d4261667c5d905e54d0b71c00a93b45572e087a6998b6eb77cd19d68b428"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ScreenVisualFallback.kt",
+      "size": 6359,
+      "sha256": "80cf1fe93f5a44b896a5029ee36b78a6ffc49088ddcae9a27da156b2915b0e08"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SecureBridge56.kt",
+      "size": 23749,
+      "sha256": "cecd15e6a254ad6d5c023cb0efb6c627a65b41ec0b8dc2c30611eafbfa38e4bf"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SecureCompletionCorrelation.kt",
+      "size": 4152,
+      "sha256": "52cd86b31b34fd77a297a14e778eb5513c30cf3ecdd88c3fb484e809e1e7fde9"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SecureJobPayloadCanonicalizer.kt",
+      "size": 8069,
+      "sha256": "00adcca60be06e0d35c510ed3db42cc816553a28917b34a8a30516a34f482f09"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SecurePairingCoordinator.kt",
+      "size": 3019,
+      "sha256": "b1777d5f96ec4d308c86aa54fb9d96d16669cfd72ea6e1005427573d347406b4"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SecurePollingPolicy.kt",
+      "size": 572,
+      "sha256": "186dd5e3934fb16e609b003cf73bdb8ffe6671a04997706dcad30e8958908204"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SecureReadOnlyStatus56.kt",
+      "size": 1203,
+      "sha256": "59d60c9bb59af82bbd15cf5ad388a7a9c7b92324f3a4abc3b9de5fa1a1103d26"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SelectedBundledOcrController.kt",
+      "size": 2569,
+      "sha256": "11c1d88d0bbefa1d5d4ab016bbbd06d7d38d7ed935b0979e107675cd672ae2e2"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SensitiveGuard.kt",
+      "size": 1087,
+      "sha256": "09bc19d4de576a2909405926eea4e8ca1d17e36e2932d8da99e677da5c634891"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/ServiceLauncher.kt",
+      "size": 19287,
+      "sha256": "17599b1eb7bbb5e5c271a4a4316457c8d2689ce7f4783d281a726b0a08f365c9"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SingleAttemptSecurePoll.kt",
+      "size": 6925,
+      "sha256": "091663e7f71c8aeaac8caf28dcd914cf3ad2223d808313972e77bb86ee850ec2"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SiteSwitchPolicy.kt",
+      "size": 2410,
+      "sha256": "e637fad21c7c79672c059d2a0e6fe30bc7b984dc5b720d63f8678b964450ae5c"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SplitComfortPolicy.kt",
+      "size": 6137,
+      "sha256": "7c8745abdf99552b886d53c416d5fa723a5024c65da832169e8c3add32f0568d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SplitComfortRuntime.kt",
+      "size": 14401,
+      "sha256": "b2d811f9a4fa1b8fca644d5e070e744db6861394960b29fdb1127cedeb0c4168"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SplitComfortSettingsActivity.kt",
+      "size": 8662,
+      "sha256": "2e52124aa795ad20a56e10a7b790c78fadedb3cf71dd1e8bb22d185f16c88355"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SplitComfortStore.kt",
+      "size": 2955,
+      "sha256": "46041fc2368331d8737455fd8e763a9f7d9f934ba80b2034226ef9d29925ea63"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/SplitJobScopePolicy.kt",
+      "size": 588,
+      "sha256": "547aa4ce964bb1959f3ed5d5f00dfcfaa797e52b59cb4fe97d916729d64bcf7f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TableNumberReader.kt",
+      "size": 3587,
+      "sha256": "d35592b7b77087f03298c03a3b2e3f917f2cf12bb542dcf2b1514270b918cb53"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TripActionReceiver.kt",
+      "size": 420,
+      "sha256": "29cd24fef72e9e8312bab25ba05e65d51d9c371c7e90631b48383e54fdee30be"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TripAgentTransport.kt",
+      "size": 1327,
+      "sha256": "06bcf523ee701eb8dae36befff883cd54f5e11ae0462e0772f90a8fba5c65472"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TripDecisionPolicy.kt",
+      "size": 1631,
+      "sha256": "774df51c339f1a584d386d0ba263d020252e295e6879cd14053eda9d93b3e7b5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TripLocalDecisionEngine.kt",
+      "size": 1281,
+      "sha256": "3d1b0e01b376cd67266bd872f708fab882ddfffd2acf7e6c6856c9bec690ca4f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TripLocationService.kt",
+      "size": 5864,
+      "sha256": "cbc82a3d423b2f3aa508b55094c8a046627421a7d47ea2b569c7555eef7158d9"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TripModeController.kt",
+      "size": 6171,
+      "sha256": "b29ccf1bd66ce510abfe1ea3e0dda6cd4763432bedabfeb007f061585eeae74f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TripNotificationController.kt",
+      "size": 6601,
+      "sha256": "0b78d2f0f9da03ae5cd81596980358267a2367a4425e14569e1fdb979bf6cbb8"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TripSessionStore.kt",
+      "size": 6723,
+      "sha256": "64c88e4186adb1f12f9670966dd736d10dc69b2541f9d574fc679420a105c0f0"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TripStartActivity.kt",
+      "size": 5355,
+      "sha256": "d15b1b2b6c1d5d30a1d2d571fa351615e31e035fc59228331b155c61d8635009"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedAutoReconnectPolicy.kt",
+      "size": 1176,
+      "sha256": "afc067b586396c3f77b1b7f3b2db173df0029eec2a63db428f24d44572232344"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedBridgeHttpClient.kt",
+      "size": 9471,
+      "sha256": "7465fe2c213f52be0c614f9e8e72df2e436984cbdab7c976c7774c95b1c7be35"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedBridgeJson.kt",
+      "size": 4003,
+      "sha256": "1578c6af4d39a9eb7ddd81627bea289bfe1159ac8e8f6107c84f5375ea7a1c02"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedBridgeReconnectCoordinator.kt",
+      "size": 3809,
+      "sha256": "e687aa22cb60aaa14ad4673afa5576a628c411356543537c853ee108612edea5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedBridgeRecovery.kt",
+      "size": 7484,
+      "sha256": "ca05c6b7483f80dc9accfd5715bc37e8f602f1dd07ac40b9ecb89a80379ab921"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedBridgeSessionClient.kt",
+      "size": 8973,
+      "sha256": "5ec5dc94abf937ea0b097f038e346c3dc060363145a0f38c60de757a38b77710"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedConnectionUse.kt",
+      "size": 1125,
+      "sha256": "5ee2f183125ba553807a8d1f619b1b08c5a9ca89e7ae50d2d7781529f3fb3c0f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedDeviceJournal.kt",
+      "size": 6281,
+      "sha256": "e960a9c968a5f17ab277cabdfa4ffe88e0de1cf49d8a26974dc86c1676455ce0"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedDeviceSettings.kt",
+      "size": 19791,
+      "sha256": "1d2c092dd61b773250d35adcc85707ab9fa178c7ee9bed2d67017d242222cbb3"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedDeviceSettingsActivity.kt",
+      "size": 16047,
+      "sha256": "e08371f69e9af5e0576f29e23152f71e3537a4fa82515af5f26fc2fb7ff542c6"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedHttpsJsonTransport.kt",
+      "size": 4794,
+      "sha256": "6958d23d05f281b9544c020216e49ba91085c57cdd52f5ea0584308716c55d7b"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedReconnectAttempt.kt",
+      "size": 3059,
+      "sha256": "141fd6ae0a96f93618326d03ec9e2e67ac4a213e839e94ef15f5080f342a2ed9"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedReconnectDriver.kt",
+      "size": 3176,
+      "sha256": "30f5f634e0bd68e37c85aade1749f9798e328b073fe0e0b64a609b354e55888e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedReconnectProtocol.kt",
+      "size": 6060,
+      "sha256": "c62297461be4ee622417cb057924be5f401469ce6647df3675d32b58929b1ae4"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/TrustedSessionRenewal.kt",
+      "size": 3714,
+      "sha256": "e0fca5a5a517944adb65e63d4cbb15dff49e773cb409af68dfe78bf1fd7dd3b1"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisibleWorkScreen.kt",
+      "size": 747,
+      "sha256": "f512d56638c77b90bbc963073fce7a649b21d77f0d7980f4f4c02543bfc32d4d"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualAnalysisGate.kt",
+      "size": 2877,
+      "sha256": "47e5dba07ac86f320d289181a1ede042ef3fff91fe481f6ba1c3ba5da36cf5b3"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualCaptureController.kt",
+      "size": 13891,
+      "sha256": "5c43baa2e1b426cb298d6b632c71f4d34cf5635b079d3566a5ba4603ba9e9380"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualCaptureRuntime.kt",
+      "size": 4372,
+      "sha256": "21aa3ff79768e5f8db17cc0828a87e70b7b6d1b3c0ac8fbc90841767a635c1aa"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualCaptureSession.kt",
+      "size": 3274,
+      "sha256": "2a80f1a502e140dc033f7db7dd45a36ea78fb736fa4d1dc81ac06464bdf2de2f"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualOcrApprovalGate.kt",
+      "size": 1119,
+      "sha256": "9effbca27ba8ed30896fa9cee11c10bc1e7dcb88ed2c234f31989491c8191485"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualOcrCommandRuntime.kt",
+      "size": 20151,
+      "sha256": "a856d095fbdb421bbc8f9aacf9212020d94802efdfcf30f323db575aefab816b"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualOcrReviewOverlay.kt",
+      "size": 9908,
+      "sha256": "3350e303776d7ebf9dc8fcce67447e2ca41b7ddfaa3805461034252e63aab9e5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualOcrTargetCountPolicy.kt",
+      "size": 1362,
+      "sha256": "185270a4599652188326061f16b502f83583c10aef5bee7284fed1e8a67a9dee"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualOcrTransport.kt",
+      "size": 4536,
+      "sha256": "c347f67dccd8eac6860c923d178f2a39d587fc5b5a340ea9cc221f1a88b0c9d5"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualOneShotAnalysis.kt",
+      "size": 3988,
+      "sha256": "053b166a24d22a95b26cbb52038f030f65ae5272e462295918c79636c869de00"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualOutputActivity.kt",
+      "size": 9902,
+      "sha256": "cca61dd30a221b5b8731b69ccb646eb1daca01b1cbfb4276cd7c54b4041196d8"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualOutputTransport.kt",
+      "size": 6016,
+      "sha256": "371ec8a990400c23fc8a4760f91e783fbd3dd563cfa9c637e904cc767f844b0e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualPageTextReadback.kt",
+      "size": 4323,
+      "sha256": "4e7e4486937c3663f0ac1953864733afce3c2347457cf634bb860645fc227d85"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualProviderContract.kt",
+      "size": 4221,
+      "sha256": "dd0a2d5f001f283778893396172a7f6d623d7103037f1d3ecb296607e2c9f3fe"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualProviderRuntime.kt",
+      "size": 1029,
+      "sha256": "ea2bc6694ff3f0fc456802b0bd67afd4fc4c4139a732b197e14ddf143e62cfa2"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualProviderWorkerRuntime.kt",
+      "size": 3686,
+      "sha256": "64a05621db986d0cf45e39f2c422088fb666813aedb5b960caf9690dfce08c31"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualRegionCrop.kt",
+      "size": 954,
+      "sha256": "0b8dfb36e8a0c106e6fec4779a1e88d8933d55b465e581187a9aba50a4062e76"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualSelectedRegionSession.kt",
+      "size": 2164,
+      "sha256": "eec9c366c02e23381961b0283285d669f5b5a87fbbb8c4cf0d8d72d3fef492ec"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualSelectedTargetController.kt",
+      "size": 7010,
+      "sha256": "aa6620ae14b3514794ba4e3c782d3f2b3a966136f2e63bcddc81d0544a2649e0"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/VisualTargetSelection.kt",
+      "size": 9265,
+      "sha256": "e58be93b8b436811db7ec7256ffb71a2b0c9f0a1cb4928aaa320cc38f9af3efa"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/WorkLayoutProfiles.kt",
+      "size": 1785,
+      "sha256": "2cd3e14a6324ce6cc0227bfbf95025480580012099432916eba3a73cb5a506d9"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/WorkPaneOcclusionPolicy.kt",
+      "size": 7090,
+      "sha256": "cbb2961ebecc139bc08b08dc76f94c4fb60d9dfcdcbdfefe08890fe3e859777e"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/WorkPaneWindowTypeClassifier.kt",
+      "size": 1158,
+      "sha256": "f0f83dd39f3416bb61b601e38b84d76ecca54211270f471d3f19888f3cfaf114"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/restart/AndroidCleanRestartGuard.kt",
+      "size": 5024,
+      "sha256": "c1a4d24c0edc643aa9ef22cd632e8ca20f3f5d7479df6535db3c14e8fad06f23"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/restart/CleanRestartBoundary.kt",
+      "size": 337,
+      "sha256": "f4922979a2ae8526a9c8c270e83685919a550dea621e46c49d4b4cefe35c3d33"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/restart/CleanRestartStateMachine.kt",
+      "size": 6029,
+      "sha256": "df5e99cf91b92a1c0ce5c847070714ce8d417a4af794b9d322c541941d5428bc"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/verification/JHResultEvidence.kt",
+      "size": 1811,
+      "sha256": "2382f34e56c1d00bb7c6c0125a35f54f73a276e27e81e532d312e771b11a9820"
+    },
+    {
+      "path": "android/app/src/main/java/com/koreanlifehub/bridge/verification/JHResultEvidenceFactory.kt",
+      "size": 6261,
+      "sha256": "580a156f0e5fc9d7e6f8c35c8baf45cdcf02216f06c3f48b25820d3250191590"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/EqPresets.java",
+      "size": 5543,
+      "sha256": "c25d3f9897c12f25d9c86a8f0f0755888a6cb35cb90e0732120e8df2c91cc76a"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/EqTone.java",
+      "size": 1270,
+      "sha256": "9ee2c008016ca2fe2255da34314c1b1c41689cc355a10857537585d091d6f062"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/ListeningEnvironment.java",
+      "size": 1448,
+      "sha256": "c61faddb86b2e54dc2414245310c3b05fce9a6c814d126818cb0d8c6ab887fb5"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioCommand.java",
+      "size": 7003,
+      "sha256": "e47e62a55c020fd7229d305954567cf6ad0a4969ac5cbbac360e85ca22e6b0ca"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioCommandDispatcher.java",
+      "size": 11573,
+      "sha256": "0d4e0e391d09a8dc3f8f00ae5a67b314286765f3a18c3c5f1db56f3e80272ae3"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioExtensionCatalog.java",
+      "size": 885,
+      "sha256": "5972c0f2e2f7be69d4b372f5ea53cdc6c82d47443031bdea795aa28e214cae3c"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioExtensionPolicy.java",
+      "size": 4390,
+      "sha256": "9eaeedf06e12440823292bda0bc88f0a7a9945d9799eb50b4dc627f064ac93ad"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioRemotePolicy.java",
+      "size": 1297,
+      "sha256": "ed34a4e60e4708beefe1da3f6609af5d25dfba2e695cff15712dab6dbbcb35af"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioStartPolicy.java",
+      "size": 3117,
+      "sha256": "eb15122691b953c68536505e637ff7e6f5dba9ef8bef41dfdab3d0bda183ba41"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AutoSoundCoordinator.java",
+      "size": 23943,
+      "sha256": "5ba95bc4c6232b3efa56f3d70bbddfb720da7e312bcc64d2859535786e89b2a4"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/CooperatingSessionRegistry.java",
+      "size": 16426,
+      "sha256": "7ccea81b2a3487cc1bc9c15f59d40bcc9a6d41f132af106017e47df0fe1da6fc"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/HardwareEqualizerPlan.java",
+      "size": 1898,
+      "sha256": "2a828ca9b24786b30da2797184e2f6af5521ab1d893e5839103827778f965b5d"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/KoreanAudioCommandParser.java",
+      "size": 6406,
+      "sha256": "43e86c5e897488ab4eca0fe8824012983df6e053643eeda6c42befb19bbcad0a"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/AndroidAutoSoundRuntime.java",
+      "size": 35177,
+      "sha256": "2b8c1b64029622866652bbec511cf3e7319595ffbc1f6d8c50ff025a7cdbaf13"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/AtomicAutoSoundStore.java",
+      "size": 10100,
+      "sha256": "a7073fd19faec683fd726ed795133b577c59681e802b0fde370bb5fd18902ff5"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/AudioEffectPort.java",
+      "size": 2190,
+      "sha256": "733f5cfdf5e157cc9ce7311a92b9f887aee80089f7db0347877d166c781f5ea2"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/CooperatingAudioSessionSource.java",
+      "size": 20955,
+      "sha256": "925aaef699f3fcbcf0e376fb2b40c6566a2d1e11510dce7da75065333edcd0ec"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/TrustedPlaybackSource.java",
+      "size": 1283,
+      "sha256": "ede75972ac6dc323b34428ad3e29f8b1c748a5a70f2c4fb04e0dadf9dde24874"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/VerifiedAndroidEffects.java",
+      "size": 11189,
+      "sha256": "9134e7e6f0ca952f7a6e02b869084c77ce80b76e495838c46eca2b014c830248"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/YouTubeMusicNotificationListener.java",
+      "size": 4327,
+      "sha256": "0a3f473bb0a36ca5c4b4827551037192dab9723560978c9d5beadfeb817bde8f"
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/YouTubeMusicObserver.java",
+      "size": 17428,
+      "sha256": "094e94dff9761b23254c00e2b2a89b1993a17a03caa8df117c855034ec0f6db2"
+    },
+    {
+      "path": "android/app/src/main/res/values/life_ids.xml",
+      "size": 160,
+      "sha256": "c36a0bc18a2f7cf2ca1b523624b22175b53f33f09d8cb29d03895b32e16e50b6"
+    },
+    {
+      "path": "android/app/src/main/res/values/life_strings.xml",
+      "size": 4917,
+      "sha256": "b11cb704680499a000fc5124953400ffc66f76eccefe5ada6b3b0466e5165fe7"
+    },
+    {
+      "path": "android/app/src/main/res/values/owner_enrollment_strings.xml",
+      "size": 1102,
+      "sha256": "211c38297f3e7e22a059846c1ab1cc3b5b57d48a89e4793be12619a5bef68f26"
+    },
+    {
+      "path": "android/app/src/main/res/values/strings.xml",
+      "size": 1271,
+      "sha256": "7ecb215cd9623c6b702b4553ba39e18ac0195c447814a1e6e8548ecf2b82b26c"
+    },
+    {
+      "path": "android/app/src/main/res/values/styles.xml",
+      "size": 463,
+      "sha256": "b971143ba645066bca30926de2ba6eaf8093646a6a87a1e0e1a466e840c2a097"
+    },
+    {
+      "path": "android/app/src/main/res/values/trust_strings.xml",
+      "size": 4290,
+      "sha256": "e70c63931b93eab66f7fce898f50fe30681bf43af8eb7bf217f4eae9ea721799"
+    },
+    {
+      "path": "android/app/src/main/res/xml-v30/accessibility_service_config.xml",
+      "size": 615,
+      "sha256": "cbe5ab1d6cd0930036ebed4c28bad5455fb132c7c26c4f4c85480ac177623a32"
+    },
+    {
+      "path": "android/app/src/main/res/xml/accessibility_service_config.xml",
+      "size": 615,
+      "sha256": "cbe5ab1d6cd0930036ebed4c28bad5455fb132c7c26c4f4c85480ac177623a32"
+    },
+    {
+      "path": "android/app/src/main/res/xml/data_extraction_rules.xml",
+      "size": 1214,
+      "sha256": "68ff68780b2bf8655062d939abd116225c07594f2dbc3aa4e48ae1077ace52ab"
+    },
+    {
+      "path": "android/app/src/test/java/CombinedAddonPoliciesTest.kt",
+      "size": 484,
+      "sha256": "238a776ea79971911339766fd3589da7918025c0be884776019c5d0c11ca3e28"
+    },
+    {
+      "path": "android/app/src/test/java/Form15FormatTest.kt",
+      "size": 1784,
+      "sha256": "af72398a35636aa2b4e991a9584574b266db3154d2b1cf25fb0fd0c3ec02a19e"
+    },
+    {
+      "path": "android/app/src/test/java/JhRecovery19PolicyChecks.kt",
+      "size": 7643,
+      "sha256": "71d33c924032f1e4b7eac5629c3c7b1bfa5e0b5bf16eea5cbdde4706c32f977a"
+    },
+    {
+      "path": "android/app/src/test/java/JhWorkMemorySelfTest.kt",
+      "size": 20587,
+      "sha256": "ef742b0fd169c02a1302f7b5fa0f712dce5d05d3ef9e2ee1933956cf15f3900b"
+    },
+    {
+      "path": "android/app/src/test/java/SplitComfortPolicyChecks.kt",
+      "size": 5498,
+      "sha256": "6786a8b44308e1ccb72d392ec4986572d70b646a99653e6dba3b84595b05cf3c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/AgentDisplayEvidenceTest.kt",
+      "size": 3084,
+      "sha256": "3f9a1ec5e91ce4884d227ebf3dedde4d7d4006c0d32f948bd0568e6e414198b2"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/AgentFocusPolicyTest.kt",
+      "size": 1419,
+      "sha256": "f03e3acc8715b60b8f8eee6b0d38db3c464134260dac4cc7ede5cf3b9430c065"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/AndroidComputerUseActionApprovalFix6Test.kt",
+      "size": 5921,
+      "sha256": "ec03f5b3430db3934a7207107249a636940eb774f8d8b37c1b7ccccc8ca69ae1"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/AndroidComputerUseFix7Test.kt",
+      "size": 201,
+      "sha256": "0b4ca29ac8fcec18ecb31b447086dfa2b3fd644312ef63728fcec70fc1e41fb3"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/AndroidComputerUseLocalPromptCandidateTest.kt",
+      "size": 219,
+      "sha256": "017116f3ef670b29c33cf3f5bece817958b8864a15fdabbcd31ab86f02e9a910"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/AndroidScrollTargetPolicyTest.kt",
+      "size": 176,
+      "sha256": "cc6abfb00099433bd95c47013c22a38f575cc80f00125dc376b8d420bf4fc9e5"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/ChatGptReturnPolicyTest.kt",
+      "size": 4095,
+      "sha256": "97c2305df5ebce0ed4deee43f2bca434d07cb95dee926525ccbf38ef8dc8d5df"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/ChromeOverflowPopupCompletionPolicyTest.kt",
+      "size": 4866,
+      "sha256": "be4b714b5798bed32374c167e9e6754cd9bce044c4641f13ce04ffe10ebf7b2d"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/ChromeOverflowReadbackConsistencyPolicyTest.kt",
+      "size": 4876,
+      "sha256": "149ef92c83dfee3f1d5106ee04dd2ee3f67f2ba9f8453f46b2328f69347b0e2e"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/CircuitExecutionBoundaryChecks.kt",
+      "size": 9212,
+      "sha256": "2401c54311fe718eef20e03772368ac6c129dba673bd0f94cfb26f9280a3fb2b"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/CircuitRecoveryChecks.kt",
+      "size": 12241,
+      "sha256": "2cbb13ea40df36b60ed6366de835826ce33922b4b95abc761fc19fcff81e60e8"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/ClickOcclusionEvidenceTest.kt",
+      "size": 4931,
+      "sha256": "f1068bec03af788d6b1793047f211b87a1880baaabf240f63e8e00c5df3d2d8b"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/CommandFenceFix4Test.kt",
+      "size": 2578,
+      "sha256": "e30c40dfaa343e066fcdff8b461d948bd4179fcdb05efdb641a583011daf6f65"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/CompletionDeliveryTest.kt",
+      "size": 5140,
+      "sha256": "154496cb52273a7dd5e701443e34f6ec8e62a09dcdcd4d61f2971c19b8f54a58"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/CompletionResultRedeliveryPolicyTest.kt",
+      "size": 2794,
+      "sha256": "0c57a16f15164989b48c58d9a8cafe9a3a1e082810460db22ea7a2eef72db70a"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/ComputerUseAutoApprovalPolicyTest.kt",
+      "size": 2189,
+      "sha256": "6bd6a94d6b6abeb6ff8f69b718409320a6c08fcde82163affed25fc21f02e214"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/ConflictRulesTest.kt",
+      "size": 10812,
+      "sha256": "c8666536ddc774148b11d460b55629b951ddd38edb0bc96b4d11c7c8dff60436"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/DispatchAuthorizationTest.kt",
+      "size": 6151,
+      "sha256": "4ae27b7473ca2920ed58f8f0c31e357f0589ed498cf1acaa1ecbfcd46b27fe79"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/ExtendedApprovalVerificationTest.kt",
+      "size": 12185,
+      "sha256": "1d967620a9b3590d33129365d6fa8fc7948aaf63e1009c7c67e9393ff072b26b"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/Fix7ApprovalChecks.kt",
+      "size": 14500,
+      "sha256": "1b3bcd4b2acb07cef056987a38c7a8250adb35e6e8ab0243b4572fd1ea00db3e"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/Fold8PaneUnifiedV5Test.kt",
+      "size": 3569,
+      "sha256": "40795919c88d76614242af315ea643832f7bb8b90a9a4604b07b89643ed4076c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/Fold8R1R3R2BatchRepairTest.kt",
+      "size": 4506,
+      "sha256": "d491219e72d5381550f96f60af8ee1442e6fc1cdc875693c2f55c83ad2732bb6"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/Fold8ScrollReadbackPolicyTest.kt",
+      "size": 1759,
+      "sha256": "b328e1ae42c4313c14665c0ec6452daee6492c41c69eb825bfa3dfa4ad9d89db"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/FoldableScrollStrategyPolicyTest.kt",
+      "size": 2973,
+      "sha256": "b4227b446073dd86fe1196751e94ccbf2239247528a570d8fdab86b9e745444b"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/FormPolicyTest.kt",
+      "size": 2181,
+      "sha256": "89ee702c9fd1284e6d09e04c4a5499df50b086f2f7b39fe6a2bc5b7329444f6f"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/GeminiLocalSubmitReceiptTest.kt",
+      "size": 2965,
+      "sha256": "5e90727c1ef6c41c2464c191d26985cef4e0c7e3ee66e187b1487f22df639186"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/GeminiRightCommandPolicyChecks.kt",
+      "size": 2207,
+      "sha256": "d8b4203872e4350741c229f5d1434aac002f7e9c2ce3a7520127d0f3d423b433"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/GeminiRightCommandPolicyTest.kt",
+      "size": 649,
+      "sha256": "95876e1edbe5f56db891f89497528ce207b6960bd28d573282b921b71a01e42c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/GeminiRightPanePolicyChecks.kt",
+      "size": 2186,
+      "sha256": "a779aa84ff56e33c41bf5a861605851f9d07af93f6575ad7bd567873597e2cdf"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/GeminiSubmitReviewChecks.kt",
+      "size": 7275,
+      "sha256": "da3cee5b0e53a59f5040e65c08830293cfd63125179a6a26ebccbcea8d58e2c4"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/GeminiSubmitReviewTest.kt",
+      "size": 258,
+      "sha256": "b146f7866632511d9e3b2b575c0dcfc106dfac1c1af84c912a29c3aff8410e57"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/InputReadbackPolicyTest.kt",
+      "size": 1493,
+      "sha256": "4cbfa2195f2544e82ff138ac633e1b3d1e8f8f0a3c3e30e857eba7ca676b5e80"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168HorizontalScrollPolicyTest.kt",
+      "size": 8501,
+      "sha256": "ec220478b11e37024fe12084606ff28fd68e3d199053ab175b2b4021e16d4515"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168InputFocusPolicyTest.kt",
+      "size": 2107,
+      "sha256": "1afa3cd0324d3e0a56a23cb316025c99674a5fa297a9ab92e17c414efab22c50"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168NestedDuplicateAnchorTest.kt",
+      "size": 2707,
+      "sha256": "1c0e6aa04c3d242f717df75676f865cb9628319da9d9740bf78284f81019ae8c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168NestedScrollPolicyTest.kt",
+      "size": 6818,
+      "sha256": "959e150050993710164bddfee21fc38a7e11ae3f5f0438ac85f113b5993193a2"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168RightVerticalPolicyTest.kt",
+      "size": 5581,
+      "sha256": "32a31c3f300090f5cad91c6c55bbb2168d44c36192fcc83a92d87c3fd006a050"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168Stage51SelectWindowPolicyTest.kt",
+      "size": 3173,
+      "sha256": "8288346acd7f396d787af08bfd1b1edf0b63bd5d910a9e76a5ee7ed22b057bef"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168Stage54PopupObservationPolicyTest.kt",
+      "size": 7182,
+      "sha256": "c4481cd6d65716e37274004f80c488791f8f7b0d834b60cdf2f50c34d326f8f7"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168Stage55PopupPairPolicyTest.kt",
+      "size": 4829,
+      "sha256": "7aba5b2989e6813f44aebe65dd0eabbb4a96ae1c95d10bc2a64ea816e856bc9c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168Stage61ApprovalIntegrationTest.kt",
+      "size": 1830,
+      "sha256": "c0054ff176cfd38a7566b7ee76c879c4b6bd3dd627653d6d65f1aedc9d2092d8"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168Stage61BridgeIntegrationTest.kt",
+      "size": 2251,
+      "sha256": "4b0fa855c3670f1e30df02c52692d993422f76311c5622df1c25fc56b2e00822"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168Stage61RightPaneRouterTest.kt",
+      "size": 9878,
+      "sha256": "9eaebe6de2fa20e1a2ebc02bf4a50adca171b95d82d25f466f508fbb35e313f7"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JH168Stage62NativeSelectOptionPolicyTest.kt",
+      "size": 5275,
+      "sha256": "4c209a53411f97ce9194712d3755851360ef55a709f4b5cdc6d47c4ef9943da7"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/Jh145FinalReconnectPolicyCompatibilityTest.kt",
+      "size": 2625,
+      "sha256": "07d34a1f7b2050f07376d57a5ad024cba9bacf82d9783489078f708017cf1de8"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/Jh155IntegratedBoundaryTest.kt",
+      "size": 2770,
+      "sha256": "e2b4b10879eb32062c5739d20274df7e301d90af87aef4f6e0a1dec58d7533d2"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JhApprovalAutomationV2SimpleTest.kt",
+      "size": 4929,
+      "sha256": "3c6445c9fd8fb2713463ee5794da396ce510bdfb88b30f4e93cf413ef5af6ba3"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/JhWorkMemoryResumeSmokeTest.kt",
+      "size": 1999,
+      "sha256": "15697bc8898e95f35f06ed3831bf6408b07dc79722c0d25fb79ce00554e62308"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/KakaoAccountOcrEvidenceBoundaryTest.kt",
+      "size": 2832,
+      "sha256": "a03b76c91ad9595c6d7a1204dd313fba52b3340fc1e8a4792e4e4202a11e45f9"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LastWorkReturnPolicyTest.kt",
+      "size": 6842,
+      "sha256": "7bd760706be5d5bc869d8e5db76e9133a376f95c0fd83e3f800fa310fd4f2cc1"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeContentRecoveryChecks.kt",
+      "size": 15827,
+      "sha256": "c2373b4c1fbe7c2e307e1607e14f1dfd7501268b5988b224ed14ed809de2e30b"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeContentRecoveryTest.kt",
+      "size": 253,
+      "sha256": "094c2184837ba3cdc6ad2a8d145eadbf16697e17ff88290ad901aab77083db91"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeContentTlsProbe.kt",
+      "size": 6481,
+      "sha256": "888d2504cbf8e77d7b079d88e56b74d1b394c2b77d3a25cb8d0b4953c5939a8f"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeContinuationChecks.kt",
+      "size": 9390,
+      "sha256": "54763398db50f512b49fab666faa36ea23896a778be5bd286d109afcd997fb7c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeContinuationTest.kt",
+      "size": 359,
+      "sha256": "eade32f4fd44ebc3850149247c18dc9e1650978617e0b450fa62b220e7329244"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeContinuationTlsProbe.kt",
+      "size": 5487,
+      "sha256": "c7abf2319ef9518a07c73bec721dd6ef5f2d192c7750bea121b87a0c60164bdb"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeExecutionRecoveryChecks.kt",
+      "size": 19138,
+      "sha256": "e9891b644c8755dfa2d9f33d500bff311e76cf5e650ca6edef40129cafa56cff"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeExecutionRecoveryTest.kt",
+      "size": 158,
+      "sha256": "72209b1389732579ee61a81a7851ffe2c478c3938005124edd070bd49377f677"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeExecutionRecoveryTlsProbe.kt",
+      "size": 7599,
+      "sha256": "3f0a1b60fe7d455dc3ca92ef2ea8b14e9383b48640aba83a520ec5e63c31ee87"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeExecutionRuntimeChecks.kt",
+      "size": 9038,
+      "sha256": "3bab199a13306a2f91032b9ac4ceee6f2c0cacbf737070baa9e21e6be33e382d"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeExecutionRuntimeIntegrationTest.kt",
+      "size": 292,
+      "sha256": "8974230fa8e8a7111ba6c4f82cd254a643a56d4ff1239ec8cc3ace286479b711"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeExecutionRuntimeTlsProbe.kt",
+      "size": 8970,
+      "sha256": "f6a2519506f8a9907aa72aafa4b32ed0db33a496e61e5e35db3ace42860ccc1b"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeGptWireTest.kt",
+      "size": 1089,
+      "sha256": "9db202af1d35a51b8ea72ac54ea9a24a79cc4386c6c233e65d38c56c073736dd"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeHostControllerTest.kt",
+      "size": 10758,
+      "sha256": "fba91ad9e901e6133e5077cdaa74d24a21a9f7af016ee018332a189d7bca31c2"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeJournalProviderIvTest.kt",
+      "size": 2046,
+      "sha256": "01a3a33a66b5da9506d9172f234aebe6932276ab5f8db99535a76a4a21da680b"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeJournalTest.kt",
+      "size": 5629,
+      "sha256": "d90e4e983d90774352d6ec4203ea1fb259fe6470cfd67ed163e0d4a642c978b9"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeNonExportableKeyTest.java",
+      "size": 5261,
+      "sha256": "4f1f5c73ddb896b1fb2904f6c7e88de0c3cb5853f6afbe5a1604724f8881a1f2"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeProviderReleaseTest.kt",
+      "size": 4643,
+      "sha256": "b4d3acc11128622642eb6fb8a0f3d49a0ca36912da82669309f84caead7d6bbd"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeQueueChecks.kt",
+      "size": 7868,
+      "sha256": "bec696ac39587e14cf096e2a3103d4b2ef41bccdf06525870c185d9f2e531b79"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeQueueParallelChecks.kt",
+      "size": 2070,
+      "sha256": "56ac64d37476a9e32cca3ad584ea7f00d57a413b10c840dd311819ba9ccc748d"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeQueueTest.kt",
+      "size": 301,
+      "sha256": "b1ae0f81fc64a27627b7500dbedc411427c602223b501f3201b3e035f56ff487"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeQueueTlsProbe.kt",
+      "size": 7428,
+      "sha256": "6bf5987a392ff9b5c62d55ea79022c95fd575c50761ab015c4772288171094c6"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeRegisteredDirectoryChecks.kt",
+      "size": 5231,
+      "sha256": "063cd8e06d4e6aff5a0b4b6bfa4a17ec2881239c587820e6c2bd898223c3cfde"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeRegisteredRuntimeTlsProbe.kt",
+      "size": 8450,
+      "sha256": "6af43eef4693d7e2a73cbe88bc63d3f17b31b792ca6fda249943a4e7f6611b04"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeRemoteTaskChecks.kt",
+      "size": 6993,
+      "sha256": "6ebd2e155d2dc5e75d306f8d9ca9c4c7bc53934c81db1fd56fd6e67d0560aea6"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeRemoteTaskIntegrationTest.kt",
+      "size": 264,
+      "sha256": "267404fe017747dda837fdd862969a9df99aba0dfe0e74efac86838f34ef6dac"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeRemoteTaskTlsProbe.kt",
+      "size": 7844,
+      "sha256": "98eb8b58d366918e3658bdf2ac602170819dc12d344e0a329ecad637964fc78a"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeSavedTaskResumeTest.kt",
+      "size": 12624,
+      "sha256": "404e8d179495a0e02ce3e8a5236365478e450e7cbfe5d364894fb27678f05b1a"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeSkillsIntegrationTest.kt",
+      "size": 14188,
+      "sha256": "424d8fcbba53cf19ec6720aaf3ba318ab1e80787643ed43bfc1f144ae4b41b1a"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeWorkerChecks.kt",
+      "size": 8626,
+      "sha256": "e42af102145ced7b449bd636b2ce9f8361d3060288ce13f67762962014c056d3"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeWorkerTest.kt",
+      "size": 228,
+      "sha256": "efe6fd5ff5dac4ab7716197c8c312cf1aa45e7d190f14e9f5221ae933717b294"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LifeWorkerTlsProbe.kt",
+      "size": 6110,
+      "sha256": "30728a6702c6bc1a4a0a177741fe20ced514b5a8b9e6eba33ec53e6393d1d47c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LinkInputRegressionTest.kt",
+      "size": 5022,
+      "sha256": "352abd8f4a4df36fb4519fe197b7050dc9057051db3d696ca0b2302f642a7729"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LinkPercentPaneIntegrationTest.kt",
+      "size": 780,
+      "sha256": "3f6674fe66aa61c6b4bd4d8b1a2fb5c0962ec39c0ed8ce0a0553665726bd19be"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LinkPercentRegressionChecks.kt",
+      "size": 6711,
+      "sha256": "f76999df488d6fa422c248ecce72dc1ccc4457c10bc444156ab9903e8555f436"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LinkPercentRegressionTest.kt",
+      "size": 248,
+      "sha256": "3dd3f7c0248acbbe08b52eb584013a236db454455cafd942edcad0dde1fffb51"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LinkPolicyChecks.kt",
+      "size": 6867,
+      "sha256": "b23120eda282a55c365241fa2acddbb3eb06b4ae9d5d965002ebe5eaf40f36f0"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LinkPolicyTest.kt",
+      "size": 207,
+      "sha256": "68989d5b9336faf4710c880b72aa7fdfd3b66d416be0b11bb6f98de7bd81c790"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/LocalPromptCandidateChecks.kt",
+      "size": 8485,
+      "sha256": "7e6e6079f7e917bd11c36c3b7fe8d397746cba80fd2a398ccf9f9bebff0fd62c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/MemoriaConnectorPortChecks.kt",
+      "size": 10323,
+      "sha256": "cb378352b2d51c3f69fb3d1a35efc9932760999201492642c40b1ac2e98087b5"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/MemoriaConnectorPortTest.kt",
+      "size": 182,
+      "sha256": "7bb752f39ea59990a970f1349b15aaf07bfa9ea958729d8678ff69ccb7f00c57"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/MemoriaReadbackIntegrationChecks.kt",
+      "size": 26160,
+      "sha256": "de96218cfe8cc6471051856a190c7a24c2e5c5ae77c100e13335be1f9a43bfd6"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/MemoriaReadbackIntegrationTest.kt",
+      "size": 9494,
+      "sha256": "dfa71911ad9c49eee98e2bdbfaa0d3b61022b72355b32d16c4c10164aad7d407"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/NativeSplitTransitionFix6Test.kt",
+      "size": 3042,
+      "sha256": "1ecaf268fd37161ce75fff258f2fc331f23d620a821a7cc27cc57298ab210106"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/NativeTaskLaunchPolicyTest.kt",
+      "size": 1811,
+      "sha256": "8aee1982df915a2c42b164d13452d8b4b63480701c54f6b212f2e736d228a510"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/NewCommandPriorityTest.kt",
+      "size": 5586,
+      "sha256": "c2ede33f6d1d911ac1a21ae12282fe713b359560528758aa9fa217a13f23ef99"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/OneShotLocationMemoryTest.kt",
+      "size": 1446,
+      "sha256": "8df28f63ce535b8adbb19054aedb216fd28671da6ae97b203444c14db711ac3a"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/OneShotLocationPolicyTest.kt",
+      "size": 1904,
+      "sha256": "bdf62cae85fde781509338a00a4f423e648ffcd84f0aebc011959eab54c47aa8"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/OrchestratorCircuitRecoveryTest.kt",
+      "size": 7849,
+      "sha256": "92ded976f761becc977f84b439119a14c619701bc7462025d767251e5115e4dc"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/OrchestratorLifeRegisteredDirectoryTest.kt",
+      "size": 283,
+      "sha256": "fa4078a6cb4ba04aff63398f6406603a70936626966a949edf37c6ee2fdc6013"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/OrchestratorMcpWorkflowBindingTest.kt",
+      "size": 2112,
+      "sha256": "4e5a55bdd02af4290ebf9e0d597b9777501d76140fed1142e9c3c6eb9df6487e"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/OriginalChatReturnSessionTest.kt",
+      "size": 6089,
+      "sha256": "6e8eb1f0a13aa979bc047764ed26cbd13fa9168edade947986b7a477bbf111ae"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/OwnerEnrollmentClientTest.kt",
+      "size": 21306,
+      "sha256": "b79599cc61bda1804b3b6c30b5338ee114dd74a778864ec0d5cc8414e46de01c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/PairingResponseTimeTest.kt",
+      "size": 5743,
+      "sha256": "714be3430eff4b192a1baf6d2f49ad7255577bdefb1fdfeac2e654f0d78db850"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/PanePolicyChecks.kt",
+      "size": 6930,
+      "sha256": "802b6ef7e700cc9e3399e339be0c7a06651b9e2a696646837d2353b5a973ff8e"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/PanePolicyTest.kt",
+      "size": 203,
+      "sha256": "0c1afc590cc2c473135d5c4ca982e18d7e06882f4dbbf5502f278d65e34163d8"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/PaneRootRedirectRegressionTest.kt",
+      "size": 1640,
+      "sha256": "b987057328e2af5908be057f5f12267fc5bb92809daa7a59d7a01933e2727c7f"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/RightPaneBackResultPolicyTest.kt",
+      "size": 3914,
+      "sha256": "d2c2014e822eca2eba7bbba30d511cad7625da7b7966b75954aa7ec0b77cc13c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/RightPaneContextEngineTest.kt",
+      "size": 14871,
+      "sha256": "8a0dc6262dc3512ab5337dd7d8259ef8c22826cc9e2f400dbd191cb972cd617b"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/RightPaneFreshStatusTest.kt",
+      "size": 8636,
+      "sha256": "6c201876c46220aeb9a11f2126da2b225c6fd2d08fa706c858b0d236e8c83f00"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/RightPaneManualStepRecoveryTest.kt",
+      "size": 4439,
+      "sha256": "5e01ee884ec4ecc2ed5e2d58507564f29ad3eef404bdb984e48c0d2a365e7484"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SamsungSplitAppPickerFix9Test.kt",
+      "size": 2154,
+      "sha256": "da88ed8711273be39481c18814a47394050313386becbdfa5a9310b764261be5"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/ScreenConsentFloatingGateTest.kt",
+      "size": 1256,
+      "sha256": "3c08dfe9a6f58598ddcb6e72dc08fd4e5567f483ba0eed60e94504f2d978e873"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/ScrollTargetFix9Checks.kt",
+      "size": 9568,
+      "sha256": "3dcc679096dd2a68a00c6ea71a3b8116bd633349806219ae5df47f11fd01f56d"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SecureCompletionCorrelationTest.kt",
+      "size": 3181,
+      "sha256": "8dc37126c609fbc014863b1e2f6d48e7c0feb07cb5e23f681707b7121a7abf22"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SecureDigestFix5Checks.kt",
+      "size": 9085,
+      "sha256": "66874716762001d8ecdee2a59b64ada235404f925f76e04619c4bb8990a2c25b"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SecureDigestFix5Test.kt",
+      "size": 565,
+      "sha256": "d76a81b8d2c2d76f8312c7547214ba2ee9724b1ff2c5aecef9688ccb3114adb1"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SecurePairingFlowTest.kt",
+      "size": 12416,
+      "sha256": "232995acbae1db69dc1ac91c54f6aed17e3879baca10810949241c395af33363"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SecurePollRepairTest.kt",
+      "size": 4818,
+      "sha256": "b93e62000838eb3edd284ec176c52120df105c290a4572fce1215fac4b64357d"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SecurePollingPolicyTest.kt",
+      "size": 5489,
+      "sha256": "0fe602a76cbbdc7ea280a383b80f56705794beda178de5804026cb0e02b042b0"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SingleAttemptSecurePollTest.kt",
+      "size": 5207,
+      "sha256": "4e8148a21f662f0a1025012d3257196ec89410608e89ffc4254d55886c38809c"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SiteDiscardTest.kt",
+      "size": 5034,
+      "sha256": "955526bf7241f944d74803d5983eae0ea4990b6e77a73ccfbbd18a2adece65bd"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SplitChatReturnFix5Test.kt",
+      "size": 3589,
+      "sha256": "617317e1fffe13c9222d8b1eee6247769fd15b2dea33d5c1c29fdb7571319247"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/SplitJobScopePolicyTest.kt",
+      "size": 1120,
+      "sha256": "c19a1636da47768ebe5642c6ef27989a03cd3ff89fa3c8d5f725cf61905d2860"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TripAgentTransportLocationOnceTest.kt",
+      "size": 432,
+      "sha256": "a43a79502fcf5d8f3a2854d9dc9dcbdabc087bdf692dd5ba8061e7fc93980760"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TripDecisionPolicyTest.kt",
+      "size": 1249,
+      "sha256": "ff72c5d14a0e453c2f45ec341f687be90931df96e94cde6ca5425d92d171494a"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedAutoRenewalFlowTest.kt",
+      "size": 6621,
+      "sha256": "87958de0ea8d775d2a7f683476c835156a0a68b3b91b2fa90b9b76e075b214f9"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedBridgeJsonTest.kt",
+      "size": 3437,
+      "sha256": "23a1ec6d4b4cb87633229780e5da06e8070cd847f5938911f6f61870eca5d404"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedBridgeReconnectCoordinatorTest.kt",
+      "size": 4992,
+      "sha256": "7532b0fa453f1b3c7867aa30569f03258026e7cf8a4b618e0024b07f9438fa30"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedBridgeRecoveryTest.kt",
+      "size": 9318,
+      "sha256": "248f031a956cd61923972cfef28c635af573ce211a9cd6e5a0e7ed5481d92f05"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedBridgeSessionClientTest.kt",
+      "size": 10333,
+      "sha256": "c24b420bb787967875750c0711fd6ff08b2082285804b2c9791f7a05cdb651cb"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedConnectionUseTest.kt",
+      "size": 3958,
+      "sha256": "532070396bdf698ac4810fc2c2bf0ca4b1eea64a348b70f1958b25ce5581b5ed"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedDeviceJournalTest.kt",
+      "size": 8276,
+      "sha256": "b2f5a05b5db075888c5db065fef81a1d83c3696dc6a0de268216076ae331824f"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedDeviceSettingsTest.kt",
+      "size": 17355,
+      "sha256": "836a024501f5cce69d9beb0c00e6a45d158579e8c0ee5f87b8cdef5488e81b72"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedProcessWireTest.kt",
+      "size": 3055,
+      "sha256": "d6e9f6ec388a03827e3340f5260fbb227475c3874add25cb4977b0164f5b097f"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedReconnectDriverTest.kt",
+      "size": 4894,
+      "sha256": "7ef84ffa5ddd958b55e28e2bdef2d9cee61ef15b8d186dd7c9fa0ca064b995d7"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedReconnectProtocolTest.kt",
+      "size": 9410,
+      "sha256": "30e1e188e366f754e9986449cf9cf11cc3dd669845eebebf23ce9e3e04a76dae"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/TrustedSessionRenewalTest.kt",
+      "size": 4491,
+      "sha256": "dffe35268cab9455c63a96a9aac1e0d2ba50e607b0cefb167ee404dc5b3ddbbc"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/VerifiedSystemWindowClickGuardRegressionTest.kt",
+      "size": 2466,
+      "sha256": "43be93068a8f8afc62f00c16c914315a67f306406987da38b625a956b7325cde"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/VisualOcrApprovalGateTest.kt",
+      "size": 1342,
+      "sha256": "f39c192eb69aefa98025c77c5261ea285209edebaa59611f0d0d42065f0d75fc"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/WorkPaneTouchableRegionRegressionTest.kt",
+      "size": 13899,
+      "sha256": "c6fed2a0ab812afaaf1dada72049444a8dd993e67cd4edeeac9ac87f68712351"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/WorkPaneWindowTypeClassifierTest.kt",
+      "size": 1672,
+      "sha256": "b7e2e46d1933e9399dc7232d5405057d4c3d7004a65b8546e1b82b49c71e7e52"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/restart/CleanRestartIdleCommandTest.kt",
+      "size": 841,
+      "sha256": "c4c3ccf70df7f4a75130434d2b4e5f99bb66544d78dd31ee3fc62f1fb5d050f8"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/restart/CleanRestartStateMachineStandalone.kt",
+      "size": 2624,
+      "sha256": "1b40e154471d3caaa66c4736e4092922b8953b6e91aea473c172b2f23ce37d35"
+    },
+    {
+      "path": "android/app/src/test/java/com/koreanlifehub/bridge/restart/NewCommandCleanRestartIntegrationTest.kt",
+      "size": 3752,
+      "sha256": "e3b182c4df7eaf94f11c45a3b7c53e7b739fc5d11b9e3300b24090b8bbe49432"
+    },
+    {
+      "path": "android/app/src/test/resources/memoria-readback/README.txt",
+      "size": 210,
+      "sha256": "bc2ccc09fd4711100ed640ef9199dbb18823f7aefed50e85e19ae576766f6dc3"
+    },
+    {
+      "path": "android/app/src/test/resources/memoria-readback/content-photo.txt",
+      "size": 925,
+      "sha256": "9239c0c8817b898d96721e9b5f87cf93f8fe27009f63aac44215ac34b2d25a58"
+    },
+    {
+      "path": "android/app/src/test/resources/memoria-readback/content-video.txt",
+      "size": 931,
+      "sha256": "c9deb8454b7593c98837852e13f353cbd310dbb04dd7a53e74be8176c2730577"
+    },
+    {
+      "path": "android/app/src/test/resources/memoria-readback/plan-photo.json",
+      "size": 2372,
+      "sha256": "c4754282e5a9c65ac92e07440c3564878d2557d9dd65d6c6043a86e854a5f976"
+    },
+    {
+      "path": "android/app/src/test/resources/memoria-readback/plan-video.json",
+      "size": 2384,
+      "sha256": "fc5b395572e8029d5331a9effe345470e1cd7bfd7300fbd0941c6fafb42e3dac"
+    },
+    {
+      "path": "android/app/src/test/resources/memoria-readback/source-photo.bin",
+      "size": 26,
+      "sha256": "a47afb1e23932a7699c7a68f268c5105b23bd7b582a3be47a468f0b0abf3da31"
+    },
+    {
+      "path": "android/app/src/test/resources/memoria-readback/source-video.bin",
+      "size": 30,
+      "sha256": "1ca170453719fbb7dfc9be63fbe7de9b7313cc520b2a3a5a97777debd473d81b"
+    },
+    {
+      "path": "android/app/src/test/resources/secure-fix5-golden.tsv",
+      "size": 2323205,
+      "sha256": "d3949d1c51226ab2644c6ccee5ad0243d453209e28adf78a2ed6d493f5ba387a"
+    },
+    {
+      "path": "android/build.gradle.kts",
+      "size": 142,
+      "sha256": "c2f78a85f1c8138cfbf017a76281b87a8aaf7d4a8301e2cceef0b809e5a84790"
+    },
+    {
+      "path": "android/gradle.properties",
+      "size": 103,
+      "sha256": "fa078c27c9e4bde28a029d673875b028884505efa436b68cf60e1ac0be5b679b"
+    },
+    {
+      "path": "android/jh-ebiseo-merge-state.json",
+      "size": 5869,
+      "sha256": "f76d56f54451556ea9dfdf2e13e172eeacd157a6938c4a612cb6cd69ebbeb1a9"
+    },
+    {
+      "path": "android/settings.gradle.kts",
+      "size": 279,
+      "sha256": "43bd81d67c43a757c66bb47e6575a22cbac53ac59766aad8462ae68cdabec81f"
+    }
+  ]
+}

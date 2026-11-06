@@ -1,0 +1,171 @@
+{
+  "verifiedAtUtc": "2026-11-06T04:06:29.787597+00:00",
+  "scope": "Exact candidate 463 files after actual full build invocation; read-only integrity check",
+  "manifest": "/workspace/scratch/0100362999b0/ebiseo-armed-0.5.4/EBISEO-AUDIO-SOURCE-MANIFEST.json",
+  "manifestSha256": "d6c9485bbe9c6302b25795fc1f5c3c4d3c5b891b70b9426be3e705f9a422d200",
+  "expectedFileCount": 463,
+  "actualFileCount": 463,
+  "matchedFileCount": 463,
+  "missingFiles": [],
+  "extraFiles": [],
+  "mismatches": [],
+  "symlinks": [],
+  "excludedBuildOnlyPaths": [
+    "android/.gradle/**",
+    "android/.kotlin/**",
+    "android/app/build/**",
+    "android/build/**",
+    "android/local.properties"
+  ],
+  "status": "PASS",
+  "buildResultSha256": "91fc09ca7c604f76758e1560de200222b0789792ca3a2b79e1d2f33d133dfc68",
+  "secureBaseBinder": {
+    "path": "android/app/src/main/java/com/koreanlifehub/bridge/SecureBridge56.kt",
+    "sha256": "cecd15e6a254ad6d5c023cb0efb6c627a65b41ec0b8dc2c30611eafbfa38e4bf",
+    "matchesV053": true
+  },
+  "unchangedAudioProductionFromV053": [
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/EqPresets.java",
+      "sha256": "c25d3f9897c12f25d9c86a8f0f0755888a6cb35cb90e0732120e8df2c91cc76a",
+      "size": 5543,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/EqTone.java",
+      "sha256": "9ee2c008016ca2fe2255da34314c1b1c41689cc355a10857537585d091d6f062",
+      "size": 1270,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/ListeningEnvironment.java",
+      "sha256": "c61faddb86b2e54dc2414245310c3b05fce9a6c814d126818cb0d8c6ab887fb5",
+      "size": 1448,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioCommand.java",
+      "sha256": "e47e62a55c020fd7229d305954567cf6ad0a4969ac5cbbac360e85ca22e6b0ca",
+      "size": 7003,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioExtensionCatalog.java",
+      "sha256": "5972c0f2e2f7be69d4b372f5ea53cdc6c82d47443031bdea795aa28e214cae3c",
+      "size": 885,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioExtensionPolicy.java",
+      "sha256": "9eaeedf06e12440823292bda0bc88f0a7a9945d9799eb50b4dc627f064ac93ad",
+      "size": 4390,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioRemotePolicy.java",
+      "sha256": "ed34a4e60e4708beefe1da3f6609af5d25dfba2e695cff15712dab6dbbcb35af",
+      "size": 1297,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AutoSoundCoordinator.java",
+      "sha256": "5ba95bc4c6232b3efa56f3d70bbddfb720da7e312bcc64d2859535786e89b2a4",
+      "size": 23943,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/CooperatingSessionRegistry.java",
+      "sha256": "7ccea81b2a3487cc1bc9c15f59d40bcc9a6d41f132af106017e47df0fe1da6fc",
+      "size": 16426,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/HardwareEqualizerPlan.java",
+      "sha256": "2a828ca9b24786b30da2797184e2f6af5521ab1d893e5839103827778f965b5d",
+      "size": 1898,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/KoreanAudioCommandParser.java",
+      "sha256": "43e86c5e897488ab4eca0fe8824012983df6e053643eeda6c42befb19bbcad0a",
+      "size": 6406,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/AtomicAutoSoundStore.java",
+      "sha256": "a7073fd19faec683fd726ed795133b577c59681e802b0fde370bb5fd18902ff5",
+      "size": 10100,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/AudioEffectPort.java",
+      "sha256": "733f5cfdf5e157cc9ce7311a92b9f887aee80089f7db0347877d166c781f5ea2",
+      "size": 2190,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/CooperatingAudioSessionSource.java",
+      "sha256": "925aaef699f3fcbcf0e376fb2b40c6566a2d1e11510dce7da75065333edcd0ec",
+      "size": 20955,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/TrustedPlaybackSource.java",
+      "sha256": "ede75972ac6dc323b34428ad3e29f8b1c748a5a70f2c4fb04e0dadf9dde24874",
+      "size": 1283,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/VerifiedAndroidEffects.java",
+      "sha256": "9134e7e6f0ca952f7a6e02b869084c77ce80b76e495838c46eca2b014c830248",
+      "size": 11189,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/YouTubeMusicNotificationListener.java",
+      "sha256": "0a3f473bb0a36ca5c4b4827551037192dab9723560978c9d5beadfeb817bde8f",
+      "size": 4327,
+      "unchanged": true
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/YouTubeMusicObserver.java",
+      "sha256": "094e94dff9761b23254c00e2b2a89b1993a17a03caa8df117c855034ec0f6db2",
+      "size": 17428,
+      "unchanged": true
+    }
+  ],
+  "changedAudioProductionFromV053": [
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioCommandDispatcher.java",
+      "sha256": "0d4e0e391d09a8dc3f8f00ae5a67b314286765f3a18c3c5f1db56f3e80272ae3",
+      "size": 11573,
+      "unchanged": false
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/AudioStartPolicy.java",
+      "sha256": "eb15122691b953c68536505e637ff7e6f5dba9ef8bef41dfdab3d0bda183ba41",
+      "size": 3117,
+      "unchanged": false
+    },
+    {
+      "path": "android/app/src/main/java/kr/jh/equalizer/auto/android/AndroidAutoSoundRuntime.java",
+      "sha256": "2b8c1b64029622866652bbec511cf3e7319595ffbc1f6d8c50ff025a7cdbaf13",
+      "size": 35177,
+      "unchanged": false
+    }
+  ],
+  "comparisonWithV053": {
+    "previousFileCount": 463,
+    "addedFiles": [],
+    "removedFiles": [],
+    "changedFiles": [
+      "android/app/build.gradle.kts",
+      "android/app/src/main/assets/jh-release.json",
+      "android/app/src/main/java/kr/jh/equalizer/auto/AudioCommandDispatcher.java",
+      "android/app/src/main/java/kr/jh/equalizer/auto/AudioStartPolicy.java",
+      "android/app/src/main/java/kr/jh/equalizer/auto/android/AndroidAutoSoundRuntime.java",
+      "android/jh-ebiseo-merge-state.json"
+    ],
+    "sameFileCount": 457
+  }
+}
