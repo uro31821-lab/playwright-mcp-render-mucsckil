@@ -1,0 +1,40 @@
+name: JH Kabiseo full generated MCP candidate
+on:
+  push:
+    branches: ['kabiseo-camera-metadata-v05-20261105']
+    paths:
+      - 'host-kabiseo-assist/server/generated-mcp.integration.mjs'
+      - 'host-kabiseo-assist/server/source-patch.mjs'
+      - '.github/workflows/jh-kabiseo-generated-mcp.yml'
+permissions: {contents: read}
+concurrency:
+  group: kabiseo-generated-mcp-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  generated-loopback-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false, path: candidate}
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+          path: baseline
+          ref: 0663e0c3b434f300803e5cf272609032a5e519d3
+      - name: Restore original locked dependencies with install scripts disabled
+        run: |
+          set -euo pipefail
+          npm ci --prefix baseline/jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix baseline/jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          git -C baseline diff --exit-code -- jh-server/owner-setup/package.json jh-server/owner-setup/package-lock.json jh-server/owner-setup/owner-enrollment/package.json jh-server/owner-setup/owner-enrollment/package-lock.json
+      - name: Run complete generated MCP with synthetic trusted device on loopback only
+        run: node candidate/host-kabiseo-assist/server/generated-mcp.integration.mjs baseline "$RUNNER_TEMP/kabiseo-generated-mcp"
+      - name: Retain protocol evidence (no APK or keys)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-generated-mcp-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-generated-mcp/*-result.json
+          retention-days: 7
+          if-no-files-found: warn
