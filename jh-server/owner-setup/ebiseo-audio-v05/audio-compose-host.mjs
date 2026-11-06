@@ -14,9 +14,9 @@ export const SOURCE_PINS=Object.freeze({
   releaseBuilder:'d325cea91d52523f32f63d7997e379a7e70031cd8e1f4708101d6a7c6cda04f5',
   releaseBase:'3c30c9fc22aec99bcac0cbc86104bb435f43eb065e62e8923e6b81439415b13c',
   publishedRouter:'9fd56e6cf08acd9fdad98ba3d0756492b7b3185f9b321a3b6035eb9f26cf2b71',
-  owner:'59f2ad4c18b983c702cd9fd9cab6d7b7fd2ec16cd899293da1cfb6b2412acbf0',
+  owner:'0f655d046757ace74145da9c3a76901ec4930e186e8ed273361be1cae3d3d39c',
   unified:'bc6040e48f3ac17c5c40e8b62c56a4bb6b966b9ec720548c259d1459f3946f7b',
-  operational:'7050abbe33a8a043cd8d6eb3f6a9b9ea1721fef06f7f6a0a4aa2b01dbf5b1ad7'
+  operational:'05d6d6262a69c8fa623f8fb573e0a7e148b786c4bc00fa68f940161d3ffec4e1'
 });
 const MODULE_FILES=Object.freeze(['audio-contract.mjs','audio-extension-catalog.mjs','audio-release-authority.mjs',
   'audio-capability-authority.mjs','audio-durable-policy.mjs','audio-completion-fence.mjs',
