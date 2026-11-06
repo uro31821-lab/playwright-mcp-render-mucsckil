@@ -22,6 +22,7 @@ function Run-Case([string]$name,[string]$policy='',[scriptblock]$prepare={}){
     try{$data=$text|ConvertFrom-Json}catch{throw ('INVALID_RESULT '+$name+' '+$text+' '+$errorText+' '+$output)}
     Check (-not $data.phoneAccessAttempted -and $data.cameraObservation -eq 'NOT_RUN' -and -not $data.securitySettingsChanged) ($name+' no phone/security mutation')
     Check (-not $text.Contains($root) -and -not $text.Contains($env:USERNAME)) ($name+' result has no user path')
+    Write-Host ('CASE_RESULT='+(@{case=$name;exit=$exit;report=$data}|ConvertTo-Json -Depth 6 -Compress))
     return [pscustomobject]@{Data=$data;Exit=$exit;Root=$root}
 }
 try{
