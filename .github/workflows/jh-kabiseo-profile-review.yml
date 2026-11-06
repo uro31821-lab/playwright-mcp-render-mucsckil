@@ -1,0 +1,38 @@
+name: JH Kabiseo offline camera profile review
+on:
+  push:
+    branches: [kabiseo-camera-metadata-v05-20261105]
+    paths:
+      - 'tools/kabiseo-profile-review/**'
+      - '.github/workflows/jh-kabiseo-profile-review.yml'
+permissions: {contents: read}
+concurrency:
+  group: kabiseo-profile-review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline-jvm-fixtures-no-camera:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve runtime hold and previous server Android sources
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 27e66dd91e71b13229f4056cb9fe4204542ca7f5
+          # Documentation/checkpoint updates may record this result. Protected executable
+          # inputs and policy must remain identical to the last reviewed candidate.
+          git diff --exit-code 27e66dd91e71b13229f4056cb9fe4204542ca7f5 HEAD -- jh-server host-kabiseo-assist/android host-kabiseo-assist/core host-kabiseo-assist/integration host-kabiseo-assist/server host-kabiseo-assist/tools/runtime-proof
+      - name: Compile with existing JDK17 and test offline fixtures only
+        run: KABISEO_PROFILE_EVIDENCE="$RUNNER_TEMP/kabiseo-profile-evidence" python3 tools/kabiseo-profile-review/run_tests.py
+      - name: Verify protected source readback
+        if: always()
+        run: git diff --exit-code -- jh-server host-kabiseo-assist
+      - name: Preserve result JSON only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-profile-review-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-profile-evidence/profile-review-result.json
+          retention-days: 7
+          if-no-files-found: warn
