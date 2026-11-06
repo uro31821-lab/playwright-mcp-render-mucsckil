@@ -28,31 +28,6 @@ const deny=code=>answer('DENY',{code});
 export function durableNativeJobPolicy(job,payload){
  if(!object(job)||!object(payload))return deny('DURABLE_PAYLOAD_REQUIRED');
  if(payload.containsCredential===true||String(payload.dataClass||'NONE').toUpperCase()==='SECRET')return deny('DURABLE_SECRET_FORBIDDEN');
- // KABISEO_EXACT_METADATA_POLICY_BEGIN
- // This is an exact read-only protocol route, not a bypass for unknown jobs.
- // The existing signer/completion verifier and Android command/profile gates
- // still apply. No pixel, gesture, shutter, attachment or restore grant exists.
- if(job.type==='kabiseo_camera_metadata'){
-  const fields=new Set(['requestId','taskDigest','taskId','commandId','action','cameraTargetPackage',
-   'mcpToolName','secureRequestedEffect','targetDeviceDigest','secureInvocationExpiresAt','containsCredential',
-   'dataClass','effect','index','viewportWidth','viewportHeight','scrollX','scrollY','waitMs','maxActionsInCall']);
-  const hex=(v,n)=>typeof v==='string'&&new RegExp('^[a-f0-9]{'+n+'}$').test(v);
-  const exact=Object.keys(payload).every(k=>fields.has(k))&&
-   job.mcpToolName==='life_android_kabiseo_metadata'&&payload.mcpToolName===job.mcpToolName&&
-   job.secureRequestedEffect==='READ_ONLY'&&payload.secureRequestedEffect===job.secureRequestedEffect&&
-   payload.effect==='READ_ONLY'&&payload.action==='KABISEO_CAMERA_METADATA'&&job.action===payload.action&&
-   payload.cameraTargetPackage==='com.openai.chatgpt'&&job.cameraTargetPackage===payload.cameraTargetPackage&&
-   hex(payload.requestId,32)&&job.requestId===payload.requestId&&
-   hex(payload.commandId,32)&&job.commandId===payload.commandId&&
-   hex(payload.taskDigest,64)&&job.taskDigest===payload.taskDigest&&payload.taskId===payload.taskDigest&&
-   hex(payload.targetDeviceDigest,64)&&job.targetDeviceDigest===payload.targetDeviceDigest&&
-   payload.containsCredential===false&&payload.dataClass==='NONE'&&
-   Number.isSafeInteger(payload.secureInvocationExpiresAt)&&payload.secureInvocationExpiresAt>0&&
-   ['index','viewportWidth','viewportHeight','scrollX','scrollY','waitMs'].every(k=>payload[k]===0)&&
-   payload.maxActionsInCall===20;
-  return exact?answer('READ',{approvalGranted:false,screenConsentGranted:false}):deny('DURABLE_EXACT_KABISEO_METADATA_REQUIRED');
- }
- // KABISEO_EXACT_METADATA_POLICY_END
  if(job.type==='agent_snapshot')return answer('READ');
  const lifecycle=classifySplitLifecycleJob(job,payload);
  if(lifecycle)return lifecycle;

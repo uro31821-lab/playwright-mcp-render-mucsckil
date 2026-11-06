@@ -1,17 +1,25 @@
-/** Stage the ONE reviewed additive read policy in an isolated baseline checkout.
- * This is not an installer and never runs against an operational service.
+/** Stage the ONE reviewed additive read policy in an isolated CI baseline checkout.
+ * This is not an installer. The repository's operational policy must stay original.
+ * The candidate module has the original relative imports and is only imported AFTER
+ * staging alongside those imports in the throwaway baseline checkout.
  */
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import {readFileSync,writeFileSync,existsSync} from 'node:fs';
+import {readFileSync,writeFileSync,existsSync,mkdirSync,realpathSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
-const [candidate,baseline]=process.argv.slice(2).map(x=>path.resolve(x));
+assert.equal(process.env.CI,'true','isolated CI review only');
+const [candidate,baseline,out]=process.argv.slice(2).map(x=>path.resolve(x));
+assert.ok(candidate&&baseline&&out,'candidate, baseline and result directory required');
+assert.notEqual(realpathSync(candidate),realpathSync(baseline),'separate baseline checkout required');
 const rel='jh-server/owner-setup/deployment/durable-native-job-policy.mjs';
 const dst=path.join(baseline,rel),text=readFileSync(dst,'utf8');
 const blob=createHash('sha1').update('blob '+Buffer.byteLength(text)+'\0').update(text).digest('hex');
 assert.equal(blob,'39be04401aa360ba6bf87370d291bc6096b5c655','original classifier must match reviewed baseline');
-const next=readFileSync(path.join(candidate,rel),'utf8');
+assert.equal(readFileSync(path.join(candidate,rel),'utf8'),text,'protected repository policy must remain original');
+const next=readFileSync(path.join(candidate,'host-kabiseo-assist/server/candidate-durable-native-job-policy.mjs'),'utf8');
+const candidateSha256=createHash('sha256').update(next).digest('hex');
+assert.equal(candidateSha256,'1f0cedab941241f5f2123fa3d429946dfdd478407f21eec697d1774e8a902089','exact reviewed policy required');
 const begin=' // KABISEO_EXACT_METADATA_POLICY_BEGIN\n',end=' // KABISEO_EXACT_METADATA_POLICY_END\n';
 assert.equal(next.split(begin).length,2);assert.equal(next.split(end).length,2);
 const a=next.indexOf(begin),b=next.indexOf(end,a)+end.length;
@@ -48,6 +56,10 @@ for(const type of ['agent_snapshot','secure_device_status','computer_use_inspect
   }
  }
 }
-console.log('KABISEO_NATIVE_POLICY_REVIEW='+JSON.stringify({status:'PASS',originalBugReproduced:true,exactCameraReadAccepted:true,
+assert.equal(readFileSync(path.join(candidate,rel),'utf8'),text,'protected repository policy still original after staging');
+const result={schema:'KABISEO_ISOLATED_NATIVE_POLICY_V014',status:'PASS',originalBugReproduced:true,exactCameraReadAccepted:true,
  rejectedMalformedScopes:rejected,unrelatedCasesUnchanged:unchanged,originalClassifierBlob:blob,
- changedClassifierSha256:createHash('sha256').update(next).digest('hex'),physicalPhoneCommands:0,productionChanged:false}));
+ changedClassifierSha256:candidateSha256,protectedRepositoryPolicyUnchanged:true,
+ stagedInDisposableBaselineOnly:true,physicalPhoneCommands:0,productionChanged:false};
+mkdirSync(out,{recursive:true});writeFileSync(path.join(out,'native-policy-result.json'),JSON.stringify(result,null,2)+'\n');
+console.log('KABISEO_NATIVE_POLICY_REVIEW='+JSON.stringify(result));
