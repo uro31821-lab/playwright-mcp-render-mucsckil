@@ -23,6 +23,44 @@ assets = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(assets)
 
 
+# Official repository2-1.xml platform-tools records observed 2026-11-06.
+# The license text is abbreviated only in this offline fixture. Archive size,
+# checksum text, lack of a type attribute, version/channel and host ordering
+# reproduce the official metadata that failed in CI run 42220272061.
+OFFICIAL_V1_PLATFORM_TOOLS = b"""<?xml version="1.0" encoding="UTF-8"?>
+<sdk:sdk-repository xmlns:sdk="http://schemas.android.com/sdk/android/repo/repository2/01">
+  <license id="android-sdk-license" type="text">Offline license fixture.</license>
+  <license id="android-sdk-preview-license" type="text">Offline preview license fixture.</license>
+  <remotePackage path="platform-tools">
+    <revision><major>37</major><minor>0</minor><micro>2</micro></revision>
+    <uses-license ref="android-sdk-preview-license"/><channelRef ref="channel-2"/>
+    <archives><archive><complete>
+      <size>8239125</size><checksum>d7ee482b3874f1e0d6d5dca135f6bd58f5716db0</checksum>
+      <url>platform-tools_r37.0.2-win.zip</url>
+    </complete><host-os>windows</host-os></archive></archives>
+  </remotePackage>
+  <remotePackage path="platform-tools">
+    <revision><major>37</major><minor>0</minor><micro>1</micro></revision>
+    <uses-license ref="android-sdk-license"/><channelRef ref="channel-0"/>
+    <archives>
+      <archive><complete>
+        <size>9054187</size><checksum>477254aa5f903c15cf51001717bdf347fb6b53e0</checksum>
+        <url>platform-tools_r37.0.1-linux.zip</url>
+      </complete><host-os>linux</host-os></archive>
+      <archive><complete>
+        <size>16110554</size><checksum>6ae73f4de6452dc57e62ec02b68eed92a4c21661</checksum>
+        <url>platform-tools_r37.0.1-darwin.zip</url>
+      </complete><host-os>macosx</host-os></archive>
+      <archive><complete>
+        <size>8044989</size><checksum>e03e78b1d80b396f1c3358e31251cb31740e1110</checksum>
+        <url>platform-tools_r37.0.1-win.zip</url>
+      </complete><host-os>windows</host-os></archive>
+    </archives>
+  </remotePackage>
+</sdk:sdk-repository>
+"""
+
+
 def archive_xml(
     version="37.0.1", channel="channel-0", host="windows", *,
     size=101, checksum="a" * 40, algorithm="sha1", url=None, preview="",
@@ -82,6 +120,31 @@ class TemporaryTest(unittest.TestCase):
 
 
 class RepositorySelectionTests(unittest.TestCase):
+    def test_official_repository2_v1_implicit_sha1_stable_windows_record(self):
+        result = assets.select_platform_tools(OFFICIAL_V1_PLATFORM_TOOLS)
+        self.assertEqual(result["version"], "37.0.1")
+        self.assertEqual(result["channel"], "channel-0")
+        self.assertEqual(result["size"], 8044989)
+        self.assertEqual(result["checksumAlgorithm"], "sha1")
+        self.assertEqual(result["checksum"], "e03e78b1d80b396f1c3358e31251cb31740e1110")
+        self.assertEqual(result["url"], "https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip")
+
+    def test_implicit_sha1_still_requires_v1_schema_and_exact_valid_digest(self):
+        original = b"<checksum>e03e78b1d80b396f1c3358e31251cb31740e1110</checksum>"
+        invalid = [
+            OFFICIAL_V1_PLATFORM_TOOLS.replace(b"repository2/01", b"repository2/02"),
+            OFFICIAL_V1_PLATFORM_TOOLS.replace(b"repository2/01", b"unknown/01"),
+            OFFICIAL_V1_PLATFORM_TOOLS.replace(original, b"<checksum></checksum>"),
+            OFFICIAL_V1_PLATFORM_TOOLS.replace(original, b"<checksum>" + b"a" * 39 + b"</checksum>"),
+            OFFICIAL_V1_PLATFORM_TOOLS.replace(original, b"<checksum>" + b"a" * 64 + b"</checksum>"),
+            OFFICIAL_V1_PLATFORM_TOOLS.replace(original, b"<checksum>" + b"z" * 40 + b"</checksum>"),
+            OFFICIAL_V1_PLATFORM_TOOLS.replace(original, original.replace(b"<checksum>", b'<checksum type="">')),
+            OFFICIAL_V1_PLATFORM_TOOLS.replace(original, original.replace(b"<checksum>", b'<checksum type="md5">')),
+        ]
+        for index, xml in enumerate(invalid):
+            with self.subTest(case=index), self.assertRaisesRegex(assets.PreparationError, "checksum"):
+                assets.select_platform_tools(xml)
+
     def test_newer_canary_does_not_replace_latest_stable(self):
         result = assets.select_platform_tools(repository_xml(
             archive_xml("37.0.2", "channel-3"),

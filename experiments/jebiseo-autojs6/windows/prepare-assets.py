@@ -46,6 +46,7 @@ AUTOJS_LICENSE_URL = (
 AUTOJS_LICENSE_SIZE = 16725
 AUTOJS_LICENSE_SHA256 = "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
 REPOSITORY_URL = "https://dl.google.com/android/repository/repository2-1.xml"
+REPOSITORY_V1_ROOT = "{http://schemas.android.com/sdk/android/repo/repository2/01}sdk-repository"
 GOOGLE_BASE_URL = "https://dl.google.com/android/repository/"
 WINDOWS_INPUTS = (
     "RUN.ps1",
@@ -311,7 +312,14 @@ def select_platform_tools(xml_bytes: bytes) -> dict:
     if not 0 < size <= MAX_ARCHIVE_BYTES:
         raise PreparationError("Invalid platform-tools archive size")
     checksum_element = one(complete, "checksum")
-    algorithm = checksum_element.get("type", "").lower()
+    algorithm = checksum_element.get("type")
+    # repo-common-01.xsd defines an attribute-free, exactly 40-hex SHA-1
+    # checksum. Version 2 instead requires type, so do not infer this default
+    # for unknown or newer repository schemas. Explicit empty types still fail.
+    # https://android.googlesource.com/platform/tools/base/+/refs/heads/studio-2024.3.2-rc01/repository/src/main/resources/xsd/repo-common-01.xsd
+    if algorithm is None and root.tag == REPOSITORY_V1_ROOT:
+        algorithm = "sha1"
+    algorithm = (algorithm or "").lower()
     checksum = text_of(checksum_element).lower()
     if algorithm not in CHECKSUM_LENGTHS or not re.fullmatch(
         rf"[0-9a-f]{{{CHECKSUM_LENGTHS.get(algorithm, 0)}}}", checksum

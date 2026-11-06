@@ -212,13 +212,21 @@ function Ensure-JebRuntime($Assets, [string]$Serial, [string]$RunDir, [string]$P
     if ($install.TimedOut) { Stop-JebRun 'INSTALL_TIMED_OUT_NO_AUTOMATIC_RETRY' }
     Stop-JebRun 'INSTALL_READBACK_NOT_MATCHED_NO_AUTOMATIC_RETRY'
 }
+function Test-JebAppOpAllowed([string]$Text, [string]$Operation) {
+    $operationPattern = [regex]::Escape($Operation)
+    # AOSP appops get reports UID overrides separately; they take precedence.
+    $uidModes = [regex]::Matches($Text, ('(?m)^\s*Uid mode:\s*' + $operationPattern + ':\s*([A-Za-z_]+)(?=\s|;|$)'))
+    if ($uidModes.Count -gt 0) { return ($uidModes.Count -eq 1 -and $uidModes[0].Groups[1].Value -ceq 'allow') }
+    $packageModes = [regex]::Matches($Text, ('(?m)^\s*' + $operationPattern + ':\s*([A-Za-z_]+)(?=\s|;|$)'))
+    return ($packageModes.Count -eq 1 -and $packageModes[0].Groups[1].Value -ceq 'allow')
+}
 function Get-JebPermissionState($Assets, [string]$Serial) {
     $sdkText = (Invoke-JebRequiredAdb $Assets @('-s', $Serial, 'shell', 'getprop', 'ro.build.version.sdk') 'ANDROID_VERSION_READ_FAILED').Trim()
     if ($sdkText -notmatch '^\d+$') { Stop-JebRun 'ANDROID_VERSION_READ_FAILED' }
     $sdk = [int]$sdkText
     if ($sdk -ge 30) {
         $files = Invoke-JebAdb $Assets @('-s', $Serial, 'shell', 'cmd', 'appops', 'get', 'org.autojs.autojs6', 'MANAGE_EXTERNAL_STORAGE')
-        $fileAllowed = ($files.ExitCode -eq 0 -and $files.Text -match '(?m)^\s*MANAGE_EXTERNAL_STORAGE:\s*allow(?:\s|;|$)')
+        $fileAllowed = ($files.ExitCode -eq 0 -and (Test-JebAppOpAllowed $files.Text 'MANAGE_EXTERNAL_STORAGE'))
     } else {
         $package = Invoke-JebRequiredAdb $Assets @('-s', $Serial, 'shell', 'dumpsys', 'package', 'org.autojs.autojs6') 'STORAGE_PERMISSION_READ_FAILED'
         $fileAllowed = ($package -match 'android\.permission\.READ_EXTERNAL_STORAGE:\s*granted=true' -and $package -match 'android\.permission\.WRITE_EXTERNAL_STORAGE:\s*granted=true')
@@ -231,7 +239,7 @@ function Get-JebPermissionState($Assets, [string]$Serial) {
             if ($service -ceq 'org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher') { $accessibilityAllowed = $true }
         }
     }
-    return [pscustomobject]@{ Files = [bool]$fileAllowed; Overlay = ($overlay.ExitCode -eq 0 -and $overlay.Text -match '(?m)^\s*SYSTEM_ALERT_WINDOW:\s*allow(?:\s|;|$)'); Accessibility = $accessibilityAllowed; Sdk = $sdk }
+    return [pscustomobject]@{ Files = [bool]$fileAllowed; Overlay = ($overlay.ExitCode -eq 0 -and (Test-JebAppOpAllowed $overlay.Text 'SYSTEM_ALERT_WINDOW')); Accessibility = $accessibilityAllowed; Sdk = $sdk }
 }
 function Wait-JebPermissions($Assets, [string]$Serial, [int]$TimeoutSeconds = 180) {
     foreach ($permission in @('Files', 'Overlay', 'Accessibility')) {
