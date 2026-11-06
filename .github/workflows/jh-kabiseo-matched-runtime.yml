@@ -32,20 +32,25 @@ jobs:
           set -euo pipefail
           npm ci --prefix baseline/jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix baseline/jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
-      - name: Prepare local antivirus from signed Ubuntu repositories, no external sample upload
+      - name: Prepare isolated service-owned antivirus database; no external sample upload
         run: |
           set -euo pipefail
           sudo apt-get update -qq
           sudo apt-get install --no-install-recommends -y clamav libatomic1
-          mkdir -m 700 "$RUNNER_TEMP/kabiseo-av"
-          timeout 300 freshclam --stdout --datadir="$RUNNER_TEMP/kabiseo-av" --log="$RUNNER_TEMP/kabiseo-freshclam.log" --user="$(id -un)"
+          AV_DIR="/tmp/kabiseo-av-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test ! -e "$AV_DIR"
+          sudo install -d -o clamav -g clamav -m 0755 "$AV_DIR"
+          echo "KABISEO_AV_DIR=$AV_DIR" >> "$GITHUB_ENV"
+          # FreshClam's service account owns its own folder and log. Do not make
+          # the runner home world-writable or disable existing antivirus services.
+          sudo -u clamav timeout 300 freshclam --stdout --datadir="$AV_DIR" --log="$AV_DIR/freshclam.log"
       - name: Verify official release signature, checksum, archive and ELF antivirus BEFORE new Node execution
         id: runtime
         run: |
           python3 candidate/host-kabiseo-assist/tools/runtime-proof/verify_runtime.py \
             --work "$RUNNER_TEMP/kabiseo-node26" \
             --evidence "$RUNNER_TEMP/kabiseo-node26-evidence" \
-            --db "$RUNNER_TEMP/kabiseo-av"
+            --db "$KABISEO_AV_DIR"
       - name: Execute existing observed-profile integration under exact verified Node26
         env:
           VERIFIED_NODE: ${{ steps.runtime.outputs.node_bin }}
