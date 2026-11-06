@@ -28,7 +28,7 @@ var UNRESOLVED = {
     completion_unknown: '완료 결과 미확인'
 };
 var HINT = {
-    SOURCE_WINDOW_MISSING: '왼쪽에 ChatGPT 앱이 보이는지 확인하세요. AutoJs6 편집기 대신 떠 있는 실행 버튼에서 시험을 시작합니다.',
+    SOURCE_WINDOW_MISSING: '왼쪽에 ChatGPT 앱이 보이는지 확인하세요. PC에서 시험을 시작하기 전 휴대폰 분할 화면을 준비합니다.',
     SOURCE_WINDOW_AMBIGUOUS: 'ChatGPT 창이 여러 개로 읽혔습니다. 시험할 창 하나만 남긴 배치를 확인하세요.',
     TARGET_WINDOW_MISSING: '오른쪽에 Gemini 앱이 보이는지 확인하세요. 앱이 보이는데도 이 코드가 나오면 읽기 결과로 화면 식별 정보를 확인해야 합니다.',
     TARGET_WINDOW_AMBIGUOUS: 'Gemini 후보 창이 여러 개로 읽혔습니다. 현재 분할 배치를 확인하세요.',

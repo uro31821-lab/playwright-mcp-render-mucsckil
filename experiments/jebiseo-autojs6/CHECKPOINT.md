@@ -2,7 +2,15 @@
 
 Date: 2026-11-06 (Asia/Seoul)
 
-Current preparation: **0.2.0**, independently test the accessibility/menu stages on the phone. Development continues in draft PR [#173](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/173), branch `experiment/jebiseo-autojs6-20261106`, from experiment commit `11496c31ecf35fb9514922c5741b8ea23f057a0a`.
+Current preparation: **0.3.0**, a Windows download/extract/run package for the independent accessibility/menu test. The v0.2.0 source at `a039a250461d7b4953f6f8edd772472427a212e5` is the parent. Development continues in draft PR [#173](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/173), branch `experiment/jebiseo-autojs6-20261106`.
+
+## Windows preparation update
+
+The user requested one extracted folder and one launcher instead of manual AutoJs6 script import. `windows/prepare-assets.py` assembles the original signed AutoJs6 v6.8.0 APK, official Windows platform-tools, the script and launcher. `windows/audit-apk.py` audits the actual downloaded APK signature and identity in CI. A separate Windows job runs PowerShell 5.1 and real CMD with harmless mock boundaries, and checks the exact candidate hashes and bundled adb startup. The final delivery gate must pin reviewed bytes after CI; this source commit alone does not establish release or phone success.
+
+USB execution uses a bounded launch-request with one mode, a stable journal ID and the reviewed embedded profile. The phone exports only the allowlisted report to the public test folder. The PC reads only a report matching its current launch ID and mode. Android permission grants and split-screen arrangement remain user actions. No actual phone installation, menu click, Gemini transmission or JH integration has been observed during package preparation.
+
+The final offline results below and `verification.json` are historical v0.2.0 evidence. v0.3.0 CI results are recorded in the final delivery evidence and PR.
 
 ## User goal and scope
 

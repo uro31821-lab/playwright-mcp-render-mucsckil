@@ -1,10 +1,11 @@
 'use strict';
 
-/* AutoJs6 entry. Start from its floating script button while the split is visible. */
+/* AutoJs6 entry. USB launch request or manual floating script button. */
 var core = require('./core.js');
 var adapter = require('./autojs-adapter.js');
 var journals = require('./journal.js');
 var reports = require('./report.js');
+var phoneLaunch = require('./phone-launch.js');
 
 function showResult(env, result, mode) {
     var options = { mode: mode || result.mode, includeDetails: false };
@@ -35,6 +36,11 @@ function runPhone(env) {
     var lock = null;
     var keyObserverStarted = false;
     var keyCancelAvailable = false;
+    var launchRequest = null;
+    var mode = null;
+    var coreStarted = false;
+    var result = null;
+    var exportResult = null;
     try {
         try { lock = lockFile.getChannel().tryLock(); } catch (busy) { lock = null; }
         if (lock === null) {
@@ -43,10 +49,30 @@ function runPhone(env) {
         }
         var sourcePath = String(env.engines.myEngine().source);
         var scriptDir = env.files.getParent(sourcePath);
+        var requestPath = env.files.join(scriptDir, 'launch-request.json');
+        if (env.files.exists(requestPath)) {
+            if (Number(new File(requestPath).length()) > 2048) throw new Error('LAUNCH_REQUEST_INVALID');
+            launchRequest = phoneLaunch.parseRequest(env.files.read(requestPath));
+            mode = launchRequest.mode;
+        }
+        exportResult = function (value) {
+            if (!launchRequest) return;
+            // Temp file must share the PUBLIC destination directory, not private storage.
+            var destination = new File(scriptDir, 'RESULT_PHONE.json');
+            var temporary = new File(scriptDir, 'RESULT_PHONE.json.new');
+            var stream = new env.java.io.FileOutputStream(temporary);
+            try {
+                stream.write(new env.java.lang.String(JSON.stringify(phoneLaunch.envelope(launchRequest, value))).getBytes('UTF-8'));
+                stream.getFD().sync();
+            } finally { stream.close(); }
+            if (!temporary.renameTo(destination)) throw new Error('PHONE_REPORT_RENAME_FAILED');
+        };
         var profilePath = env.files.join(scriptDir, 'profile.json');
         if (!env.files.exists(profilePath)) profilePath = env.files.join(scriptDir, 'profile.example.json');
         var profile;
-        if (env.files.exists(profilePath)) profile = JSON.parse(env.files.read(profilePath));
+        if (launchRequest && env.embeddedProfile) profile = JSON.parse(JSON.stringify(env.embeddedProfile));
+        else if (launchRequest) throw new Error('EMBEDDED_PROFILE_REQUIRED');
+        else if (env.files.exists(profilePath)) profile = JSON.parse(env.files.read(profilePath));
         else if (env.embeddedProfile) profile = JSON.parse(JSON.stringify(env.embeddedProfile));
         else throw new Error('PROFILE_MISSING');
         if (profile.schema !== 'jebiseo.autojs6.profile.v1') throw new Error('PROFILE_INVALID');
@@ -66,7 +92,28 @@ function runPhone(env) {
             try { env.android.system.Os.fsync(directoryFd); } finally { env.android.system.Os.close(directoryFd); }
             return true;
         }
-        var choice = env.dialogs.select('제비서 독립 시험 0.2.0\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
+        function finish(value) {
+            value.mode = mode;
+            value.executionEnvironment = 'android-autojs6';
+            value.jhIntegrated = false;
+            value.recordedAt = new Date().toISOString();
+            var saveFailed = false;
+            var exportFailed = false;
+            try { durableWrite(resultFile, value); } catch (privateError) { saveFailed = true; }
+            try { exportResult(value); } catch (publicError) { exportFailed = true; }
+            if (launchRequest) {
+                env.toast(exportFailed ? 'PC 결과 전달 실패. 현재 시험을 다시 실행하지 말고 화면을 확인하세요.' :
+                    '시험 결과를 저장했습니다. PC 실행창을 확인하세요.');
+            } else { showResult(env, value, mode); }
+            if (saveFailed || exportFailed) {
+                env.dialogs.alert('결과 파일 저장 확인 필요',
+                    reports.formatResult(value, {mode: mode, includeDetails: false}) +
+                    '\n파일 저장 일부를 확인하지 못했습니다. 시험을 자동 반복하지 않습니다.');
+            }
+            return value;
+        }
+        var choice = launchRequest ? ['probe', 'selection', 'more', 'handoff', 'submit'].indexOf(mode) :
+            env.dialogs.select('제비서 독립 시험 0.3.0\n2~5번은 문장 선택 단계부터 시작합니다.\n시험 문장: ' + profile.testText, [
             '1. 화면·메뉴 읽기 — 버튼을 누르지 않음',
             '2. 시험 문장 선택까지만',
             '3. ⋯ 열고 Gemini 항목 확인까지만 — 전달 안 함',
@@ -84,7 +131,7 @@ function runPhone(env) {
             showResult(env, previousResult, previousResult.mode);
             return previousResult;
         }
-        var mode = ['probe', 'selection', 'more', 'handoff', 'submit'][choice];
+        mode = ['probe', 'selection', 'more', 'handoff', 'submit'][choice];
         if (!mode) throw new Error('MODE_INVALID');
         var journal = null;
         if (mode !== 'probe') {
@@ -100,8 +147,7 @@ function runPhone(env) {
                     liveDeviceVerified: false, handoffDispatched: false, handoffObserved: false,
                     submissionDispatched: false, submissionObserved: false,
                     unresolvedAttempts: unresolved };
-                showResult(env, blockedResult, mode);
-                return blockedResult;
+                return finish(blockedResult);
             }
         }
         env.auto.waitFor();
@@ -123,7 +169,8 @@ function runPhone(env) {
         env.sleep(delay);
         var io = adapter.createAdapter(env, { liveDevice: true, cancelled: function () { return cancelled.get() === true; } });
         var request = {
-            requestId: String(env.java.util.UUID.randomUUID().toString()),
+            // The same PC launch always uses the same journal key, including after a crash.
+            requestId: launchRequest ? launchRequest.launchId : String(env.java.util.UUID.randomUUID().toString()),
             expectedText: profile.testText,
             sourcePackage: profile.sourcePackage,
             targetPackage: profile.targetPackage,
@@ -147,16 +194,22 @@ function runPhone(env) {
             digestHex += ('0' + (Number(digestBytes[byteIndex]) & 255).toString(16)).slice(-2);
         }
         request.requestFingerprint = digestHex;
-        var result = core.run(request, io, journal);
-        result.mode = mode;
-        result.executionEnvironment = 'android-autojs6';
-        result.jhIntegrated = false;
-        result.recordedAt = new Date().toISOString();
-        durableWrite(resultFile, result);
+        coreStarted = true;
+        result = core.run(request, io, journal);
         // Only bounded menu-control labels and metadata, never conversations/drafts.
         env.console.log(JSON.stringify(result, null, 2));
-        showResult(env, result, mode);
-        return result;
+        return finish(result);
+    } catch (failure) {
+        if (launchRequest && exportResult) {
+            var message = String(failure && failure.message || 'PHONE_RUNTIME_ERROR');
+            var failureCode = /^[A-Z0-9_]{3,80}$/.test(message) ? message : 'PHONE_RUNTIME_ERROR';
+            var unknown = coreStarted && (mode === 'handoff' || mode === 'submit');
+            var failed = result || {schema: 'jebiseo.autojs6.result.v1', mode: mode,
+                status: unknown ? 'completion_unknown' : 'blocked', stage: 'UNKNOWN', code: failureCode,
+                executionEnvironment: 'android-autojs6', jhIntegrated: false, liveDeviceVerified: false};
+            try { exportResult(failed); } catch (exportError) { /* PC must report missing current result as unknown. */ }
+        }
+        throw failure;
     } finally {
         try {
             // observeKey keeps AutoJs6's looper alive. This is a dedicated runtime;

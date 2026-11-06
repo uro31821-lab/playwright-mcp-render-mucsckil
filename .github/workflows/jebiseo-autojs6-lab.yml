@@ -13,7 +13,7 @@ permissions:
 jobs:
   offline-contracts:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: experiments/jebiseo-autojs6
@@ -24,10 +24,63 @@ jobs:
           node-version: '24'
       - name: Check JavaScript syntax
         run: npm run check
-      - name: Run offline controller, adapter, and journal contracts
+      - name: Run offline controller, adapter, journal and launch contracts
         run: npm test
       - name: Rebuild and check the exact phone script
         run: |
           npm run build
           node --check dist/jebiseo-independent-test.js
           git diff --exit-code -- dist/jebiseo-independent-test.js
+      - name: Check asset preparation contracts
+        run: python3 -m unittest discover -s windows/tests -p 'test_*.py' -v
+      - name: Assemble official unmodified binaries
+        run: python3 windows/prepare-assets.py --output "$RUNNER_TEMP/jebiseo-oneclick"
+      - name: Verify actual APK identity and original signature
+        run: python3 windows/audit-apk.py "$RUNNER_TEMP/jebiseo-oneclick"
+      - name: Retain candidate inputs for Windows verification
+        uses: actions/upload-artifact@v4
+        with:
+          name: jebiseo-oneclick-candidate
+          path: ${{ runner.temp }}/jebiseo-oneclick
+          retention-days: 7
+          if-no-files-found: error
+          compression-level: 6
+
+  windows-contracts:
+    needs: offline-contracts
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Retrieve exact candidate inputs
+        uses: actions/download-artifact@v4
+        with:
+          name: jebiseo-oneclick-candidate
+          path: ${{ runner.temp }}/jebiseo-oneclick
+      - name: Parse and execute Windows PowerShell 5.1 and CMD contracts
+        shell: powershell
+        working-directory: experiments/jebiseo-autojs6/windows
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Output $PSVersionTable.PSVersion.ToString()
+          & .\tests\Test-OneClick.ps1
+          & .\tests\Test-Bootstrap.ps1
+      - name: Verify all exact candidate inputs on Windows
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $candidateRoot = Join-Path $env:RUNNER_TEMP 'jebiseo-oneclick'
+          . (Join-Path $candidateRoot 'RUN.ps1')
+          $validatedInputs = Read-JebAssets $candidateRoot
+          try { Write-Output ('Runtime preflight accepted: ' + $validatedInputs.appId) }
+          finally { foreach ($heldFile in $validatedInputs.fileLocks) { $heldFile.Dispose() } }
+          $assetMap = Get-Content -LiteralPath (Join-Path $candidateRoot 'assets.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          foreach ($assetItem in $assetMap.files) {
+            $assetPath = Join-Path $candidateRoot $assetItem.path
+            if ((Get-Item -LiteralPath $assetPath).Length -ne $assetItem.size) { throw 'ASSET_SIZE_MISMATCH' }
+            if ((Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $assetItem.sha256) { throw 'ASSET_HASH_MISMATCH' }
+          }
+          $adbVersion = & (Join-Path $candidateRoot 'tools/platform-tools/adb.exe') version
+          if ($LASTEXITCODE -ne 0) { throw 'BUNDLED_ADB_VERSION_FAILED' }
+          Write-Output $adbVersion
+          Write-Output ('Verified packaged inputs: ' + $assetMap.files.Count)

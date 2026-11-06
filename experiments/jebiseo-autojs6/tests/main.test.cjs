@@ -8,6 +8,7 @@ const vm = require('node:vm');
 const {createHash} = require('node:crypto');
 const {createJournal} = require('../journal.js');
 const reports = require('../report.js');
+const phoneLaunch = require('../phone-launch.js');
 const source = fs.readFileSync(path.join(__dirname, '../main.js'), 'utf8');
 const profile = require('../profile.example.json');
 const privateRoot = '/private/jebiseo-autojs6-lab';
@@ -22,8 +23,11 @@ function launcher(options = {}) {
     File.prototype.exists = function () { return this.path === privateRoot || storage.has(this.path); };
     File.prototype.mkdirs = function () { return true; };
     File.prototype.getName = function () { return path.posix.basename(this.path); };
+    File.prototype.length = function () { return Buffer.byteLength(storage.get(this.path) || ''); };
     File.prototype.getAbsolutePath = function () { return this.path; };
     File.prototype.renameTo = function (target) {
+        assert.equal(path.posix.dirname(this.path), path.posix.dirname(String(target)), 'atomic rename stays on one filesystem');
+        if (options.exportFailure && String(target).endsWith('RESULT_PHONE.json')) return false;
         storage.set(String(target), storage.get(this.path)); storage.delete(this.path); return true;
     };
     function JavaString(value) { this.value = String(value); }
@@ -72,6 +76,7 @@ function launcher(options = {}) {
     const module = {exports: {}};
     const core = {run: (request, io, journal) => {
         calls.runs.push({request, io, journal});
+        if (options.coreFailure) throw new Error('TEST_RUNTIME_FAILURE');
         return {schema: 'jebiseo.autojs6.result.v1', requestId: request.requestId,
             status: request.mode === 'more' ? 'menu_verified' : 'probe_ok',
             stage: request.mode === 'more' ? 'MENU' : 'SPLIT',
@@ -84,6 +89,7 @@ function launcher(options = {}) {
         if (name === './autojs-adapter.js') return {createAdapter: () => {calls.adapters++; return {};}};
         if (name === './journal.js') return {createJournal};
         if (name === './report.js') return reports;
+        if (name === './phone-launch.js') return phoneLaunch;
         throw new Error('Unexpected module: ' + name);
     }});
     return {env, calls, storage, run: () => module.exports.runPhone(env)};
@@ -177,4 +183,55 @@ test('key-listener failure gives the actual AutoJs6 stop fallback instead of pro
     assert.ok(lab.calls.toasts.some(value => value.includes('AutoJs6의 중지 버튼')));
     assert.ok(lab.calls.toasts.every(value => !value.includes('볼륨 아래 버튼은 중지')));
     assert.equal(lab.calls.recycle, 1);
+});
+
+test('USB launch skips phone picker, binds journal ID and exports a bounded current result', () => {
+    const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-current-run-123', mode: 'more'};
+    const lab = launcher({choices: [-1], storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
+    const result = lab.run();
+    assert.equal(result.status, 'menu_verified');
+    assert.equal(lab.calls.runs[0].request.requestId, request.launchId);
+    assert.equal(lab.calls.alerts.length, 0, 'no result-copy interaction is needed');
+    const exported = JSON.parse(lab.storage.get('/scripts/RESULT_PHONE.json'));
+    assert.equal(exported.launchId, request.launchId);
+    assert.equal(exported.mode, 'more');
+    assert.equal(exported.status, 'menu_verified');
+    assert.equal(exported.reportText.includes(profile.testText), false);
+});
+
+test('invalid USB request cannot fall back to a clicked phone choice or run', () => {
+    const lab = launcher({choices: [4], storage: {'/scripts/launch-request.json': '{"mode":"submit"}'}});
+    assert.throws(() => lab.run(), /LAUNCH_REQUEST_INVALID/);
+    assert.equal(lab.calls.permissions, 0);
+    assert.equal(lab.calls.runs.length, 0);
+    assert.equal(lab.calls.released, 1);
+});
+
+test('USB mode ignores an old public profile and uses the reviewed bundled settings', () => {
+    const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-current-run-123', mode: 'more'};
+    const stale = {...profile, testText: 'UNREVIEWED_OLD_TEXT', sourcePackage: 'old.app'};
+    const lab = launcher({storage: {'/scripts/launch-request.json': JSON.stringify(request), '/scripts/profile.json': JSON.stringify(stale)}});
+    lab.run();
+    assert.equal(lab.calls.runs[0].request.expectedText, profile.testText);
+    assert.equal(lab.calls.runs[0].request.sourcePackage, profile.sourcePackage);
+    assert.equal(JSON.parse(lab.storage.get('/scripts/profile.json')).testText, 'UNREVIEWED_OLD_TEXT');
+});
+
+test('public export failure preserves the observed result without replay or relabelling', () => {
+    const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-current-run-123', mode: 'more'};
+    const lab = launcher({exportFailure: true, storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
+    assert.equal(lab.run().status, 'menu_verified');
+    assert.equal(lab.calls.runs.length, 1);
+    assert.equal(JSON.parse(lab.storage.get(privateRoot + '/last-result.json')).status, 'menu_verified');
+    assert.ok(lab.calls.alerts.some(a => a.title === '결과 파일 저장 확인 필요'));
+});
+
+test('unknown outbound runtime failure exports unknown to the same PC launch', () => {
+    const request = {schema: 'jebiseo.phone-launch.v1', launchId: 'pc-current-run-123', mode: 'submit'};
+    const lab = launcher({coreFailure: true, storage: {'/scripts/launch-request.json': JSON.stringify(request)}});
+    assert.throws(() => lab.run(), /TEST_RUNTIME_FAILURE/);
+    const result = JSON.parse(lab.storage.get('/scripts/RESULT_PHONE.json'));
+    assert.equal(result.status, 'completion_unknown');
+    assert.equal(result.launchId, request.launchId);
+    assert.equal(lab.calls.runs.length, 1);
 });
