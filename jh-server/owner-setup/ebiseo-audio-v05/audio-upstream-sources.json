@@ -1,6 +1,6 @@
 {
   "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
-  "sourceCommit": "bbbecaf05f7d0db5f308caafba36349374f5160b",
+  "sourceCommit": "fd947aff3dd486e1b67c500c3f8c03e9bc3d4fef",
   "recordedRuntimeCommit": "a06e4643a036fa7cc121ef997bc332a43f2f85df",
   "runtimeVerifiedLive": false,
   "files": {
@@ -142,7 +142,7 @@
     "owner-setup/jh168-mobile-unification/split-read-receipt-patch.mjs": "d86b1d56a351f88b350becde34874c22d0c4ae36dd8570c14c2dcd59b6ad2065",
     "owner-setup/jh168-mobile-unification/split-read-receipts.mjs": "c5f4fb5624ffc49a9cb01be551fe0017656d055428f3df062d378033d6b5c96b",
     "owner-setup/jh168-mobile-unification/stage22-generated-server-candidate.mjs": "6448ebff4f3259b3ad0e8d9b2ad475a30d168f64a59a96e5e7598cda4512a5bb",
-    "owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs": "f63800a25458d6e9bdf271077d940360bca71d7576279faa0ff56dc877ca4ea5",
+    "owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs": "fa5a007bbc2fe462d5a4e1135fb592c96ed215c752cca63235c432a2dd8641f9",
     "owner-setup/jh168-mobile-unification/stage26-completion-delivery-patch.mjs": "a7f3a8dcbf159e60a9304dd970a2ca8da2e49b71c1d30607c09d0e0b5901cf23",
     "owner-setup/jh168-mobile-unification/stage26-completion-delivery-policy.mjs": "5ed399e279822d4f7bd6bdbb63e063f861122e761082e018b0f2a3e7688ac518",
     "owner-setup/jh168-mobile-unification/stage29-durable-completion-readback.mjs": "d55e663061e6436f8d7fe036af205968606ddee27f16a33f77db473b7c46c52f",
