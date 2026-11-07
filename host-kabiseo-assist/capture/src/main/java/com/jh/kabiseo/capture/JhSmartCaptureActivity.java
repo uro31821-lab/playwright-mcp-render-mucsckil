@@ -62,7 +62,7 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
     private Button shutter;
     private ProcessCameraProvider provider;
     private ExtensionsManager extensionsManager;
-    private long lastLumaSampleAt=-1L; // accessed only by one analysis executor thread
+    private volatile long lastLumaSampleAt=-1L; // reset on UI thread; sampled on analysis thread
     private int consecutiveDarkSamples; // accessed only by Android main thread
     private boolean nightModeAttempted;
     private Preview ownPreview;
@@ -70,7 +70,9 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
     private ImageAnalysis ownAnalysis;
     private Camera camera;
     private boolean captureInProgress;
-    private int openingRevision;
+    private boolean foregroundStarted;
+    private boolean openingInProgress;
+    private volatile int openingRevision; // capture analysis may read this from a worker
 
     /** Existing JH must explicitly dispatch this Intent after its own user request. */
     public static Intent explicitIntent(Context context) {
@@ -154,54 +156,92 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
     private void show(String s){hint.setText(s);}
     private void ensureCameraPermission() {
         if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED) {
-            openCamera();
+            maybeStartCamera();
         } else {
             requestPermissions(new String[]{Manifest.permission.CAMERA},REQUEST_CAMERA);
         }
     }
+
+    /** Never request a second CameraProvider while another opening is in flight. */
+    private void maybeStartCamera() {
+        if(!foregroundStarted||openingInProgress||ownCapture!=null||isFinishing()||isDestroyed()
+            ||Build.VERSION.SDK_INT<Build.VERSION_CODES.Q)return;
+        if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)
+            return;
+        openingInProgress=true;
+        openCamera();
+    }
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] grants) {
         super.onRequestPermissionsResult(request,permissions,grants);
         if(request==REQUEST_CAMERA) {
-            if(grants.length==1&&grants[0]==PackageManager.PERMISSION_GRANTED)openCamera();
+            if(grants.length==1&&grants[0]==PackageManager.PERMISSION_GRANTED)maybeStartCamera();
             else {show("카메라 권한이 허용되지 않았습니다.");shutter.setEnabled(false);}
         }
     }
 
     private void openCamera() {
-        if(isFinishing()||isDestroyed()||Build.VERSION.SDK_INT<29)return;
-        int token=++openingRevision;
+        if(!openingInProgress||!foregroundStarted||isFinishing()||isDestroyed()
+            ||Build.VERSION.SDK_INT<Build.VERSION_CODES.Q){
+            openingInProgress=false;
+            return;
+        }
+        final int token=++openingRevision;
         consecutiveDarkSamples=0;
         nightModeAttempted=false;
         lastLumaSampleAt=-1L;
         extensionsManager=null;
-        ListenableFuture<ProcessCameraProvider> future=ProcessCameraProvider.getInstance(this);
-        future.addListener(()->{
-            if(token!=openingRevision||isFinishing()||isDestroyed())return;
-            try {
-                provider=future.get();
-                ListenableFuture<ExtensionsManager> extFuture=
-                    ExtensionsManager.getInstanceAsync(getApplicationContext(),provider);
-                extFuture.addListener(()->{
-                    if(token!=openingRevision||isFinishing()||isDestroyed())return;
-                    try {extensionsManager=extFuture.get();}
-                    catch(Exception ignored){extensionsManager=null;}
-                    // Always begin with neutral AF/AE/AWB; never select vendor AUTO,
-                    // which can include face retouch on supported phones.
-                    bindCamera(CameraSelector.DEFAULT_BACK_CAMERA,false);
-                },ContextCompat.getMainExecutor(this));
-            }catch(Exception e){show("카메라 시작 실패. 기기 지원 상태를 확인하세요.");}
-        },ContextCompat.getMainExecutor(this));
+        try {
+            ListenableFuture<ProcessCameraProvider> future=ProcessCameraProvider.getInstance(this);
+            future.addListener(()->{
+                if(token!=openingRevision||!foregroundStarted||isFinishing()||isDestroyed())return;
+                try {
+                    provider=future.get();
+                    // The ordinary preview starts NOW; never block first frame on
+                    // optional OEM ExtensionsManager initialization.
+                    if(!bindCamera(CameraSelector.DEFAULT_BACK_CAMERA,false)){
+                        openingInProgress=false;
+                        return;
+                    }
+                    openingInProgress=false;
+                    try {
+                        ListenableFuture<ExtensionsManager> extFuture=
+                            ExtensionsManager.getInstanceAsync(getApplicationContext(),provider);
+                        extFuture.addListener(()->{
+                            if(token!=openingRevision||!foregroundStarted||isFinishing()||isDestroyed())return;
+                            try {
+                                extensionsManager=extFuture.get();
+                                // If a dark scene was observed before optional OEM init,
+                                // consider NIGHT only when its real capability is known.
+                                maybeEnableNightMode(token);
+                            }catch(Exception ignored){
+                                extensionsManager=null;
+                                nightModeAttempted=true;
+                            }
+                        },ContextCompat.getMainExecutor(this));
+                    }catch(Exception ignored){
+                        nightModeAttempted=true;
+                    }
+                }catch(Exception e){
+                    openingInProgress=false;
+                    show("카메라 시작 실패. 기기 지원 상태를 확인하세요.");
+                }
+            },ContextCompat.getMainExecutor(this));
+        }catch(RuntimeException e){
+            openingInProgress=false;
+            show("카메라 초기화 실패. 카메라 권한과 기기를 확인하세요.");
+        }
     }
 
     private void maybeEnableNightMode(int token) {
         if(token!=openingRevision||nightModeAttempted||captureInProgress
             ||ownAnalysis==null||isFinishing()||isDestroyed())return;
         if(consecutiveDarkSamples<5)return;
+        // Optional manager may still be loading; do not waste the only attempt.
+        if(extensionsManager==null)return;
         nightModeAttempted=true; // once per camera opening, no oscillation/retries
         try {
             CameraSelector base=CameraSelector.DEFAULT_BACK_CAMERA;
-            if(extensionsManager!=null
-                &&extensionsManager.isExtensionAvailable(base,ExtensionMode.NIGHT)) {
+            if(extensionsManager.isExtensionAvailable(base,ExtensionMode.NIGHT)) {
                 CameraSelector night=extensionsManager.getExtensionEnabledCameraSelector(
                     base,ExtensionMode.NIGHT);
                 if(bindCamera(night,true))return;
@@ -320,19 +360,23 @@ public final class JhSmartCaptureActivity extends ComponentActivity {
         ownAnalysis=null;ownCapture=null;ownPreview=null;camera=null;
     }
     @Override protected void onStop() {
-        ++openingRevision;
+        foregroundStarted=false;
+        ++openingRevision; // invalidates all late CameraProvider/OEM callbacks
+        openingInProgress=false;
         extensionsManager=null;
         releaseOwnUseCases();
         super.onStop();
     }
     @Override protected void onStart() {
         super.onStart();
-        if(viewfinder!=null&&Build.VERSION.SDK_INT>=29&&
-            ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED&&ownCapture==null)
-            openCamera();
+        foregroundStarted=true;
+        maybeStartCamera(); // one opening only; onCreate doesn't race this callback
     }
     @Override protected void onDestroy() {
         ++openingRevision;
+        foregroundStarted=false;
+        openingInProgress=false;
+        extensionsManager=null;
         releaseOwnUseCases();
         analysisExecutor.shutdown();
         super.onDestroy();
