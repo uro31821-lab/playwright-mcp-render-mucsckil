@@ -1,0 +1,31 @@
+{
+  "startedAt": "2026-11-05T15:37:55.224727+00:00",
+  "source": "/workspace/scratch/0100362999b0/ebiseo-lifetime-0.5.3/android",
+  "commandWithoutSystemProxyValues": [
+    "/workspace/scratch/0100362999b0/build-tools-20261105/gradle/gradle-8.9/bin/gradle",
+    "--offline",
+    "--no-daemon",
+    "--console=plain",
+    "--max-workers=2",
+    "--stacktrace",
+    ":app:testReleaseUnitTest",
+    ":app:lintRelease",
+    ":app:assembleRelease"
+  ],
+  "existingProxyConfigurationPassedToJvm": false,
+  "tlsValidationEnabled": true,
+  "networkResolutionEnabled": false,
+  "systemPublicTruststore": null,
+  "environment": {
+    "JAVA_HOME": "/workspace/scratch/0100362999b0/build-tools-20261105/restored-cache-20261101/jdk",
+    "GRADLE_USER_HOME": "/workspace/scratch/0100362999b0/build-tools-20261105/restored-cache-20261101/gradle-user-home",
+    "ANDROID_HOME": "/workspace/scratch/0100362999b0/build-tools-20261105/sdk",
+    "ANDROID_SDK_ROOT": "/workspace/scratch/0100362999b0/build-tools-20261105/sdk"
+  },
+  "status": "PASS",
+  "offline": true,
+  "sourceAndDependencyVersionsModified": false,
+  "finishedAt": "2026-11-05T15:42:12.990019+00:00",
+  "exitCode": 0,
+  "elapsedSeconds": 257.765
+}
