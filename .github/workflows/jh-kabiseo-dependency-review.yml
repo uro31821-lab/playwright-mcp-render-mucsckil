@@ -1,0 +1,60 @@
+name: JH Kabiseo pinned public dependency quarantine review
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths: ['tools/kabiseo-dependency-review/**', '.github/workflows/jh-kabiseo-dependency-review.yml']
+permissions: {contents: read}
+concurrency:
+  group: kabiseo-dependency-review
+  cancel-in-progress: false
+jobs:
+  inspect-only:
+    runs-on: windows-2025
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Fetch and inspect exact public inputs as data only
+        shell: pwsh
+        run: |
+          python tools/kabiseo-dependency-review/audit_direct.py
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Record existing Defender status and scan quarantined files
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:GITHUB_WORKSPACE 'kabiseo-dependency-review'
+          $report=[ordered]@{schema='KABISEO_AV_OBSERVATION_V025';status='NOT_AVAILABLE';runId=$env:GITHUB_RUN_ID;head=$env:GITHUB_SHA;settingsChanged=$false;scanStarted=$false;scanExitCode=$null;fullReleaseApproved=$false}
+          try {
+            $status=Get-MpComputerStatus -ErrorAction Stop
+            $report.antivirusEnabled=$status.AntivirusEnabled
+            $report.realTimeProtectionEnabled=$status.RealTimeProtectionEnabled
+            $report.signatureVersion=$status.AntivirusSignatureVersion
+            $report.signatureUpdated=$status.AntivirusSignatureLastUpdated.ToUniversalTime().ToString('o')
+            $exe=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" -ErrorAction SilentlyContinue|Sort-Object FullName -Descending|Select-Object -First 1
+            if($status.AntivirusEnabled -and $exe){
+              $report.scanStarted=$true
+              & $exe.FullName -Scan -ScanType 3 -File $root -DisableRemediation *> (Join-Path $root 'defender-scan.log')
+              $report.scanExitCode=$LASTEXITCODE
+              $report.status=if($LASTEXITCODE -eq 0){'SCAN_COMPLETED_NO_THREAT_REPORTED'}else{'SCAN_FAILED_OR_THREAT_REPORTED'}
+            }
+          } catch {$report.status='AV_QUERY_OR_SCAN_UNAVAILABLE';$report.errorType=$_.Exception.GetType().FullName}
+          $report|ConvertTo-Json -Depth 6|Set-Content (Join-Path $root 'antivirus.json') -Encoding utf8
+          Write-Host ('KABISEO_AV='+($report|ConvertTo-Json -Compress))
+          # Preserve samples only after a completed clean scan; all extracted bytecode
+          # stays in this runner. A missing scan is not SAFE and not a build waiver.
+          if($report.status -ne 'SCAN_COMPLETED_NO_THREAT_REPORTED'){
+            Remove-Item (Join-Path $root 'quarantine') -Recurse -Force
+          }
+          Remove-Item (Join-Path $root 'inspect') -Recurse -Force
+          Write-Host 'NO_GRADLE_BUILD_NO_MODEL_INFERENCE_NO_PHONE_NO_RELEASE_APPROVAL'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-public-dependency-review-v025
+          path: |
+            kabiseo-dependency-review/direct-audit.json
+            kabiseo-dependency-review/antivirus.json
+            kabiseo-dependency-review/defender-scan.log
+            kabiseo-dependency-review/quarantine/*
+          retention-days: 14
+          if-no-files-found: error
