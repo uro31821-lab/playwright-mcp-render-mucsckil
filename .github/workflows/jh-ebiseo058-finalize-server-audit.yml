@@ -1,0 +1,34 @@
+name: JH Ebiseo 0.5.8 finalize server audit
+on:
+  push:
+    branches: ['fix/ebiseo058-expired-trust-cancel-20261108']
+permissions:
+  contents: write
+jobs:
+  finalize:
+    if: ${{ !contains(github.event.head_commit.message, '[ebiseo058-finalized]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with: {persist-credentials: true, fetch-depth: 0}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22'}
+      - name: Finalize exact source audit and audio upstream pins
+        run: |
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+          node jh-dev-tools/ebiseo058/finalize-server-audit-and-audio-pins.mjs --write
+          node jh-dev-tools/ebiseo058/finalize-server-audit-and-audio-pins.mjs --check
+          git diff --check
+          git add \
+            jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit.mjs \
+            jh-server/owner-setup/ebiseo-audio-v05/audio-upstream-sources.json \
+            jh-server/owner-setup/ebiseo-audio-v05/audio-compose-current-host.mjs \
+            jh-dev-tools/ebiseo058/finalize-server-audit-and-audio-pins.mjs
+          git rm .github/workflows/jh-ebiseo058-finalize-server-audit.yml
+          git diff --cached --quiet && { echo EXPECTED_EBISEO058_FINAL_DELTA_MISSING; exit 1; }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Finalize expired trust cleanup audit and audio pins [ebiseo058-finalized]'
+          git push origin HEAD:fix/ebiseo058-expired-trust-cancel-20261108
