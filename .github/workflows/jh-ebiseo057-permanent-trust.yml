@@ -1,0 +1,53 @@
+name: JH Ebiseo 0.5.7 permanent device trust
+on:
+  pull_request:
+    branches: [jh-fix3-secure-server]
+    paths:
+      - 'jh-server/owner-setup/trusted-server/trusted-device-registry*.mjs'
+      - 'jh-server/owner-setup/trusted-server/trusted-settings-service.mjs'
+      - 'jh-server/owner-setup/owner-enrollment/owner-enrollment*.mjs'
+      - 'jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs'
+      - 'jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit*.mjs'
+      - '.github/workflows/jh-ebiseo057-permanent-trust.yml'
+permissions: {contents: read}
+jobs:
+  permanent-trust-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false, fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Install reviewed dependencies
+        run: |
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Syntax
+        run: |
+          node --check jh-server/owner-setup/trusted-server/trusted-device-registry.mjs
+          node --check jh-server/owner-setup/trusted-server/trusted-device-registry-base.mjs
+          node --check jh-server/owner-setup/trusted-server/trusted-settings-service.mjs
+          node --check jh-server/owner-setup/owner-enrollment/owner-enrollment.mjs
+          node --check jh-server/owner-setup/owner-enrollment/owner-enrollment-base.mjs
+          node --check jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit.mjs
+          node --check jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit-base.mjs
+      - name: Permanent trust, revocation and exact protected-source contracts
+        run: |
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs \
+            jh-server/owner-setup/trusted-server/trusted-renewal.test.mjs \
+            jh-server/owner-setup/trusted-server/trusted-session-rebind-quarantine.test.mjs \
+            jh-server/owner-setup/trusted-server/dispatch-receipts.test.mjs
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
+      - name: Release boundary
+        run: |
+          echo APK_BUILD=0
+          echo APK_INSTALL=0
+          echo PHONE_COMMAND=0
+          echo RENDER_DEPLOY=0
+          echo AUTOMATIC_REPLAY=0
+          echo UNINSTALL_OR_DATA_RESET=0

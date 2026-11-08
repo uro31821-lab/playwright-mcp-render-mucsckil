@@ -25,7 +25,7 @@ export class TrustedSettingsService {
     const r=this.#registry.revoke(trustId,authenticatedContext);
     if(r?.status!=='TRUST_REVOKED')throw Error('TRUST_REMOVAL_NOT_COMMITTED');
     const reply={trustId,purpose:PURPOSE,serverRecordRevoked:true,
-      activeSessionsRevoked:false,pendingJobsRevoked:false,dispatchedJobsUncertain:null,deviceSideCancellationVerified:false,complete:false};
+      activeSessionsRevoked:false,pendingJobsRevoked:false,dispatchedJobsUncertain:null,dispatchedJobsQuarantined:false,deviceSideCancellationVerified:false,complete:false};
     if(!this.#sessions)return Object.freeze(reply);
     try {
       await this.#sessions.revokeForTrust(trustId);
@@ -37,7 +37,11 @@ export class TrustedSettingsService {
       reply.pendingJobsRevoked=after.pendingJobs===0;
       reply.dispatchedJobsUncertain=count(after.dispatchedJobsUncertain)?after.dispatchedJobsUncertain:null;
       // Server-side fencing cannot undo a command already delivered to a phone.
-      reply.complete=reply.activeSessionsRevoked&&reply.pendingJobsRevoked&&reply.dispatchedJobsUncertain===0;
+      // Historical/unknown outcomes remain immutable evidence, but after the trust
+      // is fenced and no active session/queued work remains they no longer block
+      // completion of the explicit trust removal. Nothing is replayed or erased.
+      reply.dispatchedJobsQuarantined=reply.dispatchedJobsUncertain!==null&&reply.dispatchedJobsUncertain>0;
+      reply.complete=reply.activeSessionsRevoked&&reply.pendingJobsRevoked&&reply.dispatchedJobsUncertain!==null;
     }catch {/* Persisted trust removal stands even when active session cleanup is uncertain. */}
     return Object.freeze(reply);
   }

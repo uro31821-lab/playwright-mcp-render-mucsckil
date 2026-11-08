@@ -1,0 +1,56 @@
+{
+  "schema": "JH_EBISEO057_PERMANENT_TRUST_VERIFICATION_V1",
+  "candidate": "JH171-EBISEO057-PERMANENT-DEVICE-TRUST-20261108",
+  "serverFocused": {
+    "tests": 29,
+    "passed": 29,
+    "failed": 0
+  },
+  "permanentTrust": {
+    "durationSelection": 0,
+    "persistsUntilExplicitRevocation": true,
+    "simulatedElapsedDays": 400,
+    "statusAfterElapsedTime": "REGISTERED"
+  },
+  "secureSession": {
+    "maxSessionMs": 1800000,
+    "automaticSignedRenewalPreserved": true,
+    "permanentOpenSession": false
+  },
+  "revocation": {
+    "cancelReplay": false,
+    "signedStatusReconciliation": true,
+    "historicalUncertainCountTested": 75,
+    "historicalEvidencePreserved": true,
+    "historicalEvidenceQuarantined": true,
+    "automaticReplayAllowed": false
+  },
+  "androidFocused": {
+    "sourceFiles": 463,
+    "coreCompile": "PASS",
+    "testSourceCompile": "PASS",
+    "permanentTrustHarness": "PASS",
+    "fullGradleBuild": "NOT_RUN"
+  },
+  "application": {
+    "id": "com.koreanlifehub.bridge",
+    "versionCode": 171,
+    "versionName": "jh171-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo057-permanent-trust"
+  },
+  "oneClick": {
+    "file": "JH_Ebiseo_0.5.7_PermanentTrust_OneClick.zip",
+    "sha256": "2278cdc32813ef4cde521dd6c847b896cd381aa86bf55d31d9c77ae00b50445d",
+    "sizeBytes": 2647799,
+    "sourceManifestSha256": "0a641549c801b9779448fc9d15b1e1848bbbb70988b8decdcce6496afb68a3ff",
+    "singleAdbInstallR": true,
+    "uninstallOrDataReset": false,
+    "newSigningKey": false,
+    "renderDeploy": false
+  },
+  "windowsBuild": "NOT_RUN",
+  "originalCertificateSigning": "NOT_RUN",
+  "phoneInstall": "NOT_RUN",
+  "trustReconciliation": "NOT_RUN",
+  "permanentEnrollment": "NOT_RUN",
+  "audioE2E": "NOT_RUN"
+}
