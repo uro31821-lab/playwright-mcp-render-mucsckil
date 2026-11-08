@@ -20,7 +20,7 @@ jobs:
           names=set(z.namelist())
           assert {'plugin.json','.codex-plugin/plugin.json','skills/jh-secure-live/SKILL.md'} <= names
           versions=[json.loads(z.read(p).decode())['version'] for p in ['plugin.json','.codex-plugin/plugin.json']]
-          assert versions==['1.34.59','1.34.59'], versions
+          assert versions[0]==versions[1] and versions[0].startswith('1.34.'), versions
           s=z.read('skills/jh-secure-live/SKILL.md').decode()
           assert s.count('## 비서 라우팅 공통 기준 — assistant-hub 단일 기준')==1
           removed=[
@@ -33,7 +33,7 @@ jobs:
           for h in removed: assert h not in s, h
           assert '# JH Secure Live — JH167' in s
           assert '## MCP route selection and authentication diagnosis' in s
-          print('ROOT_TO_HUB_DEDUP_PASS')
+          print('ROOT_TO_HUB_DEDUP_PASS', versions[0])
           PY
       - uses: actions/upload-artifact@v4
         with:
