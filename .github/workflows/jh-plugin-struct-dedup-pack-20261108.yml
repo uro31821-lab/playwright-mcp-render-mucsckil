@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Decode and verify plugin overlay
+      - name: Decode and verify root-to-hub dedup overlay
         shell: bash
         run: |
           set -euo pipefail
@@ -18,37 +18,22 @@ jobs:
           import json, zipfile
           z=zipfile.ZipFile('jh-plugin-overlay.zip')
           names=set(z.namelist())
-          required={'plugin.json','.codex-plugin/plugin.json'}
-          assert required <= names
-          v=[]
-          for p in required:
-              j=json.loads(z.read(p).decode())
-              v.append(j['version'])
-          assert v==['1.34.58','1.34.58'] or v==['1.34.58','1.34.58'][::-1]
-          attr=[
-            'skills/jh-chaekbiseo/SKILL.md','skills/jh-ebiseo-assist/SKILL.md',
-            'skills/jh-gitbiseo-blocker-executor/SKILL.md','skills/jh-open-source-scout/SKILL.md',
-            'skills/jh-pyeonbiseo/SKILL.md','skills/jh-yeobiseo/SKILL.md']
-          weather=[
-            'skills/jh-meokbiseo/SKILL.md','skills/jh-shoppingbiseo/SKILL.md',
-            'skills/jh-yeobiseo/SKILL.md','skills/jh-yeyakbiseo/SKILL.md']
-          handoff=['skills/jh-dev-toolkit/SKILL.md','skills/jh-ebiseo-assist/SKILL.md']
-          old_attr='이 비서가 설명·추천·의견·검토·분석·개발·실행·진행·완료에 관여하면 해당 구간 맨 앞을'
-          new_attr='공통 참여 표시는 [assistant-attribution.md]'
-          old_weather="현재 주 담당·목표·조건·번호 메뉴를 유지하고, 허브의 `intent.weatherRelevance:'relevant'`로 연결한다."
-          new_weather='상세 판단은 [날씨비서](../jh-nalssibiseo/SKILL.md) 한 곳을 따른다.'
-          old_handoff='현재 전문 규칙과 전용 기록은 유지하고, 답과 사용자 선택 메뉴는 주 담당이 하나로 모은다.'
-          new_handoff='공통 작업 인계·재개는 [assistant-hub]'
-          for p in attr:
-              s=z.read(p).decode()
-              assert old_attr not in s and new_attr in s, p
-          for p in weather:
-              s=z.read(p).decode()
-              assert old_weather not in s and new_weather in s, p
-          for p in handoff:
-              s=z.read(p).decode()
-              assert old_handoff not in s and new_handoff in s, p
-          print('COMMON_RULE_DEDUP_PASS', len(names), 'files')
+          assert {'plugin.json','.codex-plugin/plugin.json','skills/jh-secure-live/SKILL.md'} <= names
+          versions=[json.loads(z.read(p).decode())['version'] for p in ['plugin.json','.codex-plugin/plugin.json']]
+          assert versions==['1.34.59','1.34.59'], versions
+          s=z.read('skills/jh-secure-live/SKILL.md').decode()
+          assert s.count('## 비서 라우팅 공통 기준 — assistant-hub 단일 기준')==1
+          removed=[
+            '## 모든 답변의 자료·영상 링크 — 2026-11-08 사용자 확정',
+            '## 아이디어비서 — 사진과 조건으로 생활문제 해결',
+            '## 날씨비서 — 모든 현재 선택에서 필요한 날씨만 연결',
+            '## 대안비서 — 돌발변수의 공통 보조',
+            '## 청구서 비서 — 유지 판단을 첫 줄에',
+            '## 딴비서 — 의견받기 선택 후 분석']
+          for h in removed: assert h not in s, h
+          assert '# JH Secure Live — JH167' in s
+          assert '## MCP route selection and authentication diagnosis' in s
+          print('ROOT_TO_HUB_DEDUP_PASS')
           PY
       - uses: actions/upload-artifact@v4
         with:
