@@ -54,7 +54,7 @@ def inspect_aar(g,a,v):
                     for entry in j.namelist():
                         if entry.endswith('.kotlin_module'):
                             vdata=j.read(entry)
-                            item['kotlinModules'].append({'name':entry,'metadataVersion':module_version(vdata)})
+                            item['kotlinModules'].append({'name':entry,'metadataVersion':module_version(vdata),'headerHex':vdata[:32].hex(),'moduleBytes':len(vdata)})
     return item
 def parse_guava():
     raw,p= pom('com.google.guava','guava','27.0.1-android',CENTRAL)
