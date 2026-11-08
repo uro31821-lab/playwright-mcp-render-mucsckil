@@ -170,7 +170,12 @@ export function createOwnerRegistryService({store,verifier,serverOrigin,catalogD
     outcomeChallenge(input){
       exact(input,['requestId','purpose']);if(!token(input.requestId)||![STATUS_PURPOSE,CANCEL_PURPOSE].includes(input.purpose))deny('outcome_request_invalid');
       return store.updateForApplication(input.requestId,r=>{
-        const n=time(),retentionEnd=r.manifest.durationDays===0?PERMANENT_TRUST_EXPIRES_AT:r.manifest.issuedAtMs+31*86400000;
+        const n=time();
+        // Status/cancel proof remains available for a durable registration after
+        // finite trust expiry. This cannot renew trust, issue a session or grant
+        // an action; it only permits device-key-signed observation/revocation.
+        const durableOutcome=r.receipt!=null||['APPLIED','APPLYING','CANCEL_PENDING','CANCELED'].includes(r.state);
+        const retentionEnd=r.manifest.durationDays===0||durableOutcome?PERMANENT_TRUST_EXPIRES_AT:r.manifest.issuedAtMs+31*86400000;
         if(n<r.manifest.issuedAtMs||n>retentionEnd)deny('outcome_retention_expired');
         r.outcomeChallenges=(r.outcomeChallenges||[]).filter(x=>!x.used&&x.challenge.expiresAtMs>n);
         if(r.outcomeChallenges.length>=4)deny('outcome_challenge_limit');
