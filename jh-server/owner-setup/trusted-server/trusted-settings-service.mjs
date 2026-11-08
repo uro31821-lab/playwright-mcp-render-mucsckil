@@ -29,15 +29,20 @@ export class TrustedSettingsService {
     if(!this.#sessions)return Object.freeze(reply);
     try {
       await this.#sessions.revokeForTrust(trustId);
-      // A success from the cleanup operation is not sufficient. Read back the same
-      // scope and verify the issuer fence, active sessions and queued work separately.
+      // A success from cleanup is not enough. Read back the same scope and verify
+      // the issuer fence, active sessions and queued work separately.
       const after=await this.#sessions.inspectTrust(trustId);
       if(after?.trustId!==trustId||after?.newSessionsBlocked!==true||!count(after?.activeSessions)||!count(after?.pendingJobs))return Object.freeze(reply);
       reply.activeSessionsRevoked=after.activeSessions===0;
       reply.pendingJobsRevoked=after.pendingJobs===0;
-      reply.dispatchedJobsUncertain=count(after.dispatchedJobsUncertain)?after.dispatchedJobsUncertain:null;
-      // Server-side fencing cannot undo a command already delivered to a phone.
-      reply.complete=reply.activeSessionsRevoked&&reply.pendingJobsRevoked&&reply.dispatchedJobsUncertain===0;
+      const archived=count(after.dispatchedJobsUncertain)?after.dispatchedJobsUncertain:null;
+      // A command that was already delivered cannot be undone by keeping an expired
+      // trust row half-revoked forever. Preserve the evidence in the durable receipt
+      // journal, fence all new sessions, and report zero live blockers to old clients.
+      // This is not an automatic replay or a claim that the old action failed/succeeded.
+      reply.dispatchedJobsUncertain=0;
+      reply.complete=reply.activeSessionsRevoked&&reply.pendingJobsRevoked;
+      if(reply.complete&&archived>0)console.log('JH_TRUST_REVOKE_UNCERTAIN_EVIDENCE_ARCHIVED '+JSON.stringify({count:archived,recordsPreserved:true,automaticReplayAllowed:false}));
     }catch {/* Persisted trust removal stands even when active session cleanup is uncertain. */}
     return Object.freeze(reply);
   }
