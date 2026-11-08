@@ -31,7 +31,7 @@ def module_version(b):
     n=int.from_bytes(b[:4],'big')
     if n<1 or n>5 or len(b)<4+4*n:return None
     version=[int.from_bytes(b[4+i*4:8+i*4],'big') for i in range(n)]
-    return version if all(0<=x<1000 for x in version) else None
+    return version if all(0<=x<=9999 for x in version) else None
 def inspect_aar(g,a,v):
     raw=fetch(g,a,v,'aar',GOOGLE);side=fetch(g,a,v,'aar.sha256',GOOGLE).decode('ascii').split()[0]
     if digest(raw)!=side.lower():raise ValueError('SHA256_MISMATCH')
