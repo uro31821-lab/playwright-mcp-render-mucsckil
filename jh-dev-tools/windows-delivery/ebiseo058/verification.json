@@ -1,0 +1,46 @@
+{
+  "schema": "JH_EBISEO058_ANDROID_V172_REVIEW_V1",
+  "candidate": "JH172-EBISEO058-EXPIRED-TRUST-CLEANUP-20261108",
+  "server": {
+    "pullRequest": 182,
+    "mergeCommit": "2361170e230cbc7ba7103159a67711dde8b5a3b3",
+    "deployId": "dep-dbo6t1vf3r2c73abefp0",
+    "deployStatus": "LIVE"
+  },
+  "android": {
+    "versionCode": 172,
+    "versionName": "jh172-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo058-expired-trust-cleanup",
+    "controllerBeforeSha256": "8b72982fbc19ee464549f2436a9f5e1fadb92106848f1f8d7e45c2ccdb5f01ff",
+    "controllerAfterSha256": "e1d76c3e399aa37e5c6283c576b7f877706cf483b8da9c98013d1cb397ca5edd",
+    "testBeforeSha256": "0a094a0c03fc058d16476919bfd9193fa8d83c0d6328bdc17fd08073be942f0f",
+    "testAfterSha256": "d175f3b4ec89009e1e3fe40b0aa8543218f05e2dee261d4f2d7d789afd67e10e",
+    "sourceManifestFiles": 463,
+    "sourceManifestSha256": "25a51dbf56b61b3768276c8a63ce1be4dd5451fbb5711b43a86a4d3b41200e2f"
+  },
+  "focusedKotlin": {
+    "compiler": "Kotlin 1.9.24",
+    "scenarios": 3,
+    "passed": 3,
+    "failed": 0,
+    "alreadyCompletedCancelCalls": 0,
+    "expiredTrustCancelCalls": 1,
+    "statusFailureCancelCalls": 0,
+    "automaticRetry": false
+  },
+  "package": {
+    "file": "JH_Ebiseo_0.5.8_ExpiredTrustCleanup_OneClick.zip",
+    "sha256": "865f239b3135bcf20f12e9d5291413c0b2e5bf52b1ef7d7d4089649508469332",
+    "entries": 484,
+    "archiveReadback": "PASS"
+  },
+  "windowsBuild": "NOT_RUN",
+  "originalCertificateSigning": "NOT_RUN",
+  "phoneInstall": "NOT_RUN",
+  "expiredTrustCleanupE2E": "NOT_RUN",
+  "permanentEnrollmentE2E": "NOT_RUN",
+  "secure56ReconnectE2E": "NOT_RUN",
+  "audioE2E": "NOT_RUN",
+  "automaticReplayAllowed": false,
+  "uninstallOrDataReset": false,
+  "newSigningKey": false
+}
