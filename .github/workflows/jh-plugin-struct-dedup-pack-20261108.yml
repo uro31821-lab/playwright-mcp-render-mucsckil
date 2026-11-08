@@ -1,0 +1,28 @@
+name: JH Plugin structure dedup package
+on:
+  push:
+    branches:
+      - jh-plugin-structure-dedup-20261108a
+    paths:
+      - '.github/workflows/jh-plugin-struct-dedup-pack-20261108.yml'
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify structural dedup overlay
+        shell: bash
+        run: |
+          test "$(grep -R -F -l '## JH 공통 작업 이어받기 — 2026-11-04' plugin-overlay/skills 2>/dev/null | wc -l)" -eq 0
+          test -f plugin-overlay/plugin.json
+          test -f plugin-overlay/.codex-plugin/plugin.json
+          test "$(find plugin-overlay/skills -name SKILL.md | wc -l)" -eq 8
+      - name: Package overlay
+        shell: bash
+        run: tar -czf jh-plugin-overlay.tar.gz -C plugin-overlay .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jh-plugin-struct-dedup-overlay
+          path: jh-plugin-overlay.tar.gz
+          if-no-files-found: error
+          retention-days: 1
