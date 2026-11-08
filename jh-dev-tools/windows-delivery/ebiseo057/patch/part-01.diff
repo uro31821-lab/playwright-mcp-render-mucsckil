@@ -1,0 +1,57 @@
+--- a/development/android/app/src/test/java/com/koreanlifehub/bridge/OwnerEnrollmentClientTest.kt
++++ b/development/android/app/src/test/java/com/koreanlifehub/bridge/OwnerEnrollmentClientTest.kt
+@@ -45,7 +45,8 @@
+             }
+         }
+         val calls=mutableListOf<String>();var binding:OwnerEnrollmentBinding?=null;var registered=false;var canceled=false
+-        var onBegin:()->Unit={};var onFinish:()->Unit={};var onStatus:()->Unit={};var loseFinish=false;var loseCancel=false
++        var onBegin:()->Unit={};var onFinish:()->Unit={};var onStatus:()->Unit={};var loseFinish=false;var loseCancel=false;var loseStatus=false
++        var cancellationPending=false;var pendingCancelResponses=0
+         var mutate:((String,MutableMap<String,Any?>)->Unit)?=null
+         var serial=0
+         fun receipt()=TrustedReconnectProtocol.Receipt("T".repeat(32),scope.ownerDigest,scope.deviceDigest,scope.serverDigest,scope.catalogDigest,binding!!.keyDigest,binding!!.issuedAtMs+1,binding!!.issuedAtMs+1+binding!!.durationDays*TrustedDeviceSettings.DAY_MS)
+@@ -76,11 +77,16 @@
+                         @Suppress("UNCHECKED_CAST") val c=x["challenge"] as Map<String,Any?>
+                         check(c["purpose"]==(if(route=="status")OwnerEnrollmentWire.STATUS else OwnerEnrollmentWire.CANCEL))
+                         check(Signature.getInstance("SHA256withECDSA").run{initVerify(keyPair.public);update(OwnerEnrollmentWire.outcomeMaterial(c));verify(Base64.getUrlDecoder().decode(x["signature"] as String))})
+-                        if(route=="cancel") {canceled=true;registered=false;if(loseCancel)error("SYNTHETIC_CANCEL_REPLY_LOST")}
+-                        if(route=="status")onStatus()
+-                        reply(if(canceled)"ENROLLMENT_CANCELED" else if(registered)"TRUST_REGISTERED" else "PENDING").apply{
++                        if(route=="status") {onStatus();if(loseStatus)error("SYNTHETIC_STATUS_REPLY_LOST")}
++                        if(route=="cancel") {
++                            if(pendingCancelResponses>0){pendingCancelResponses--;cancellationPending=true;registered=false}
++                            else {canceled=true;cancellationPending=false;registered=false}
++                            if(loseCancel)error("SYNTHETIC_CANCEL_REPLY_LOST")
++                        }
++                        reply(if(canceled)"ENROLLMENT_CANCELED" else if(cancellationPending)"CANCELLATION_PENDING" else if(registered)"TRUST_REGISTERED" else "PENDING").apply{
+                             put("outcomeChallengeId",c["challengeId"]);put("observedAtMs",now)
+                             if(canceled){put("complete",true);put("serverRecordRevoked",true);put("activeSessionsRevoked",true);put("pendingJobsRevoked",true);put("dispatchedJobsUncertain",0L);put("deviceSideCancellationVerified",false)}
++                            if(cancellationPending)put("complete",false)
+                         }
+                     }
+                     else->error("UNKNOWN_ROUTE")
+@@ -130,7 +136,10 @@
+     @Test fun wrongStatusChallengeDoesNotTrust(){val f=Fixture();f.mutate={p,o->if(p=="status")o["outcomeChallengeId"]="X".repeat(32)};f.accepted(f.controller());assertNotEquals(TrustedDeviceSettings.Phase.TRUSTED,f.record.phase)}
+     @Test fun staleStatusResponseDoesNotTrust(){val f=Fixture();f.mutate={p,o->if(p=="status")o["observedAtMs"]=f.now-60001};f.accepted(f.controller());assertNotEquals(TrustedDeviceSettings.Phase.TRUSTED,f.record.phase)}
+     @Test fun cancelIsDurablyBlockedBeforeNetwork(){val f=Fixture();val c=f.controller();f.accepted(c);f.mutate={p,_->if(p=="challenge")assertEquals(TrustedDeviceSettings.Phase.REVOKE_PENDING,f.record.phase)};assertEquals("TRUST_REVOKED",c.cancel().code);assertTrue(f.deleted)}
+-    @Test fun lostCancellationKeepsRecoveryKeyAndBlocksReconnect(){val f=Fixture();val c=f.controller();f.accepted(c);f.loseCancel=true;c.cancel();assertFalse(f.deleted);assertEquals(TrustedDeviceSettings.Phase.REVOKE_PENDING,f.record.phase);assertEquals(TrustedReconnectAttempt.Phase.REVOKED,TrustedDeviceSettings.AttemptStore(f.store).read().phase);f.loseCancel=false;assertEquals("TRUST_REVOKED",f.controller().cancel().code)}
++    @Test fun lostCancellationKeepsRecoveryKeyAndChecksStatusBeforeAnyResubmit(){val f=Fixture();val c=f.controller();f.accepted(c);f.loseCancel=true;c.cancel();assertFalse(f.deleted);assertEquals(TrustedDeviceSettings.Phase.REVOKE_PENDING,f.record.phase);assertEquals(TrustedReconnectAttempt.Phase.REVOKED,TrustedDeviceSettings.AttemptStore(f.store).read().phase);f.loseCancel=false;val cancels=f.calls.count{it=="cancel"};assertEquals("TRUST_REVOKED",f.controller().continueCancellation().code);assertEquals(cancels,f.calls.count{it=="cancel"});assertEquals("status",f.calls.last())}
++    @Test fun pendingCancellationContinuesExactlyOnceOnlyAfterExplicitStatusCheck(){val f=Fixture();val c=f.controller();f.accepted(c);f.pendingCancelResponses=1;assertEquals("OWNER_SERVER_CANCELLATION_PENDING",c.cancel().code);val before=f.calls.size;assertEquals("TRUST_REVOKED",f.controller().continueCancellation().code);assertEquals(listOf("challenge","status","challenge","cancel"),f.calls.drop(before));assertEquals(2,f.calls.count{it=="cancel"})}
++    @Test fun failedStatusDoesNotBlindlyResubmitCancellation(){val f=Fixture();val c=f.controller();f.accepted(c);f.pendingCancelResponses=1;c.cancel();val cancels=f.calls.count{it=="cancel"};f.loseStatus=true;assertEquals("OWNER_SERVER_STATUS_NOT_CONFIRMED",f.controller().continueCancellation().code);assertEquals(cancels,f.calls.count{it=="cancel"});assertEquals(TrustedDeviceSettings.Phase.REVOKE_PENDING,f.record.phase)}
++    @Test fun cancelCalledAgainWhilePendingAlsoUsesStatusFirst(){val f=Fixture();val c=f.controller();f.accepted(c);f.pendingCancelResponses=1;c.cancel();val before=f.calls.size;assertEquals("TRUST_REVOKED",f.controller().cancel().code);assertEquals(listOf("challenge","status","challenge","cancel"),f.calls.drop(before))}
+     @Test fun staleRemovalCannotRevokeNewRevision(){val f=Fixture();val c=f.controller();f.accepted(c);val old=f.record;f.record=f.record.copy(revision=old.revision+1);assertEquals("OWNER_STATE_CHANGED",c.cancel(old).code);assertFalse(f.canceled)}
+     @Test fun canceledLoginCallbackCannotRestoreTrust(){val f=Fixture();val c=f.controller();val l=f.login(c);c.cancel();assertEquals("OWNER_LOGIN_NOT_CURRENT",c.finish(l,TOKEN).code);assertFalse(f.registered)}
+     @Test fun unknownDispatchedCountIsNotFullRevocation(){val f=Fixture();val c=f.controller();f.accepted(c);f.mutate={p,o->if(p=="cancel")o.remove("dispatchedJobsUncertain")};assertEquals("OWNER_LOCAL_BLOCKED_SERVER_PENDING",c.cancel().code);assertFalse(f.deleted)}
+--- a/development/android/app/build.gradle.kts
++++ b/development/android/app/build.gradle.kts
+@@ -12,8 +12,8 @@
+         applicationId = "com.koreanlifehub.bridge"
+         minSdk = 26
+         targetSdk = 35
+-        versionCode = 170
+-        versionName = "jh170-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo056"
++        versionCode = 171
++        versionName = "jh171-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo057"
+     }
+ 
+     // Compiled here, signed on the original PC only. No private key is bundled.
