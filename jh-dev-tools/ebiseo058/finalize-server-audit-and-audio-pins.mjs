@@ -22,10 +22,11 @@ const replaceOne=(source,before,after,code)=>{
  if(source.split(before).length!==2||source.includes(after))fail(code);
  return source.replace(before,after);
 };
-const STEP=`   }),\n   Object.freeze({\n    reviewedHead:'${REVIEWED_HEAD}',\n    protectedObjects:Object.freeze({\n     'jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs':\n      '${AUDIT_SHA}',\n     'jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs':\n      '${SERVICE_SHA}',\n     'jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs':\n      '${TEST_SHA}'\n    })\n   })`;
-const ANCHOR=`   }),\n   Object.freeze({\n    reviewedHead:'9bced0692d81a9751a3c24ad76ecea38995ae0f9',\n    protectedObjects:Object.freeze({\n     'jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs':\n      'a257b8696ac3173502f0030a2cb6361530a32e9b',\n     'jh-server/owner-setup/owner-enrollment/owner-enrollment-base.mjs':\n      'd4e7abe44109966994da3d0749b8b5dffc357fcd',\n     'jh-server/owner-setup/owner-enrollment/owner-enrollment.mjs':\n      '51beb4d40b2cd7542b50a47178b56541b762b12d',\n     'jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs':\n      '83cb17d78ed9a668ce0b7f2df6c4a9a243d7153c',\n     'jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs':\n      '468320bc9a02b97da4169717249afcad257aa6cc',\n     'jh-server/owner-setup/trusted-server/trusted-device-registry-base.mjs':\n      '859baf0e806f7228ee4efe9b13913d0796fd77f9',\n     'jh-server/owner-setup/trusted-server/trusted-device-registry.mjs':\n      '82b8b1d1ed695394e729c0a98d806df457411d26',\n     'jh-server/owner-setup/trusted-server/trusted-settings-service.mjs':\n      '4838109a0fa085a326ed099dc7cf34e2ffe6007c'\n    })\n   })`;
+const NEW_BLOCK=`   Object.freeze({\n    reviewedHead:'${REVIEWED_HEAD}',\n    protectedObjects:Object.freeze({\n     'jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs':\n      '${AUDIT_SHA}',\n     'jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs':\n      '${SERVICE_SHA}',\n     'jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs':\n      '${TEST_SHA}'\n    })\n   })`;
+const ANCHOR=`   Object.freeze({\n    reviewedHead:'9bced0692d81a9751a3c24ad76ecea38995ae0f9',\n    protectedObjects:Object.freeze({\n     'jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs':\n      'a257b8696ac3173502f0030a2cb6361530a32e9b',\n     'jh-server/owner-setup/owner-enrollment/owner-enrollment-base.mjs':\n      'd4e7abe44109966994da3d0749b8b5dffc357fcd',\n     'jh-server/owner-setup/owner-enrollment/owner-enrollment.mjs':\n      '51beb4d40b2cd7542b50a47178b56541b762b12d',\n     'jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs':\n      '83cb17d78ed9a668ce0b7f2df6c4a9a243d7153c',\n     'jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs':\n      '468320bc9a02b97da4169717249afcad257aa6cc',\n     'jh-server/owner-setup/trusted-server/trusted-device-registry-base.mjs':\n      '859baf0e806f7228ee4efe9b13913d0796fd77f9',\n     'jh-server/owner-setup/trusted-server/trusted-device-registry.mjs':\n      '82b8b1d1ed695394e729c0a98d806df457411d26',\n     'jh-server/owner-setup/trusted-server/trusted-settings-service.mjs':\n      '4838109a0fa085a326ed099dc7cf34e2ffe6007c'\n    })\n   })`;
+const INSERTED=ANCHOR+',\n'+NEW_BLOCK;
 function verify(){
- const audit=text(AUDIT);if(!audit.includes(STEP))fail('CENTRAL_AUDIT_STEP_MISSING');
+ const audit=text(AUDIT);if(!audit.includes(INSERTED))fail('CENTRAL_AUDIT_STEP_MISSING');
  const manifest=JSON.parse(text(MANIFEST));
  if(manifest.sourceCommit!==REVIEWED_HEAD)fail('AUDIO_SOURCE_COMMIT_MISMATCH');
  if(Object.keys(manifest.files).length!==322)fail('AUDIO_SOURCE_COUNT_CHANGED');
@@ -39,11 +40,11 @@ function verify(){
  const testOut=execFileSync(process.execPath,['--test','--test-reporter=spec',path.join(SERVER,'owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs')],{cwd:ROOT,encoding:'utf8',timeout:120000,maxBuffer:10*1024*1024});
  if(!/fail 0/.test(testOut))fail('EXPIRED_TRUST_REGRESSION_FAILED');
  execFileSync(process.execPath,[path.join(SERVER,'owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs')],{cwd:ROOT,encoding:'utf8',timeout:30000});
- execFileSync(process.execPath,[AUDIT],{cwd:ROOT,encoding:'utf8',timeout:30000});
+ execFileSync(process.execPath,['--check',AUDIT],{cwd:ROOT,encoding:'utf8',timeout:30000});
  return {reviewedHead:REVIEWED_HEAD,audioPinnedFiles:322,serverTests:'PASS',automaticReplayAllowed:false};
 }
 function write(){
- let audit=text(AUDIT);audit=replaceOne(audit,ANCHOR,ANCHOR.replace(/\n   \}\)$/, '')+STEP,'CENTRAL_AUDIT_ANCHOR_CHANGED');writeFileSync(AUDIT,audit);
+ let audit=text(AUDIT);audit=replaceOne(audit,ANCHOR,INSERTED,'CENTRAL_AUDIT_ANCHOR_CHANGED');writeFileSync(AUDIT,audit);
  const manifest=JSON.parse(text(MANIFEST));
  if(manifest.sourceCommit!==PRIOR_AUDIO_HEAD)fail('UNEXPECTED_AUDIO_SOURCE_COMMIT');
  const mismatches=[];
