@@ -205,3 +205,12 @@ test('candidate entry keeps published host and operator gates before owner stora
   await assert.rejects(entry.main(productionShape),/AUDIO_STAGE71_ANDROID_MODE_REQUIRED/);
   await assert.rejects(entry.main({...productionShape,CI:'true'}),/JH_PENDING_APPROVAL_TEST_BYPASS_FORBIDDEN/);
 });
+
+
+test('diagnostic: report actual composed Secure56 host-port signature',()=>{
+  const match=/function secureCall56\\s*\\(([^)]*)\\)/.exec(current);
+  assert.ok(match,'secureCall56 definition missing from current composed runtime');
+  const signature=match[1].replace(/\\s+/g,'');
+  console.log('JH_AUDIO_SECURECALL_SIGNATURE '+signature);
+  assert.ok(signature.length>0);
+});
