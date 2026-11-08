@@ -1,6 +1,6 @@
 {
   "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
-  "sourceCommit": "907ac5a0a9255c7b16cb5132921695db3019cb03",
+  "sourceCommit": "8c9370f873d4312543310cb8aa1da2ed2b06b2c5",
   "recordedRuntimeCommit": "a06e4643a036fa7cc121ef997bc332a43f2f85df",
   "runtimeVerifiedLive": false,
   "files": {
@@ -207,7 +207,7 @@
     "owner-setup/owner-enrollment/owner-enrollment-http.mjs": "0ae5ab17c80d68b1c9f63c95d1eef68512929b6ac62b5b527b551ba95bd01d7e",
     "owner-setup/owner-enrollment/owner-enrollment.mjs": "7eac4a8bb4a4b528eb76c0ad340ff42e4d604b216abaff7b479bc42b9ad674a6",
     "owner-setup/owner-enrollment/owner-host-bootstrap.mjs": "7010093a3777cb657ef45a5d0e1e5153d0976d649c0d6e0b6935140bcbf964a7",
-    "owner-setup/owner-enrollment/owner-registry-service.mjs": "5fe7c70ebdbc34eb42e2299947414b4ed5451b01dd1ded249281ff1211b7e76c",
+    "owner-setup/owner-enrollment/owner-registry-service.mjs": "40cd8285f273ca95ea57a6799acd4a2708dd17a6caefb5e131e9481337625bde",
     "owner-setup/owner-enrollment/package-lock.json": "c900e72e5ee2affb68daafb99e5d1feaacfb55397b557169bc73d7e45ede1c11",
     "owner-setup/owner-enrollment/package.json": "579a9f3d17af7b1911ca4c460e2804620a6cb913fea7465beacd683d379448de",
     "owner-setup/owner-enrollment/pc-owner-proof-http.mjs": "53b46c13dd5c89c4e9570c08b602d771c735321acd29ce094f851ecb3f4d7c87",
