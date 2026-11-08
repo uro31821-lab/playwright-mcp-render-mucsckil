@@ -1,35 +1,29 @@
-# 이비서 0.5.9 — 메타데이터 자동 음악 프로필 FIX2
+# 이비서 0.5.9 FIX3 / v174 — 표준 세션 우선 + Global Output Mix fallback
 
-현재 정상 동작하는 Android AudioEffect 세션 EQ와 영구 기기 신뢰를 유지하면서, YouTube Music이 장르를 비워 두는 경우 공개 음악 메타데이터로 자동 프리셋을 선택한다.
+v173/FIX2는 Windows build/sign/update install/versionCode=173 readback까지 통과했다. 실제 휴대폰에서 현재 곡 감지, AUTO, 장르 불명→vocals 선택은 확인됐지만 YouTube Music이 표준 ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION을 보내지 않아 WAITING_FOR_STANDARD_OPEN, engineConfirmed=false가 지속됐다. 일시정지/재생, 최근앱 종료, 강제중지 후 재실행 뒤에도 동일했다.
 
-## 동작
-- `이비서 시작` = EQ 활성 + AUTO. 재생/정지/seek 조작 없음.
-- player genre → local cache → MusicBrainz → MusicBrainz 결과가 없을 때만 optional Last.fm.
-- 외부 조회 필드: 제목·가수만. 오디오 파형 캡처·녹음·업로드 없음.
-- 장르 불명 보컬은 `vocals`, 명확한 연주곡은 `instruments`.
-- art-song / jeongga / korean-folk / pansori / chanson / opera-vocal / choral / classical-orchestra / chamber / solo-piano / solo-strings / acoustic-instrument.
-- `지금 곡/현재 곡/이 노래 뭐야`는 실재 현재곡을 읽고, 곡 의미·가사 해석은 응비서로 인계.
+FIX3:
+- 표준 nonzero AudioEffect OPEN/CLOSE가 있으면 기존 COOPERATING 경로를 항상 우선.
+- 표준 세션이 없을 때만 YouTube Music media session=1, playing=1, local playback, 다른 media session 없음, controller generation 일치, LOCAL_PLAYING 조건에서 GLOBAL_OUTPUT_MIX session 0 fallback.
+- 다른 media session/재생 상태/세대가 바뀌면 fallback route를 무효화하고 module-owned effect release.
+- global mix는 전체 output mix 범위이므로 공간효과 width=0, stereo EQ만.
+- native Equalizer(0,0)의 control/enabled/band readback이 실제 확인될 때만 ENGINE_CONFIRMED.
+- metadata-auto, MusicBrainz→optional Last.fm, vocals fallback, 가곡·민요·샹송·클래식 프로필, 현재곡→응비서 인계 유지.
 
-## FIX1 Windows 실패와 FIX2
-사용자 Windows Gradle에서 FIX1은 `ExternalMusicMetadataResolver.java:174`의 `new JSONObject(body)`가 Android의 checked `JSONException`을 처리하지 않아 `:app:compileReleaseJavaWithJavac`에서 실패했다.
+로컬 검증:
+- core regression 13 assertions PASS
+- global mix core 10 assertions PASS
+- fallback gate 7 assertions PASS
+- CooperatingAudioSessionSource Android-stub compile PASS
+- VerifiedAndroidEffects Android-stub compile PASS
+- source manifest 471 files
+- one-click ZIP 512 entries / full hash readback PASS
+- ZIP SHA-256 99a5e03e1fc0a106ef26b4bfd2aa41fd974b2a6dab04de5658d071e9cc18cf29
 
-FIX2:
-- `JSONException`을 잡아 `IOException("INVALID_JSON", cause)`로 변환.
-- 실제 코드 순서를 계약과 맞춰 MusicBrainz 기본 → 결과 없을 때 optional Last.fm으로 정렬.
-- Android처럼 `JSONException`을 checked exception으로 둔 별도 javac stub 검사 PASS.
-- RUN.cmd ASCII+CRLF, PowerShell 5.1 UTF-8 BOM+CRLF 유지.
+미실행:
+- Windows Gradle v174 build
+- original certificate signing
+- update install/versionCode=174 readback
+- phone global-mix/native E2E
 
-## 검증
-- 자동 프로필 정책 15 assertions PASS.
-- 한국어 파서 3 assertions PASS.
-- checked-JSONException javac compile PASS.
-- source manifest 468 files.
-- one-click ZIP 501 entries, package-manifest hash readback PASS.
-- FIX2 ZIP SHA-256: `73cb794b911cc3439b3b4ef94422a3fc1753838c3d67292e9ca78e9975a502e4`
-- source-manifest SHA-256: `058a5b08b28714230261fc28043686ab9bfdb4f6e8572fb7da984c4f54e48d61`
-
-## 미실행
-FIX2 Windows Gradle release build, 기존 원본 인증서 서명, versionCode 173 update install, MusicBrainz 자동분류·곡 변경·응비서 인계 실기기 E2E는 아직 미실행이다.
-
-## 안전 경계
-자동 명령 재실행, 앱 삭제, 데이터 초기화, 새 서명키, 서버 변경/Render 배포 없음.
+안전 경계: no uninstall/data reset/new signing key/server deploy/audio capture/player transport/automatic replay.
