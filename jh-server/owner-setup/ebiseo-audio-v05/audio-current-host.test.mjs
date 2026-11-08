@@ -208,9 +208,12 @@ test('candidate entry keeps published host and operator gates before owner stora
 
 
 test('diagnostic: report actual composed Secure56 host-port signature',()=>{
-  const match=/function secureCall56\\s*\\(([^)]*)\\)/.exec(current);
-  assert.ok(match,'secureCall56 definition missing from current composed runtime');
-  const signature=match[1].replace(/\\s+/g,'');
+  const index=current.indexOf('secureCall56');
+  assert.ok(index>=0,'secureCall56 missing from current composed runtime');
+  console.log('JH_AUDIO_SECURECALL_CONTEXT '+JSON.stringify(current.slice(Math.max(0,index-180),index+420)));
+  const match=/(?:async\\s+)?function\\s+secureCall56\\s*\\(([^)]*)\\)|(?:const|let)\\s+secureCall56\\s*=\\s*(?:async\\s*)?\\(([^)]*)\\)/.exec(current);
+  assert.ok(match,'secureCall56 definition shape not recognized');
+  const signature=(match[1]||match[2]||'').replace(/\\s+/g,'');
   console.log('JH_AUDIO_SECURECALL_SIGNATURE '+signature);
   assert.ok(signature.length>0);
 });
