@@ -1,0 +1,61 @@
+name: JH Kabiseo compatible publisher inputs data only
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths: ['tools/kabiseo-compatible-inputs/**', '.github/workflows/jh-kabiseo-compatible-inputs.yml']
+permissions: {contents: read}
+jobs:
+  inspect-publisher-inputs:
+    runs-on: windows-2025
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve app runtime and prior validated code
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin 6d4317206b1be3691615f27ef946102c75a556af
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code 6d4317206b1be3691615f27ef946102c75a556af HEAD -- jh-server host-kabiseo-assist tools/kabiseo-dependency-review tools/kabiseo-abi-review
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Read pinned public POM and AAR without executing vendor code
+        shell: pwsh
+        run: |
+          python tools/kabiseo-compatible-inputs/inspect.py
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Scan quarantined public bytes without changing protection
+        if: always()
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:GITHUB_WORKSPACE 'kabiseo-compatible-inputs'
+          New-Item -ItemType Directory $root -Force|Out-Null
+          $scan=Join-Path $root 'quarantine'
+          $r=[ordered]@{schema='KABISEO_COMPATIBLE_INPUTS_AV';status='NOT_SCANNED';releaseApproved=$false;securitySettingsChanged=$false}
+          try {
+            if(Test-Path $scan){
+              $s=Get-MpComputerStatus -ErrorAction Stop
+              $r.antivirusEnabled=$s.AntivirusEnabled
+              $r.signatureVersion=$s.AntivirusSignatureVersion
+              $r.signatureUpdated=$s.AntivirusSignatureLastUpdated.ToUniversalTime().ToString('o')
+              $r.files=@(Get-ChildItem $scan -File|ForEach-Object {@{name=$_.Name;sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
+              $exe=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" -ErrorAction SilentlyContinue|Sort-Object FullName -Descending|Select-Object -First 1
+              if($s.AntivirusEnabled -and $exe){
+                & $exe.FullName -Scan -ScanType 3 -File $scan -DisableRemediation *> (Join-Path $root 'defender.log')
+                $r.scanExitCode=$LASTEXITCODE
+                $r.status=if($LASTEXITCODE -eq 0){'SCAN_COMPLETED_NO_THREAT_REPORTED'}else{'SCAN_FAILED_OR_THREAT_REPORTED'}
+              }else{$r.status='DEFENDER_UNAVAILABLE'}
+            }
+          }catch{$r.status='SCAN_UNAVAILABLE';$r.errorType=$_.Exception.GetType().FullName}
+          $r|ConvertTo-Json -Depth 5|Set-Content (Join-Path $root 'antivirus.json') -Encoding utf8
+          Write-Host ('COMPATIBLE_AV='+($r|ConvertTo-Json -Depth 5 -Compress))
+          exit 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-compatible-inputs-review
+          path: |
+            kabiseo-compatible-inputs/report.json
+            kabiseo-compatible-inputs/antivirus.json
+            kabiseo-compatible-inputs/defender.log
+          retention-days: 14
+          if-no-files-found: error
