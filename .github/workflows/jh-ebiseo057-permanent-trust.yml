@@ -33,7 +33,7 @@ jobs:
           node --check jh-server/owner-setup/owner-enrollment/owner-enrollment-base.mjs
           node --check jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs
           node --check jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs
-          test "$(git rev-parse HEAD:jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs)" = "a257b8696ac3173502f0030a2cb6361530a32e9b"
+          test "$(git rev-parse HEAD:jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs)" = "cc8c7eaebe4cf5c374386eb37ec0b6dac90d6b62"
           node jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs
       - name: Permanent trust and revocation contracts
         run: |
