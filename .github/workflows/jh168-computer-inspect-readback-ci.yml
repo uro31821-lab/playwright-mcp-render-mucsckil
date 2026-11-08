@@ -33,9 +33,9 @@ jobs:
             ':(exclude)jh-server/owner-setup/trusted-server/trusted-device-registry.mjs' \
             ':(exclude)jh-server/owner-setup/trusted-server/trusted-device-registry-base.mjs' \
             ':(exclude)jh-server/owner-setup/trusted-server/trusted-settings-service.mjs'
-      - name: Verify exact Ebiseo 0.5.7 trust source before narrow exclusions
+      - name: Verify exact Ebiseo 0.5.8 trust source before narrow exclusions
         run: |
-          test "$(git rev-parse HEAD:jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs)" = "a257b8696ac3173502f0030a2cb6361530a32e9b"
+          test "$(git rev-parse HEAD:jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs)" = "cc8c7eaebe4cf5c374386eb37ec0b6dac90d6b62"
           node jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs
       # The host exclusions above require exact reviewed source identity and upstream byte equality here.
       - name: Verify exact mobile composition, three host edits and reviewed legacy click-test contract

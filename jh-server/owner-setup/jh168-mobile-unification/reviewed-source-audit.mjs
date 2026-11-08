@@ -169,6 +169,17 @@ const REVIEWED_TRANSITIONS=Object.freeze([
      'jh-server/owner-setup/trusted-server/trusted-settings-service.mjs':
       '4838109a0fa085a326ed099dc7cf34e2ffe6007c'
     })
+   }),
+   Object.freeze({
+    reviewedHead:'8c9370f873d4312543310cb8aa1da2ed2b06b2c5',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs':
+      'cc8c7eaebe4cf5c374386eb37ec0b6dac90d6b62',
+     'jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs':
+      '171439eaa28b5a503031f0e863efe0123916d46c',
+     'jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs':
+      '2d26a53e9cccd68a2ca0427da0dd7a899f8bb149'
+    })
    })
   ])
  })

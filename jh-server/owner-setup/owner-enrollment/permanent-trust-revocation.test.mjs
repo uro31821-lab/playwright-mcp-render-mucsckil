@@ -42,3 +42,27 @@ test('cancellation status resumes cleanup and quarantines historical uncertain o
   assert.equal(resumed.dispatchedJobsQuarantined,true);
   assert.equal(cleanupCalls,2);
 });
+
+
+test('expired finite trust remains signed-readable and explicitly revocable without renewal',async t=>{
+  const f=context(t);
+  const authority={
+    async revokeForTrust(){},
+    async inspectTrust(trustId){return {trustId,newSessionsBlocked:true,activeSessions:0,pendingJobs:0,dispatchedJobsUncertain:0};}
+  };
+  f.service.installSessionAuthority(authority);
+  const begin=f.service.begin({publicKeySpki:f.spki,deviceDigest:f.deviceDigest,durationDays:30});
+  await f.service.finish(f.make(begin));
+  f.advance(days(400));
+  const observed=await f.service.status(f.proof(begin,STATUS_PURPOSE));
+  assert.equal(observed.code,'TRUST_EXPIRED');
+  assert.equal(observed.trustRegistered,false);
+  assert.equal(observed.sessionActive,false);
+  const canceled=await f.service.cancel(f.proof(begin,CANCEL_PURPOSE));
+  assert.equal(canceled.code,'ENROLLMENT_CANCELED');
+  assert.equal(canceled.complete,true);
+  assert.equal(canceled.serverRecordRevoked,true);
+  assert.equal(canceled.activeSessionsRevoked,true);
+  assert.equal(canceled.pendingJobsRevoked,true);
+  assert.equal(canceled.dispatchedJobsUncertain,0);
+});

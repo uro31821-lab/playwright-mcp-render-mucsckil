@@ -49,8 +49,8 @@ jobs:
           node --test --test-reporter=spec \
             jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
-          # Keep the historical audit unchanged; verify 0.5.7 in its own exact scope.
-          test "$(git rev-parse HEAD:jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs)" = "a257b8696ac3173502f0030a2cb6361530a32e9b"
+          # Keep the historical audit unchanged; verify 0.5.8 in its own exact scope.
+          test "$(git rev-parse HEAD:jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs)" = "cc8c7eaebe4cf5c374386eb37ec0b6dac90d6b62"
           node jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs
       - name: Original dependency manifests and locked owner dependencies
         run: |

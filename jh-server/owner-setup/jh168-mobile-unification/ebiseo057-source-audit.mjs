@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-/** Exact fail-closed source audit for Ebiseo 0.5.7 permanent device trust. */
+/** Exact fail-closed source audit for Ebiseo 0.5.7 permanent trust and the
+ * narrowly reviewed 0.5.8 expired finite-trust status/cancel extension. */
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {pathToFileURL} from 'node:url';
@@ -8,8 +9,8 @@ const ROOT='jh-server/owner-setup/';
 export const EBISEO057_EXACT=Object.freeze({
  [ROOT+'owner-enrollment/owner-enrollment-base.mjs']:'d4e7abe44109966994da3d0749b8b5dffc357fcd',
  [ROOT+'owner-enrollment/owner-enrollment.mjs']:'51beb4d40b2cd7542b50a47178b56541b762b12d',
- [ROOT+'owner-enrollment/owner-registry-service.mjs']:'83cb17d78ed9a668ce0b7f2df6c4a9a243d7153c',
- [ROOT+'owner-enrollment/permanent-trust-revocation.test.mjs']:'468320bc9a02b97da4169717249afcad257aa6cc',
+ [ROOT+'owner-enrollment/owner-registry-service.mjs']:'171439eaa28b5a503031f0e863efe0123916d46c',
+ [ROOT+'owner-enrollment/permanent-trust-revocation.test.mjs']:'2d26a53e9cccd68a2ca0427da0dd7a899f8bb149',
  [ROOT+'trusted-server/trusted-device-registry-base.mjs']:'859baf0e806f7228ee4efe9b13913d0796fd77f9',
  [ROOT+'trusted-server/trusted-device-registry.mjs']:'82b8b1d1ed695394e729c0a98d806df457411d26',
  [ROOT+'trusted-server/trusted-settings-service.mjs']:'4838109a0fa085a326ed099dc7cf34e2ffe6007c'
@@ -17,8 +18,8 @@ export const EBISEO057_EXACT=Object.freeze({
 export const EBISEO057_PRIOR=Object.freeze({
  [ROOT+'owner-enrollment/owner-enrollment-base.mjs']:null,
  [ROOT+'owner-enrollment/owner-enrollment.mjs']:'d4e7abe44109966994da3d0749b8b5dffc357fcd',
- [ROOT+'owner-enrollment/owner-registry-service.mjs']:'d72b53a957605a2f1cd1fa08e460dac16964d441',
- [ROOT+'owner-enrollment/permanent-trust-revocation.test.mjs']:null,
+ [ROOT+'owner-enrollment/owner-registry-service.mjs']:'83cb17d78ed9a668ce0b7f2df6c4a9a243d7153c',
+ [ROOT+'owner-enrollment/permanent-trust-revocation.test.mjs']:'468320bc9a02b97da4169717249afcad257aa6cc',
  [ROOT+'trusted-server/trusted-device-registry-base.mjs']:null,
  [ROOT+'trusted-server/trusted-device-registry.mjs']:'859baf0e806f7228ee4efe9b13913d0796fd77f9',
  [ROOT+'trusted-server/trusted-settings-service.mjs']:'d88cfc3775c5d0f600fcb250be55f966931e1d4d'
