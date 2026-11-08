@@ -1,0 +1,34 @@
+name: JH Plugin structure dedup package
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  pack:
+    if: github.head_ref == 'jh-plugin-structure-dedup-20261108a'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify structural dedup overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(grep -R -F -l '## JH 공통 작업 이어받기 — 2026-11-04' plugin-overlay/skills/jh-chaekbiseo plugin-overlay/skills/jh-cheongbiseo plugin-overlay/skills/jh-meokbiseo plugin-overlay/skills/jh-newbiseo-worldview plugin-overlay/skills/jh-pyeonbiseo plugin-overlay/skills/jh-sangbiseo plugin-overlay/skills/jh-seolbiseo plugin-overlay/skills/jh-yeobiseo 2>/dev/null | wc -l)" -eq 0
+          test "$(grep -F -c '## JH 공통 작업 이어받기 — 중앙 기준' plugin-overlay/skills/jh-assistant-hub/SKILL.md)" -eq 1
+          test "$(find plugin-overlay/skills -name SKILL.md | wc -l)" -eq 9
+          python - <<'PY'
+          import json
+          for p in ['plugin-overlay/plugin.json','plugin-overlay/.codex-plugin/plugin.json']:
+              with open(p,encoding='utf-8') as f:
+                  j=json.load(f)
+              assert j['version']=='1.34.57', (p,j.get('version'))
+          print('STRUCTURAL_DEDUP_PASS')
+          PY
+      - name: Package overlay
+        shell: bash
+        run: tar -czf jh-plugin-overlay.tar.gz -C plugin-overlay .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jh-plugin-struct-dedup-overlay
+          path: jh-plugin-overlay.tar.gz
+          if-no-files-found: error
+          retention-days: 1
