@@ -1,0 +1,65 @@
+name: JH Kabiseo Kotlin metadata and Guava parent review
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths:
+      - 'tools/kabiseo-metadata-compat/**'
+      - '.github/workflows/jh-kabiseo-metadata-compat.yml'
+permissions: {contents: read}
+jobs:
+  review-only:
+    runs-on: windows-2025
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve existing JH and prior dependency evidence
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin 2c3d39b548159c875b0a0752fb0f9a1ac58644ab
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code 2c3d39b548159c875b0a0752fb0f9a1ac58644ab HEAD -- jh-server host-kabiseo-assist tools/kabiseo-maven-graph tools/kabiseo-compatible-inputs
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Inspect pinned publisher metadata and Kotlin module headers
+        shell: pwsh
+        run: |
+          python tools/kabiseo-metadata-compat/inspect.py
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Defender scan newly reviewed AAR files
+        if: always()
+        shell: pwsh
+        run: |
+          $path=Join-Path $env:GITHUB_WORKSPACE 'kabiseo-metadata-compat'
+          $r=[ordered]@{status='NOT_SCANNED';settingChanged=$false}
+          try {
+            $files=@(Get-ChildItem "$path/quarantine" -File -ErrorAction SilentlyContinue)
+            if($files.Count -gt 0){
+              $s=Get-MpComputerStatus -ErrorAction Stop
+              $runner=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" -ErrorAction SilentlyContinue|Sort-Object FullName -Descending|Select-Object -First 1
+              if($s.AntivirusEnabled -and $runner) {
+                & $runner.FullName -Scan -ScanType 3 -File "$path/quarantine" -DisableRemediation *> "$path/defender.log"
+                $r.scanExitCode=$LASTEXITCODE
+                $r.status=if($LASTEXITCODE -eq 0){'SCAN_COMPLETED_NO_THREAT_REPORTED'}else{'SCAN_FAILED_OR_THREAT_REPORTED'}
+                $r.definitionVersion=$s.AntivirusSignatureVersion
+              }else{$r.status='DEFENDER_UNAVAILABLE'}
+            }
+          }catch{$r.status='SCAN_UNAVAILABLE'}
+          $r|ConvertTo-Json|Set-Content "$path/antivirus.json" -Encoding utf8
+          Write-Host ('KABISEO_COMPAT_AV='+($r|ConvertTo-Json -Compress))
+          exit 0
+      - name: Verify scope hold
+        shell: pwsh
+        run: |
+          $r=Get-Content kabiseo-metadata-compat/report.json -Raw|ConvertFrom-Json
+          if($r.schema -ne 'KABISEO_KOTLIN_AND_GUAVA_METADATA_V031' -or $r.securityGateVerdict -ne 'REVIEW' -or $r.releaseApproved){throw 'RELEASE_HOLD_MISSING'}
+          if($r.androidBuild -or $r.vendorCodeExecuted -or $r.privateJHRead){throw 'UNSAFE_ACTIVITY'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-compiler-metadata-v031-reports
+          path: |
+            kabiseo-metadata-compat/report.json
+            kabiseo-metadata-compat/antivirus.json
+            kabiseo-metadata-compat/defender.log
+          retention-days: 14
+          if-no-files-found: warn
