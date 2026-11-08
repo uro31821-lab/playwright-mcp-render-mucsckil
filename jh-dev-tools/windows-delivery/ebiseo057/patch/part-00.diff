@@ -1,0 +1,174 @@
+--- a/development/android/app/src/main/java/com/koreanlifehub/bridge/OwnerEnrollmentController.kt
++++ b/development/android/app/src/main/java/com/koreanlifehub/bridge/OwnerEnrollmentController.kt
+@@ -96,25 +96,67 @@
+         val before=read()
+         if(expected!=null&&before!=expected)return result("OWNER_STATE_CHANGED")
+         if(before.phase in setOf(TrustedDeviceSettings.Phase.DISABLED,TrustedDeviceSettings.Phase.REVOKED))return result("TRUST_ALREADY_DISABLED")
+-        val blocked=if(before.phase==TrustedDeviceSettings.Phase.REVOKE_PENDING)before else before.copy(revision=next(before),
+-            phase=TrustedDeviceSettings.Phase.REVOKE_PENDING,attemptPhase=TrustedReconnectAttempt.Phase.REVOKED)
+-        if(blocked!==before&&!store.compareAndSet(before,blocked))return result("OWNER_STATE_CONFLICT")
++        // A prior response may have been lost. Never submit another cancellation
++        // blindly: the next explicit user action reads the signed server outcome first.
++        if(before.phase==TrustedDeviceSettings.Phase.REVOKE_PENDING)return continueCancellation(before)
++        val blocked=before.copy(revision=next(before),phase=TrustedDeviceSettings.Phase.REVOKE_PENDING,
++            attemptPhase=TrustedReconnectAttempt.Phase.REVOKED)
++        if(!store.compareAndSet(before,blocked))return result("OWNER_STATE_CONFLICT")
++        return requestCancellation(blocked)
++    }
++    /** Explicit recovery click only. It performs one signed status lookup and, only
++     * when server cleanup is still pending, one cancellation continuation. There is
++     * no timer, background retry, loop, Google re-login or repeated finish request. */
++    fun continueCancellation(expected:TrustedDeviceSettings.Record?=null):TrustedDeviceSettings.Result {
++        synchronized(this){consent=null;login?.used?.set(true);login=null}
++        val blocked=read()
++        if(expected!=null&&blocked!=expected)return result("OWNER_STATE_CHANGED")
++        if(blocked.phase in setOf(TrustedDeviceSettings.Phase.DISABLED,TrustedDeviceSettings.Phase.REVOKED))return result("TRUST_ALREADY_DISABLED")
++        if(blocked.phase!=TrustedDeviceSettings.Phase.REVOKE_PENDING)return result("OWNER_CANCELLATION_NOT_PENDING")
++        val b=blocked.ownerBinding?:return result("OWNER_LOCAL_BLOCKED_PENDING_REFERENCE_REQUIRED")
++        val status=try {requireReady();wire.status(b,guardedSigner(blocked))}
++            catch(e:Exception){return cancellationFailure("STATUS",e)}
++        if(cancellationComplete(blocked,status))return finalizeRevocation(blocked)
++        if(status.code !in CANCELLATION_CONTINUABLE)return result("OWNER_SERVER_CANCELLATION_PENDING")
++        if(read()!=blocked)return result("OWNER_STATE_CHANGED")
++        return requestCancellation(blocked)
++    }
++    private fun requestCancellation(blocked:TrustedDeviceSettings.Record):TrustedDeviceSettings.Result {
+         val b=blocked.ownerBinding?:return result("OWNER_LOCAL_BLOCKED_PENDING_REFERENCE_REQUIRED")
+-        try {
+-            requireReady();val o=wire.cancel(b,guardedSigner(blocked))
+-            if(o.code!="ENROLLMENT_CANCELED"||o.complete!=true)return result("OWNER_LOCAL_BLOCKED_SERVER_PENDING")
+-            if(blocked.receipt!=null && (o.serverRecordRevoked!=true||o.activeSessionsRevoked!=true||o.pendingJobsRevoked!=true||o.dispatchedJobsUncertain!=0L))return result("OWNER_LOCAL_BLOCKED_SERVER_PENDING")
+-            // Serialize key creation/deletion across activity/controller instances.
+-            // A newer explicit enrollment may win CAS; never delete its key.
+-            return synchronized(KEY_OPERATIONS){
+-                if(read()!=blocked)return@synchronized result("OWNER_STATE_CHANGED")
+-                val revoked=blocked.copy(revision=next(blocked),phase=TrustedDeviceSettings.Phase.REVOKED)
+-                if(!store.compareAndSet(blocked,revoked))return@synchronized result("OWNER_STATE_CONFLICT")
+-                if(read()!=revoked)return@synchronized result("OWNER_STATE_CHANGED")
+-                signer.removeForExplicitRevocation()
+-                result("TRUST_REVOKED")
+-            }
+-        }catch(_:Exception){return result("OWNER_LOCAL_BLOCKED_SERVER_PENDING")}
++        val outcome=try {requireReady();wire.cancel(b,guardedSigner(blocked))}
++            catch(e:Exception){return cancellationFailure("CANCEL",e)}
++        if(!cancellationComplete(blocked,outcome))return result("OWNER_SERVER_CANCELLATION_PENDING")
++        return finalizeRevocation(blocked)
++    }
++    private fun cancellationComplete(blocked:TrustedDeviceSettings.Record,o:OwnerEnrollmentWire.Outcome):Boolean {
++        if(o.code!="ENROLLMENT_CANCELED"||o.complete!=true)return false
++        return blocked.receipt==null || (o.serverRecordRevoked==true&&o.activeSessionsRevoked==true&&
++            o.pendingJobsRevoked==true&&o.dispatchedJobsUncertain==0L)
++    }
++    private fun finalizeRevocation(blocked:TrustedDeviceSettings.Record):TrustedDeviceSettings.Result = synchronized(KEY_OPERATIONS){
++        if(read()!=blocked)return@synchronized result("OWNER_STATE_CHANGED")
++        val revoked=blocked.copy(revision=next(blocked),phase=TrustedDeviceSettings.Phase.REVOKED)
++        if(!store.compareAndSet(blocked,revoked))return@synchronized result("OWNER_STATE_CONFLICT")
++        if(read()!=revoked)return@synchronized result("OWNER_STATE_CHANGED")
++        try {signer.removeForExplicitRevocation();result("TRUST_REVOKED")}
++        catch(_:Exception){result("TRUST_REVOKED_KEY_CLEANUP_UNCONFIRMED")}
++    }
++    /** Bounded diagnostic only. It never returns raw URLs, response bodies, tokens,
++     * keys or exception text to the UI. */
++    private fun cancellationFailure(stage:String,e:Exception):TrustedDeviceSettings.Result {
++        val chain=generateSequence<Throwable>(e){it.cause}.toList()
++        val messages=chain.mapNotNull{it.message}.joinToString("|")
++        val code=when {
++            messages.contains("OWNER_SECURE_UNLOCK_REQUIRED")->"OWNER_SECURE_UNLOCK_REQUIRED"
++            messages.contains("OWNER_STATE_CHANGED")->"OWNER_STATE_CHANGED"
++            messages.contains("OWNER_KEY_CHANGED")||chain.any{it is java.security.InvalidKeyException||it is java.security.UnrecoverableKeyException}->"OWNER_RECOVERY_KEY_UNAVAILABLE"
++            chain.any{it is java.net.SocketTimeoutException}||messages.contains("TRUST_HTTP_CANCELLED")||messages.contains("OWNER_NETWORK_DEADLINE")->"OWNER_SERVER_TIMEOUT"
++            chain.any{it is java.net.UnknownHostException||it is java.net.ConnectException||it is java.net.NoRouteToHostException||it is javax.net.ssl.SSLException}->"OWNER_SERVER_UNREACHABLE"
++            messages.contains("TRUST_HTTP_REJECTED")->"OWNER_SERVER_HTTP_REJECTED"
++            messages.contains("TRUST_TRANSPORT_CLOSED")->"OWNER_TRANSPORT_CLOSED"
++            else->"OWNER_SERVER_${stage}_NOT_CONFIRMED"
++        }
++        return result(code)
+     }
+     private fun guardedSigner(expected:TrustedDeviceSettings.Record)=object:TrustedReconnectProtocol.DeviceSigner {
+         override fun publicKey():java.security.PublicKey {requireReady();check(read()==expected){"OWNER_STATE_CHANGED"};return signer.publicKey()}
+@@ -137,5 +179,9 @@
+         return result(code)
+     }
+     private fun result(code:String)=TrustedDeviceSettings.Result(code,false)
+-    companion object { private val KEY_OPERATIONS=Any() }
++    companion object {
++        private val KEY_OPERATIONS=Any()
++        private val CANCELLATION_CONTINUABLE=setOf("TRUST_REGISTERED","TRUST_REVOKED","TRUST_EXPIRED","ENROLLMENT_CANCELED",
++            "CANCELLATION_PENDING","RECONCILIATION_REQUIRED","ENROLLMENT_EXPIRED","PENDING","VERIFYING","AUTHORIZED_NOT_APPLIED")
++    }
+ }
+--- a/development/android/app/src/main/java/com/koreanlifehub/bridge/TrustedDeviceSettingsActivity.kt
++++ b/development/android/app/src/main/java/com/koreanlifehub/bridge/TrustedDeviceSettingsActivity.kt
+@@ -201,10 +201,13 @@
+     private fun removeOwner(){
+         val c=ownerWorkspace?.controller?:return
+         val expected=try{c.read()}catch(_:Exception){return}
+-        val d=AlertDialog.Builder(this).setTitle(R.string.trust_remove_title).setMessage(R.string.trust_remove_details)
++        val continuing=expected.phase==TrustedDeviceSettings.Phase.REVOKE_PENDING
++        val d=AlertDialog.Builder(this)
++            .setTitle(if(continuing)R.string.owner_revoke_continue_title else R.string.trust_remove_title)
++            .setMessage(if(continuing)R.string.owner_revoke_continue_details else R.string.trust_remove_details)
+             .setNegativeButton(R.string.trust_cancel){_,_->}
+-            .setPositiveButton(R.string.trust_remove){_,_->
+-                if(visible)runOwnerOperation{c.cancel(expected)}
++            .setPositiveButton(if(continuing)R.string.owner_revoke_continue else R.string.trust_remove){_,_->
++                if(visible)runOwnerOperation{if(continuing)c.continueCancellation(expected) else c.cancel(expected)}
+             }.create()
+         d.setOnDismissListener{if(dialog===d)dialog=null};dialog=d;d.show();protect(d)
+     }
+@@ -213,11 +216,24 @@
+         thread(name="JH-owner-status"){
+             val result=try{action()}catch(_:Exception){TrustedDeviceSettings.Result("OWNER_RESULT_NOT_CONFIRMED")}
+             runOnUiThread{working=false;if(!visible||isFinishing||isDestroyed)return@runOnUiThread
+-                attachController();val label=when(result.code){"TRUST_REVOKED","TRUST_ALREADY_DISABLED"->R.string.trust_disabled
+-                    "TRUST_RECORDED_SESSION_NOT_ACTIVE"->R.string.trust_recorded;else->R.string.trust_result_not_complete}
+-                Toast.makeText(this,label,Toast.LENGTH_LONG).show()}
++                attachController();val text=ownerResultText(result.code)
++                if(result.code !in setOf("TRUST_REVOKED","TRUST_ALREADY_DISABLED","TRUST_RECORDED_SESSION_NOT_ACTIVE"))state.text=text
++                Toast.makeText(this,text,Toast.LENGTH_LONG).show()}
+         }
+     }
++    private fun ownerResultText(code:String):String=when(code){
++        "TRUST_REVOKED","TRUST_ALREADY_DISABLED"->getString(R.string.trust_disabled)
++        "TRUST_RECORDED_SESSION_NOT_ACTIVE"->getString(R.string.trust_recorded)
++        "OWNER_SERVER_CANCELLATION_PENDING"->getString(R.string.owner_revoke_server_pending)
++        "OWNER_SERVER_TIMEOUT"->getString(R.string.owner_revoke_server_timeout)
++        "OWNER_SERVER_UNREACHABLE"->getString(R.string.owner_revoke_server_unreachable)
++        "OWNER_SERVER_HTTP_REJECTED"->getString(R.string.owner_revoke_server_rejected)
++        "OWNER_RECOVERY_KEY_UNAVAILABLE"->getString(R.string.owner_revoke_key_unavailable)
++        "OWNER_SECURE_UNLOCK_REQUIRED"->getString(R.string.owner_revoke_unlock_required)
++        "OWNER_LOCAL_BLOCKED_PENDING_REFERENCE_REQUIRED"->getString(R.string.owner_revoke_reference_missing)
++        "TRUST_REVOKED_KEY_CLEANUP_UNCONFIRMED"->getString(R.string.owner_revoke_key_cleanup)
++        else->getString(R.string.owner_result_with_code,code)
++    }
+     private fun refreshOwner(){
+         val c=ownerWorkspace?.controller?:return
+         val r=try{c.read()}catch(_:Exception){state.setText(R.string.trust_storage_blocked);enroll.isEnabled=false;revoke.isEnabled=false;reconcile.isEnabled=false;return}
+@@ -226,6 +242,7 @@
+             TrustedDeviceSettings.Phase.REVOKE_PENDING->R.string.trust_local_off_remote_pending
+             TrustedDeviceSettings.Phase.TRUSTED->if(r.receipt!!.expiresAt>System.currentTimeMillis())R.string.trust_recorded else R.string.trust_expired}
+         state.setText(label)
++        revoke.setText(if(r.phase==TrustedDeviceSettings.Phase.REVOKE_PENDING)R.string.owner_revoke_continue else R.string.trust_remove)
+         enroll.isEnabled=!working&&r.phase in setOf(TrustedDeviceSettings.Phase.DISABLED,TrustedDeviceSettings.Phase.REVOKED)
+         revoke.isEnabled=!working&&r.phase !in setOf(TrustedDeviceSettings.Phase.DISABLED,TrustedDeviceSettings.Phase.REVOKED)
+         reconcile.isEnabled=!working&&r.ownerBinding!=null&&r.phase in setOf(TrustedDeviceSettings.Phase.ENROLLING,TrustedDeviceSettings.Phase.ENROLLMENT_UNCERTAIN)
+--- a/development/android/app/src/main/res/values/owner_enrollment_strings.xml
++++ b/development/android/app/src/main/res/values/owner_enrollment_strings.xml
+@@ -8,4 +8,17 @@
+     <string name="owner_reconcile">이전 등록 결과 확인</string>
+     <string name="owner_login_not_completed">로그인이 완료되지 않았습니다. 자동으로 다시 등록하지 않습니다.</string>
+     <string name="owner_begin_not_completed">등록 준비를 확인하지 못했습니다. 이전 등록 결과부터 확인해 주세요.</string>
++    <string name="owner_revoke_continue">서버 해제 상태 확인·계속</string>
++    <string name="owner_revoke_continue_title">서버 해제 상태를 확인할까요?</string>
++    <string name="owner_revoke_continue_details">서버 상태를 먼저 한 번 확인합니다. 해제가 아직 진행 중일 때만 같은 조작 안에서 해제 요청을 한 번 이어갑니다. 자동 반복·Google 재로그인·새 등록은 하지 않습니다.</string>
++    <string name="owner_revoke_server_pending">휴대폰의 재연결은 차단됐습니다. 서버 해제 정리가 아직 완료되지 않았습니다. 자동 반복하지 않았습니다.</string>
++    <string name="owner_revoke_server_timeout">서버 응답 시간이 초과됐습니다. 휴대폰의 재연결은 차단된 상태이며 자동 재시도하지 않았습니다.</string>
++    <string name="owner_revoke_server_unreachable">서버에 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 ‘서버 해제 상태 확인·계속’을 직접 한 번 누르세요.</string>
++    <string name="owner_revoke_server_rejected">서버가 해제 상태 요청을 받아들이지 않았습니다. 자동으로 다시 보내지 않았습니다.</string>
++    <string name="owner_revoke_key_unavailable">기존 서버 등록을 확인할 휴대폰 서명키를 사용할 수 없습니다. 앱 삭제나 데이터 초기화는 하지 마세요.</string>
++    <string name="owner_revoke_unlock_required">휴대폰 잠금을 해제한 상태에서 다시 확인해 주세요.</string>
++    <string name="owner_revoke_reference_missing">이전 서버 등록을 확인할 로컬 참조가 없습니다. 새 등록은 자동으로 진행하지 않았습니다.</string>
++    <string name="owner_revoke_key_cleanup">서버 해제는 확인됐지만 휴대폰의 이전 서명키 정리는 확인되지 않았습니다. 새 등록 전 점검이 필요합니다.</string>
++    <string name="owner_result_with_code">요청 결과를 확정하지 못했습니다. 자동 재시도하지 않았습니다.
++진단 코드: %1$s</string>
+ </resources>

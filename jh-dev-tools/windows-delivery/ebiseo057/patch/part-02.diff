@@ -1,0 +1,63 @@
+--- a/development/android/app/src/main/assets/jh-release.json
++++ b/development/android/app/src/main/assets/jh-release.json
+@@ -1,8 +1,8 @@
+ {
+   "schema": 4,
+-  "releaseId": "JH170-STAGE82-EBISEO-056-STANDARD-AUDIO-SESSION-20261107",
+-  "versionCode": 170,
+-  "versionName": "jh170-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo056",
++  "releaseId": "JH171-STAGE83-EBISEO-057-OWNER-REVOCATION-RECOVERY-20261108",
++  "versionCode": 171,
++  "versionName": "jh171-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo057",
+   "parents": [
+     "JH160-EXISTING-SPLIT-RIGHT-CHROME-REPLACE-FIX1-20261014",
+     "JH155-ALL-MODULES-INTEGRATED-FIX2-20261013"
+@@ -91,7 +91,8 @@
+     "ebiseo_audio_start_stop_late_attach_v2",
+     "bridge_data_sync_timeout_cleanup_v1",
+     "ebiseo_independent_armed_start_v1",
+-    "ebiseo_standard_audio_session_without_sender_identity_gate_v1"
++    "ebiseo_standard_audio_session_without_sender_identity_gate_v1",
++    "owner_revocation_status_first_explicit_continue_v1"
+   ],
+   "conflictPolicy": "initial trust/pairing and sensitive-action approval remain protected; only a previously approved in-process Secure session may auto-repair after server authentication loss; trusted-device reconnect remains the durable path across app restarts; no action replay",
+   "automaticTaskRestore": false,
+@@ -122,20 +123,21 @@
+     "nativeSelectPick": "PRESERVED_FROM_INSTALLED_FIX1_REQUIRES_POST_INSTALL_READBACK",
+     "stage77Fix1SourceClosure": "PASS_PARENT_FILESET_COMPLETE",
+     "stage77Fix1VisualCore": "8/8 PASS",
+-    "ebiseoAudio": "PHONE_NOT_RUN",
++    "ebiseoAudio": "PRESERVED_FROM_056_PHONE_REVERIFY_REQUIRED",
+     "bridgeTimeoutCleanup": "PHONE_NOT_RUN",
+-    "ebiseoArmedStart": "PHONE_NOT_RUN"
++    "ebiseoArmedStart": "PHONE_NOT_RUN",
++    "ownerRevocationRecovery": "FOCUSED_JVM_CONTRACT_PASS_FULL_ANDROID_TESTS_PENDING_WINDOWS_BUILD"
+   },
+   "parentReleaseId": "JH168-STAGE77-LOCATION-ONCE-NATIVE-SELECT-FIX3-KEEPALIVE-FIX1-20261105",
+   "serverFix5Deployed": true,
+   "sourceCandidate": true,
+   "parentSourceIdentitySha256": "eb30625d627ec7c9ee80efaa8ac74cfb26dc6bc9fe86e32f261b1c26d833a2ea",
+   "lintExpressionCorrection": "Preserve Android Intent flags for non-Samsung only; Samsung uses native taskbar/Recents accessibility and verifies the resulting split.",
+-  "note": "Stage77: ordinary location-dependent travel questions use one privacy-minimized location read. No trip session or location foreground service is started, the result is held only in process memory until one status read or 120 seconds, and user-tap fallback is used only when Android while-in-use restrictions require a visible Activity. Existing continuous TripLocation remains optional for explicit continuous tracking. No background location permission, uninstall, data reset or automatic replay. Audio 0.5.3 adds explicit automatic start/stop and existing-session late attach. Android 15 dataSync timeout releases foreground/started state without explicitly closing the bound accessibility audio runtime. Actual device continuity is not certified by this source metadata. Audio 0.5.4 arms EQ independently of music playback or app launch, waits for future verified playback, and separates armed status from native application. Failed observation scheduling does not prevent an authorized preference save. No player launch or playback action is requested by START. Audio 0.5.6 removes the unnecessary sender UID/package admission gate. The Android standard OPEN/CLOSE contract and its positive EXTRA_AUDIO_SESSION select the EQ route; package metadata only scopes settings, while media metadata remains optional for AUTO tone and playback status. No player launch or transport control is performed. Actual phone EQ/audibility remains unverified until original-certificate update and live readback.",
++  "note": "Stage77: ordinary location-dependent travel questions use one privacy-minimized location read. No trip session or location foreground service is started, the result is held only in process memory until one status read or 120 seconds, and user-tap fallback is used only when Android while-in-use restrictions require a visible Activity. Existing continuous TripLocation remains optional for explicit continuous tracking. No background location permission, uninstall, data reset or automatic replay. Audio 0.5.3 adds explicit automatic start/stop and existing-session late attach. Android 15 dataSync timeout releases foreground/started state without explicitly closing the bound accessibility audio runtime. Actual device continuity is not certified by this source metadata. Audio 0.5.4 arms EQ independently of music playback or app launch, waits for future verified playback, and separates armed status from native application. Failed observation scheduling does not prevent an authorized preference save. No player launch or playback action is requested by START. Audio 0.5.6 removes the unnecessary sender UID/package admission gate. The Android standard OPEN/CLOSE contract and its positive EXTRA_AUDIO_SESSION select the EQ route; package metadata only scopes settings, while media metadata remains optional for AUTO tone and playback status. No player launch or transport control is performed. Actual phone EQ/audibility remains unverified until original-certificate update and live readback. Version 0.5.7 preserves the 0.5.6 standard audio-session change and repairs trust-removal recovery: after a lost or pending cancellation response, the next explicit user action performs a signed server status lookup before at most one cancellation continuation. It exposes bounded failure codes, performs no automatic retry, and keeps local reconnect blocked until server cleanup is confirmed.",
+   "fold8SourceParentSha256": "970d86be45f90edf7840d004948a4978466b4c2dda9a549f2b653dc2c4e15258",
+   "androidBuild": "SEE_EXTERNAL_BUILD_RECEIPT_FOR_THIS_SOURCE",
+-  "release": "JH170-STAGE82-EBISEO-056-STANDARD-AUDIO-SESSION-20261107",
+-  "sourceOnlyCandidateStatus": "ORIGINAL_CERTIFICATE_SIGNING_PHONE_INSTALL_AND_AUDIO_E2E_REQUIRED",
++  "release": "JH171-STAGE83-EBISEO-057-OWNER-REVOCATION-RECOVERY-20261108",
++  "sourceOnlyCandidateStatus": "ORIGINAL_CERTIFICATE_SIGNING_PHONE_INSTALL_TRUST_REMOVAL_READBACK_AND_AUDIO_E2E_REQUIRED",
+   "candidateLayout": {
+     "left": "ChatGPT",
+     "right": "Gemini"
+@@ -146,7 +148,8 @@
+     "versionName": "jh167-fold8-v5r3-ocr-floating"
+   },
+   "parentSourceIdentityBasis": "SHA-256 of the exact Stage78 data/source-manifest.json bytes before audio transformations",
+-  "ebiseoAudioModuleVersion": "0.5.6",
+-  "ebiseoAudio": "SOURCE_FIX_POLICY_RUNTIME_AND_ANDROID_CONTRACTS_PASS_PHONE_NOT_RUN",
+-  "ebiseoArmedStart": "PRESERVED_PHONE_REVERIFY_REQUIRED"
++  "ebiseoAudioModuleVersion": "0.5.7",
++  "ebiseoAudio": "AUDIO_056_PRESERVED_OWNER_REVOCATION_057_FOCUSED_CONTRACT_PASS_PHONE_NOT_RUN",
++  "ebiseoArmedStart": "PRESERVED_PHONE_REVERIFY_REQUIRED",
++  "ownerRevocationRecovery": "STATUS_FIRST_EXPLICIT_CONTINUATION_NO_AUTOMATIC_RETRY_PHONE_NOT_RUN"
+ }
