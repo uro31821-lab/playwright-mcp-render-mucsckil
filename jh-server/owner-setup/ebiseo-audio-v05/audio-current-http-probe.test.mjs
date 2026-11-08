@@ -89,6 +89,12 @@ test('current trusted host completes the real audio capability probe then dispat
     authorizeRevocation:()=>null
   });
   runtime.installTrustedSessionRegistry56(registry);
+  runtime.installDurableNativeCircuit56({
+    file:path.join(dir,'manual.sqlite'),
+    key:Buffer.alloc(32,47),
+    namespace:sha256('synthetic-audio-owner'),
+    mode:'EXPLICIT_ONE_TIME'
+  });
   runtime.httpServer.listen(0,'127.0.0.1');await once(runtime.httpServer,'listening');
   origin='http://127.0.0.1:'+runtime.httpServer.address().port;
 
