@@ -1,34 +1,64 @@
 {
-  "schema": "JH_EBISEO059_GLOBAL_MIX_FIX3_REVIEW_V1",
-  "candidate": "JH174-EBISEO059-GLOBAL-MIX-FIX3-20261109",
-  "installedBaseline": {
-    "versionCode": 173,
-    "metadataAutoSelection": "CONFIRMED",
-    "unknownVocalFallback": "VOCALS_CONFIRMED",
-    "engine": "WAITING_FOR_STANDARD_OPEN"
+  "schema": "JH_EBISEO059_GLOBAL_MIX_RESYNC_FIX4_REVIEW_V1",
+  "candidate": "JH175-EBISEO059-GLOBAL-MIX-RESYNC-FIX4-20261109",
+  "confirmedV174Phone": {
+    "versionCode": 174,
+    "build": "PASS",
+    "originalCertificateSigning": "PASS",
+    "updateInstall": "PASS",
+    "phoneReadback": "VERSION174_READBACK_PASS",
+    "routePath": "GLOBAL_OUTPUT_MIX",
+    "audioSessionId": 0,
+    "processingRouteAvailable": true,
+    "globalMixFallbackActive": true,
+    "globalMixFallbackEligible": true,
+    "profileApplied": true,
+    "mappedGenrePreset": "vocals",
+    "genreCacheHit": true,
+    "coordinatorSourceVerified": false,
+    "decisionReason": "CONTENT_UNVERIFIED",
+    "native": "OWNED_EFFECTS_RELEASED",
+    "engineConfirmed": false
   },
-  "fix3": {
-    "standardSessionPriority": "PREFERRED_ALWAYS",
-    "fallbackPath": "GLOBAL_OUTPUT_MIX_SESSION_0",
-    "gate": "SINGLE_LOCAL_YOUTUBE_MUSIC_PLAYBACK_NO_OTHER_MEDIA_SESSION",
-    "spatialWidth": 0,
-    "nativeSuccess": "EQUALIZER_CONTROL_ENABLED_BAND_READBACK"
+  "fix4": {
+    "providerPullMethod": "currentPlaybackForRuntime",
+    "runtimeResyncPoints": [
+      "media_session_change_when_trusted_override_false",
+      "continuity_check_when_trusted_override_false"
+    ],
+    "sequence": "ATOMIC_MONOTONIC",
+    "createsNewRoute": false,
+    "bypassesAdmissionGate": false,
+    "standardNonzeroSessionStillPreferred": true,
+    "globalMixSpatialWidth": 0,
+    "nativeSuccessRequirement": "EQUALIZER_CONTROL_ENABLED_BAND_READBACK"
   },
-  "local": {
-    "coreRegressionAssertions": 13,
-    "globalMixCoreAssertions": 10,
-    "fallbackPolicyAssertions": 7,
-    "cooperatingSourceCompile": "PASS",
-    "nativeEffectsCompile": "PASS",
+  "localVerification": {
+    "coreHarnessAssertions": 7,
+    "coreHarness": "PASS",
+    "resyncContractAssertions": 9,
+    "resyncContract": "PASS",
+    "singleUtf8BomPowerShell": "PASS",
     "sourceFiles": 471,
-    "packageEntries": 512,
-    "packageSha256": "99a5e03e1fc0a106ef26b4bfd2aa41fd974b2a6dab04de5658d071e9cc18cf29"
+    "sourceManifestSha256": "5b3cc58afd3ed2fa6f8306fdf68a2970f1ac3474a80c5ceb29ad522b3d2621b2",
+    "packageEntries": 517,
+    "packageManifestFiles": 516,
+    "packageHashMismatch": 0,
+    "packageSha256": "53b5f24c4addf36b6fb39b40acef6de2ac4409c47fd6fd92f2346cc60c1fdac0",
+    "windowsGradleBuild": "NOT_RUN",
+    "originalCertificateSigning": "NOT_RUN",
+    "phoneInstall": "NOT_RUN",
+    "phoneGlobalMixEngineE2E": "NOT_RUN"
   },
-  "windowsGradleBuild": "NOT_RUN",
-  "originalCertificateSigning": "NOT_RUN",
-  "phoneInstall": "NOT_RUN",
-  "phoneGlobalMixE2E": "NOT_RUN",
+  "application": {
+    "id": "com.koreanlifehub.bridge",
+    "versionCode": 175,
+    "versionName": "jh175-stage77-location-once-native-select-fix3-keepalive-fix4-ebiseo059-global-mix-resync"
+  },
   "automaticReplayAllowed": false,
+  "audioCapture": false,
+  "playerTransportControl": false,
   "uninstallOrDataReset": false,
+  "newSigningKey": false,
   "serverDeployRequired": false
 }
