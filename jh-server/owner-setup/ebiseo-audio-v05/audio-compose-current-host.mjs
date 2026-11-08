@@ -9,10 +9,10 @@ import {composeAudioHostDelta} from './audio-compose-host.mjs';
 import {AUDIO_CONTRACT_SHA256,AUDIO_ROUTES,fail} from './audio-contract.mjs';
 import {createPinnedAudioReleaseAuthority} from './audio-release-authority.mjs';
 
-export const AUDIO_SOURCE_COMMIT='fc70914d745dfbc7d34494c771af4f982c9511aa';
+export const AUDIO_SOURCE_COMMIT='907ac5a0a9255c7b16cb5132921695db3019cb03';
 export const AUDIO_RECORDED_RUNTIME_COMMIT='a06e4643a036fa7cc121ef997bc332a43f2f85df';
 // Stage78 baseline reviewed separately from the audio implementation; see manifest.baselineReview.
-const MANIFEST_SHA256='685ed9b98a99478a43648964008fb4c72d0c9e21bf916216a2fc74acb3bcbd63';
+const MANIFEST_SHA256='fba9c3974be9461a43c25e53910fc7c1bc99d06cac7d67a7762c24e9983a0d5a';
 const VERSION='v05',DIRECTORY='ebiseo-audio-'+VERSION;
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const moduleFiles=Object.freeze(['audio-contract.mjs','audio-extension-catalog.mjs',
