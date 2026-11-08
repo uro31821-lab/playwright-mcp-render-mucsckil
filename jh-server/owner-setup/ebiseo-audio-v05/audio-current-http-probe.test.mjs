@@ -66,7 +66,10 @@ async function pollJob(){
   for(let i=0;i<100;i++){
     const r=await request('/device/poll?deviceId='+p.d,undefined,signedHeaders('poll'));
     if(r.status===200)return r.value;
-    if(r.status!==204)throw Error('POLL_'+r.status+':'+r.text);
+    if(r.status!==204){
+      const job=await request('/job/job_1',undefined,{});
+      throw Error('POLL_'+r.status+':'+r.text+':JOB1='+job.status+':'+job.text);
+    }
     await new Promise(resolve=>setTimeout(resolve,20));
   }
   throw Error('POLL_JOB_TIMEOUT');
