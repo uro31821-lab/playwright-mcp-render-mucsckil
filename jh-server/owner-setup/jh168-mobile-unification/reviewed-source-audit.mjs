@@ -1,21 +1,20 @@
 /**
  * Narrow reviewed-source extension for Ebiseo 0.5.7.
  *
- * The historical source auditor remains byte-identical in
+ * The currently deployed source auditor remains byte-identical in
  * reviewed-source-audit-base.mjs. This layer permits only the exact reviewed
- * permanent-trust/revocation objects below plus the already-deployed Ebiseo
- * audio host composition. Every other protected path continues through the
- * original fail-closed audit. No branch name, working-tree change, untracked
- * file, alternate mode, rename, or later blob is accepted.
+ * permanent-trust/revocation objects below. Every other protected path continues
+ * through the current fail-closed audit, including the already-reviewed Ebiseo
+ * audio host transition. No working-tree change, untracked file, alternate mode,
+ * rename, or later blob is accepted.
  */
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {assertReviewedSource as assertHistoricalSource} from './reviewed-source-audit-base.mjs';
+import {assertReviewedSource as assertCurrentSource} from './reviewed-source-audit-base.mjs';
 
 const ROOT='jh-server/owner-setup/';
 const SELF=ROOT+'jh168-mobile-unification/reviewed-source-audit.mjs';
-const HISTORICAL_AUDITOR=ROOT+'jh168-mobile-unification/reviewed-source-audit-base.mjs';
-const AUDIO_HOST=ROOT+'jh168-mobile-unification/stage25-live-operator-followup-entry.mjs';
+const CURRENT_AUDITOR=ROOT+'jh168-mobile-unification/reviewed-source-audit-base.mjs';
 const EXACT=Object.freeze({
  [ROOT+'owner-enrollment/owner-enrollment-base.mjs']:'d4e7abe44109966994da3d0749b8b5dffc357fcd',
  [ROOT+'owner-enrollment/owner-enrollment.mjs']:'51beb4d40b2cd7542b50a47178b56541b762b12d',
@@ -24,8 +23,7 @@ const EXACT=Object.freeze({
  [ROOT+'trusted-server/trusted-device-registry-base.mjs']:'859baf0e806f7228ee4efe9b13913d0796fd77f9',
  [ROOT+'trusted-server/trusted-device-registry.mjs']:'82b8b1d1ed695394e729c0a98d806df457411d26',
  [ROOT+'trusted-server/trusted-settings-service.mjs']:'4838109a0fa085a326ed099dc7cf34e2ffe6007c',
- [HISTORICAL_AUDITOR]:'111591a4bae13c94bf1ffd36c9dd586853f36ce6',
- [AUDIO_HOST]:'6db2557a37d222feec288f5d330c556e031509cf'
+ [CURRENT_AUDITOR]:'b1720d4b18b9465daf2198d02a7b869676b1d15c'
 });
 const PRIOR=Object.freeze({
  [ROOT+'owner-enrollment/owner-enrollment-base.mjs']:null,
@@ -35,8 +33,7 @@ const PRIOR=Object.freeze({
  [ROOT+'trusted-server/trusted-device-registry-base.mjs']:null,
  [ROOT+'trusted-server/trusted-device-registry.mjs']:'859baf0e806f7228ee4efe9b13913d0796fd77f9',
  [ROOT+'trusted-server/trusted-settings-service.mjs']:'d88cfc3775c5d0f600fcb250be55f966931e1d4d',
- [HISTORICAL_AUDITOR]:null,
- [AUDIO_HOST]:'b381e0325c1ec300f80828b798ad8310d0bf69de'
+ [CURRENT_AUDITOR]:null
 });
 const exactEntry=(path,blob)=>`100644 blob ${blob}\t${path}`;
 
@@ -63,6 +60,6 @@ export function assertReviewedSource(options){
  assert.equal(run(['ls-files','--others','--exclude-standard','--',...exceptionPaths]),'',
   'EBISEO057_UNTRACKED_SOURCE');
  const scoped=[...paths,...exceptionPaths.map(path=>':(exclude)'+path)];
- const result=assertHistoricalSource({...options,baseRef,headRef,paths:scoped});
+ const result=assertCurrentSource({...options,baseRef,headRef,paths:scoped});
  return Object.freeze({...result,ebiseo057ExactObjects:Object.freeze({...EXACT})});
 }
