@@ -1,0 +1,4 @@
+interface:
+  display_name: "그비서 — 예술·패션·디자인·건축"
+  short_description: "사진 속 작품·옷차림·디자인·건물에서 볼 곳과 활용법을 쉽게 안내"
+  default_prompt: "$jh-geubiseo 이 사진에서 무엇부터 보면 좋은지, 왜 이런 느낌이 드는지 쉽게 알려줘."

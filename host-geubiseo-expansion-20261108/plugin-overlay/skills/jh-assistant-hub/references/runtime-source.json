@@ -1,0 +1,273 @@
+{
+  "schema": "jh.assistant-hub-source.v1",
+  "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "sourceBranch": "jh-geubiseo-20261104",
+  "sourceDirectory": "host-assistant-hub",
+  "version": "1.34.33",
+  "runtime": "node>=20, built-in modules only",
+  "dependenciesAdded": [],
+  "files": {
+    "SKILL.md": "79bc764a5a0639b627a9dbe4574e2903730d9b87e1c7179ea69b684f62061752",
+    "references/assistant-attribution.md": "1c2f4eb6c3a5ac7871f674df6e163dbc04b4a767a16c94423d4de38aab31598d",
+    "references/capabilities.json": "a4619893bbee7afe825fb8a6cf67d7602d712356c194550a295981629b88e772",
+    "references/host-flow.md": "badc0f99c6b312586b5d20119c377be04436e34f1fc5d0b3bf6ffb103067fbf6",
+    "references/integration-overlay.json": "29d4baaf93e0e12cfde1e227a8d5b127b70915f73f3d451b22d9f5039ba1dadc",
+    "references/scenarios.json": "2c7ef9fec6ef988f7ebf0ab484be3556bcb301b932308dd6bf15c6be988d1b8a",
+    "references/state-binding.json": "ee662b26ef0123587f11bd5bb8d9f5fe2879922fc1f0366987b264df39aa931d",
+    "scripts/cli.mjs": "f266d0f9c0c6c0fc4a678d2ab104d69e1762d223ab0c222ea3127d865d7251ce",
+    "scripts/router.mjs": "5fd3de8fb62e4543729ff7bb01013b46bbe556d4920ac1619cd2f7b80b033340",
+    "scripts/routines.mjs": "7f8cbd445b790e7eb95cc2edd364ab537c7dcf900445e7fd344ec53616a35f4c",
+    "scripts/tasks.mjs": "b7ecf87b0cdc71e5b1d7204375266a5fb36f2a5794400b1b8c78f6d3e57a57c1",
+    "tests/integration.test.mjs": "26a6d712319be47e93fc9b4954ea197e5f46a63eabc62cf5a185f91c6455c54f",
+    "tests/router.test.mjs": "02d8a51bfe8ac393860edc1ec10e56f23c4e14ec5b0e5c0d12174a2080ac1392",
+    "tests/routines.test.mjs": "2f8bd4392b381c9e69028756b9a0deffe8752da56446a502af574725a583ba3f",
+    "tests/tasks.test.mjs": "781ddab672cc1162cda13222697a27bf6c58a4cb0d540bce33636bd9258913c3",
+    "tests/jebiseo.test.mjs": "f384630c8c73b097f9d116f68bf8cd1f6b581e88be5e8cf5b59ab6bff5c182bd",
+    "tests/tongbiseo.test.mjs": "4f080de93b6e2ce503b1012b8dd68d8c28005a7e90728c319596e19fb3d9d5ca",
+    "tests/video.test.mjs": "c6aaed416d74059279f2d79fd4ab76759f57f670ad78757617320a4961b3d69d",
+    "tests/inbiseo.test.mjs": "9c84c328555e755c34ab5684c991926b4a461edbedc30159d3ad30d6609e5c48",
+    "tests/gongmun-biseo.test.mjs": "a536e51c02b2b5eb4ebd0bdbbc6748fcbcec7677b16b735ae48a54bb73131a30",
+    "tests/billing.test.mjs": "e52eb12b866460f7fd4e4a438015dbd05b414b57b39bcc6635f0124cd11bdf32",
+    "tests/ddanbiseo.test.mjs": "ee096fde8a2c3001d750e0fd9d887a73e91eda5cc75b90643f3cbc0c60496fd2",
+    "tests/contingency.test.mjs": "6ed660e89666bc9c977d9c2ba38db4549b08a62cf1c3c7f537fe06483008b526",
+    "tests/jabiseo.test.mjs": "d1579fe241e972a3db03b2d6bcf0bc9f1be2c4b3444e098f6d75269d0df56fff",
+    "tests/jabiseo-geology.test.mjs": "eaecdacff7e64c61e3f3f694ce22287a203e2cfe09c6832283341cc1fe5d67c2",
+    "tests/weather.test.mjs": "c171b08e28b4f6e1870f1ffaa65f675031f8b4166b95ced8fd148251c48c08c6",
+    "tests/art-expansion.test.mjs": "679334ceb271da7254aa0d20fdbdd72b62be43db6a7b8dd7843b4c0f595fd95c"
+  },
+  "note": "Hashes identify packaged bytes. Actual remote commit and release readback are recorded separately; this file alone is not a publishing receipt.",
+  "sourceOverlay": {
+    "sourceBranch": "feat/jh-jebiseo-mobile-20261104",
+    "sourceDirectory": "host-jebiseo/plugin-overlay/skills/jh-assistant-hub",
+    "note": "Changed packaged files overlay the retained base source; the base sourceBranch and sourceDirectory remain above."
+  },
+  "additionalPluginOverlays": [
+    {
+      "version": "1.33.0",
+      "source": "Private plugin update from verified current release",
+      "baseReleaseId": "pluginrel_6aec8b0539688191a11ced712e8567a1",
+      "changedPaths": [
+        "references/capabilities.json"
+      ],
+      "newCapability": "reservation",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router code unchanged; base provenance and previous overlay retained. This record does not assert server deployment or live E2E."
+    },
+    {
+      "version": "1.34.0",
+      "source": "Private plugin shopping integration overlay",
+      "baseReleaseId": "pluginrel_6aed07f0b6708191ad146639b8d9a84d",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json"
+      ],
+      "newCapability": "shopping",
+      "remoteRepositoryUpdated": false,
+      "note": "Original router SHA-256 verified and reused unchanged. Existing app/MCP, state and prior specialties preserved. Local tests are not live checkout evidence."
+    },
+    {
+      "version": "1.34.9",
+      "source": "Private plugin statistics integration overlay",
+      "baseReleaseId": "pluginrel_6aed4751dd7881918ef221d8ffc6c973",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/scenarios.json",
+        "tests/tongbiseo.test.mjs"
+      ],
+      "newCapability": "statistics",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router, task and routine implementations preserved. Local interpreted-intent tests are not live data retrieval, chart rendering, phone execution or all-chat refresh evidence."
+    },
+    {
+      "version": "1.34.10",
+      "source": "Private plugin nostalgia integration overlay",
+      "baseReleaseId": "pluginrel_6aed7065a5948191bdf7e3931c55cfe7",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md"
+      ],
+      "newCapability": "nostalgia",
+      "bundledSpecialist": "jh-eungbiseo",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router reused unchanged. Specialist copied from saved personal skill; package source and requested routing tested locally. No phone or server deployment is asserted."
+    },
+    {
+      "version": "1.34.11",
+      "source": "Private plugin video integration from current verified release",
+      "baseReleaseId": "pluginrel_6aed71963f948191be249d73d11247e9",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/scenarios.json",
+        "tests/video.test.mjs"
+      ],
+      "newCapability": "video",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router and task code retained. Public video helpers preserve the main topic and current menu. Package tests do not assert video playback or private content access."
+    },
+    {
+      "version": "1.34.12",
+      "source": "Private plugin media and real-event routing clarification",
+      "baseReleaseId": "pluginrel_6aed72034904819186e25991d7135cf9",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md"
+      ],
+      "updatedCapabilities": [
+        "news",
+        "nostalgia"
+      ],
+      "remoteRepositoryUpdated": false,
+      "note": "Existing specialist IDs, generic router and helpers retained. Host interprets media/music vs. real events; this entry is not a publication or live search receipt."
+    },
+    {
+      "version": "1.34.13",
+      "source": "Private plugin inbiseo person integration overlay",
+      "baseReleaseId": "pluginrel_6aed7439af508191b4b42f525e612b8d",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/scenarios.json",
+        "tests/inbiseo.test.mjs"
+      ],
+      "newCapability": "person",
+      "newSkill": "jh-inbiseo",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router, task, routine and CLI code retained. Person skill and host semantic routing added to current plugin source. Local routing tests do not assert live web/image or phone execution.",
+      "inbiseoRuleSource": {
+        "kind": "personal-skill-snapshot",
+        "name": "jh-inbiseo",
+        "skillId": "6aed6c61be308191ad9c13e1ddb41d0e",
+        "sourceSha256": "0d6d0d974efc64b233924a032f3860f90e7ec907d3792d5783d4482d51dcba89",
+        "packagedChanges": "Added only plugin-local hub and attribution binding; core person-guide rules preserved."
+      }
+    },
+    {
+      "version": "1.34.27",
+      "source": "Private plugin Gongmun assistant integration from verified current release",
+      "baseReleaseId": "pluginrel_6aef5230081c8191b98a56114be29529",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/scenarios.json",
+        "tests/gongmun-biseo.test.mjs"
+      ],
+      "newCapability": "official_document",
+      "newSkill": "jh-gongmun-biseo",
+      "remoteRepositoryUpdated": false,
+      "personalSkillSource": {
+        "name": "jh-gongmun-biseo",
+        "gitCommit": "d9a1d73326f9757df5cf1e84b91fe8ea94cf6cf5",
+        "files": {
+          "SKILL.md": "2f244daa9864e3b4f778543af75e4727b05c149a208299a1243544a612ad1360",
+          "references/workflow.md": "a6eb663b8cbf90e78b1a313e4c2670aa2b8f516394a0ab933b8798226b5ed3b9",
+          "references/integration.md": "ee19afd4fe8560b877016c9b35c31584564faaee6231327ff523cbd833468459",
+          "agents/openai.yaml": "939d96936d1705b9bc14d06fba5072b08df8ec0f0da74cdc51c06d5e5e68a6d3"
+        },
+        "skillId": "6aeff7afd42881918c6c233e586147aa",
+        "note": "Core documents match the reconciled saved skill exactly. The package keeps authored agent metadata; personal storage adds host UI metadata."
+      },
+      "verification": {
+        "hubContractTests": {
+          "passed": 138,
+          "failed": 0,
+          "skipped": 0
+        },
+        "syntheticDocumentResponses": {
+          "cases": 7,
+          "reviewed": 7,
+          "realUserDocument": false
+        },
+        "liveSubmissionTested": false
+      },
+      "note": "Generic router, task, routine and CLI implementations preserved. Added host semantic guidance, back-links and current-menu coordination. Synthetic interpretation and local contracts do not prove legal accuracy on unseen documents, live submission, reminder delivery or automatic refresh in all conversations."
+    },
+    {
+      "version": "1.34.28",
+      "source": "Private plugin billing integration from current verified release",
+      "baseReleaseId": "pluginrel_6aeff83109608191a8e759a36556daaf",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "tests/billing.test.mjs"
+      ],
+      "newCapability": "billing",
+      "newSkill": "jh-cheongguseo-biseo",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router/task/routine logic preserved. Host skill performs evidence reasoning; local cashflow/report helpers do not access bank accounts or execute cancellations. Publication and live usage require separate receipts."
+    },
+    {
+      "version": "1.34.30",
+      "source": "Private personal skill jh-daebiseo and verified current plugin overlay",
+      "baseReleaseId": "pluginrel_6af008117ea081919c96d9ec312f48d1",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "scripts/router.mjs",
+        "tests/contingency.test.mjs"
+      ],
+      "newCapability": "contingency",
+      "privateSkillCommit": "1b046786afe50a72ffaa5f0df86aab246e899444",
+      "remoteRepositoryUpdated": false,
+      "note": "Private skill source synchronized separately; no server deployment or live reservation test."
+    },
+    {
+      "version": "1.34.31",
+      "source": "Weather integration reconciled with current private plugin release",
+      "baseReleaseId": "pluginrel_6af008baa74881918e99791f08c43dd8",
+      "newCapability": "weather",
+      "newSkill": "jh-nalssibiseo",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "scripts/router.mjs",
+        "tests/weather.test.mjs"
+      ],
+      "remoteRepositoryUpdated": false,
+      "note": "Preserves nature/geology and contingency integration. Combines current weather relevance with existing disruption handling; task/routine persistence and external execution unchanged."
+    },
+    {
+      "version": "1.34.32",
+      "source": "Private plugin sports extension of existing nostalgia capability",
+      "baseReleaseId": "pluginrel_6af00970b57c8191ae421aecc989ff83",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md"
+      ],
+      "updatedCapabilities": [
+        "nostalgia",
+        "news"
+      ],
+      "remoteRepositoryUpdated": false,
+      "note": "Host semantic guidance distinguishes matches and records from incident investigations. Existing capability IDs, router, task/routine code, App/MCP configuration and action rights are retained. Publication, live sports lookup and final child integration require separate verification."
+    },
+    {
+      "version": "1.34.33",
+      "source": "Private plugin art fashion design architecture expansion",
+      "baseReleaseId": "pluginrel_6af009f8b7e48191a3418019f35c1319",
+      "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
+      "sourceBranch": "jh-geubiseo-expansion-20261108",
+      "sourceDirectory": "host-geubiseo-expansion-20261108/plugin-overlay",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/runtime-source.json",
+        "references/scenarios.json",
+        "tests/art-expansion.test.mjs"
+      ],
+      "note": "Package source overlay; commit, publication and source readback are separate receipts. Routing-contract tests do not prove photo-identification or natural-language accuracy."
+    }
+  ]
+}
