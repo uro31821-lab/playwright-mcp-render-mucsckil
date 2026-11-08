@@ -1,12 +1,10 @@
 name: JH Plugin structure dedup package
 on:
-  push:
-    branches:
-      - jh-plugin-structure-dedup-20261108a
-    paths:
-      - '.github/workflows/jh-plugin-struct-dedup-pack-20261108.yml'
+  pull_request:
+    branches: [main]
 jobs:
   pack:
+    if: github.head_ref == 'jh-plugin-structure-dedup-20261108a'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
