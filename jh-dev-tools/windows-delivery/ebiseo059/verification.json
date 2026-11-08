@@ -1,0 +1,23 @@
+{
+  "schema":"JH_EBISEO059_METADATA_AUTO_REVIEW_V1",
+  "candidate":"JH173-EBISEO059-METADATA-AUTO-20261108",
+  "versionCode":173,
+  "versionName":"jh173-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo059-metadata-auto",
+  "sourceManifestFiles":468,
+  "sourceManifestSha256":"9edad41fa905bfabcd3fe8bace316ee82440532fe607648936323e4803db7f3f",
+  "packageEntries":498,
+  "packageSha256":"e1732a1a6aae140ff7ab7d71371661e4a2530973f29dcd9597e9c6f2ba0b5edb",
+  "purePolicyAssertions":15,
+  "parserAssertions":3,
+  "externalResolverCompile":"PASS",
+  "cooperatingSourceCompile":"PASS",
+  "fullGradleBuild":"NOT_RUN",
+  "originalCertificateSigning":"NOT_RUN",
+  "phoneInstall":"NOT_RUN",
+  "metadataAutoPhoneE2E":"NOT_RUN",
+  "audioCapture":false,
+  "playerTransportControl":false,
+  "automaticReplayAllowed":false,
+  "uninstallOrDataReset":false,
+  "serverDeployRequired":false
+}
