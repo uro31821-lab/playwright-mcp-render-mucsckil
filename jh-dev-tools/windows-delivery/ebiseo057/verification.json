@@ -1,0 +1,59 @@
+{
+  "schema": "JH_EBISEO057_TRUST_REMOVAL_RECOVERY_VERIFICATION_V1",
+  "candidate": "JH171-EBISEO057-OWNER-REVOCATION-RECOVERY-20261108",
+  "observedFailure": "The phone locally blocked trusted reconnect, but a lost/unconfirmed server cancellation was collapsed into one generic message. Repeated user clicks could resend cancel without first reconciling server state.",
+  "fix": {
+    "firstRemoval": "local reconnect block then one cancel request",
+    "subsequentExplicitAction": "one signed status lookup first; at most one cancel continuation only when cleanup remains pending",
+    "automaticRetry": false,
+    "googleRelogin": false,
+    "newEnrollment": false,
+    "boundedDiagnostics": [
+      "OWNER_SERVER_CANCELLATION_PENDING",
+      "OWNER_SERVER_TIMEOUT",
+      "OWNER_SERVER_UNREACHABLE",
+      "OWNER_SERVER_HTTP_REJECTED",
+      "OWNER_RECOVERY_KEY_UNAVAILABLE",
+      "OWNER_SECURE_UNLOCK_REQUIRED",
+      "OWNER_LOCAL_BLOCKED_PENDING_REFERENCE_REQUIRED"
+    ]
+  },
+  "focusedJvmContract": {
+    "compiler": "kotlinc-jvm 1.9.0",
+    "runtime": "JRE 21",
+    "scenarios": 3,
+    "passed": 3,
+    "failed": 0
+  },
+  "audio056Preserved": true,
+  "application": {
+    "id": "com.koreanlifehub.bridge",
+    "versionCode": 171,
+    "versionName": "jh171-stage77-location-once-native-select-fix3-keepalive-fix1-ebiseo057"
+  },
+  "windowsGradleBuild": "NOT_RUN",
+  "originalCertificateSigning": "NOT_RUN",
+  "phoneInstall": "NOT_RUN",
+  "ownerRevocationPhoneE2E": "NOT_RUN",
+  "audibleEq": "NOT_RUN",
+  "serverDeployRequired": false,
+  "automaticReplayAllowed": false,
+  "uninstallOrDataReset": false,
+  "supersedes": [
+    "JH_Ebiseo_0.5.5_SessionFix_OneClick.zip",
+    "JH_Ebiseo_0.5.6_StandardSession_OneClick.zip"
+  ],
+  "sourceManifestSha256": "5af6c35d2e0c16f8564007073ab609f1a216c244889c8ffa2c8fec8ae8de77fb",
+  "sourceFiles": 463,
+  "staticChecks": {
+    "xmlParsed": true,
+    "stringReferencesResolved": true,
+    "reviewedCopiesExact": true,
+    "singleAdbInstallR": true,
+    "noUninstall": true,
+    "noDataReset": true,
+    "noNewKey": true,
+    "noRenderDeploy": true,
+    "sourceManifestPinned": true
+  }
+}
