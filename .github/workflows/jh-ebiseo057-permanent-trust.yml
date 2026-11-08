@@ -8,7 +8,7 @@ on:
       - 'jh-server/owner-setup/owner-enrollment/owner-enrollment*.mjs'
       - 'jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs'
       - 'jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs'
-      - 'jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit*.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs'
       - '.github/workflows/jh-ebiseo057-permanent-trust.yml'
 permissions: {contents: read}
 jobs:
@@ -16,15 +16,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with: {persist-credentials: false, fetch-depth: 0}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with: {node-version: '22'}
       - name: Install reviewed dependencies
         run: |
           npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
           npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
-      - name: Syntax
+      - name: Syntax and exact source identity
         run: |
           node --check jh-server/owner-setup/trusted-server/trusted-device-registry.mjs
           node --check jh-server/owner-setup/trusted-server/trusted-device-registry-base.mjs
@@ -32,9 +32,10 @@ jobs:
           node --check jh-server/owner-setup/owner-enrollment/owner-enrollment.mjs
           node --check jh-server/owner-setup/owner-enrollment/owner-enrollment-base.mjs
           node --check jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs
-          node --check jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit.mjs
-          node --check jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit-base.mjs
-      - name: Permanent trust, revocation and exact protected-source contracts
+          node --check jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs
+          test "$(git rev-parse HEAD:jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs)" = "a257b8696ac3173502f0030a2cb6361530a32e9b"
+          node jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs
+      - name: Permanent trust and revocation contracts
         run: |
           node --test --test-concurrency=1 --test-reporter=spec \
             jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs \
