@@ -1,11 +1,11 @@
 {
   "schema": "KABISEO_REUSE_CONTINUATION_V026",
   "recordedKstDate": "2026-11-08",
-  "userDevelopmentState": "RESUMED_PRIVATE_ZIP_ACCESS_RESTORED_LOCALLY_WITHOUT_REUPLOAD",
+  "userDevelopmentState": "PRIVATE_V0242_STATIC_LIFECYCLE_AND_PHOTO_RECEIPT_HARDENING_REVIEW_ONLY",
   "target": "Reuse private PhotoMaster AI capture within existing JH v0.24; no GPT photo transfer, no beauty edits",
-  "functionalAppVersion": "v0.24.1-private-review-not-built",
-  "reviewVersion": "0.28-private-v0241-static-source-hardening",
-  "status": "PRIVATE_ZIP_ACCESS_SUCCESS_454_FILES_BYTE_EXACT_REPLAY_PASS_24_STATIC_CHECKS_RELEASE_HOLD",
+  "functionalAppVersion": "v0.24.2-private-review-not-built",
+  "reviewVersion": "0.29-private-v0242-source-only",
+  "status": "PRIVATE_PATCH_V0242_REPLAY_454_PASS_STATIC_35_PASS_MUTATION_6_PASS_SECURITY_REVIEW_ANDROID_NOT_BUILT",
   "requiredUserAction": "NONE: original uploaded ZIP mounted and verified; no repeated upload/USB.",
   "priorCheckpoint": {
     "commit": "c14550b8bb17e9637325f593c88be6792f07d52e",
@@ -14,9 +14,9 @@
     "v025PublicInputAndAbiEvidenceReusedWithoutRerun": true
   },
   "privateCandidate": {
-    "archiveName": "JH_Kabiseo_PhotoMaster_Reuse_v0241_REVIEW_ONLY.zip",
-    "archivePath": "/mnt/data/JH_Kabiseo_PhotoMaster_Reuse_v0241_REVIEW_ONLY.zip",
-    "sha256": "8326005e6afd638a21fc58fb0f90480c78297aad040a6c2aa50e318d078bb69e",
+    "archiveName": "JH_Kabiseo_PhotoMaster_Reuse_v0242_REVIEW_ONLY.zip",
+    "archivePath": "/mnt/data/JH_Kabiseo_PhotoMaster_Reuse_v0242_REVIEW_ONLY.zip",
+    "sha256": "f4f85d1b3d9bbe66d392076e59ee967f4ff368a01b7a2bb5977afa6ecd59ee1c",
     "originalPatchSha256": "5e496ca636408ce0f458275a9f5b374910386e8faa82cbdd1a186651226b71b6",
     "originalStage77SourceSha256": "da00df7101fe3ccdb0466ca08755a6605e8d84315a696d77fc5ba9b7dbacec37",
     "photoMasterV05Sha256": "0fac055ca2552ed783330e54da0b78eb4a4f4b7d05a8ae1c446fafc68a15c56e",
@@ -43,7 +43,28 @@
     "androidBuild": "NOT_RUN",
     "androidLint": "NOT_RUN",
     "appInstalled": false,
-    "phoneValidation": "NOT_RUN"
+    "phoneValidation": "NOT_RUN",
+    "sizeBytes": 25479,
+    "priorV0241Sha256": "8326005e6afd638a21fc58fb0f90480c78297aad040a6c2aa50e318d078bb69e",
+    "sourceReadAndPatchedThisTurn": true,
+    "unchangedOriginalCount": 445,
+    "changedOriginalCount": 3,
+    "reusedPhotoMasterFilesAdded": 6,
+    "changedSinceV0241": [
+      "app/src/main/java/com/jh/photomaster/MainActivity.kt",
+      "app/src/main/java/com/jh/photomaster/SceneAnalyzer.kt"
+    ],
+    "patchReplayedAllBytesMatch": 454,
+    "newStaticChecks": 35,
+    "newStaticChecksPassed": 35,
+    "negativeMutationTests": 6,
+    "negativeMutationTestsPassed": 6,
+    "compilePerformed": false,
+    "minSecurityStatus": "REVIEW",
+    "modelPresentInApp": false,
+    "signingPerformed": false,
+    "installed": false,
+    "privateSourceUploadedToPublicRepo": false
   },
   "newVerification": {
     "codeCommit": "8739810603832b2c8981687647e2899346d528b1",
@@ -97,7 +118,7 @@
     "model": "Evaluate exact licensed alternative only against actual private initialization API; do not silently replace current float32 model",
     "lockfileCreated": false
   },
-  "next": "Reuse private v0.24.1 source patch and artifact SHA, do not rerun previous file access/454 source replay. Review entire resolved dependency graph/Google Android SDK classes plus original JH Gradle/Kotlin version and licensed model compatibility. Security SAFE and build/lint gate before original-key sign/explicit user approval installation; never publish private JH source to public GitHub.",
+  "next": "Evaluate complete AndroidX CameraX1.5.2/ActivityKtx1.10.1/MediaPipe1.1.1/Protobuf4.36.2 resolved dependency graph, metadata and executable vendor binary supply-chain before upgrading security REVIEW; then Android compile/lint under original JH toolchain. After licensed model runtime verified and approved, package asset; original-key signing and user-approved phone E2E later. Do not ask for prior ZIP upload or repeat 35-source checks.",
   "securityGateVerdict": "REVIEW",
   "androidFullBuild": "NOT_RUN",
   "signed": false,
@@ -122,9 +143,21 @@
     "No declined alerts or monitoring",
     "Do not ask to reupload private v0.24 ZIP: confirmed mounted and replay tested 2026-11-08",
     "Do not reconstruct source from public v0.23 demo; private v0.24.1 review patch is canonical candidate",
-    "Do not treat static 24 checks as APK build, native AI inference or phone camera success"
+    "Do not treat static 24 checks as APK build, native AI inference or phone camera success",
+    "v0.24.2 private review candidate SHA f4f85d1b... source and patch byte replay 454 PASS; only recheck if input changes",
+    "Do not claim AI detector enabled: no TFLite asset in candidate",
+    "No private v0.24.2 code or user ZIP in public GitHub; metadata-only checkpoint",
+    "Do not build under unresolved JH release securityGateVerdict REVIEW"
   ],
   "privateArchiveReadThisStep": true,
   "modelLicenseAlternateVerified": true,
-  "modelStaticContractVerified": true
+  "modelStaticContractVerified": true,
+  "v0242Fixes": [
+    "Deduplicate identical CameraX binding on resume, permission callback and fold/resize; queue changed lens/viewport one rebind",
+    "Stale asynchronous provider callbacks rejected by camera session generation",
+    "Persist PENDING/SAVED/FAILED with private request-generation fence to prevent older photo callbacks overriding newest state",
+    "Correct missing model user notice and narrow no-auto-GPT-attachment statement"
+  ],
+  "modelPackaged": false,
+  "androidLint": "NOT_RUN"
 }
