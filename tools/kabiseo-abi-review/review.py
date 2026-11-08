@@ -98,7 +98,7 @@ def classes(data):
     z=inspect_zip(data); out={}
     for n in z.namelist():
         if n.endswith('.class') and not n.startswith('META-INF/versions/'):
-            c=ClassFile(z.read(n));
+            c=ClassFile(z.read(n))
             if c.name in out: raise ValueError('DUPLICATE_CLASS')
             out[c.name]=c
     return out
@@ -115,7 +115,50 @@ def resolve(table,owner,name,desc,field=False,seen=None):
         if hit: return hit
     return None
 
-OBJECT_METHODS={('equals','(Ljava/lang/Object;)Z'),('hashCode','()I'),('toString','()Ljava/lang/String;'),('getClass','()Ljava/lang/Class;'),('wait','()V'),('wait','(J)V'),('wait','(JI)V'),('notify','()V'),('notifyAll','()V'),('clone','()Ljava/lang/Object;'),('finalize','()V')}
+def platform_ancestors(candidate):
+    """Read actual installed JDK17 ancestor definitions, never execute library code.
+    This is NOT a replacement for an Android boot-classpath or DEX linker test.
+    No fabricated allowlist, missing-member waiver, or network runtime download.
+    """
+    home=os.environ.get('JAVA_HOME_17_X64')
+    if not home: raise ValueError('EXISTING_JDK17_METADATA_REQUIRED')
+    jmod=pathlib.Path(home)/'jmods'/'java.base.jmod'
+    release=pathlib.Path(home)/'release'
+    if not jmod.is_file() or not release.is_file(): raise ValueError('JDK_METADATA_MISSING')
+    version=re.search(r'^JAVA_VERSION="([^"]+)"',release.read_text(encoding='utf-8'),re.M)
+    if not version or not version.group(1).startswith('17.'): raise ValueError('JDK17_REQUIRED')
+    if jmod.stat().st_size>100*1024*1024: raise ValueError('JMOD_SIZE_LIMIT')
+    data=jmod.read_bytes(); proof={}; result=dict(candidate)
+    pending={'java/lang/Object','java/lang/Enum','java/util/List','java/util/HashMap'}
+    for c in candidate.values(): pending.update(x for x in [c.parent]+c.interfaces if x)
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        while pending:
+            name=pending.pop()
+            if name in result: continue
+            if not name.startswith('java/'):
+                # An unknown non-platform ancestor remains unresolved, not invented.
+                continue
+            if len(proof)>=1000: raise ValueError('PLATFORM_ANCESTOR_LIMIT')
+            member='classes/'+name+'.class'
+            if member not in z.namelist(): continue
+            info=z.getinfo(member)
+            if info.file_size>2*1024*1024: raise ValueError('PLATFORM_CLASS_LIMIT')
+            content=z.read(info); c=ClassFile(content)
+            if c.name!=name: raise ValueError('PLATFORM_CLASS_IDENTITY')
+            result[name]=c; proof[name]=sha(content)
+            pending.update(x for x in [c.parent]+c.interfaces if x and x not in result)
+    tests={
+        'enum_ordinal_from_actual_parent':resolve(result,'com/google/protobuf/GeneratedMessageLite$MethodToInvoke','ordinal','()I')=='java/lang/Enum',
+        'list_size_from_actual_interface':resolve(result,'com/google/protobuf/Internal$ProtobufList','size','()I') in ('java/util/List','java/util/Collection'),
+        'map_size_from_actual_parent':resolve(result,'com/google/protobuf/MapFieldLite','size','()I') in ('java/util/HashMap','java/util/LinkedHashMap','java/util/AbstractMap'),
+        'wrong_descriptor_not_accepted':resolve(result,'com/google/protobuf/Any$Builder','build','()Lcom/google/protobuf/Any;') is None,
+        'nonexistent_member_not_accepted':resolve(result,'com/google/protobuf/Internal$ProtobufList','jhMethodDoesNotExist','()V') is None,
+        'unknown_owner_not_accepted':resolve(result,'com/google/protobuf/DoesNotExist','size','()I') is None
+    }
+    if not all(tests.values()): raise ValueError('PLATFORM_RESOLVER_SELF_CHECK_FAILED:'+','.join(k for k,v in tests.items() if not v))
+    return result,{'javaVersion':version.group(1),'javaBaseJmodSha256':sha(data),'classHashes':proof,
+        'selfChecks':tests,'selfCheckCount':len(tests),'source':'Preinstalled runner JDK17 java.base.jmod, classfile data only',
+        'androidPlatformRuntimeNotVerified':True}
 
 def query_osv():
     query={'package':{'ecosystem':'Maven','name':'com.google.protobuf:protobuf-javalite'},'version':VERSION}
@@ -146,7 +189,6 @@ def main():
             'aarMetadata':r.get('archive',{}).get('metadata',{}).get('META-INF/com/android/build/gradle/aar-metadata.properties'),
             'pom':r.get('pom'),'failure':r.get('failure')} for r in prior['artifacts']]
         result['modelMetadata']=prior.get('model')
-        # Prior AV is evidence of that old artifact only; current JAR is separately scanned.
         result['priorAvReports']={n:json.loads(old.read(n)) for n in old.namelist() if n.endswith('antivirus.json')}
         jar=get(BASE+'.jar',8*1024*1024)
         if sha(jar)!=OBSERVED_SHA: raise ValueError('OBSERVED_REPLACEMENT_SHA_CHANGED')
@@ -169,6 +211,8 @@ def main():
             'publisherSignatureVerified':False,'checksumIsNotSignature':True}
         candidate=classes(jar)
         result['replacement']['classCount']=len(candidate)
+        resolution_table,platform_proof=platform_ancestors(candidate)
+        result['platformAncestorInspection']=platform_proof
         callers={}; source_inputs=[]
         for record in prior['artifacts']:
             if not record['coordinate'].startswith('com.google.mediapipe:'): continue
@@ -188,18 +232,18 @@ def main():
                 if owner.startswith('com/google/protobuf/'):
                     key=(tag,owner,name,desc); refs.setdefault(key,[]).append(caller)
         if not refs: raise ValueError('NO_PROTOBUF_REFERENCES_FOUND')
-        unresolved=[]; resolved=0; object_fallback=0; build_refs=[]
+        unresolved=[]; resolved=0; platform_resolved=0; build_refs=[]
         for (tag,owner,name,desc),uses in sorted(refs.items()):
-            hit=resolve(candidate,owner,name,desc,tag==9)
-            obj=tag!=9 and (name,desc) in OBJECT_METHODS and owner in candidate
-            if hit: resolved+=1
-            elif obj: object_fallback+=1
+            hit=resolve(resolution_table,owner,name,desc,tag==9)
+            if hit:
+                resolved+=1
+                if hit.startswith('java/'): platform_resolved+=1
             else: unresolved.append({'kind':tag,'owner':owner,'name':name,'descriptor':desc,'callers':uses})
             if owner=='com/google/protobuf/Any$Builder' and name=='build':
                 build_refs.append({'descriptor':desc,'resolvedOwner':hit,'callers':uses})
         result['abi']={'inputs':source_inputs,'mediapipeClassCount':len(callers),'uniqueProtobufReferences':len(refs),
-            'resolvedDefinitions':resolved,'javaLangObjectSignatures':object_fallback,'unresolved':unresolved,
-            'anyBuilderBuildReferences':build_refs,'scope':'Static classfile symbolic references; not Android linkage/runtime or behavioral compatibility',
+            'resolvedDefinitions':resolved,'platformInheritedDefinitions':platform_resolved,'unresolved':unresolved,
+            'anyBuilderBuildReferences':build_refs,'scope':'Static classfile symbolic references with real JDK17 ancestors; not Android linking/runtime or behavioral compatibility',
             'accessOpcodeNativeJniAndFullDependencyGraphNotVerified':True}
         try: result['knownVulnerabilities']=query_osv()
         except Exception as e: result['knownVulnerabilities']={'status':'UNAVAILABLE','errorType':type(e).__name__}
@@ -208,7 +252,13 @@ def main():
         result['status']='FAILED'
         result['error']={'type':type(e).__name__,'detail':str(e)[:300] if not isinstance(e,subprocess.CalledProcessError) else 'PRIOR_ARTIFACT_FETCH_FAILED'}
     (ROOT/'review.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
-    print('KABISEO_ABI_REVIEW='+json.dumps(result,ensure_ascii=False,separators=(',',':')))
+    summary={k:result.get(k) for k in ('schema','sourceHead','runId','status','securityGateVerdict','releaseApproved','error','replacement','knownVulnerabilities')}
+    abi=result.get('abi',{})
+    summary['abi']={k:abi.get(k) for k in ('mediapipeClassCount','uniqueProtobufReferences','resolvedDefinitions','platformInheritedDefinitions','unresolved','anyBuilderBuildReferences')}
+    summary['platformSelfChecks']=result.get('platformAncestorInspection',{}).get('selfChecks')
+    summary['modelLicenseConfirmed']=result.get('modelMetadata',{}).get('licenseVerified')
+    summary['cameraBuildRequirements']=[{'coordinate':r['coordinate'],'aarMetadata':r['aarMetadata']} for r in result.get('priorInputSummary',[]) if r['coordinate'].startswith('androidx.camera:')]
+    print('KABISEO_ABI_REVIEW='+json.dumps(summary,ensure_ascii=False,separators=(',',':')))
     if result['status']!='STATIC_REFERENCES_MATCH': raise SystemExit(2)
 
 if __name__=='__main__': main()
