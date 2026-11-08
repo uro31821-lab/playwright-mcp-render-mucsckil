@@ -1,0 +1,15 @@
+{
+  "schema": "JH_EBISEO057_OWNER_REVOCATION_CONTRACT_V1",
+  "scenarios": 3,
+  "passed": 3,
+  "failed": 0,
+  "statusFirstAfterUncertainCancellation": true,
+  "atMostOneCancellationContinuationPerExplicitClick": true,
+  "failedStatusDoesNotResubmitCancellation": true,
+  "automaticRetry": false,
+  "googleRelogin": false,
+  "uninstallOrDataReset": false,
+  "serverDeploy": false,
+  "fullAndroidGradle": "NOT_RUN_IN_CURRENT_LINUX_ENV",
+  "phoneE2E": "NOT_RUN"
+}
