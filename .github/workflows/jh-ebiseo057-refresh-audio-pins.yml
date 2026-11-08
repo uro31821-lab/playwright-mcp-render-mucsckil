@@ -1,0 +1,47 @@
+name: JH Ebiseo 0.5.7 refresh audio upstream pins
+on:
+  push:
+    branches: ['fix/ebiseo057-audio-upstream-pins-20261108']
+permissions:
+  contents: write
+jobs:
+  generate:
+    if: ${{ !contains(github.event.head_commit.message, '[audio-pin-generated]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with: {persist-credentials: true, fetch-depth: 0}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22'}
+      - name: Generate only the reviewed 0.5.7 pin delta
+        run: |
+          node jh-dev-tools/ebiseo057/update-audio-upstream-pins.mjs --write
+          node jh-dev-tools/ebiseo057/update-audio-upstream-pins.mjs --check
+          git diff --check
+          git add \
+            jh-server/owner-setup/ebiseo-audio-v05/audio-upstream-sources.json \
+            jh-server/owner-setup/ebiseo-audio-v05/audio-compose-current-host.mjs \
+            jh-server/owner-setup/ebiseo-audio-v05/audio-current-host.test.mjs
+          git diff --cached --quiet && { echo 'EXPECTED_GENERATED_DELTA_MISSING'; exit 1; }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Refresh Ebiseo audio pins for permanent trust [audio-pin-generated]'
+          git push origin HEAD:fix/ebiseo057-audio-upstream-pins-20261108
+  verify:
+    if: ${{ contains(github.event.head_commit.message, '[audio-pin-generated]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with: {persist-credentials: false, fetch-depth: 0}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22'}
+      - name: Verify generated pin set is exact and stable
+        run: |
+          node jh-dev-tools/ebiseo057/update-audio-upstream-pins.mjs --check
+          git diff --exit-code
+          echo AUTOMATIC_REPLAY=0
+          echo PHONE_COMMAND=0
+          echo APK_INSTALL=0
+          echo RENDER_DEPLOY=0
