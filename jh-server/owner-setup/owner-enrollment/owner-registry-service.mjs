@@ -8,7 +8,7 @@ import {lstatSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {OwnerEnrollmentGate} from './owner-enrollment.mjs';
 import {deny} from './enrollment-store.mjs';
-import {TrustedDeviceRegistry,PURPOSE} from '../trusted-server/trusted-device-registry.mjs';
+import {TrustedDeviceRegistry,PURPOSE,PERMANENT_TRUST_EXPIRES_AT} from '../trusted-server/trusted-device-registry.mjs';
 import {TrustedSettingsService} from '../trusted-server/trusted-settings-service.mjs';
 const hex=x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);
 const token=x=>typeof x==='string'&&/^[a-zA-Z0-9_-]{32}$/.test(x);
@@ -43,7 +43,7 @@ export function createOwnerRegistryService({store,verifier,serverOrigin,catalogD
     keyDigest:r.manifest.keyDigest,purpose:PURPOSE,requestedTrustMs:r.manifest.durationDays*86400000,consentRequestId:r.id});
   function validateRecord(r) {
     if(!r||!hex(r.accountDigest)||r.manifest.serverOrigin!==serverOrigin||r.manifest.catalogDigest!==catalogDigest||
-        r.manifest.purpose!==PURPOSE||![1,7,30].includes(r.manifest.durationDays)||
+        r.manifest.purpose!==PURPOSE||![0,1,7,30].includes(r.manifest.durationDays)||
         hash(JSON.stringify(r.manifest))!==r.manifestDigest||hash(Buffer.from(r.publicKeySpki,'base64url'))!==r.manifest.keyDigest)deny('enrollment_binding_changed');
   }
   const registry=new TrustedDeviceRegistry({databasePath:registryPath,serverDigest,catalogDigest,now:time,
@@ -70,7 +70,7 @@ export function createOwnerRegistryService({store,verifier,serverOrigin,catalogD
     if(!t||t.enrollmentId!==r.id||t.purpose!==PURPOSE||t.ownerDigest!==r.accountDigest||t.deviceDigest!==e.deviceDigest||
         t.serverDigest!==e.serverDigest||t.catalogDigest!==e.catalogDigest||t.keyDigest!==e.keyDigest||
         t.createdAt<r.authorizedAtMs||t.createdAt>=Math.min(r.expires,r.authorizedAtMs+60000)||
-        t.expiresAt-t.createdAt!==e.requestedTrustMs)deny('registry_record_divergence');
+        (e.requestedTrustMs===0?t.expiresAt!==PERMANENT_TRUST_EXPIRES_AT:t.expiresAt-t.createdAt!==e.requestedTrustMs))deny('registry_record_divergence');
     if(r.receipt&&receipts.some(k=>r.receipt[k]!==t[k]))deny('registry_receipt_divergence');
     return Object.freeze(Object.fromEntries(receipts.map(k=>[k,t[k]])));
   }
@@ -101,10 +101,12 @@ export function createOwnerRegistryService({store,verifier,serverOrigin,catalogD
         if(t.status==='CLOCK_ROLLBACK')deny('clock_invalid');
         return reply(r,t.status==='REGISTERED'?'TRUST_REGISTERED':t.status==='REVOKED'?'TRUST_REVOKED':'TRUST_EXPIRED',receipt);
       }
-      if(r.state==='CANCEL_PENDING')return reply(r,'CANCELLATION_PENDING',null,{complete:false});
+      if(r.state==='CANCEL_PENDING')return reply(r,'CANCELLATION_PENDING',null,{complete:false,...(r.cancellationSummary||{})});
       if(r.state==='CANCELED') {
         if(t){verifyRow(r,t);if(t.status!=='REVOKED')deny('canceled_registry_divergence');}
-        return reply(r,'ENROLLMENT_CANCELED',null,{complete:true});
+        const summary=r.cancellationSummary||{serverRecordRevoked:true,activeSessionsRevoked:true,
+          pendingJobsRevoked:true,dispatchedJobsUncertain:0,dispatchedJobsQuarantined:false,complete:true};
+        return reply(r,'ENROLLMENT_CANCELED',null,{...summary,complete:true});
       }
       if(t)deny('unexpected_registry_record');
       return reply(r,time()>=r.expires?'ENROLLMENT_EXPIRED':r.state);
@@ -131,7 +133,10 @@ export function createOwnerRegistryService({store,verifier,serverOrigin,catalogD
     const t=lookup(id);
     if(!t) {
       if(snapshot.receipt)deny('registry_record_missing');
-      return store.updateForApplication(id,r=>{if(r.state!=='CANCEL_PENDING')deny('cancellation_changed');r.state='CANCELED';return reply(r,'ENROLLMENT_CANCELED',null,{complete:true});});
+      return store.updateForApplication(id,r=>{if(r.state!=='CANCEL_PENDING')deny('cancellation_changed');r.state='CANCELED';
+        r.cancellationSummary={serverRecordRevoked:true,activeSessionsRevoked:true,pendingJobsRevoked:true,
+          dispatchedJobsUncertain:0,dispatchedJobsQuarantined:false,complete:true};
+        return reply(r,'ENROLLMENT_CANCELED',null,{...r.cancellationSummary,deviceSideCancellationVerified:false});});
     }
     verifyRow(snapshot,t);
     const ctx=Object.freeze({});removals.set(ctx,{requestId:id,trustId:t.trustId});
@@ -143,7 +148,8 @@ export function createOwnerRegistryService({store,verifier,serverOrigin,catalogD
       const complete=result.complete===true;
       if(complete)r.state='CANCELED';
       r.cancellationSummary={serverRecordRevoked:true,activeSessionsRevoked:result.activeSessionsRevoked===true,
-        pendingJobsRevoked:result.pendingJobsRevoked===true,dispatchedJobsUncertain:result.dispatchedJobsUncertain,complete};
+        pendingJobsRevoked:result.pendingJobsRevoked===true,dispatchedJobsUncertain:result.dispatchedJobsUncertain,
+        dispatchedJobsQuarantined:result.dispatchedJobsQuarantined===true,complete};
       return reply(r,complete?'ENROLLMENT_CANCELED':'CANCELLATION_PENDING',null,{...r.cancellationSummary,deviceSideCancellationVerified:false});
     });
   }
@@ -164,7 +170,8 @@ export function createOwnerRegistryService({store,verifier,serverOrigin,catalogD
     outcomeChallenge(input){
       exact(input,['requestId','purpose']);if(!token(input.requestId)||![STATUS_PURPOSE,CANCEL_PURPOSE].includes(input.purpose))deny('outcome_request_invalid');
       return store.updateForApplication(input.requestId,r=>{
-        const n=time();if(n<r.manifest.issuedAtMs||n>r.manifest.issuedAtMs+31*86400000)deny('outcome_retention_expired');
+        const n=time(),retentionEnd=r.manifest.durationDays===0?PERMANENT_TRUST_EXPIRES_AT:r.manifest.issuedAtMs+31*86400000;
+        if(n<r.manifest.issuedAtMs||n>retentionEnd)deny('outcome_retention_expired');
         r.outcomeChallenges=(r.outcomeChallenges||[]).filter(x=>!x.used&&x.challenge.expiresAtMs>n);
         if(r.outcomeChallenges.length>=4)deny('outcome_challenge_limit');
         const c=Object.freeze({version:1,purpose:input.purpose,requestId:r.id,manifestDigest:r.manifestDigest,keyDigest:r.manifest.keyDigest,
@@ -172,7 +179,12 @@ export function createOwnerRegistryService({store,verifier,serverOrigin,catalogD
         outcomeMaterial(c);r.outcomeChallenges.push({challenge:c,used:false});return c;
       });
     },
-    status(input){const id=consumeProof(input,STATUS_PURPOSE,r=>r.id);return Object.freeze({...reconcile(id),outcomeChallengeId:input.challenge.challengeId,observedAtMs:time()});},
+    async status(input){
+      const id=consumeProof(input,STATUS_PURPOSE,r=>r.id);
+      const current=store.read(id);
+      const outcome=current.state==='CANCEL_PENDING'?await finishCancellation(id):reconcile(id);
+      return Object.freeze({...outcome,outcomeChallengeId:input.challenge.challengeId,observedAtMs:time()});
+    },
     async cancel(input){
       const id=consumeProof(input,CANCEL_PURPOSE,r=>{r.state='CANCEL_PENDING';r.cancellationRequestedAtMs=time();return r.id;});
       return Object.freeze({...await finishCancellation(id),outcomeChallengeId:input.challenge.challengeId,observedAtMs:time()});

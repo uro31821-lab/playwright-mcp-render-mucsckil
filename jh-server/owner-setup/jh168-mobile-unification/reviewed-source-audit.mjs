@@ -148,6 +148,27 @@ const REVIEWED_TRANSITIONS=Object.freeze([
      'jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.mjs':
       '6db2557a37d222feec288f5d330c556e031509cf'
     })
+   }),
+   Object.freeze({
+    reviewedHead:'9bced0692d81a9751a3c24ad76ecea38995ae0f9',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs':
+      'a257b8696ac3173502f0030a2cb6361530a32e9b',
+     'jh-server/owner-setup/owner-enrollment/owner-enrollment-base.mjs':
+      'd4e7abe44109966994da3d0749b8b5dffc357fcd',
+     'jh-server/owner-setup/owner-enrollment/owner-enrollment.mjs':
+      '51beb4d40b2cd7542b50a47178b56541b762b12d',
+     'jh-server/owner-setup/owner-enrollment/owner-registry-service.mjs':
+      '83cb17d78ed9a668ce0b7f2df6c4a9a243d7153c',
+     'jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs':
+      '468320bc9a02b97da4169717249afcad257aa6cc',
+     'jh-server/owner-setup/trusted-server/trusted-device-registry-base.mjs':
+      '859baf0e806f7228ee4efe9b13913d0796fd77f9',
+     'jh-server/owner-setup/trusted-server/trusted-device-registry.mjs':
+      '82b8b1d1ed695394e729c0a98d806df457411d26',
+     'jh-server/owner-setup/trusted-server/trusted-settings-service.mjs':
+      '4838109a0fa085a326ed099dc7cf34e2ffe6007c'
+    })
    })
   ])
  })

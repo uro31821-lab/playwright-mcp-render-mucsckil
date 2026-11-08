@@ -10,6 +10,7 @@ on:
       - 'jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs'
       - 'jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs'
       - 'jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit*'
+      - 'jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs'
       - 'jh-server/owner-setup/jh168-mobile-unification/CURRENT-SOURCE-AUDIT.md'
       - '.github/workflows/jh168-mobile13-command-diagnostics-review.yml'
 permissions:
@@ -48,6 +49,9 @@ jobs:
           node --test --test-reporter=spec \
             jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit.test.mjs \
             jh-server/owner-setup/jh168-mobile-unification/mobile-web-current-main-compat.test.mjs
+          # Keep the historical audit unchanged; verify 0.5.7 in its own exact scope.
+          test "$(git rev-parse HEAD:jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs)" = "a257b8696ac3173502f0030a2cb6361530a32e9b"
+          node jh-server/owner-setup/jh168-mobile-unification/ebiseo057-source-audit.mjs
       - name: Original dependency manifests and locked owner dependencies
         run: |
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
