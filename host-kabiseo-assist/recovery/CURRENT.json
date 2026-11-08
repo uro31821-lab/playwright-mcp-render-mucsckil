@@ -118,7 +118,7 @@
     "model": "Evaluate exact licensed alternative only against actual private initialization API; do not silently replace current float32 model",
     "lockfileCreated": false
   },
-  "next": "Evaluate complete AndroidX CameraX1.5.2/ActivityKtx1.10.1/MediaPipe1.1.1/Protobuf4.36.2 resolved dependency graph, metadata and executable vendor binary supply-chain before upgrading security REVIEW; then Android compile/lint under original JH toolchain. After licensed model runtime verified and approved, package asset; original-key signing and user-approved phone E2E later. Do not ask for prior ZIP upload or repeat 35-source checks.",
+  "next": "Use private v0.24.2 exact ZIP SHA f4f85d1b... (454/454 source replay and 35 static PASS). Next unblock is obtaining and security-verifying the full exact transitively resolved Maven graph for CameraX1.5.2/Activity1.10.1/MediaPipe1.1.1/Protobuf4.36.2 without executing vendor libraries. Known SDK35/AGP8.7.3/Gradle8.9 kit has none of eight new artifacts. Only after release security gate SAFE run Android compile/lint; model asset and actual MediaPipe runtime then original signing and explicit phone install/E2E. Do not ask for user ZIP/USB again.",
   "securityGateVerdict": "REVIEW",
   "androidFullBuild": "NOT_RUN",
   "signed": false,
@@ -159,5 +159,30 @@
     "Correct missing model user notice and narrow no-auto-GPT-attachment statement"
   ],
   "modelPackaged": false,
-  "androidLint": "NOT_RUN"
+  "androidLint": "NOT_RUN",
+  "offlineToolchainInspection": {
+    "recordedKstDate": "2026-11-08",
+    "originalPublicKitSha256": "c938027a6047091abc2f8d6c649c301c2339cbee5ce57e453cda433736c596c4",
+    "originalSource": "KaBiseo-v09-kit-part0/1/2.zip assembled in local scratch; kit verified to expected SHA256",
+    "gradleDistributionPresent": "8.9",
+    "compileSdkPlatformPresent": 35,
+    "androidGradlePluginCachePresent": "8.7.3",
+    "selectedNewDependencyCachesAbsent": [
+      "androidx.camera:camera-core:1.5.2",
+      "androidx.camera:camera-camera2:1.5.2",
+      "androidx.camera:camera-lifecycle:1.5.2",
+      "androidx.camera:camera-view:1.5.2",
+      "androidx.activity:activity-ktx:1.10.1",
+      "com.google.mediapipe:tasks-vision:1.1.1",
+      "com.google.mediapipe:tasks-core:1.1.1",
+      "com.google.protobuf:protobuf-javalite:4.36.2"
+    ],
+    "newDependencyKitPresence": "0/8",
+    "actualLocalGlobalGradleCacheComplete": false,
+    "fullTransitiveGraphVerified": false,
+    "appCompilationPerformed": false,
+    "androidRuntimeInference": false,
+    "securityGateVerdict": "REVIEW",
+    "note": "This is only the pinned public offline kit inventory. It does not assert that every dependency is unavailable online or in the user's own PC; no Gradle resolution/build attempted."
+  }
 }
