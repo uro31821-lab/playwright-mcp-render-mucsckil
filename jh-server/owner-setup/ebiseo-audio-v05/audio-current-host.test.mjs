@@ -216,3 +216,10 @@ test('diagnostic: report actual composed Secure56 host-port contexts',()=>{
   assert.ok(contexts.length>0,'secureCall56 missing from current composed runtime');
   console.log('JH_AUDIO_SECURECALL_CONTEXTS '+JSON.stringify(contexts));
 });
+
+
+test('diagnostic: report current audio poll dispatch ordering',()=>{
+  const at=current.indexOf('jhAudioHost56.beforeDispatch(next)');
+  assert.ok(at>=0);
+  console.log('JH_AUDIO_POLL_CONTEXT '+JSON.stringify(current.slice(Math.max(0,at-900),at+2600)));
+});
