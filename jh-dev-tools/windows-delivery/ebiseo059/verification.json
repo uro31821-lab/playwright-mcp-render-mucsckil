@@ -1,0 +1,55 @@
+{
+  "schema": "JH_EBISEO059_MELON_TITLE_RETRY_FIX13_VERIFICATION_V1",
+  "candidate": "JH184-EBISEO059-MELON-TITLE-RETRY-FIX13-20261110",
+  "confirmedV184Phone": {
+    "versionCode": 184,
+    "androidBuild": "PASS",
+    "originalCertificateSigning": "PASS",
+    "updateInstall": "PASS",
+    "phoneReadback": "VERSION184_READBACK_PASS",
+    "nowPlayingTitle": "NEON",
+    "nowPlayingArtist": "A2O 및 A2O LITE",
+    "playbackStatus": "PLAYING",
+    "genreEvidence": "melon_song_genre",
+    "genreVerified": true,
+    "mappedGenrePreset": "genre-pop",
+    "genreConfidence": 94,
+    "profileApplied": true,
+    "engineConfirmed": true,
+    "nativeReadback": "NATIVE_CONTINUITY_READBACK_CONFIRMED",
+    "activationStatus": "ACTIVE",
+    "applicationVerified": true,
+    "e2e": "PASS"
+  },
+  "fix13": {
+    "melonCombinedQueryFirst": true,
+    "melonTitleOnlyRetry": true,
+    "exactTitleArtistAcceptanceGatePreserved": true,
+    "melonJsonReferer": true,
+    "cacheStrongSchema": "9s",
+    "cacheWeakSchema": "9w",
+    "oldV183WeakCacheRejected": true,
+    "lyricsFetch": false,
+    "audioCapture": false,
+    "playerTransportControl": false,
+    "uninstallOrDataReset": false
+  },
+  "localVerification": {
+    "queryPlanAssertions": 6,
+    "queryPlan": "PASS",
+    "identityGateScoreForNeon": 100,
+    "wrongArtistRejected": true,
+    "wrongTitleRejected": true
+  },
+  "application": {
+    "id": "com.koreanlifehub.bridge",
+    "versionCode": 184,
+    "versionName": "jh184-stage77-location-once-native-select-fix3-keepalive-fix13-ebiseo059-melon-title-retry"
+  },
+  "windowsGradleBuild": "PASS",
+  "originalCertificateSigning": "PASS",
+  "phoneInstall": "UPDATE_ACCEPTED",
+  "phoneReadback": "VERSION184_READBACK_PASS",
+  "phoneE2E": "PASS",
+  "verifiedPhoneE2E": "NEON -> melon_song_genre -> genre-pop -> engineConfirmed=true -> NATIVE_CONTINUITY_READBACK_CONFIRMED"
+}
