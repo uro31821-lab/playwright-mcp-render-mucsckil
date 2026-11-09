@@ -69,7 +69,7 @@ tasks.register('readVariants') {
       repositories:'Google Maven and Maven Central, gradleMetadata and mavenPom',
       originalJHSourceRead:false,androidPluginApplied:false,appBuilt:false,
       vendorCodeExecuted:false,securityGateVerdict:'REVIEW',releaseApproved:false,
-      limitations:'Detached Gradle, no Android variant or original JH source'}
+      limitations:'Detached Gradle, no Android variant or original JH source']
     new File(out,n+'.json').text=JsonOutput.prettyPrint(JsonOutput.toJson(rec))
     println('KABISEO_VARIANT_'+n+'='+JsonOutput.toJson([
       nodes:rec.moduleCount,edges:rec.edgeCount,selected:rec.selected,
