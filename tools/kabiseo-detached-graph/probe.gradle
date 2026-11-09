@@ -68,6 +68,9 @@ tasks.register('metadataOnlyGraph') {
                 def c=nodes.find { it.group==parts[0] && it.module==parts[1] }
                 [(ga):(c==null?null:c.version)]
             }
+            def kotlinEdges=edges.findAll { e -> (e.selected ?: '').startsWith('org.jetbrains.kotlin:kotlin-stdlib:') }
+            def kotlinParents=kotlinEdges.collect { e -> [from:e.from,requested:e.requested,selected:e.selected] }.sort { a,b -> a.from.compareTo(b.from) }
+            println('KABISEO_KOTLIN_PARENTS_'+n+'='+JsonOutput.toJson(kotlinParents))
             def payload=[schema:'KABISEO_DETACHED_GRADLE_METADATA_ONLY_V032',
               configuration:n, runnerGradle:gradle.gradleVersion,
               directRoots:roots, nodes:nodes, nodeCount:nodes.size(),
