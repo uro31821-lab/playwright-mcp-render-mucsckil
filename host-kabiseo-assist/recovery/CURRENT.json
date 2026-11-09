@@ -1,12 +1,12 @@
 {
   "schema": "KABISEO_REUSE_CONTINUATION_V026",
   "recordedKstDate": "2026-11-09",
-  "userDevelopmentState": "CAMERAX142_V152_PUBLIC_BYTECODE_API_SURFACE_INSPECTED_NO_PRIVATE_BINARY_EXECUTION",
+  "userDevelopmentState": "PRIVATE_CAMERA142_GUARD_TESTED_REAL_ZIP_SCAN_NOT_RUN",
   "target": "Reuse private PhotoMaster AI capture within existing JH v0.24; no GPT photo transfer, no beauty edits",
   "functionalAppVersion": "v0.24.2-private-review-not-built",
-  "reviewVersion": "0.34-public-CameraX142-152-API-static-delta",
-  "status": "CAMERAX142_PUBLIC_REQUIRED_NAME_CHECKS_PASS_BUT_THREE_NEWER_OVERLOADS_PRIVATE_V0242_API_AUDIT_PENDING_SECURITY_REVIEW",
-  "requiredUserAction": "NONE: previous source ZIP preserved; no new reupload or USB",
+  "reviewVersion": "0.35-private-camera-1.4.2-preflight",
+  "status": "PRIVATE_SOURCE_LEXICAL_GUARD_CREATED_SYNTHETIC_10_PASS_LOCAL_EXECUTION_BLOCKED_SECURITY_REVIEW",
+  "requiredUserAction": "NONE: old private ZIP already provided, no reupload or USB",
   "priorCheckpoint": {
     "commit": "c14550b8bb17e9637325f593c88be6792f07d52e",
     "path": "host-kabiseo-assist/recovery/CURRENT.json",
@@ -118,7 +118,7 @@
     "model": "Evaluate exact licensed alternative only against actual private initialization API; do not silently replace current float32 model",
     "lockfileCreated": false
   },
-  "next": "Access exact private v0.24.2 archive SHA f4f85d1b... in working local execution environment, examine PhotoMaster MainActivity.kt and SceneAnalyzer.kt for CameraX 1.5-only API and three identified new overloads, then make v0.24.3 source-only review patch pinning CameraX 1.4.2 if usage permits. Validate Android project full dependency security before JH build; security REVIEW holds build/sign/install. Do not repeat public CameraX AAR scan without changed inputs.",
+  "next": "When private local execution restores, run v0.35 scanner on exact v0.24.2 ZIP SHA f4f85d1b3d9bbe66d392076e59ee967f4ff368a01b7a2bb5977afa6ecd59ee1c, inspect actual CameraX call-sites and compare against v0.34 ABI. Only if compatible create v0.24.3 private patch CameraX 1.4.2. Keep security REVIEW (no Android build/sign/install), no public private code upload.",
   "securityGateVerdict": "REVIEW",
   "androidFullBuild": "NOT_RUN",
   "signed": false,
@@ -155,7 +155,10 @@
     "Don't treat temporary Gradle metadata resolution as original JH app compile, signed APK or security SAFE.",
     "Reuse CameraX1.4.2 vs 1.5.2 bytecode ABI run42546003750 SHA b475ee7..., 3 new overloads; no repeat identical scan",
     "Do not infer private v0.24.2 CameraX1.4.2 compatibility from public API alone",
-    "No private source upload to public GitHub, even for Gradle build; release/security review still required"
+    "No private source upload to public GitHub, even for Gradle build; release/security review still required",
+    "v0.35 scanner 10/10 synthetic tests passed CI 42556212063; do not repeat unchanged tests",
+    "No private source code/ZIP in GitHub, no app source scanned in this turn",
+    "Don't interpret lexicographic name tests as a real compile"
   ],
   "privateArchiveReadThisStep": true,
   "modelLicenseAlternateVerified": true,
@@ -335,6 +338,27 @@
     "windowsDefender": "scan completed, no threat reported, result is not full security approval",
     "publishedPrivateJHSourceToPublicGithub": false,
     "executedVendorCode": false,
+    "securityGateVerdict": "REVIEW"
+  },
+  "privateCameraX142Preflight": {
+    "codeCommit": "7a82a5f748a7ffffe7cc8c5dbcd2ecbfd6d21632",
+    "sourceFile": "tools/kabiseo-private-compat-guard/check.py",
+    "runId": 42556212063,
+    "jobId": 128962376220,
+    "attempt": 1,
+    "conclusion": "success",
+    "artifactId": 13647995061,
+    "artifactSha256": "d88478a6a55e21a7e49fde7f3829c89ec6d135b954e63851e3d5834efbf9a72d",
+    "syntheticTestsPassed": 10,
+    "syntheticTestsTotal": 10,
+    "privateSourceReadThisTurn": false,
+    "localZipScanned": false,
+    "v0243PatchCreated": false,
+    "CameraX142Applied": false,
+    "userSourceUploadedToGithub": false,
+    "releaseApproved": false,
+    "limits": "Lexical preflight only: not Kotlin AST, cannot prove all 299 ABI differences, no real Android compile",
+    "errors": "container.exec ClientError; python.exec reset; python_user_visible ClientError",
     "securityGateVerdict": "REVIEW"
   }
 }
