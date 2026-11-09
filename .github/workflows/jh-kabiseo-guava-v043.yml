@@ -1,0 +1,62 @@
+name: JH Kabiseo per-dependency Guava Android variant metadata probe
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths:
+      - 'tools/kabiseo-guava-v043/**'
+      - '.github/workflows/jh-kabiseo-guava-v043.yml'
+permissions: {contents: read}
+jobs:
+  detached-public-only:
+    runs-on: windows-2025
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Verify old JH runtime unchanged
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin af0bc969635e64edf1717e5b61fbb8e274ab9110
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code af0bc969635e64edf1717e5b61fbb8e274ab9110 HEAD -- jh-server host-kabiseo-assist tools/kabiseo-guava-v040 tools/kabiseo-v037-review
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Use preinstalled Gradle with no external plugins and no app code
+        shell: pwsh
+        run: |
+          $out=Join-Path $env:GITHUB_WORKSPACE 'jh-variant-output'
+          New-Item -ItemType Directory $out -Force|Out-Null
+          $env:JH_VARIANT_OUTPUT=$out
+          $g=Get-Command gradle -ErrorAction SilentlyContinue
+          if(-not $g){throw 'NO_EXISTING_GRADLE'}
+          $v=@(& $g.Source --version 2>&1)
+          if(-not ($v|Where-Object {$_ -match '^Gradle\s+'})){throw 'UNKNOWN_GRADLE'}
+          $env:GRADLE_USER_HOME=Join-Path $env:RUNNER_TEMP 'jh-v041-public-gradle'
+          New-Item -ItemType Directory $env:GRADLE_USER_HOME -Force|Out-Null
+          $project=Join-Path $env:RUNNER_TEMP 'jh-v041-empty'
+          New-Item -ItemType Directory $project -Force|Out-Null
+          Copy-Item tools/kabiseo-guava-v043/variant.gradle (Join-Path $project 'build.gradle')
+          Set-Content (Join-Path $project 'settings.gradle') -Value "rootProject.name='jh-public-metadata-only'" -Encoding utf8
+          Push-Location $project
+          try {
+            & $g.Source --no-daemon --no-parallel --no-configuration-cache --warning-mode=none readVariants *> (Join-Path $out 'gradle.log')
+            $ec=$LASTEXITCODE
+          } finally {Pop-Location}
+          Get-Content (Join-Path $out 'gradle.log') -Tail 45 | ForEach-Object{Write-Host $_}
+          if($ec -ne 0){exit $ec}
+      - name: Enforce metadata review only
+        shell: pwsh
+        run: |
+          foreach($n in @('direct3372','direct3380','media3372Force','media3380Force','media3380Root')){
+            $r=Get-Content ("jh-variant-output/"+$n+".json") -Raw|ConvertFrom-Json
+            if($r.schema -ne 'KABISEO_PUBLIC_VARIANT_DEPENDENCY_ATTRIBUTES_V043' -or $r.releaseApproved -or $r.securityGateVerdict -ne 'REVIEW'){throw 'RELEASE_SCOPE'}
+            if($r.originalJHSourceRead -or $r.appBuilt -or $r.vendorCodeExecuted -or $r.androidPluginApplied){throw 'UNAUTHORIZED_ACTION'}
+          }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-guava-v043-metadata-only
+          path: |
+            jh-variant-output/*.json
+            jh-variant-output/gradle.log
+          retention-days: 14
+          if-no-files-found: warn
