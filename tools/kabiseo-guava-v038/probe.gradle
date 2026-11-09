@@ -1,0 +1,104 @@
+/* JH Kabiseo detached metadata-only dependency inspection.
+ * No plugins, no Android code, no project source, no vendor class loading.
+ * Guava 33.7.2-android is SECURITY_REVIEW_CANDIDATE ONLY, not production.
+ * Do NOT use this report as the actual JH app Gradle resolved graph.
+ */
+import groovy.json.JsonOutput
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.result.ResolvedDependencyResult
+import org.gradle.api.artifacts.result.UnresolvedDependencyResult
+
+repositories {
+    google { metadataSources { mavenPom() } }
+    mavenCentral { metadataSources { mavenPom() } }
+}
+def cameraVersion = (System.getenv('JH_CAMERA_VERSION') ?: '1.5.2').trim()
+if (!['1.4.2','1.5.2','1.5.3'].contains(cameraVersion)) throw new GradleException('Camera version not in reviewed allowlist')
+def roots = [
+    "androidx.camera:camera-core:${cameraVersion}",
+    "androidx.camera:camera-camera2:${cameraVersion}",
+    "androidx.camera:camera-lifecycle:${cameraVersion}",
+    "androidx.camera:camera-view:${cameraVersion}",
+    'androidx.activity:activity-ktx:1.10.1',
+    'com.google.mediapipe:tasks-core:1.1.1',
+    'com.google.mediapipe:tasks-vision:1.1.1',
+    'com.google.protobuf:protobuf-javalite:4.36.2'
+]
+['declaredOnly', 'jhkotlin1924'].each { n ->
+    def cfg = configurations.create(n)
+    cfg.canBeResolved = true
+    cfg.canBeConsumed = false
+    cfg.transitive = true
+    cfg.resolutionStrategy.force('com.google.protobuf:protobuf-javalite:4.36.2')
+    cfg.resolutionStrategy.force('com.google.guava:guava:33.7.2-android')
+    roots.each { dependencies.add(n, it) }
+}
+dependencies.add('jhkotlin1924', 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24')
+
+tasks.register('metadataOnlyGraph') {
+    group = 'verification'
+    description = 'Resolve only metadata in isolated empty project; do not resolve artifacts'
+    doLast {
+        def out = new File(System.getenv('JH_GRAPH_OUTPUT') ?: 'jh-graph-output')
+        out.mkdirs()
+        ['declaredOnly', 'jhkotlin1924'].each { n ->
+            def result = configurations.getByName(n).incoming.resolutionResult
+            def nodes = result.allComponents.findAll { it.id instanceof ModuleComponentIdentifier }
+                .collect { c ->
+                    [group:c.id.group, module:c.id.module, version:c.id.version,
+                     selectionReason:c.selectionReason.toString()]
+                }.sort { a,b -> (a.group+':'+a.module).compareTo(b.group+':'+b.module) }
+            def edges = result.allDependencies.collect { d ->
+                if (d instanceof ResolvedDependencyResult) {
+                    return [requested:d.requested.displayName,
+                        selected:d.selected.id.displayName, from:d.from.id.displayName]
+                }
+                if (d instanceof UnresolvedDependencyResult) {
+                    return [requested:d.requested.displayName,
+                        from:d.from.id.displayName, unresolved:true,
+                        causeType:d.failure?.class?.simpleName ?: 'UNKNOWN']
+                }
+                return [requested:d.requested.displayName, unknownEdgeType:true]
+            }
+            def chosen = ['org.jetbrains.kotlin:kotlin-stdlib',
+                          'com.google.protobuf:protobuf-javalite',
+                          'com.google.guava:guava',
+                          'androidx.camera:camera-core',
+                          'androidx.camera:camera-camera2',
+                          'androidx.camera:camera-lifecycle',
+                          'androidx.camera:camera-view',
+                          'com.google.mediapipe:tasks-core',
+                          'com.google.mediapipe:tasks-vision'].collectEntries { ga ->
+                def parts=ga.split(':')
+                def c=nodes.find { it.group==parts[0] && it.module==parts[1] }
+                [(ga):(c==null?null:c.version)]
+            }
+            def guavaEdges=edges.findAll { e -> (e.selected ?: '').startsWith('com.google.guava:guava:') }
+            def guavaParents=guavaEdges.collect { e -> [from:e.from,requested:e.requested,selected:e.selected] }.sort { a,b -> a.from.compareTo(b.from) }
+            def kotlinEdges=edges.findAll { e -> (e.selected ?: '').startsWith('org.jetbrains.kotlin:kotlin-stdlib:') }
+            def kotlinParents=kotlinEdges.collect { e -> [from:e.from,requested:e.requested,selected:e.selected] }.sort { a,b -> a.from.compareTo(b.from) }
+            println('KABISEO_GUAVA_PARENTS_'+n+'='+JsonOutput.toJson(guavaParents))
+            println('KABISEO_KOTLIN_PARENTS_'+n+'='+JsonOutput.toJson(kotlinParents))
+            def payload=[schema:'KABISEO_DETACHED_GUAVA_REMEDIATION_V038',
+              configuration:n, runnerGradle:gradle.gradleVersion,
+              directRoots:roots, nodes:nodes, nodeCount:nodes.size(),
+              edges:edges, edgeCount:edges.size(),
+              selected:chosen,guavaParents:guavaParents,
+              guavaRemediationCandidate:'33.7.2-android',
+              unresolvedEdges:edges.findAll { it.unresolved==true },
+              unresolvedEdgeCount:edges.count { it.unresolved==true },
+              fullJHBuild:false, originalJHSourceRead:false, androidPluginApplied:false,
+              binariesExecuted:false, androidCompilation:false,
+              mediaPipeModelExecuted:false, releaseApproved:false, securityGateVerdict:'REVIEW',
+              kotlinMetadataBinaryCompatibility:'NOT_VERIFIED',
+              caveat:'This was a detached empty Gradle build using POM metadata only (no Android variants), not the original JH app resolved Gradle graph']
+            new File(out,n+'.json').text=JsonOutput.prettyPrint(JsonOutput.toJson(payload))
+            println('KABISEO_DETACHED_'+n+'='+JsonOutput.toJson([
+              nodes:payload.nodeCount,edges:payload.edgeCount,
+              unresolvedEdges:payload.unresolvedEdgeCount,
+              selected:payload.selected,
+              releaseApproved:false,securityGateVerdict:'REVIEW'
+            ]))
+        }
+    }
+}
