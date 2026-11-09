@@ -1,0 +1,82 @@
+name: JH Kabiseo candidate Guava 33.7.2 repository-isolated graph only
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths:
+      - 'tools/kabiseo-guava-v040/**'
+      - '.github/workflows/jh-kabiseo-guava-v040.yml'
+permissions: {contents: read}
+jobs:
+  isolated-gradle-metadata:
+    runs-on: windows-2025
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Guarantee baseline app and old security evidence unchanged
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin d4b1e2b49f9256229f39865065272442bace5f10
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code d4b1e2b49f9256229f39865065272442bace5f10 HEAD -- jh-server host-kabiseo-assist tools/kabiseo-detached-graph tools/kabiseo-v037-review
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Reuse pinned installed Gradle in empty project; metadata only
+        shell: pwsh
+        run: |
+          $out=Join-Path $env:GITHUB_WORKSPACE 'jh-guava-v040-output'
+          New-Item -ItemType Directory $out -Force | Out-Null
+          $env:JH_GRAPH_OUTPUT=$out
+          $env:JH_CAMERA_VERSION='1.4.2'
+          $state=[ordered]@{schema='KABISEO_DETACHED_GUAVA_REMEDIATION_V040';status='NOT_STARTED';securityGateVerdict='REVIEW';releaseApproved=$false;originalJHRead=$false;appBuilt=$false;vendorCodeExecuted=$false}
+          $gradle=Get-Command gradle -ErrorAction SilentlyContinue
+          if(-not $gradle){$state.status='NO_PREINSTALLED_GRADLE'}
+          else{
+            $state.gradlePath=$gradle.Source
+            $state.gradleSha256=(Get-FileHash $gradle.Source -Algorithm SHA256).Hash.ToLowerInvariant()
+            $v=@(& $gradle.Source --version 2>&1)
+            $state.gradleVersion=($v|Where-Object {$_ -match '^Gradle\s+'}|Select-Object -First 1)
+            if(-not $state.gradleVersion){$state.status='GRADLE_VERSION_NOT_VERIFIED'}
+            else{
+              $env:GRADLE_USER_HOME=Join-Path $env:RUNNER_TEMP 'jh-guava-gradle-cache'
+              New-Item -ItemType Directory $env:GRADLE_USER_HOME -Force | Out-Null
+              $project=Join-Path $env:RUNNER_TEMP 'jh-guava-empty'
+              New-Item -ItemType Directory $project -Force | Out-Null
+              Copy-Item tools/kabiseo-guava-v040/probe.gradle (Join-Path $project 'build.gradle')
+              Set-Content -Path (Join-Path $project 'settings.gradle') -Value "rootProject.name='jh-guava-detached'" -Encoding utf8
+              Push-Location $project
+              try {
+                & $gradle.Source --no-daemon --no-parallel --no-configuration-cache --warning-mode=none metadataOnlyGraph *> (Join-Path $out 'gradle-output.txt')
+                $state.gradleExitCode=$LASTEXITCODE
+                $state.status=if($LASTEXITCODE -eq 0){'RESOLVED_POM_METADATA_ONLY'}else{'GRADLE_METADATA_FAILED'}
+              } finally {Pop-Location}
+            }
+          }
+          $state|ConvertTo-Json -Depth 8|Set-Content (Join-Path $out 'status.json') -Encoding utf8
+          Write-Host ('KABISEO_GUAVA_V040_STATUS='+($state|ConvertTo-Json -Compress))
+          if(Test-Path (Join-Path $out 'gradle-output.txt')){Get-Content (Join-Path $out 'gradle-output.txt') -Tail 35 | ForEach-Object{Write-Host $_}}
+          if($state.status -ne 'RESOLVED_POM_METADATA_ONLY'){exit 2}
+      - name: Verify intended Guava and Kotlin versions and no unresolved edges
+        shell: pwsh
+        run: |
+          foreach($name in @('declaredOnly','jhkotlin1924')) {
+            $p=Join-Path 'jh-guava-v040-output' ($name+'.json')
+            $r=Get-Content $p -Raw|ConvertFrom-Json
+            if($r.schema -ne 'KABISEO_DETACHED_GUAVA_REMEDIATION_V040' -or $r.securityGateVerdict -ne 'REVIEW' -or $r.releaseApproved -or $r.androidCompilation){throw 'SCOPE_INVALID'}
+            if($r.selected.'com.google.guava:guava' -ne '33.7.2-android'){throw 'GUAVA_NOT_SELECTED'}
+            if($r.selected.'com.google.protobuf:protobuf-javalite' -ne '4.36.2'){throw 'PROTOBUF_NOT_PINNED'}
+            if($r.selected.'androidx.camera:camera-core' -ne '1.4.2'){throw 'CAMERA_CHANGED'}
+            if($r.unresolvedEdgeCount -ne 0){throw 'UNRESOLVED_DEPENDENCIES'}
+            if($name -eq 'jhkotlin1924' -and $r.selected.'org.jetbrains.kotlin:kotlin-stdlib' -ne '1.9.24'){throw 'KOTLIN_CHANGED'}
+            Write-Host ('KABISEO_GUAVA_V040_GRAPH_'+$name+'='+($r|Select-Object nodeCount,edgeCount,unresolvedEdgeCount,selected|ConvertTo-Json -Depth 6 -Compress))
+          }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-guava-v040-detached-graph
+          path: |
+            jh-guava-v040-output/status.json
+            jh-guava-v040-output/declaredOnly.json
+            jh-guava-v040-output/jhkotlin1924.json
+            jh-guava-v040-output/gradle-output.txt
+          retention-days: 14
+          if-no-files-found: warn
