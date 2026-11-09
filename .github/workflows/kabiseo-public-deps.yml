@@ -93,6 +93,9 @@ jobs:
                   implementation("com.google.protobuf:protobuf-javalite") {
                       version { strictly("4.36.2") }
                   }
+                  implementation("com.google.guava:guava") {
+                      version { strictly("33.8.0-android") }
+                  }
               }
               implementation("androidx.credentials:credentials:1.5.0")
               implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
