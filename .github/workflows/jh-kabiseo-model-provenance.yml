@@ -1,0 +1,61 @@
+name: JH Kabiseo publisher-licensed model alternative data-only check
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths: ['tools/kabiseo-model-provenance/**', '.github/workflows/jh-kabiseo-model-provenance.yml']
+permissions: {contents: read}
+jobs:
+  inspect-model-no-inference:
+    runs-on: windows-2025
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve existing JH source and previous successful evidence
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin c14550b8bb17e9637325f593c88be6792f07d52e
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code c14550b8bb17e9637325f593c88be6792f07d52e HEAD -- jh-server host-kabiseo-assist tools/kabiseo-compatible-inputs tools/kabiseo-abi-review tools/kabiseo-dependency-review
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Read exact publisher variation as data never execute or bundle it
+        shell: pwsh
+        run: |
+          python tools/kabiseo-model-provenance/inspect.py
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Scan quarantined model bytes without changing protection
+        if: always()
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:GITHUB_WORKSPACE 'kabiseo-model-provenance'
+          New-Item -ItemType Directory $root -Force|Out-Null
+          $scan=Join-Path $root 'quarantine'
+          $r=[ordered]@{schema='KABISEO_MODEL_DATA_AV_V026';status='NOT_SCANNED';securitySettingsChanged=$false;releaseApproved=$false}
+          try {
+            if((Test-Path $scan) -and @(Get-ChildItem $scan -File).Count -gt 0){
+              $s=Get-MpComputerStatus -ErrorAction Stop
+              $r.antivirusEnabled=$s.AntivirusEnabled
+              $r.signatureVersion=$s.AntivirusSignatureVersion
+              $r.signatureUpdated=$s.AntivirusSignatureLastUpdated.ToUniversalTime().ToString('o')
+              $r.files=@(Get-ChildItem $scan -File|ForEach-Object {@{name=$_.Name;sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}})
+              $exe=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" -ErrorAction SilentlyContinue|Sort-Object FullName -Descending|Select-Object -First 1
+              if($s.AntivirusEnabled -and $exe){
+                & $exe.FullName -Scan -ScanType 3 -File $scan -DisableRemediation *> (Join-Path $root 'defender.log')
+                $r.scanExitCode=$LASTEXITCODE
+                $r.status=if($LASTEXITCODE -eq 0){'SCAN_COMPLETED_NO_THREAT_REPORTED'}else{'SCAN_FAILED_OR_THREAT_REPORTED'}
+              }else{$r.status='DEFENDER_UNAVAILABLE'}
+            }
+          }catch{$r.status='SCAN_UNAVAILABLE';$r.errorType=$_.Exception.GetType().FullName}
+          $r|ConvertTo-Json -Depth 5|Set-Content (Join-Path $root 'antivirus.json') -Encoding utf8
+          Write-Host ('MODEL_AV='+($r|ConvertTo-Json -Depth 5 -Compress))
+          exit 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-model-provenance-v026
+          path: |
+            kabiseo-model-provenance/report.json
+            kabiseo-model-provenance/antivirus.json
+            kabiseo-model-provenance/defender.log
+          retention-days: 14
+          if-no-files-found: error

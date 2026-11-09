@@ -1,0 +1,70 @@
+name: JH Kabiseo native camera source-only evidence
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths:
+      - 'host-kabiseo-assist/capture/**'
+      - 'host-kabiseo-assist/settings.gradle.kts'
+      - 'host-kabiseo-assist/docs/NATIVE_CAMERA_OPEN_SOURCE_V023.md'
+      - 'tools/kabiseo-native-camera/**'
+      - '.github/workflows/jh-kabiseo-native-camera.yml'
+permissions: {contents: read}
+jobs:
+  source-and-logic:
+    runs-on: windows-2025
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve existing JH runtime camera probes and security hold
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin 680e91a42b650a5d01c7a9cee3101f6f6cebf51c
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code 680e91a42b650a5d01c7a9cee3101f6f6cebf51c HEAD -- jh-server host-kabiseo-assist/android host-kabiseo-assist/core host-kabiseo-assist/integration host-kabiseo-assist/server host-kabiseo-assist/tools/runtime-proof tools/kabiseo-camera-java
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Compile and execute pure Java subject and luminance tests
+        shell: pwsh
+        run: |
+          $dir=Join-Path $env:RUNNER_TEMP 'native-jvm'
+          New-Item -ItemType Directory $dir|Out-Null
+          $src='host-kabiseo-assist/capture/src/main/java/com/jh/kabiseo/capture'
+          & "$env:JAVA_HOME_17_X64/bin/javac.exe" --release 17 -encoding UTF-8 -Xlint:all -Werror -d $dir "$src/SubjectFramingPolicy.java" "$src/FrameLuma.java" "tools/kabiseo-native-camera/NativeCameraLogicTests.java"
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          & "$env:JAVA_HOME_17_X64/bin/java.exe" -cp $dir NativeCameraLogicTests
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: No implicit network permission or GPT photo transfer and preserve release hold
+        shell: pwsh
+        run: |
+          $root='host-kabiseo-assist/capture'
+          $manifest=[IO.File]::ReadAllText("$root/src/main/AndroidManifest.xml")
+          if(-not $manifest.Contains('android.permission.CAMERA') -or -not $manifest.Contains('android:exported="false"')){throw 'CAMERA_LOCAL_SCOPE_REQUIRED'}
+          if($manifest -match 'android.permission.(INTERNET|RECORD_AUDIO|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE)' -or $manifest.Contains('android:exported="true"')){throw 'UNEXPECTED_PERMISSION_OR_EXPORT'}
+          $gradle=[IO.File]::ReadAllText("$root/build.gradle.kts")
+          if($gradle -notmatch 'cameraX = "1.6.2"' -or $gradle -match 'latest.release|mediapipe|tensorflow'){throw 'UNPINNED_DEPENDENCY'}
+          $java=[IO.File]::ReadAllText("$root/src/main/java/com/jh/kabiseo/capture/JhSmartCaptureActivity.java")
+          if($java -match 'HttpURLConnection|WebView|ACTION_SEND|com.openai.chatgpt|setZoomRatio\('){throw 'UNEXPECTED_AUTOMATION'}
+          if($java -match 'ExtensionMode[.]AUTO|ExtensionMode[.]FACE_RETOUCH'){throw 'FACE_RETOUCH_RISK_FORBIDDEN'}
+          if($java -notmatch 'ExtensionMode.NIGHT' -or $java -notmatch 'consecutiveDarkSamples' -or $java -notmatch 'takePicture' -or $java -notmatch 'MediaStore'){throw 'REQUIRED_CAMERA_PATH_MISSING'}
+          $out=Join-Path $env:GITHUB_WORKSPACE 'native-camera-review'
+          New-Item -ItemType Directory $out|Out-Null
+          @{
+            schema='KABISEO_NATIVE_CAMERA_V023_REVIEW'
+            status='JVM_LOGIC_AND_STATIC_SCOPE_PASS'
+            sourceHead=$env:GITHUB_SHA
+            runId=$env:GITHUB_RUN_ID
+            androidAarBuilt=$false
+            aiModelConnected=$false
+            physicalCameraPhotoTested=$false
+            imageTransferToGpt=$false
+            runtimeDependencies='DECLARED_NOT_DOWNLOADED'
+            securityGateVerdict='REVIEW'
+            priorJHExecutableSourcesChanged=$false
+          }|ConvertTo-Json|Set-Content (Join-Path $out 'verification.json') -Encoding utf8
+          Write-Host 'PURE_SOURCE_VALIDATED_CAMERA_AAR_BUILD_NOT_RUN_SECURITY_HOLD'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-native-camera-v023-review
+          path: native-camera-review/verification.json
+          if-no-files-found: error
+          retention-days: 14

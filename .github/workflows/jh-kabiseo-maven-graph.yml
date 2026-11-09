@@ -1,0 +1,42 @@
+name: JH Kabiseo new dependency transitive metadata
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths:
+      - 'tools/kabiseo-maven-graph/**'
+      - '.github/workflows/jh-kabiseo-maven-graph.yml'
+permissions: {contents: read}
+jobs:
+  review-only:
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Prove previous JH production and security source unchanged
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin d123c41146fd7bda5f51aebb9afd602bba56388e
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code d123c41146fd7bda5f51aebb9afd602bba56388e HEAD -- jh-server host-kabiseo-assist tools/kabiseo-compatible-inputs tools/kabiseo-dependency-review tools/kabiseo-abi-review tools/kabiseo-model-provenance
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Inspect Maven published POM and Gradle module data only
+        shell: pwsh
+        run: |
+          python tools/kabiseo-maven-graph/inspect_graph.py
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Confirm release hold and no downloaded binaries executed
+        shell: pwsh
+        run: |
+          $r=Get-Content kabiseo-maven-graph/report.json -Raw | ConvertFrom-Json
+          if($r.schema -ne 'KABISEO_TRANSITIVE_METADATA_V030' -or $r.securityGateVerdict -ne 'REVIEW' -or $r.releaseApproved -ne $false){throw 'REPORT_CONTRACT_FAILED'}
+          if($r.thirdPartyCodeExecuted -or $r.androidBuilt -or $r.isExactGradleResolution){throw 'SCOPE_MISREPRESENTED'}
+          if($r.count -lt 8 -or $r.count -gt 140){throw 'UNEXPECTED_GRAPH_LIMIT'}
+          Write-Host ('METADATA_REVIEW_ONLY='+($r | Select-Object count,edgeCount,issueCount,conflictCount | ConvertTo-Json -Compress))
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-maven-transitive-v030-report-only
+          path: kabiseo-maven-graph/report.json
+          retention-days: 14
+          if-no-files-found: error

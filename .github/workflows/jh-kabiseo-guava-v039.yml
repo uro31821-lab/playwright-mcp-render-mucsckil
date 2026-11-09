@@ -1,0 +1,68 @@
+name: JH Kabiseo Guava patched binary and MediaPipe static ABI check
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths:
+      - 'tools/kabiseo-guava-static-v039/**'
+      - '.github/workflows/jh-kabiseo-guava-v039.yml'
+permissions: {contents: read}
+jobs:
+  review-only:
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve JH and previous security evidence
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin 1bc09e5133e6166e168e334b9a1758e159e8b330
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code 1bc09e5133e6166e168e334b9a1758e159e8b330 HEAD -- jh-server host-kabiseo-assist tools/kabiseo-guava-v038 tools/kabiseo-v037-review
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Inspect official Guava and MediaPipe classfile data, no class loading
+        shell: pwsh
+        run: |
+          python tools/kabiseo-guava-static-v039/inspect.py
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Microsoft Defender AV scan without disabling security
+        if: always()
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:GITHUB_WORKSPACE 'kabiseo-guava-static-v039'
+          New-Item -ItemType Directory $root -Force | Out-Null
+          $scan=Join-Path $root 'quarantine'
+          $r=[ordered]@{status='NOT_SCANNED';securityChanged=$false;releaseApproved=$false}
+          try {
+            $files=@(Get-ChildItem $scan -File -ErrorAction SilentlyContinue)
+            $r.fileCount=$files.Count
+            if($files.Count -gt 0){
+              $s=Get-MpComputerStatus -ErrorAction Stop
+              $mp=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" -ErrorAction SilentlyContinue|Sort-Object FullName -Descending|Select-Object -First 1
+              if($s.AntivirusEnabled -and $mp){
+                & $mp.FullName -Scan -ScanType 3 -File $scan -DisableRemediation *> (Join-Path $root 'defender.log')
+                $r.scanExitCode=$LASTEXITCODE
+                $r.status=if($LASTEXITCODE -eq 0){'SCAN_COMPLETED_NO_THREAT_REPORTED'}else{'SCAN_FAILED_OR_THREAT_REPORTED'}
+                $r.definitionVersion=$s.AntivirusSignatureVersion
+              }else{$r.status='DEFENDER_UNAVAILABLE'}
+            }
+          }catch{$r.status='SCAN_UNAVAILABLE';$r.errorType=$_.Exception.GetType().Name}
+          $r|ConvertTo-Json|Set-Content (Join-Path $root 'antivirus.json') -Encoding utf8
+          Write-Host ('KABISEO_V039_AV='+($r|ConvertTo-Json -Compress))
+          exit 0
+      - name: Check no JH build and release remains REVIEW
+        shell: pwsh
+        run: |
+          $r=Get-Content kabiseo-guava-static-v039/report.json -Raw|ConvertFrom-Json
+          if($r.schema -ne 'KABISEO_GUAVA27_TO3372_STATIC_LINK_V039' -or $r.securityGateVerdict -ne 'REVIEW' -or $r.releaseApproved){throw 'INVALID_RELEASE_GATE'}
+          if($r.vendorBytecodeExecuted -or $r.privateSourceRead -or $r.androidBuilt){throw 'UNAPPROVED_ACTION'}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-v039-guava-static-abi-report-only
+          path: |
+            kabiseo-guava-static-v039/report.json
+            kabiseo-guava-static-v039/antivirus.json
+            kabiseo-guava-static-v039/defender.log
+          retention-days: 14
+          if-no-files-found: warn

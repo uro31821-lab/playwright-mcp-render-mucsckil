@@ -1,0 +1,88 @@
+name: JH Kabiseo detached CameraX 1.4.2 Kotlin selection comparison
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths:
+      - 'tools/kabiseo-detached-graph/**'
+      - '.github/workflows/jh-kabiseo-detached-graph.yml'
+permissions: {contents: read}
+jobs:
+  resolve-with-preinstalled-gradle-only:
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Protect original JH and prior review
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin 197d6894f467744188be62b23f9751fe73618922
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code 197d6894f467744188be62b23f9751fe73618922 HEAD -- jh-server host-kabiseo-assist tools/kabiseo-maven-graph tools/kabiseo-metadata-compat
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Resolve metadata only in isolated empty project if Gradle preinstalled
+        shell: pwsh
+        run: |
+          $out=Join-Path $env:GITHUB_WORKSPACE 'jh-graph-output'
+          New-Item -ItemType Directory $out -Force | Out-Null
+          $env:JH_GRAPH_OUTPUT=$out
+          $state=[ordered]@{schema='KABISEO_DETACHED_PROBE_V032';status='NOT_STARTED';releaseApproved=$false;securityGateVerdict='REVIEW';appCompiled=$false;phoneAccess=$false;privateSourceRead=$false}
+          $g=Get-Command gradle -ErrorAction SilentlyContinue
+          if(-not $g) {
+            $state.status='NO_PREINSTALLED_GRADLE';$state.note='No external Gradle binary was downloaded or executed.'
+          } else {
+            $env:JH_CAMERA_VERSION='1.4.2'
+          $state.cameraVersionScenario='1.4.2';$state.previousCamera152Result='Run 42538437298 previously selected kotlin-stdlib2.0.21'
+          $state.gradlePath=$g.Source
+            $state.gradleCommandSha256=(Get-FileHash $g.Source -Algorithm SHA256).Hash.ToLowerInvariant()
+            $display=@(& $g.Source --version 2>&1)
+            $state.gradleVersionLine=($display | Where-Object {$_ -match '^Gradle\s+'} | Select-Object -First 1)
+            if(-not $state.gradleVersionLine){
+              $state.status='UNVERIFIED_PREINSTALLED_GRADLE'
+            } else {
+              $env:GRADLE_USER_HOME=Join-Path $env:RUNNER_TEMP 'kabiseo-isolated-gradle-home'
+              New-Item -ItemType Directory $env:GRADLE_USER_HOME -Force | Out-Null
+              $project=Join-Path $env:RUNNER_TEMP 'kabiseo-empty-gradle-project'
+              New-Item -ItemType Directory $project -Force | Out-Null
+              Copy-Item 'tools/kabiseo-detached-graph/probe.gradle' (Join-Path $project 'build.gradle')
+              Set-Content -Path (Join-Path $project 'settings.gradle') -Value "rootProject.name = 'kabiseo-detached-metadata-probe'" -Encoding utf8
+              Push-Location $project
+              try {
+                & $g.Source --no-daemon --no-parallel --no-configuration-cache --warning-mode=none metadataOnlyGraph *> (Join-Path $out 'gradle-output.txt')
+                $state.gradleExitCode=$LASTEXITCODE
+                $state.status=if($LASTEXITCODE -eq 0){'DETACHED_GRADLE_METADATA_RESOLVED'}else{'DETACHED_GRADLE_METADATA_FAILED'}
+              } finally {Pop-Location}
+            }
+          }
+          $state | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $out 'probe-status.json') -Encoding utf8
+          Write-Host ('KABISEO_DETACHED_STATUS='+($state|ConvertTo-Json -Depth 8 -Compress))
+          if(Test-Path (Join-Path $out 'gradle-output.txt')){
+            # This isolated probe has no JH source, secrets, or repository credentials.
+            # Print bounded real failure context rather than repeatedly guessing.
+            Get-Content (Join-Path $out 'gradle-output.txt') -Tail 45 | ForEach-Object{Write-Host $_}
+          }
+          exit 0
+      - name: Fail closed on scope and report correctness
+        shell: pwsh
+        run: |
+          $path=Join-Path $env:GITHUB_WORKSPACE 'jh-graph-output'
+          $s=Get-Content (Join-Path $path 'probe-status.json') -Raw|ConvertFrom-Json
+          if($s.securityGateVerdict -ne 'REVIEW' -or $s.releaseApproved -or $s.appCompiled -or $s.privateSourceRead){throw 'SCOPE_OR_RELEASE_GATE_FAILED'}
+          if($s.status -eq 'DETACHED_GRADLE_METADATA_RESOLVED'){
+            foreach($name in @('declaredOnly','jhkotlin1924')) {
+              $r=Get-Content (Join-Path $path ($name+'.json')) -Raw|ConvertFrom-Json
+              if($r.androidCompilation -or $r.releaseApproved -or $r.originalJHSourceRead){throw 'GRAPH_MISREPRESENTED'}
+              if($r.nodeCount -lt 8){throw 'UNEXPECTED_GRAPH_SIZE'}
+            }
+          }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-detached-gradle-v033-camera142-report-only
+          path: |
+            jh-graph-output/probe-status.json
+            jh-graph-output/declaredOnly.json
+            jh-graph-output/jhkotlin1924.json
+            jh-graph-output/gradle-output.txt
+          retention-days: 14
+          if-no-files-found: error

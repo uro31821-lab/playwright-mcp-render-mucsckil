@@ -1,0 +1,67 @@
+name: JH Kabiseo reuse public inputs and inspect protobuf ABI
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths: ['tools/kabiseo-abi-review/**', '.github/workflows/jh-kabiseo-abi-review.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect-no-execution:
+    runs-on: windows-2025
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve all application runtime and previous evidence
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin f622a4d7800f8b5049053b4af59b2733069a14f9
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code f622a4d7800f8b5049053b4af59b2733069a14f9 HEAD -- jh-server host-kabiseo-assist/capture host-kabiseo-assist/android host-kabiseo-assist/core host-kabiseo-assist/integration host-kabiseo-assist/server host-kabiseo-assist/tools/runtime-proof tools/kabiseo-dependency-review
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Inspect data only and reuse exact successful earlier artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          python tools/kabiseo-abi-review/review.py
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Scan replacement without changing Defender configuration
+        if: always()
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:GITHUB_WORKSPACE 'kabiseo-abi-review'
+          New-Item -ItemType Directory $root -Force|Out-Null
+          $jar=Join-Path $root 'protobuf-javalite-4.36.2.jar'
+          $r=[ordered]@{schema='KABISEO_REPLACEMENT_AV';status='NOT_SCANNED';securitySettingsChanged=$false;releaseApproved=$false;head=$env:GITHUB_SHA}
+          try {
+            if(Test-Path $jar){
+              $s=Get-MpComputerStatus -ErrorAction Stop
+              $r.antivirusEnabled=$s.AntivirusEnabled
+              $r.signatureVersion=$s.AntivirusSignatureVersion
+              $r.signatureUpdated=$s.AntivirusSignatureLastUpdated.ToUniversalTime().ToString('o')
+              $r.sha256=(Get-FileHash $jar -Algorithm SHA256).Hash.ToLowerInvariant()
+              $exe=Get-ChildItem "$env:ProgramData/Microsoft/Windows Defender/Platform/*/MpCmdRun.exe" -ErrorAction SilentlyContinue|Sort-Object FullName -Descending|Select-Object -First 1
+              if($s.AntivirusEnabled -and $exe){
+                & $exe.FullName -Scan -ScanType 3 -File $jar -DisableRemediation *> (Join-Path $root 'defender.log')
+                $r.scanExitCode=$LASTEXITCODE
+                $r.status=if($LASTEXITCODE -eq 0){'SCAN_COMPLETED_NO_THREAT_REPORTED'}else{'SCAN_FAILED_OR_THREAT_REPORTED'}
+              } else {$r.status='DEFENDER_UNAVAILABLE'}
+            }
+          }catch{$r.status='SCAN_UNAVAILABLE';$r.errorType=$_.Exception.GetType().FullName}
+          $r|ConvertTo-Json|Set-Content (Join-Path $root 'antivirus.json') -Encoding utf8
+          Write-Host ('KABISEO_REPLACEMENT_AV='+($r|ConvertTo-Json -Compress))
+          # Upload reports only. No private code or foreign binary execution/distribution.
+          Remove-Item (Join-Path $root '*.jar'),(Join-Path $root '*.zip') -Force -ErrorAction SilentlyContinue
+          exit 0
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: kabiseo-public-abi-review-v025
+          path: |
+            kabiseo-abi-review/review.json
+            kabiseo-abi-review/antivirus.json
+            kabiseo-abi-review/defender.log
+          if-no-files-found: error
+          retention-days: 14

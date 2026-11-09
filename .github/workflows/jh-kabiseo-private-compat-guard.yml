@@ -1,0 +1,39 @@
+name: JH Kabiseo local private CameraX source scanner self-tests only
+on:
+  push:
+    branches: [kabiseo-native-camera-v023-20261107]
+    paths:
+      - 'tools/kabiseo-private-compat-guard/**'
+      - '.github/workflows/jh-kabiseo-private-compat-guard.yml'
+permissions: {contents: read}
+jobs:
+  synthetic-only:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Prove protected JH source unchanged
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin d91a633f3b08783a3f7582b397022d34c3a0fe5d
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code d91a633f3b08783a3f7582b397022d34c3a0fe5d HEAD -- jh-server host-kabiseo-assist tools/kabiseo-public-camerax-abi tools/kabiseo-abi-review
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Run synthetic Kotlin/ZIP preflight fixtures, no private input
+        shell: pwsh
+        run: |
+          python tools/kabiseo-private-compat-guard/check.py --self-test --out private-guard-selftest.json
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Confirm no real source data read
+        shell: pwsh
+        run: |
+          $r=Get-Content private-guard-selftest.json -Raw|ConvertFrom-Json
+          if($r.scope -ne 'Synthetic fixtures only, no private archive' -or $r.releaseApproved){throw 'OUT_OF_SCOPE'}
+          if(@($r.tests.PSObject.Properties).Count -lt 10){throw 'MISSING_TESTS'}
+          $r.tests.PSObject.Properties|ForEach-Object {if($_.Value -ne $true){throw 'TEST_FAILED'}}
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-private-guard-v035-synthetic-tests-only
+          path: private-guard-selftest.json
+          retention-days: 14

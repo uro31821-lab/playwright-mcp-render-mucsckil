@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Permission only while an explicit JH foreground camera activity is opened. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <application>
+        <!-- Must be in the same installed JH package. Never accessible via exported Intent. -->
+        <activity android:name="com.jh.kabiseo.capture.JhSmartCaptureActivity"
+            android:exported="false" android:label="카비서 카메라"/>
+    </application>
+</manifest>
