@@ -93,6 +93,8 @@ tasks.register('metadataOnlyGraph') {
               kotlinMetadataBinaryCompatibility:'NOT_VERIFIED',
               caveat:'This was a detached empty Gradle build using POM metadata only (no Android variants), not the original JH app resolved Gradle graph']
             new File(out,n+'.json').text=JsonOutput.prettyPrint(JsonOutput.toJson(payload))
+            if(!payload.unresolvedEdges.isEmpty()) println('KABISEO_GUAVA_UNRESOLVED_'+n+'='+JsonOutput.toJson(payload.unresolvedEdges))
+            println('KABISEO_GUAVA_SELECTED_'+n+'='+JsonOutput.toJson(payload.selected))
             println('KABISEO_DETACHED_'+n+'='+JsonOutput.toJson([
               nodes:payload.nodeCount,edges:payload.edgeCount,
               unresolvedEdges:payload.unresolvedEdgeCount,
