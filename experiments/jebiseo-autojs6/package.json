@@ -1,0 +1,13 @@
+{
+  "name": "jebiseo-autojs6-lab",
+  "version": "0.3.4",
+  "private": true,
+  "description": "Independent native split-screen text handoff experiment; no JH runtime integration",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node build-bundle.cjs",
+    "test": "node --test tests/core.test.cjs tests/adapter.test.cjs tests/adapter-core.test.cjs tests/journal.test.cjs tests/report.test.cjs tests/main.test.cjs tests/phone-launch.test.cjs",
+    "check": "node --check core.js && node --check autojs-adapter.js && node --check journal.js && node --check report.js && node --check phone-launch.js && node --check main.js"
+  },
+  "engines": { "node": ">=18" }
+}

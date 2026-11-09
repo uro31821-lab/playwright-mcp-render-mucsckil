@@ -1,0 +1,87 @@
+{
+  "schema": "jebiseo.autojs6.offline-verification.v1",
+  "version": "0.2.0",
+  "observedAt": "2026-11-06T01:53:52.568928+00:00",
+  "baseCommit": "845c5dfd9925a9f40950f3a873b4e58bfada9990",
+  "parentExperimentCommit": "11496c31ecf35fb9514922c5741b8ea23f057a0a",
+  "nodeVersion": "v24.22.1",
+  "checks": [
+    {
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "exitCode": 0,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "npm",
+        "test"
+      ],
+      "exitCode": 0,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "exitCode": 0,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "node",
+        "--check",
+        "dist/jebiseo-independent-test.js"
+      ],
+      "exitCode": 0,
+      "status": "passed"
+    },
+    {
+      "command": [
+        "node",
+        "dist/jebiseo-independent-test.js"
+      ],
+      "exitCode": 0,
+      "status": "passed"
+    }
+  ],
+  "offlineTests": {
+    "tests": 91,
+    "pass": 91,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "sourceSha256": {
+    ".gitignore": "94744a761dda4b3725c356a01cc207e7401dbb90eaf2636cbfefd5346bfa3a8c",
+    "autojs-adapter.js": "c0b2352f7e635fa2f54c9dcedef0efae70203ed79fd2425c77a100670cfafdda",
+    "build-bundle.cjs": "f228810d6cd920e6f382ad2e2bb662a169b9c98bd3eb3d5ea76e47b42aacc2ca",
+    "core.js": "42b297868b9aaab28a8133d34eadc3ff1b91fd0ec511164b69df1e6cbf41e199",
+    "dist/jebiseo-independent-test.js": "df365813fcd629bb8a0dca9371bd0faefaa2c1021ca823a5687dfea6d98aee57",
+    "journal.js": "b74095c43cbb4317b36a2859a0df4076da246c77b96a155024af41fafb630eb5",
+    "main.js": "c704ac90a7c34a89fb9b811bcab3e3ad7996d8a7a1c02659ae13cfdf48d2b487",
+    "package.json": "9c20a63fa10f017eee6ba533f9dc90292e044d3afd6754aa9a72bc7bb2a783c9",
+    "profile.example.json": "e61e565d2b787595cbc2f4c337c04aa3f7edacc3a85395297ae206e04366983f",
+    "report.js": "f22ef61bc53ffd9bd2d3d4b704d72ae22df5f94830e2f194bc4387ea2dd91a4e",
+    "tests/adapter-core.test.cjs": "d4080b46e4410c55b6042c9c1064354b5a3709b1e55276beeadc83040e07c956",
+    "tests/adapter.test.cjs": "77df014f468b850e89aa1e26d5c22e6292885733edbd82609ca66efa7f159e85",
+    "tests/core.test.cjs": "f72299b013851ad638eb08bcf425a6598e80f7bfcd660f791731fa299b0245ea",
+    "tests/fixtures/android.cjs": "535bbbc7989526bf8bacd198edcc96ce6b46fd0cd6c45e0996eb56b77409e1d3",
+    "tests/journal.test.cjs": "10cc915acfecb6c7e316dbfd28b6ea93b166699bb912aa4aca971c54ec09b6db",
+    "tests/main.test.cjs": "4d9e3bbd1f48e76e134348e1a9fe85881ec00ce3d07d5be6729a22ccb045ae25",
+    "tests/report.test.cjs": "5da8bfc4257fbd3fe209fd4e9378cae6b61a038242cd27e9a65566ff2b61752a"
+  },
+  "bundleSha256": "df365813fcd629bb8a0dca9371bd0faefaa2c1021ca823a5687dfea6d98aee57",
+  "bundleBytes": 89100,
+  "actualAutoJsExecution": "not_run",
+  "phoneE2E": "not_run",
+  "jhIntegration": "not_implemented",
+  "productionMerge": "not_performed",
+  "productionDeployment": "not_performed"
+}
