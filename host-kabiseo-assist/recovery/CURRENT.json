@@ -1,12 +1,12 @@
 {
   "schema": "KABISEO_REUSE_CONTINUATION_V026",
   "recordedKstDate": "2026-11-09",
-  "userDevelopmentState": "PRIVATE_CAMERA142_GUARD_TESTED_REAL_ZIP_SCAN_NOT_RUN",
+  "userDevelopmentState": "PRIVATE_CAMERA_SOURCE_REPLAY_AND_PINNED_CAMERAX142_PATCH_V0243_CREATED",
   "target": "Reuse private PhotoMaster AI capture within existing JH v0.24; no GPT photo transfer, no beauty edits",
-  "functionalAppVersion": "v0.24.2-private-review-not-built",
-  "reviewVersion": "0.35-private-camera-1.4.2-preflight",
-  "status": "PRIVATE_SOURCE_LEXICAL_GUARD_CREATED_SYNTHETIC_10_PASS_LOCAL_EXECUTION_BLOCKED_SECURITY_REVIEW",
-  "requiredUserAction": "NONE: old private ZIP already provided, no reupload or USB",
+  "functionalAppVersion": "v0.24.3-private-review-not-built",
+  "reviewVersion": "0.36-private-v0243-source-patch-cameraX142",
+  "status": "PRIVATE_V0243_PATCH_REPLAY_454_PASS_17_NEW_STATIC_CHECKS_PASS_PUBLIC_VENDOR_SECURITY_REVIEW_UNCHANGED",
+  "requiredUserAction": "NONE: no source reupload, USB, app reinstall or manual task",
   "priorCheckpoint": {
     "commit": "c14550b8bb17e9637325f593c88be6792f07d52e",
     "path": "host-kabiseo-assist/recovery/CURRENT.json",
@@ -14,9 +14,9 @@
     "v025PublicInputAndAbiEvidenceReusedWithoutRerun": true
   },
   "privateCandidate": {
-    "archiveName": "JH_Kabiseo_PhotoMaster_Reuse_v0242_REVIEW_ONLY.zip",
-    "archivePath": "/mnt/data/JH_Kabiseo_PhotoMaster_Reuse_v0242_REVIEW_ONLY.zip",
-    "sha256": "f4f85d1b3d9bbe66d392076e59ee967f4ff368a01b7a2bb5977afa6ecd59ee1c",
+    "archiveName": "JH_Kabiseo_PhotoMaster_Reuse_v0243_REVIEW_ONLY.zip",
+    "archivePath": "/mnt/data/JH_Kabiseo_PhotoMaster_Reuse_v0243_REVIEW_ONLY.zip",
+    "sha256": "6a024aa3da06cb17ec87428ad9d80a3d5800fb0a5c7dcbd80c1180a1cb7003e9",
     "originalPatchSha256": "5e496ca636408ce0f458275a9f5b374910386e8faa82cbdd1a186651226b71b6",
     "originalStage77SourceSha256": "da00df7101fe3ccdb0466ca08755a6605e8d84315a696d77fc5ba9b7dbacec37",
     "photoMasterV05Sha256": "0fac055ca2552ed783330e54da0b78eb4a4f4b7d05a8ae1c446fafc68a15c56e",
@@ -44,7 +44,7 @@
     "androidLint": "NOT_RUN",
     "appInstalled": false,
     "phoneValidation": "NOT_RUN",
-    "sizeBytes": 25479,
+    "sizeBytes": 25774,
     "priorV0241Sha256": "8326005e6afd638a21fc58fb0f90480c78297aad040a6c2aa50e318d078bb69e",
     "sourceReadAndPatchedThisTurn": true,
     "unchangedOriginalCount": 445,
@@ -55,7 +55,7 @@
       "app/src/main/java/com/jh/photomaster/SceneAnalyzer.kt"
     ],
     "patchReplayedAllBytesMatch": 454,
-    "newStaticChecks": 35,
+    "newStaticChecks": 17,
     "newStaticChecksPassed": 35,
     "negativeMutationTests": 6,
     "negativeMutationTestsPassed": 6,
@@ -64,7 +64,22 @@
     "modelPresentInApp": false,
     "signingPerformed": false,
     "installed": false,
-    "privateSourceUploadedToPublicRepo": false
+    "privateSourceUploadedToPublicRepo": false,
+    "basedOnV0242Sha256": "f4f85d1b3d9bbe66d392076e59ee967f4ff368a01b7a2bb5977afa6ecd59ee1c",
+    "actualArchiveOpenedThisStep": true,
+    "exactV0242ShaReconfirmed": true,
+    "exactOriginalSourceShaReconfirmed": true,
+    "sourcePatchAppliedInPrivateScratch": true,
+    "resultSourceCount": 454,
+    "previousSourceDiffOnly": [
+      "app/build.gradle.kts"
+    ],
+    "previousUnchangedFiles": 453,
+    "deletedFiles": 0,
+    "newStaticChecksPass": 17,
+    "sourceOnly": true,
+    "releaseApproved": false,
+    "privateCodeUploadedToPublicRepo": false
   },
   "newVerification": {
     "codeCommit": "8739810603832b2c8981687647e2899346d528b1",
@@ -109,8 +124,8 @@
     "securityGateVerdict": "REVIEW"
   },
   "candidateInputDirection": {
-    "state": "REVIEW_ONLY_NOT_APPLIED",
-    "cameraX": "1.5.2",
+    "state": "APPLIED_TO_PRIVATE_REVIEW_SOURCE_NOT_COMPILED",
+    "cameraX": "1.4.2",
     "mediaPipe": "1.1.1",
     "protobuf": "4.36.2",
     "keepCompileSdk": 35,
@@ -118,7 +133,7 @@
     "model": "Evaluate exact licensed alternative only against actual private initialization API; do not silently replace current float32 model",
     "lockfileCreated": false
   },
-  "next": "When private local execution restores, run v0.35 scanner on exact v0.24.2 ZIP SHA f4f85d1b3d9bbe66d392076e59ee967f4ff368a01b7a2bb5977afa6ecd59ee1c, inspect actual CameraX call-sites and compare against v0.34 ABI. Only if compatible create v0.24.3 private patch CameraX 1.4.2. Keep security REVIEW (no Android build/sign/install), no public private code upload.",
+  "next": "Security-gated exact Android dependency graph and Kotlin compilation of v0.24.3 on isolated private environment: CameraX1.4.2, MediaPipe1.1.1, protobuf-javalite4.36.2. Confirm full resolved transitive binary provenance/signatures, Android CameraX 1.4.2 actual public method linking (v0.34 static only). Model still not bundled, so AI autozoom unavailable. Until SAFE no full APK assembly/sign/install, phone commands or public source upload.",
   "securityGateVerdict": "REVIEW",
   "androidFullBuild": "NOT_RUN",
   "signed": false,
@@ -158,7 +173,12 @@
     "No private source upload to public GitHub, even for Gradle build; release/security review still required",
     "v0.35 scanner 10/10 synthetic tests passed CI 42556212063; do not repeat unchanged tests",
     "No private source code/ZIP in GitHub, no app source scanned in this turn",
-    "Don't interpret lexicographic name tests as a real compile"
+    "Don't interpret lexicographic name tests as a real compile",
+    "No re-run of private v0.24.2 exact-source CameraX API lexical scan unless its source SHA changes",
+    "v0.24.3 private review ZIP SHA 6a024aa3..., 454 reconstructed source files and 17/17 new static checks verified",
+    "v0.24.3 changes ONLY CameraX 1.5.2 to 1.4.2 in app/build.gradle.kts; no other source changed vs v0.24.2",
+    "Do not claim CameraX downgrade Android compile or user device behavior before actually tested",
+    "No private PhotoMaster source in public GitHub; metadata-only checkpoint"
   ],
   "privateArchiveReadThisStep": true,
   "modelLicenseAlternateVerified": true,
@@ -360,5 +380,22 @@
     "limits": "Lexical preflight only: not Kotlin AST, cannot prove all 299 ABI differences, no real Android compile",
     "errors": "container.exec ClientError; python.exec reset; python_user_visible ClientError",
     "securityGateVerdict": "REVIEW"
+  },
+  "privateCameraX142Compatibility": {
+    "stage": "V036_PRIVATE_LOCAL_KOTLIN_LEXICAL_PREFLIGHT",
+    "exactV0242BeforeHash": "f4f85d1b3d9bbe66d392076e59ee967f4ff368a01b7a2bb5977afa6ecd59ee1c",
+    "sourceFilesScanned": 3,
+    "excludedCameraX15MarkersFound": 0,
+    "sourceCallCountConfirmations": {
+      "ProcessCameraProvider.bindToLifecycle": "2 callsites, 3 argument forms using UseCaseGroup",
+      "ImageCapture.takePicture": "1 callsite, 3 argument form",
+      "SceneAnalyzer.ImageProxy.toBitmap": "1 callsite, public member was present in earlier ABI name comparison"
+    },
+    "cameraXVersionChangedFrom": "1.5.2",
+    "cameraXVersionChangedTo": "1.4.2",
+    "allKotlinSourceOtherThanGradleUnchanged": true,
+    "fullKotlinCompilerProof": false,
+    "providerAarSecurityReview": "REVIEW",
+    "applicationRuntimeE2E": "NOT_RUN"
   }
 }
