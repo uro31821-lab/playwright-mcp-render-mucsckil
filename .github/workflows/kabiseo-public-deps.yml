@@ -1,0 +1,124 @@
+name: Kabiseo public Gradle dependency cache (no private JH source)
+on:
+  push:
+    branches: [kabiseo-public-deps-20261110]
+    paths: [.github/workflows/kabiseo-public-deps.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  resolve:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0" 1>/dev/null
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Generate public-coordinate-only temporary Android project
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/jh-public-deps/app/src/main"
+          cat > "$RUNNER_TEMP/jh-public-deps/settings.gradle.kts" <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name = "PublicDependenciesOnly"
+          include(":app")
+          EOF
+          cat > "$RUNNER_TEMP/jh-public-deps/build.gradle.kts" <<'EOF'
+          plugins {
+              id("com.android.application") version "8.7.3" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+          }
+          EOF
+          cat > "$RUNNER_TEMP/jh-public-deps/gradle.properties" <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          kotlin.code.style=official
+          EOF
+          cat > "$RUNNER_TEMP/jh-public-deps/app/build.gradle.kts" <<'EOF'
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
+          android {
+              namespace = "org.example.publicdeps"
+              compileSdk = 35
+              buildToolsVersion = "35.0.0"
+              defaultConfig {
+                  applicationId = "org.example.publicdeps"
+                  minSdk = 26
+                  targetSdk = 35
+                  versionCode = 1
+                  versionName = "1"
+              }
+              buildTypes {
+                  getByName("debug") { signingConfig = null }
+                  getByName("release") {
+                      isDebuggable = false
+                      isMinifyEnabled = false
+                      signingConfig = null
+                  }
+              }
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = "17" }
+              androidResources { noCompress += "tflite" }
+          }
+          dependencies {
+              val cameraX = "1.4.2"
+              implementation("androidx.camera:camera-core:$cameraX")
+              implementation("androidx.camera:camera-camera2:$cameraX")
+              implementation("androidx.camera:camera-lifecycle:$cameraX")
+              implementation("androidx.camera:camera-view:$cameraX")
+              implementation("androidx.activity:activity-ktx:1.10.1")
+              implementation("com.google.mediapipe:tasks-vision:1.1.1")
+              constraints {
+                  implementation("com.google.protobuf:protobuf-javalite") {
+                      version { strictly("4.36.2") }
+                  }
+              }
+              implementation("androidx.credentials:credentials:1.5.0")
+              implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+              implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+              implementation("com.google.mlkit:text-recognition-korean:16.0.1")
+              testImplementation("junit:junit:4.13.2")
+          }
+          EOF
+          cat > "$RUNNER_TEMP/jh-public-deps/app/src/main/AndroidManifest.xml" <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="Public deps only"/></manifest>
+          EOF
+      - name: Fetch public runtime and compile artifacts; record resolved versions
+        shell: bash
+        run: |
+          set -o pipefail
+          cd "$RUNNER_TEMP/jh-public-deps"
+          gradle :app:dependencies --configuration releaseRuntimeClasspath --no-daemon > "$RUNNER_TEMP/public-runtime-graph.txt" 2>&1
+          gradle :app:dependencyInsight --dependency guava --configuration releaseRuntimeClasspath --no-daemon > "$RUNNER_TEMP/public-guava-insight.txt" 2>&1
+          gradle :app:dependencyInsight --dependency protobuf-javalite --configuration releaseRuntimeClasspath --no-daemon > "$RUNNER_TEMP/public-protobuf-insight.txt" 2>&1
+          gradle :app:assembleRelease :app:testReleaseUnitTest :app:lintRelease --no-daemon > "$RUNNER_TEMP/public-build.log" 2>&1 || { tail -n 100 "$RUNNER_TEMP/public-build.log"; exit 1; }
+          tail -n 24 "$RUNNER_TEMP/public-build.log"
+      - name: Package only public downloaded modules and text results
+        shell: bash
+        run: |
+          mkdir -p public-cache-output
+          cp "$RUNNER_TEMP"/public-*.txt public-cache-output/
+          cp "$RUNNER_TEMP/public-build.log" public-cache-output/
+          tar -C "$HOME/.gradle" -czf public-cache-output/modules-2-public.tar.gz caches/modules-2
+          (cd "$HOME/.gradle" && find caches/modules-2 -type f -print0 | sort -z | xargs -0 sha256sum) > public-cache-output/modules-2-files.sha256
+          (cd public-cache-output && sha256sum modules-2-public.tar.gz) > public-cache-output/cache-archive.sha256
+          du -h public-cache-output/modules-2-public.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kabiseo-public-gradle-cache-20261110
+          path: public-cache-output/*
+          if-no-files-found: error
+          retention-days: 4
