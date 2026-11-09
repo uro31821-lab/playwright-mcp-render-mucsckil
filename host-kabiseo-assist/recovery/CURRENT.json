@@ -1,11 +1,11 @@
 {
   "schema": "KABISEO_REUSE_CONTINUATION_V026",
   "recordedKstDate": "2026-11-09",
-  "userDevelopmentState": "PRIVATE_CAMERA_SOURCE_REPLAY_AND_PINNED_CAMERAX142_PATCH_V0243_CREATED",
+  "userDevelopmentState": "CONTINUED_PRIVATE_V0243_SECURITY_REVIEW_STATIC_PUBLIC_VENDOR_CHECKS_ONLY",
   "target": "Reuse private PhotoMaster AI capture within existing JH v0.24; no GPT photo transfer, no beauty edits",
   "functionalAppVersion": "v0.24.3-private-review-not-built",
-  "reviewVersion": "0.36-private-v0243-source-patch-cameraX142",
-  "status": "PRIVATE_V0243_PATCH_REPLAY_454_PASS_17_NEW_STATIC_CHECKS_PASS_PUBLIC_VENDOR_SECURITY_REVIEW_UNCHANGED",
+  "reviewVersion": "0.40-detached-binary-security-and-guava-remediation-hold",
+  "status": "DETECTED_GUAVA_OLD_ADVISORIES_PATCHED_BINARY_STATIC_ABI_PASS_DETACHED_GRADLE_UPGRADE_UNRESOLVED_NO_JH_BUILD",
   "requiredUserAction": "NONE: no source reupload, USB, app reinstall or manual task",
   "priorCheckpoint": {
     "commit": "c14550b8bb17e9637325f593c88be6792f07d52e",
@@ -133,7 +133,7 @@
     "model": "Evaluate exact licensed alternative only against actual private initialization API; do not silently replace current float32 model",
     "lockfileCreated": false
   },
-  "next": "Security-gated exact Android dependency graph and Kotlin compilation of v0.24.3 on isolated private environment: CameraX1.4.2, MediaPipe1.1.1, protobuf-javalite4.36.2. Confirm full resolved transitive binary provenance/signatures, Android CameraX 1.4.2 actual public method linking (v0.34 static only). Model still not bundled, so AI autozoom unavailable. Until SAFE no full APK assembly/sign/install, phone commands or public source upload.",
+  "next": "Private candidate v0.24.3 unchanged. Resolve Guava33.7.2-android selection with exact Android Gradle 8.9/AGP8.7.3 dependency variants, keeping Google/Firebase repositories intact; do not reuse failed force or restrictive filter blindly. Confirm provenance signatures and all transitive security receipts. Only after JH release security SAFE compile/lint; then licensed AI model runtime integration, original signing, explicit user-approved phone E2E. No repeat ZIP upload, USB diagnosis, or publicly hosted private source.",
   "securityGateVerdict": "REVIEW",
   "androidFullBuild": "NOT_RUN",
   "signed": false,
@@ -178,7 +178,11 @@
     "v0.24.3 private review ZIP SHA 6a024aa3..., 454 reconstructed source files and 17/17 new static checks verified",
     "v0.24.3 changes ONLY CameraX 1.5.2 to 1.4.2 in app/build.gradle.kts; no other source changed vs v0.24.2",
     "Do not claim CameraX downgrade Android compile or user device behavior before actually tested",
-    "No private PhotoMaster source in public GitHub; metadata-only checkpoint"
+    "No private PhotoMaster source in public GitHub; metadata-only checkpoint",
+    "v037 75 public Maven inputs tested; reuse results and OSV finding, do not blindly rerun same package set",
+    "v039 Guava33.7.2 new AAR static ABI equivalent for 16 old-resolvable symbols; nine Flogger refs are separate, not proven compatible",
+    "v038 forced Gradle POM-only selected null Guava with two unresolved MediaPipe edges; v040 repo content filter added Firebase failures; do not repeat same strategy",
+    "Do not promote patched Guava from candidate to production without actual JH Android graph and security SAFE"
   ],
   "privateArchiveReadThisStep": true,
   "modelLicenseAlternateVerified": true,
@@ -397,5 +401,86 @@
     "fullKotlinCompilerProof": false,
     "providerAarSecurityReview": "REVIEW",
     "applicationRuntimeE2E": "NOT_RUN"
+  },
+  "guavaSecurityReview": {
+    "reviewSchema": "KABISEO_DEPENDENCY_SECURITY_PROGRESS_V040",
+    "previousDetachedGraph": {
+      "run": 42538806613,
+      "artifactId": 13640123907,
+      "sha256": "17d981cdef704b430591badf267c80c73d27c377facb18d78b61e7d5b7ab9051",
+      "nodes": 75,
+      "edges": 322,
+      "mode": "POM_ONLY_NO_ANDROID_PLUGIN"
+    },
+    "publicVendorScan": {
+      "run": 42617768137,
+      "job": 129161820767,
+      "status": "success",
+      "moduleCount": 75,
+      "binariesChecked": 73,
+      "pomOnly": 2,
+      "incomplete": 0,
+      "publisherChecksumMatched": 73,
+      "nativeFiles": 12,
+      "defenderScannedFiles": 133,
+      "defenderStatus": "SCAN_COMPLETED_NO_THREAT_REPORTED",
+      "reportArtifactId": 13673621105,
+      "reportSha256": "14ebac4ec9a4a5592adc408b48fc0618af76ab24171f6b2c592fff6369240306",
+      "oldGuava": "com.google.guava:guava:27.0.1-android",
+      "oldGuavaOSVAdvisories": [
+        "GHSA-5mg8-w23w-74h3",
+        "GHSA-7g45-4rm6-3mm3",
+        "GHSA-xxph-c9ww-hj94"
+      ]
+    },
+    "candidateStaticABI": {
+      "run": 42619281123,
+      "job": 129166943588,
+      "status": "success",
+      "oldGuava": "27.0.1-android",
+      "candidate": "33.7.2-android",
+      "oldSha256": "caf0955aed29a1e6d149f85cfb625a89161b5cf88e0e246552b7ffa358204e28",
+      "newSha256": "b949fe975a32421c1a2633c07a4f1578b462f2f467668aa0a4023c5ff7c4a808",
+      "mediaPipeClassesInspected": 997,
+      "guavaUniqueMemberRefs": 25,
+      "priorResolvableMemberRefs": 16,
+      "newResolvableOfPrior": 16,
+      "staticRegressions": 0,
+      "otherNineReferences": "Separate Flogger types, not provided by Guava, not proven linked",
+      "osvNewAdvisories": 0,
+      "defenderStatus": "SCAN_COMPLETED_NO_THREAT_REPORTED",
+      "publisherAscObserved": true,
+      "publisherSignatureVerified": false,
+      "reportArtifactId": 13675181075,
+      "reportSha256": "305966c6a746f38f650652ee21a22541958651d13081423898a2bcce7195c8d6",
+      "runtimeCompatibility": "NOT_VERIFIED"
+    },
+    "detachedSubstitution": {
+      "forceGuavaRun": 42618435643,
+      "diagnosticRun": 42618686640,
+      "directGradleStatus": "FAILED_TO_SELECT_GUAVA_33_7_2_ANDROID",
+      "unresolvedMediaPipeEdges": 2,
+      "unresolvedFrom": [
+        "com.google.mediapipe:tasks-core:1.1.1",
+        "com.google.mediapipe:tasks-vision:1.1.1"
+      ],
+      "filteredRepoRun": 42619616495,
+      "filteredRepoStatus": "FAILED",
+      "filteredRepoUnresolvedTotal": 6,
+      "extraIssues": "Firebase encoders artifacts excluded by overly restrictive Google Maven content filter",
+      "chosenKotlin": "1.9.24",
+      "chosenCameraX": "1.4.2",
+      "chosenProtobuf": "4.36.2",
+      "sourceOrAppModification": false,
+      "actualAndroidVariantSelection": false
+    },
+    "gate": "REVIEW",
+    "remaining": [
+      "Resolve patched Guava in exact Android variant graph without excluding Google/Firebase modules",
+      "Inspect full new transitive closure, signatures and possible ABI/JNI impacts",
+      "Compile/lint original private JH v0.24.3 only after SAFE",
+      "Verify licensed model initialization and on-device inference; model not packaged",
+      "Original signing and phone installation require separate approval"
+    ]
   }
 }
