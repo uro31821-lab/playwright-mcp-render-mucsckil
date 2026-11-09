@@ -1,0 +1,9 @@
+{
+  "input_zip_sha256": "876b26376e81a22fa8fd23c3305e9b247849fac2bc87fce6940883762379c4f0",
+  "guarded_source_sha256": {
+    "app/src/main/java/com/koreanlifehub/bridge/BridgeService.kt": "354a8863185b980463cfa414ad71fdac1023bdf242f8c62ba9a7cb03e5306b2c",
+    "app/src/main/java/com/koreanlifehub/bridge/SecureBridge56.kt": "cecd15e6a254ad6d5c023cb0efb6c627a65b41ec0b8dc2c30611eafbfa38e4bf",
+    "app/src/main/AndroidManifest.xml": "79e4774c055278036e7586ca55d8236828c9f61b0bf274d549962d277b2b53a6",
+    "app/build.gradle.kts": "74292a58ad6ceccb4dfd98eac78ca00f0da0e511e1caf619878f89339c2cd4b4"
+  }
+}

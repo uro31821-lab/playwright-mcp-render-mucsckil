@@ -1,0 +1,34 @@
+name: JH Kabiseo camera-app setting patterns
+on:
+  push:
+    branches: [kabiseo-camera-metadata-v05-20261105]
+    paths: ['tools/kabiseo-camera-session/**', '.github/workflows/jh-kabiseo-camera-session.yml']
+permissions: {contents: read}
+concurrency:
+  group: kabiseo-settings-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  setting-simulation-no-phone:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve production, Android and held runtime inputs
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin b914864dbab23d30a9e95ecebd653d788c42932b
+          git diff --exit-code b914864dbab23d30a9e95ecebd653d788c42932b HEAD -- jh-server host-kabiseo-assist/android host-kabiseo-assist/core host-kabiseo-assist/integration host-kabiseo-assist/server host-kabiseo-assist/tools/runtime-proof
+      - name: Compile and simulate setting apply and exact restore with existing JDK
+        run: KABISEO_SESSION_EVIDENCE="$RUNNER_TEMP/kabiseo-session" python3 tools/kabiseo-camera-session/run_tests.py
+      - name: Source readback
+        if: always()
+        run: git diff --exit-code
+      - name: Preserve test result only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-camera-session-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-session/camera-session-result.json
+          retention-days: 7
+          if-no-files-found: warn

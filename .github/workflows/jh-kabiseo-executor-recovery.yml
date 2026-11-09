@@ -1,0 +1,23 @@
+name: JH Kabiseo executor recovery policy
+on:
+  push:
+    branches: ['kabiseo-camera-metadata-v05-20261105']
+    paths: ['host-kabiseo-assist/recovery/**', '.github/workflows/jh-kabiseo-executor-recovery.yml']
+permissions: {contents: read}
+jobs:
+  recovery-policy-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Verify new executor health and recovery policy without external packages
+        run: |
+          set -euo pipefail
+          python3 -c 'print("ISOLATED_EXECUTOR_HEALTH_PASS")'
+          python3 host-kabiseo-assist/recovery/tests/test_execution_recovery.py
+          python3 -m json.tool host-kabiseo-assist/recovery/CURRENT.json > /dev/null
+          sha256sum host-kabiseo-assist/recovery/scripts/jh_execution_recovery.py
+          echo FULL_JH_BUILD=NOT_RUN
+          echo CAMERA_RUNTIME_CHANGED=0
+          echo PHONE_COMMANDS=0

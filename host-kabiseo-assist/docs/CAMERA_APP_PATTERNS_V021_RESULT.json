@@ -1,0 +1,31 @@
+{
+  "schema": "KABISEO_CAMERA_APP_PATTERN_EVIDENCE_V021",
+  "recordedKstDate": "2026-11-06",
+  "verifiedCodeCommit": "46e75e3c45161781235f9fd5cfa406bfb567eeaf",
+  "method": "Direct bounded review of public Kotlin sources and official Android documentation; independently implemented Java setting planner",
+  "reaExecuted": false,
+  "apkReverseEngineeringExecuted": false,
+  "reaBoundary": "Existing JH REA runner supports committed JH JS/MJS/CJS inputs, not external Kotlin/APK. No request was submitted and no held Node runtime was executed.",
+  "sourceReferences": [
+    {"repository": "google/jetpack-camera-app", "commit": "c38310e4902350a8c6b58e4729e60e94e51c8e09", "path": "core/camera/src/main/java/com/google/jetpackcamera/core/camera/CameraSessionSettings.kt", "blob": "55c5f87c1a01b08c6be0e1dc9108df12b1d0aa1c", "license": "Apache-2.0", "finding": "Separate session-rebinding parameters from transient control settings"},
+    {"repository": "GrapheneOS/Camera", "commit": "025cb421366cd322d64d2044481c014c6468ed1a", "path": "app/src/main/java/app/grapheneos/camera/util/CameraControl.kt", "blob": "57a19ea27dd57159a4832a56aa95fb82557d82ba", "license": "MIT", "finding": "Read ZoomState, clamp to min/max, call owned camera control"},
+    {"repository": "GrapheneOS/Camera", "commit": "025cb421366cd322d64d2044481c014c6468ed1a", "path": "app/src/main/java/app/grapheneos/camera/ui/seekbar/ExposureBar.kt", "blob": "1b22d4d20a19a5b1b42ac8d38afa1f28aa1b0781", "license": "MIT", "finding": "ExposureState limits and indexed control; not a certification of all source formulas"}
+  ],
+  "ci": {"runId": 42236359935, "jobId": 127954888900, "attempt": 1, "event": "push", "conclusion": "success", "compiler": "javac 17.0.21", "flags": "--release 17 -Xlint:all -Werror"},
+  "tests": {"scenarios": 14, "assertionsWithinScenarios": 69, "scope": "SIMULATED_SETTING_PLANS_ONLY", "deviceActions": 0},
+  "newSourceSha256": {"CameraSettingsSession.java": "45876c3edd99c7e06f4cf6bfb2192de4f106476246c50fc8ea902ec408e60775", "CameraSettingsSessionTests.java": "e028db04bb0abf0730a022318cb2911c8f404850f52740f9111d23c7bb61aa4e"},
+  "artifact": {"id": 13511801543, "bytes": 704, "sha256": "3ac8b985a03cbd91cb920518a2bc1218c242d0a2bc9a66e372777950dc0be77f", "contents": "One result JSON only", "verification": "Completed remote job log and artifact upload receipt; no local download verification"},
+  "protectedSourcesUnchanged": true,
+  "cameraBackendImplemented": false,
+  "originalSettingsRestorePhysicalTest": false,
+  "gptCameraReplaced": false,
+  "cameraFramesRead": 0,
+  "androidRebuilt": false,
+  "installed": false,
+  "serverDeployed": false,
+  "externalCameraSourceCopiedIntoApp": false,
+  "newCameraDependencyAdded": false,
+  "runtimeHoldUnchanged": true,
+  "targetNodeExecuted": false,
+  "nextDecision": "Observe actual GPT capture ownership and measurable controls before further profile/enrollment expansion; no silent switch to a separate camera app"
+}

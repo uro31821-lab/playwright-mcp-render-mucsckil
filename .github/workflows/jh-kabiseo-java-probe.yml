@@ -1,0 +1,113 @@
+name: JH Kabiseo camera route without PowerShell
+on:
+  push:
+    branches: [kabiseo-camera-metadata-v05-20261105]
+    paths: ['tools/kabiseo-camera-java/**', '.github/workflows/jh-kabiseo-java-probe.yml']
+permissions: {contents: read}
+jobs:
+  existing-jdk-no-powershell-payload:
+    runs-on: windows-2025
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Preserve phone server and held-runtime sources
+        shell: pwsh
+        run: |
+          git fetch --no-tags --depth=1 origin 2fa5685c8005f2dd1eea54f29a416f09465cd2ea
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          git diff --exit-code 2fa5685c8005f2dd1eea54f29a416f09465cd2ea HEAD -- jh-server host-kabiseo-assist/android host-kabiseo-assist/core host-kabiseo-assist/integration host-kabiseo-assist/server host-kabiseo-assist/tools/runtime-proof tools/kabiseo-camera-probe tools/kabiseo-camera-startup
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Compile and test custom source with existing JDK17 only
+        shell: pwsh
+        run: |
+          $jdk=$env:JAVA_HOME_17_X64
+          if(-not (Test-Path "$jdk/bin/javac.exe")){throw 'EXISTING_RUNNER_JDK17_REQUIRED'}
+          $classes=Join-Path $env:RUNNER_TEMP 'probe-classes'
+          New-Item -ItemType Directory $classes|Out-Null
+          & "$jdk/bin/javac.exe" --release 17 -encoding UTF-8 -Xlint:all -Werror -d $classes tools/kabiseo-camera-java/package/data/CameraRouteProbe.java tools/kabiseo-camera-java/CameraRouteProbeTests.java
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+          & "$jdk/bin/java.exe" -cp $classes CameraRouteProbeTests
+          if($LASTEXITCODE){exit $LASTEXITCODE}
+      - name: Test delivered source launch while PowerShell scripts remain Restricted
+        shell: pwsh
+        run: |
+          function Read-Policies {
+            $p=[Diagnostics.ProcessStartInfo]::new()
+            $p.FileName="$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe"
+            $p.Arguments='-NoProfile -Command "Get-ExecutionPolicy -List | ConvertTo-Json -Compress"'
+            $p.UseShellExecute=$false;$p.RedirectStandardOutput=$true;$p.RedirectStandardError=$true
+            $p.Environment['PSModulePath']="$env:SystemRoot/System32/WindowsPowerShell/v1.0/Modules"
+            $c=[Diagnostics.Process]::Start($p);$o=$c.StandardOutput.ReadToEndAsync();$e=$c.StandardError.ReadToEndAsync()
+            if(-not $c.WaitForExit(15000)){$c.Kill();throw 'policy read timeout'}
+            if($c.ExitCode -ne 0){throw 'policy read failed'}
+            $text=$o.GetAwaiter().GetResult();$parsed=$text|ConvertFrom-Json
+            if(@($parsed).Count -ne 5){throw 'five policy scopes required'}
+            return $text
+          }
+          $package=Join-Path $env:RUNNER_TEMP '카비서 FIX2 정상 공백'
+          New-Item -ItemType Directory $package|Out-Null
+          Copy-Item tools/kabiseo-camera-java/package/* $package -Recurse
+          $cmd=Join-Path $package '실행.cmd'
+          [IO.File]::WriteAllText($cmd,([IO.File]::ReadAllText($cmd) -replace '\r?\n',"`r`n"),[Text.UTF8Encoding]::new($false))
+          $zip=Join-Path $env:RUNNER_TEMP 'tested-fix2.zip'
+          Compress-Archive -Path "$package/*" -DestinationPath $zip
+          $extract=Join-Path $env:RUNNER_TEMP '실제 압축 해제 FIX2'
+          Expand-Archive $zip $extract
+          $policyBefore=Read-Policies
+          $blockedFile=Join-Path $env:RUNNER_TEMP 'must-stay-blocked.ps1'
+          Set-Content $blockedFile "Write-Output 'NOT_ALLOWED_TO_RUN'" -Encoding utf8
+          $ps=[Diagnostics.ProcessStartInfo]::new()
+          $ps.FileName="$env:SystemRoot/System32/WindowsPowerShell/v1.0/powershell.exe"
+          $ps.Arguments='-NoProfile -File "'+$blockedFile+'"'
+          $ps.UseShellExecute=$false;$ps.RedirectStandardOutput=$true;$ps.RedirectStandardError=$true
+          $ps.Environment['PSExecutionPolicyPreference']='Restricted'
+          $ps.Environment['PSModulePath']="$env:SystemRoot/System32/WindowsPowerShell/v1.0/Modules"
+          $blocked=[Diagnostics.Process]::Start($ps)
+          $bo=$blocked.StandardOutput.ReadToEndAsync();$be=$blocked.StandardError.ReadToEndAsync()
+          if(-not $blocked.WaitForExit(15000)){$blocked.Kill();throw 'policy fixture timeout'}
+          if($blocked.ExitCode -eq 0 -or $bo.Result.Contains('NOT_ALLOWED_TO_RUN') -or -not $be.Result.Contains('UnauthorizedAccess')){throw 'restricted fixture did not demonstrate expected block'}
+          $p=[Diagnostics.ProcessStartInfo]::new()
+          $p.FileName=Join-Path $env:SystemRoot 'System32/cmd.exe';$p.Arguments='/d /c call 실행.cmd';$p.WorkingDirectory=$extract
+          $p.UseShellExecute=$false;$p.RedirectStandardInput=$true;$p.RedirectStandardOutput=$true;$p.RedirectStandardError=$true
+          $p.Environment['PSExecutionPolicyPreference']='Restricted'
+          $p.Environment['PATH']="$env:SystemRoot/System32"
+          foreach($k in @('ANDROID_HOME','ANDROID_SDK_ROOT','USERPROFILE','LOCALAPPDATA')){$p.Environment[$k]=$extract}
+          $p.Environment['JAVA_HOME_17_X64']=$env:JAVA_HOME_17_X64
+          $child=[Diagnostics.Process]::Start($p)
+          $o=$child.StandardOutput.ReadToEndAsync();$e=$child.StandardError.ReadToEndAsync();$child.StandardInput.Close()
+          if(-not $child.WaitForExit(30000)){$child.Kill();throw 'source launcher timeout'}
+          if($child.ExitCode -ne 2){throw ('expected missing ADB: '+$child.ExitCode+' '+$e.Result+' '+$o.Result)}
+          $result=Get-Content (Join-Path $extract 'RESULT.txt') -Raw|ConvertFrom-Json
+          if($result.reason -ne 'EXISTING_ADB_NOT_FOUND' -or $result.powerShellUsed -or $result.phoneAccessAttempted){throw 'source runtime did not reach exact expected boundary'}
+          Write-Host 'FIX2_SOURCE_RUNTIME_REACHED_ADB_DISCOVERY_WITH_RESTRICTED_POLICY'
+          # A second real wrapper invocation must replace, not replay, old output.
+          foreach($k in @('JAVA_HOME','JAVA_HOME_17_X64','ProgramFiles','ProgramFiles(x86)')){$p.Environment[$k]=$extract}
+          $noJava=[Diagnostics.Process]::Start($p);$njOut=$noJava.StandardOutput.ReadToEndAsync();$njErr=$noJava.StandardError.ReadToEndAsync();$noJava.StandardInput.Close()
+          if(-not $noJava.WaitForExit(15000)){$noJava.Kill();throw 'missing JDK timeout'}
+          if($noJava.ExitCode -ne 2){throw 'missing JDK expected blocked exit'}
+          $result2=Get-Content (Join-Path $extract 'RESULT.txt') -Raw|ConvertFrom-Json
+          if($result2.reason -ne 'EXISTING_JDK_NOT_FOUND'){throw 'missing JDK result inaccurate'}
+          if(-not @(Get-ChildItem (Join-Path $extract 'logs') -Filter previous-*).Count){throw 'previous result not retained'}
+          $policyAfter=Read-Policies
+          if($policyBefore -cne $policyAfter){throw 'policy changed'}
+          $out=Join-Path $env:RUNNER_TEMP 'kabiseo-java-out';New-Item -ItemType Directory $out|Out-Null
+          Copy-Item "$package/*" $out -Recurse
+          $manifest=[ordered]@{}
+          foreach($file in Get-ChildItem $package -Recurse -File){
+            $rel=[IO.Path]::GetRelativePath($package,$file.FullName)
+            $digest=(Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            if((Get-FileHash (Join-Path $extract $rel)).Hash.ToLowerInvariant() -ne $digest){throw 'payload changed'}
+            $manifest[$rel]=$digest
+          }
+          $text=[IO.File]::ReadAllText((Join-Path $out '실행.cmd'))
+          if($text -match '(?i)powershell\.exe|pwsh|Set-ExecutionPolicy|Unblock-File|EncodedCommand|ExecutionPolicy'){throw 'forbidden wrapper dependency'}
+          if(@(Get-ChildItem $out -Recurse -File|Where-Object {$_.Extension -in '.exe','.dll','.jar','.class','.ps1'}).Count){throw 'unexpected shipped binary or PowerShell'}
+          @{schema='KABISEO_JAVA_ROUTE_FIX2_VERIFICATION';status='WINDOWS_SOURCE_LAUNCH_PASS';gitSha=$env:GITHUB_SHA;runId=$env:GITHUB_RUN_ID;powerShellPayloadFiles=0;newRuntimeDownloaded=$false;javaVersion=(& "$env:JAVA_HOME_17_X64/bin/java.exe" -version 2>&1|Select-Object -First 1).ToString();payloadSha256=$manifest;restrictedPowerShellScriptStillBlocked=$true;policyUnchanged=$true;packagedNoAdbPathPass=$true;packagedNoJdkPathPass=$true;physicalPhoneRead=$false;cameraControlVerified=$false}|ConvertTo-Json -Depth 5|Set-Content "$out/verification.json" -Encoding utf8
+          Write-Host 'FIX2_PACKAGED_SOURCE_LAUNCH_PASS_RESTRICTED_PS_UNCHANGED_PHONE_NOT_RUN'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-java-FIX2-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-java-out/*
+          retention-days: 14
+          if-no-files-found: error

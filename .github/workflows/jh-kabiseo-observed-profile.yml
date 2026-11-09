@@ -1,0 +1,57 @@
+name: JH Kabiseo observed production profile reconciliation
+on:
+  push:
+    branches: [kabiseo-camera-metadata-v05-20261105]
+    paths:
+      - 'host-kabiseo-assist/server/observed-profile*.mjs'
+      - 'host-kabiseo-assist/docs/LIVE_PROFILE_OBSERVATION_V017.json'
+      - '.github/workflows/jh-kabiseo-observed-profile.yml'
+permissions: {contents: read}
+concurrency:
+  group: kabiseo-observed-profile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  preserve-live-flags-no-deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false, path: candidate}
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false, path: baseline, ref: '0663e0c3b434f300803e5cf272609032a5e519d3'}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with: {node-version: '22.23.4', package-manager-cache: false}
+      - name: Syntax and exact preservation of both original source lineages
+        run: |
+          set -euo pipefail
+          for f in candidate/host-kabiseo-assist/server/observed-profile*.mjs; do node --check "$f"; done
+          # The long-lived review branch predates live Perplexity integration.
+          # No review-branch jh-server file is used to build the live-profile candidate.
+          # Validate its preservation against its OWN last reviewed commit instead
+          # of pretending historical and live source trees were originally equal.
+          git -C candidate fetch --no-tags --depth=1 origin 6016be5f08e81200d1bcb78387025ab1be6c661b
+          git -C candidate diff --exit-code 6016be5f08e81200d1bcb78387025ab1be6c661b HEAD -- jh-server
+          test "$(git -C baseline rev-parse HEAD)" = 0663e0c3b434f300803e5cf272609032a5e519d3
+          git -C baseline diff --exit-code
+      - name: Restore unchanged locked dependencies without install scripts
+        run: |
+          set -euo pipefail
+          npm ci --prefix baseline/jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix baseline/jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Preserve previous minimal-profile startup behavior
+        run: node candidate/host-kabiseo-assist/server/operator-start.integration.mjs baseline "$RUNNER_TEMP/kabiseo-old-profile"
+      - name: Reproduce live original source and validate observed-profile camera candidate
+        run: node candidate/host-kabiseo-assist/server/observed-profile.integration.mjs baseline "$RUNNER_TEMP/kabiseo-observed-profile"
+      - name: Original baseline still unchanged
+        if: always()
+        run: git -C baseline diff --exit-code
+      - name: Preserve evidence only, not source/dependencies/APK/keys
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-observed-profile-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/kabiseo-old-profile/*-result.json
+            ${{ runner.temp }}/kabiseo-observed-profile/*-result.json
+          retention-days: 7
+          if-no-files-found: warn

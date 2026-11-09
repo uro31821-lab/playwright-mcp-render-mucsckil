@@ -1,0 +1,83 @@
+name: JH Kabiseo exact public cache completion
+on:
+  push:
+    branches: ['kabiseo-camera-metadata-v05-20261105']
+    paths: ['.github/workflows/jh-kabiseo-cache-completion.yml']
+permissions: {contents: read}
+jobs:
+  public-dependency-metadata-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with: {distribution: temurin, java-version: '17'}
+      - name: Prepare pinned existing public tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "GRADLE_USER_HOME=$RUNNER_TEMP/kabiseo-exact-public-home" >> "$GITHUB_ENV"
+          curl -fL --retry 2 --max-time 180 https://downloads.gradle.org/distributions/gradle-8.9-bin.zip -o "$RUNNER_TEMP/g.zip"
+          printf '%s  %s\n' d725d707bfabd4dfdc958c624003b3c80accc03f7037b5122c4b1d0ef15cecab "$RUNNER_TEMP/g.zip" | sha256sum -c --strict
+          unzip -q "$RUNNER_TEMP/g.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-8.9/bin" >> "$GITHUB_PATH"
+      - name: Reproduce public file-JAR graph, not private JH source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 host-kabiseo-assist/tools/offline-kit/prepare.py seed
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          root=Path(os.environ['RUNNER_TEMP'])/'kabiseo-public-seed'
+          p=root/'app/build.gradle.kts'
+          s=p.read_text()
+          pairs=[('implementation("com.squareup.okhttp3:okhttp:4.12.0")','implementation(files("libs/okhttp-4.12.0.jar"))'),('implementation("com.squareup.okio:okio-jvm:3.6.0")','implementation(files("libs/okio-jvm-3.6.0.jar"))')]
+          for old,new in pairs:
+              assert s.count(old)==1
+              s=s.replace(old,new)
+          p.write_text(s)
+          (root/'app/libs').mkdir()
+          PY
+          libs="$RUNNER_TEMP/kabiseo-public-seed/app/libs"
+          curl -fL --retry 2 https://repo.maven.apache.org/maven2/com/squareup/okhttp3/okhttp/4.12.0/okhttp-4.12.0.jar -o "$libs/okhttp-4.12.0.jar"
+          curl -fL --retry 2 https://repo.maven.apache.org/maven2/com/squareup/okio/okio-jvm/3.6.0/okio-jvm-3.6.0.jar -o "$libs/okio-jvm-3.6.0.jar"
+          printf '%s  %s\n' b1050081b14bb7a3a7e55a4d3ef01b5dcfabc453b4573a4fc019767191d5f4e0 "$libs/okhttp-4.12.0.jar" 67543f0736fc422ae927ed0e504b98bc5e269fda0d3500579337cb713da28412 "$libs/okio-jvm-3.6.0.jar" | sha256sum -c --strict
+      - name: Warm actual matching dependency graph on synthetic app
+        working-directory: ${{ runner.temp }}/kabiseo-public-seed
+        run: gradle --no-daemon --max-workers=2 --console=plain :app:assembleRelease :app:testReleaseUnitTest :app:lintRelease
+      - name: Export only resolution metadata and Kotlin standard-library artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle --stop
+          python3 - <<'PY'
+          from pathlib import Path
+          import os,json,hashlib,zipfile
+          root=Path(os.environ['GRADLE_USER_HOME'])/'caches/modules-2'
+          out=Path(os.environ['RUNNER_TEMP'])/'kabiseo-cache-supplement';out.mkdir()
+          prefixes=[root/'metadata-2.106']+list((root/'files-2.1/org.jetbrains.kotlin').glob('kotlin-stdlib*'))
+          rows={}
+          with zipfile.ZipFile(out/'cache-supplement.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for prefix in prefixes:
+                  assert prefix.is_dir()
+                  for p in sorted(prefix.rglob('*')):
+                      if p.is_dir():continue
+                      assert p.is_file() and not p.is_symlink()
+                      if p.name.endswith('.lock') or p.name=='gc.properties':continue
+                      data=p.read_bytes();name=p.relative_to(root).as_posix()
+                      assert name not in rows
+                      rows[name]={'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()}
+                      z.writestr(name,data)
+              z.writestr('MANIFEST.json',json.dumps({'schema':'KABISEO_PUBLIC_CACHE_SUPPLEMENT_V1','run_id':os.environ['GITHUB_RUN_ID'],'commit':os.environ['GITHUB_SHA'],'private_source':False,'full_jh_build':False,'files':rows},indent=2))
+          result={'sha256':hashlib.sha256((out/'cache-supplement.zip').read_bytes()).hexdigest(),'files':len(rows),'fullJHBuild':'NOT_RUN','phoneCommands':0}
+          (out/'RESULT.json').write_text(json.dumps(result,indent=2))
+          print('CACHE_SUPPLEMENT_RESULT='+json.dumps(result))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: kabiseo-exact-public-cache-${{ github.run_id }}
+          path: ${{ runner.temp }}/kabiseo-cache-supplement/*
+          retention-days: 3
+          if-no-files-found: error
