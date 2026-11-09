@@ -1,34 +1,18 @@
-# 이비서 0.5.9 FIX4 / v175 — Global Mix runtime resync
+# 이비서 0.5.9 FIX13 / v184 — Melon title-only retry
 
-## v174 실기기 blocker
-- build/sign/update install/versionCode=174 PASS.
-- PLAYING에서 `routePath=GLOBAL_OUTPUT_MIX`, `audioSessionId=0`, `processingRouteAvailable=true`, `globalMixFallbackActive=true`, `profileApplied=true`, `mappedGenrePreset=vocals`까지 확인.
-- 그러나 runtime coordinator는 `sourceVerified=false`, `CONTENT_UNVERIFIED`, native `OWNED_EFFECTS_RELEASED`, `engineConfirmed=false`.
-- `itemVerified=false` 자체는 blocker가 아니며 core는 sessionOnly/sessionWithGenre로 item id 없이도 PENDING 적용 가능.
+## v183 실기기 결과
+- build / original-certificate signing / update install / versionCode 183 readback PASS.
+- YouTube Music 현재 곡 `NEON`, artist=`A2O 및 A2O LITE` 확인.
+- native EQ engineConfirmed PASS.
+- 그러나 자동 장르는 `vocals`, `genreEvidence=vocal_clarity_fallback`, `genreVerified=false`, 새 weak cache hit로 남음.
 
-## FIX4
-- provider의 현재 verified route를 runtime이 callback miss 시 직접 재동기화하는 `currentPlaybackForRuntime()` 추가.
-- provider가 이미 계산한 standard/global-mix admission을 그대로 재사용하며 새 route를 만들거나 gate를 우회하지 않음.
-- MediaSession 변화와 15초 continuity 검사에서 `trustedOverride=false`일 때만 1회 pull.
-- source sequence를 AtomicLong으로 변경해 callback/pull 경합에서도 단조 증가.
-- 표준 nonzero session은 항상 우선.
-- global mix는 기존 단일 로컬 YouTube Music/no other media session gate 유지, spatial width=0.
-- native Equalizer control/enabled/band readback이 확인돼야 ENGINE_CONFIRMED.
+## FIX13
+- Melon JSON 검색은 기존 `title + artist`를 먼저 사용.
+- 정확 후보가 없으면 `title only`를 1회 추가 검색.
+- 후보 수용은 기존 normalized exact title + artist token score >=90을 그대로 유지.
+- Melon JSON 요청에 Referer 추가.
+- cache schema 8s/8w -> 9s/9w로 올려 v183의 새 weak fallback을 즉시 무효화.
+- no lyrics fetch / no audio capture / no player transport / no uninstall / no data reset.
 
-## 로컬 검증
-- core global-mix harness 7 assertions PASS
-- runtime resync source contract 9 assertions PASS
-- PowerShell 단일 UTF-8 BOM + CRLF PASS (FIX3의 double-BOM 경고 제거)
-- source manifest 471 files
-- source-manifest SHA-256 `5b3cc58afd3ed2fa6f8306fdf68a2970f1ac3474a80c5ceb29ad522b3d2621b2`
-- one-click ZIP 517 entries, package manifest 516 files, hash mismatch 0
-- ZIP SHA-256 `53b5f24c4addf36b6fb39b40acef6de2ac4409c47fd6fd92f2346cc60c1fdac0`
-
-## 미실행
-- Windows full Gradle v175 build
-- original certificate signing
-- update install/versionCode=175 readback
-- phone global-mix engine E2E
-
-## 안전 경계
-no audio capture, no player transport, no automatic command replay, no uninstall/data reset/new signing key/server deploy.
+## 목표 E2E
+`NEON -> melon_song_genre -> genre-pop -> engineConfirmed=true -> native continuity readback`
