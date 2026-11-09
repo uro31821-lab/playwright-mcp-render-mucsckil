@@ -11,11 +11,13 @@ repositories {
     google { metadataSources { mavenPom() } }
     mavenCentral { metadataSources { mavenPom() } }
 }
+def cameraVersion = (project.findProperty('cameraVersion') ?: '1.5.2').toString()
+if (!['1.4.2','1.5.2','1.5.3'].contains(cameraVersion)) throw new GradleException('Camera version not in reviewed allowlist')
 def roots = [
-    'androidx.camera:camera-core:1.5.2',
-    'androidx.camera:camera-camera2:1.5.2',
-    'androidx.camera:camera-lifecycle:1.5.2',
-    'androidx.camera:camera-view:1.5.2',
+    "androidx.camera:camera-core:${cameraVersion}",
+    "androidx.camera:camera-camera2:${cameraVersion}",
+    "androidx.camera:camera-lifecycle:${cameraVersion}",
+    "androidx.camera:camera-view:${cameraVersion}",
     'androidx.activity:activity-ktx:1.10.1',
     'com.google.mediapipe:tasks-core:1.1.1',
     'com.google.mediapipe:tasks-vision:1.1.1',
