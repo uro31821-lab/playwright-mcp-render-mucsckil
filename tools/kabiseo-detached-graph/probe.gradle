@@ -42,7 +42,7 @@ tasks.register('metadataOnlyGraph') {
             def nodes = result.allComponents.findAll { it.id instanceof ModuleComponentIdentifier }
                 .collect { c ->
                     [group:c.id.group, module:c.id.module, version:c.id.version,
-                     selectionReason:c.selectionReason.description]
+                     selectionReason:c.selectionReason.toString()]
                 }.sort { a,b -> (a.group+':'+a.module).compareTo(b.group+':'+b.module) }
             def edges = result.allDependencies.collect { d ->
                 if (d instanceof ResolvedDependencyResult) {
