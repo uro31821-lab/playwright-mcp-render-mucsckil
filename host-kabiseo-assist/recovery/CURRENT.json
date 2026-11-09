@@ -1,12 +1,12 @@
 {
   "schema": "KABISEO_REUSE_CONTINUATION_V026",
   "recordedKstDate": "2026-11-09",
-  "userDevelopmentState": "DETACHED_GRADLE_KOTLIN_2021_CAUSED_BY_CAMERAX152_ALTERNATIVE_142_SELECTED_1924",
+  "userDevelopmentState": "CAMERAX142_V152_PUBLIC_BYTECODE_API_SURFACE_INSPECTED_NO_PRIVATE_BINARY_EXECUTION",
   "target": "Reuse private PhotoMaster AI capture within existing JH v0.24; no GPT photo transfer, no beauty edits",
   "functionalAppVersion": "v0.24.2-private-review-not-built",
-  "reviewVersion": "0.33-detached-kotlin-root-cause-and-camerax142-selection",
-  "status": "CAMERAX142_POM_ONLY_GRADLE_SELECTED_KOTLIN1924_WITH_ZERO_UNRESOLVED_ANDROID_BUILD_NOT_RUN_SECURITY_REVIEW",
-  "requiredUserAction": "NONE: no old ZIP upload, no USB, no install.",
+  "reviewVersion": "0.34-public-CameraX142-152-API-static-delta",
+  "status": "CAMERAX142_PUBLIC_REQUIRED_NAME_CHECKS_PASS_BUT_THREE_NEWER_OVERLOADS_PRIVATE_V0242_API_AUDIT_PENDING_SECURITY_REVIEW",
+  "requiredUserAction": "NONE: previous source ZIP preserved; no new reupload or USB",
   "priorCheckpoint": {
     "commit": "c14550b8bb17e9637325f593c88be6792f07d52e",
     "path": "host-kabiseo-assist/recovery/CURRENT.json",
@@ -118,7 +118,7 @@
     "model": "Evaluate exact licensed alternative only against actual private initialization API; do not silently replace current float32 model",
     "lockfileCreated": false
   },
-  "next": "Check private v0.24.2 exact CameraX API usage against CameraX1.4.2 published classes. If all APIs present, prepare separate private review-only CameraX1.4.2 version patch, but retain original source unmodified and release security REVIEW. Complete JH real Android Gradle8.9 dependency graph and compiler only once security gate SAFE; no APK sign/install or phone actions before authorization.",
+  "next": "Access exact private v0.24.2 archive SHA f4f85d1b... in working local execution environment, examine PhotoMaster MainActivity.kt and SceneAnalyzer.kt for CameraX 1.5-only API and three identified new overloads, then make v0.24.3 source-only review patch pinning CameraX 1.4.2 if usage permits. Validate Android project full dependency security before JH build; security REVIEW holds build/sign/install. Do not repeat public CameraX AAR scan without changed inputs.",
   "securityGateVerdict": "REVIEW",
   "androidFullBuild": "NOT_RUN",
   "signed": false,
@@ -152,7 +152,10 @@
     "Reuse v031 module/Guava scan run42495761411; Kotlin CameraX1.5.3 marker 1.9.9999; do not treat as compiler incompatibility until validation",
     "No release, no private JH source upload to public GitHub while security REVIEW",
     "Reuse detached Gradle v032 successful run42538230660, culprit run42538437298, CameraX1.4.2 alternative run42538806613; no identical graph rerun.",
-    "Don't treat temporary Gradle metadata resolution as original JH app compile, signed APK or security SAFE."
+    "Don't treat temporary Gradle metadata resolution as original JH app compile, signed APK or security SAFE.",
+    "Reuse CameraX1.4.2 vs 1.5.2 bytecode ABI run42546003750 SHA b475ee7..., 3 new overloads; no repeat identical scan",
+    "Do not infer private v0.24.2 CameraX1.4.2 compatibility from public API alone",
+    "No private source upload to public GitHub, even for Gradle build; release/security review still required"
   ],
   "privateArchiveReadThisStep": true,
   "modelLicenseAlternateVerified": true,
@@ -292,6 +295,46 @@
       "Vendor securityGateVerdict remains REVIEW"
     ],
     "releaseApproved": false,
+    "securityGateVerdict": "REVIEW"
+  },
+  "publicCameraXApiReview": {
+    "schema": "KABISEO_PUBLIC_CAMERAX142_V152_API_V034",
+    "sourceCommit": "e4edcc3dad17e95761bf73f187fe4450355bb692",
+    "runId": 42546003750,
+    "jobId": 128931047718,
+    "status": "completed",
+    "conclusion": "success",
+    "artifactId": 13643551815,
+    "artifactSha256": "b475ee7b663817917bd3b5542a4f8e6fdec01bbccd3044173ff1839ccc47774f",
+    "comparedCameraVersions": [
+      "1.4.2",
+      "1.5.2"
+    ],
+    "cameraModules": [
+      "camera-core",
+      "camera-camera2",
+      "camera-lifecycle",
+      "camera-view"
+    ],
+    "classFileCount142": 1030,
+    "classFileCount152": 1144,
+    "newerOnlyPublicMemberSignatureCount": 299,
+    "expectedCameraMethodNamesMissingIn142": [],
+    "expectedCameraExactDescriptorsOnlyIn152": [
+      "ImageCapture.takePicture(OutputFileOptions,OutputFileOptions,Executor,OnImageSavedCallback)",
+      "ProcessCameraProvider.bindToLifecycle(LifecycleOwner,CameraSelector,SessionConfig)",
+      "ProcessCameraProvider.unbind(SessionConfig)"
+    ],
+    "expectedCameraExactDescriptorCountOnlyIn152": 3,
+    "knownBasicFocusZoomExposureSingleOutputCaptureMethods": "Present in CameraX1.4.2 public classfiles",
+    "privateSourceMethodCallSiteScanned": false,
+    "photoMasterV0242DowngradeCompileProven": false,
+    "androidBuild": "NOT_RUN",
+    "cameraX142VersionAppliedToPrivatePatch": false,
+    "officialAarIntegrity": "publisher sidecar matched, archive CRC verified",
+    "windowsDefender": "scan completed, no threat reported, result is not full security approval",
+    "publishedPrivateJHSourceToPublicGithub": false,
+    "executedVendorCode": false,
     "securityGateVerdict": "REVIEW"
   }
 }
