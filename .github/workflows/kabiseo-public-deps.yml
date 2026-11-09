@@ -16,8 +16,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0" 1>/dev/null
+      - name: Verify preinstalled Android SDK 35 (do not call obsolete SDK tools package)
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          which sdkmanager
+          if [ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" ]; then
+            yes | sdkmanager --install "platforms;android-35" "build-tools;35.0.0" >/dev/null
+          fi
+          test -f "$ANDROID_HOME/platforms/android-35/android.jar"
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
