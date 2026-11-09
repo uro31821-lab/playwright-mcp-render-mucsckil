@@ -1,0 +1,268 @@
+{
+  "schema": "JH_EBISEO_053_INDEPENDENT_HOST_PROPOSAL_REVIEW_V1",
+  "reviewedAtUtc": "2026-11-05T15:36:42.861354+00:00",
+  "status": "APPROVED_FOR_PIN_UPDATE_AND_BUILD",
+  "phase": "PRE_APPLY_VIRTUAL_CANDIDATE",
+  "baselineSourceRoot": "/workspace/scratch/0100362999b0/recovered/stage78-location-once-fix1/extracted/data/android-source",
+  "baselineManifestSha256": "eb30625d627ec7c9ee80efaa8ac74cfb26dc6bc9fe86e32f261b1c26d833a2ea",
+  "baselineFileCount": 440,
+  "proposalRoot": "/workspace/scratch/0100362999b0/qa/nov6-audio-lifetime053/host-proposal",
+  "proposalDiffSha256": "228664fb6c53b2c4eb5e9636a49845359926714b2993e2c51e0a5c7702aeac02",
+  "files": [
+    {
+      "path": "app/build.gradle.kts",
+      "baselineSha256": "eb758692c41809749c4d79396c2e42e65b02312b12193dac604b70dc241a7d9e",
+      "proposedSha256": "95de48ac4d30cc5325bd58f2397394b0280d37cd7b95b7321fb0ade36de0d9b9",
+      "review": "Pin installed build tools; align one candidate version name; app ID, SDK levels, version code, release signing configuration retained."
+    },
+    {
+      "path": "app/src/main/AndroidManifest.xml",
+      "baselineSha256": "939e285e625a1d8d5a0b0f634aa6ecbb6257a6646fa5051fc893b27bc2bb0f60",
+      "proposedSha256": "28ba034b98c1174ec1016e54447a41233d5669f29d1453d845f2a7f6d49eef64",
+      "review": "Add MODIFY_AUDIO_SETTINGS and one non-exported notification listener; preserve existing dataSync declaration and permission scopes."
+    },
+    {
+      "path": "app/src/main/assets/jh-release.json",
+      "baselineSha256": "85d4f918d6668b1dacc673541595e7eb4c4cdfb428cd6a48b4378885b8568e15",
+      "proposedSha256": "cdf45c3571c8e807603c504bf83925c0d497d2f2afe41cb79c59ee2c73214d63",
+      "review": "Identify source candidate, exact immediate-parent manifest digest, new audio/timeout features, and explicit unverified phone/signing status."
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/BridgeService.kt",
+      "baselineSha256": "372a4ffedf70f79aec538b1f70f5aa3b91680171d3ee184128398a5c87d4e13e",
+      "proposedSha256": "f0228e89e52441d316d564fcb8a9fd980c0d0835c853fa3ad681d2662dc8bea4",
+      "review": "Add separately gated audio owner/routes plus per-instance timeout guard and synchronous foreground/started cleanup; preserve latest lifecycle and security core."
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/JH168RightNativeExecutor.kt",
+      "baselineSha256": "26774fb02616c33dc90921c875b11b02982890ec3bcfcd020f2edf462340a431",
+      "proposedSha256": "ca963c78eefb94e6bdb8b4f5f15a8e72ce473f167707318c890c98263c957649",
+      "review": "Return unsupported below API 30 before public display ID access; no guessed display IDs."
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/JH168Stage50SelectWindowDiagnostic.kt",
+      "baselineSha256": "f2f422214e4895d17d68a4a042d097a1eb83521e465944dff3261ec0b656654b",
+      "proposedSha256": "41965e4b79662c0bd5582aafd9b7cd50511c7a29409edc9223bf3e2400fc1244",
+      "review": "Guard public display ID reads below API 30."
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/JH168Stage62NativeSelectOptionRuntime.kt",
+      "baselineSha256": "03253657c5a90cf591717f98cdb5e5ef6c72fe71aca68f8b34aadb85402f96de",
+      "proposedSha256": "afaf788db724096bc5a737715d7166a51d70ee40388e57d243c8857411970a48",
+      "review": "Keep explicit API 30 proof at live display read boundary."
+    }
+  ],
+  "approvedHostAfterPins": {
+    "app/build.gradle.kts": "95de48ac4d30cc5325bd58f2397394b0280d37cd7b95b7321fb0ade36de0d9b9",
+    "app/src/main/AndroidManifest.xml": "28ba034b98c1174ec1016e54447a41233d5669f29d1453d845f2a7f6d49eef64",
+    "app/src/main/assets/jh-release.json": "cdf45c3571c8e807603c504bf83925c0d497d2f2afe41cb79c59ee2c73214d63",
+    "app/src/main/java/com/koreanlifehub/bridge/BridgeService.kt": "f0228e89e52441d316d564fcb8a9fd980c0d0835c853fa3ad681d2662dc8bea4",
+    "app/src/main/java/com/koreanlifehub/bridge/JH168RightNativeExecutor.kt": "ca963c78eefb94e6bdb8b4f5f15a8e72ce473f167707318c890c98263c957649",
+    "app/src/main/java/com/koreanlifehub/bridge/JH168Stage50SelectWindowDiagnostic.kt": "41965e4b79662c0bd5582aafd9b7cd50511c7a29409edc9223bf3e2400fc1244",
+    "app/src/main/java/com/koreanlifehub/bridge/JH168Stage62NativeSelectOptionRuntime.kt": "afaf788db724096bc5a737715d7166a51d70ee40388e57d243c8857411970a48"
+  },
+  "preservedCriticalFiles": [
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/AndroidAgent.kt",
+      "sha256": "830b922bb661086728927821a40b6175fd1a9afcf6dcdb3c80b3501daa47a878"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/LocationOnceActivity.kt",
+      "sha256": "62bbff10907fd1c1501978f509b0817c483fadea6899ca7a029f7ee57380993b"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/LocationOnceController.kt",
+      "sha256": "99233444c3f066c21fcf12f94e003c9ca77d0e9e734c660608f50d650d81b36d"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/SecureBridge56.kt",
+      "sha256": "cecd15e6a254ad6d5c023cb0efb6c627a65b41ec0b8dc2c30611eafbfa38e4bf"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/TripAgentTransport.kt",
+      "sha256": "06bcf523ee701eb8dae36befff883cd54f5e11ae0462e0772f90a8fba5c65472"
+    },
+    {
+      "path": "app/src/test/java/com/koreanlifehub/bridge/TripAgentTransportLocationOnceTest.kt",
+      "sha256": "a43a79502fcf5d8f3a2854d9dc9dcbdabc087bdf692dd5ba8061e7fc93980760"
+    }
+  ],
+  "unchangedHostFileCount": 433,
+  "addedModuleJavaCount": 22,
+  "sourceFilesBeforeMergeState": 462,
+  "expectedFilesWithMergeState": 463,
+  "generatorSha256AtReview": "73c2f5f84add9f18eeb3bcb70afaf507850fde053c13a04519df5bcd7e313a39",
+  "generatorTransformationsSha256ExcludingHostAfterPins": "824568732b6645f4103479f437ece46f2a8af47b72afce4173fac83ed326efb7",
+  "pinUpdateRequired": false,
+  "checks": [
+    {
+      "name": "baseline_complete_440_files",
+      "status": "PASS",
+      "detail": "All 440 exact Stage78 manifest entries are present and hash matched."
+    },
+    {
+      "name": "baseline_manifest_matches_recovered_package",
+      "status": "PASS",
+      "detail": "Module baseline manifest is byte-identical to recovered package manifest."
+    },
+    {
+      "name": "seven_proposed_host_hashes_match",
+      "status": "PASS",
+      "detail": "Hashes computed independently from actual seven files; no proposal file is unaccounted for."
+    },
+    {
+      "name": "proposal_only_replaces_existing_host_files",
+      "status": "PASS",
+      "detail": "Seven replacements are all present in the 440-file baseline and really differ."
+    },
+    {
+      "name": "generator_transformations_reproduce_reviewed_files",
+      "status": "PASS",
+      "detail": "Invoked pure transformation functions only; main(), --apply, and cache/build commands were not invoked."
+    },
+    {
+      "name": "generator_baseline_pins_match_latest_source",
+      "status": "PASS",
+      "detail": "Preflight pins identify the current Stage78 baseline."
+    },
+    {
+      "name": "onCreate_preserved",
+      "status": "PASS",
+      "detail": "Original lifecycle method is unchanged."
+    },
+    {
+      "name": "onInterrupt_preserved",
+      "status": "PASS",
+      "detail": "Original lifecycle method is unchanged."
+    },
+    {
+      "name": "onServiceConnected_only_adds_audio_owner_initialization",
+      "status": "PASS",
+      "detail": "Existing location/security/reconnect callback remains byte-for-byte after removing the one reviewed addition."
+    },
+    {
+      "name": "onDestroy_preserves_original_cleanup_and_closes_audio",
+      "status": "PASS",
+      "detail": "Audio closes only in genuine service destruction; onInterrupt remains unchanged."
+    },
+    {
+      "name": "keepalive_change_is_only_timeout_guard",
+      "status": "PASS",
+      "detail": "Original notification and dataSync promotion paths retained."
+    },
+    {
+      "name": "base_wire_hmac_nonce_expiry_credential_verification_unchanged",
+      "status": "PASS",
+      "detail": "Core verifier still precedes the separate audio extension scope checks."
+    },
+    {
+      "name": "unsigned_audio_explicitly_rejected",
+      "status": "PASS",
+      "detail": "Audio cannot take the existing unsigned legacy-job path."
+    },
+    {
+      "name": "audio_worker_checks_captured_admission_and_current_secure_session",
+      "status": "PASS",
+      "detail": "Reviewed audio worker admission fence remains present; no timeout-side authorization added."
+    },
+    {
+      "name": "22_module_java_files_match_pins_and_052",
+      "status": "PASS",
+      "detail": "Audio production Java set is unchanged from previously reviewed 0.5.2."
+    },
+    {
+      "name": "module_has_no_host_path_collisions",
+      "status": "PASS",
+      "detail": "22 new Java paths do not replace host classes."
+    },
+    {
+      "name": "latest_location_once_android_agent_and_secure56_preserved",
+      "status": "PASS",
+      "detail": "AndroidAgent is not transformed; current location-once implementation/test files and Secure56 remain byte-identical."
+    },
+    {
+      "name": "virtual_candidate_expected_source_shape",
+      "status": "PASS",
+      "detail": "440 baseline files; seven replaced, 433 untouched, 22 added; merge state adds the 463rd file when applied."
+    },
+    {
+      "name": "manifest_adds_only_audio_settings_permission",
+      "status": "PASS",
+      "detail": "No recording, global package visibility, or alternative foreground-service permission added."
+    },
+    {
+      "name": "existing_services_unchanged_listener_only_added",
+      "status": "PASS",
+      "detail": "Bridge retains dataSync; the added metadata listener is permission protected and not exported."
+    },
+    {
+      "name": "youtube_query_stays_single",
+      "status": "PASS",
+      "detail": "Existing scoped YTM query retained without duplication."
+    },
+    {
+      "name": "candidate_version_asset_and_gradle_agree",
+      "status": "PASS",
+      "detail": "Triple-suffix baseline bug is replaced with one consistent candidate version name."
+    },
+    {
+      "name": "corrected_parent_identity_uses_exact_manifest",
+      "status": "PASS",
+      "detail": "Stale ancestor hash finding resolved; immediate parent and digest basis are explicit."
+    },
+    {
+      "name": "release_does_not_claim_phone_or_signing_verification",
+      "status": "PASS",
+      "detail": "Actual build receipts remain external; no installed/signed/audio-verified claim introduced."
+    },
+    {
+      "name": "release_preserves_all_existing_features",
+      "status": "PASS",
+      "detail": "Existing location and no-replay features retained."
+    },
+    {
+      "name": "actual_kotlin_body_contract_passes_same_source",
+      "status": "PASS",
+      "detail": "12 actual-body simulation scenarios, 72 assertions; no Android/Binder/device claim."
+    },
+    {
+      "name": "proposal_hashes_unchanged_through_review",
+      "status": "PASS",
+      "detail": "No concurrent proposal change occurred while evidence was assembled."
+    }
+  ],
+  "failedChecks": [],
+  "resolvedFindings": [
+    {
+      "issue": "Inherited ancestor source hash would have been mislabeled as the new immediate parent.",
+      "resolution": "Parent source identity now equals the exact recovered Stage78 manifest SHA-256 with an explicit basis; stale sourceIdentityBasis removed."
+    },
+    {
+      "issue": "Generator comment incorrectly described nullable command ID as a current Stage78 compiler failure.",
+      "resolution": "Comment now describes retention of the reviewed empty sentinel; current nullable host policy remains unchanged."
+    }
+  ],
+  "sourceBoundarySimulation": {
+    "report": "/workspace/scratch/0100362999b0/qa/nov6-audio-lifetime053/bridge-timeout-contract-results.json",
+    "reportSha256": "9fed7465258f580324da3482c7c6e5e4acdaac6e85c9d143f8814792f76b7e2b",
+    "scenarios": 12,
+    "assertions": 72,
+    "status": "PASS"
+  },
+  "verificationAtReview": {
+    "extractedKotlinCompileAndSimulation": "PASS",
+    "fullProductionAndroidCompileLintTests": "NOT_RUN_BY_THIS_REVIEW_PENDING_SEPARATE_RECEIPT",
+    "androidBinderLifecycle": "NOT_RUN",
+    "phoneRuntimeAndSoundContinuity": "NOT_RUN",
+    "originalCertificateSigningAndInstallation": "NOT_RUN"
+  },
+  "limitations": [
+    "Review is of a virtual proposal; root must pin these seven output hashes before apply, then verify all final source files and the generated merge state.",
+    "Actual-body simulation proves callback code behavior under spies, not Android Binder retention or six-hour time-limit enforcement.",
+    "Full app compile/lint/test receipts and original-certificate signing are separate gates.",
+    "Injected stopForeground exception still propagates after stopSelf; no blanket recovery guarantee is asserted.",
+    "No real device installation, YouTube Music processing, sound continuity, or foreground-service policy eligibility was certified."
+  ],
+  "productionEditsPerformed": false,
+  "deviceCallsPerformed": false
+}

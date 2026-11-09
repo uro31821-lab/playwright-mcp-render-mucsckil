@@ -1,0 +1,42 @@
+{
+  "collectedAtUtc": "2026-11-05T15:42:26.869379+00:00",
+  "scope": "Actual lint report aggregation; no suppression or lint rerun",
+  "errors": 0,
+  "warnings": 57,
+  "severities": {
+    "Warning": 57
+  },
+  "issueCounts": {
+    "ApplySharedPref": 5,
+    "UnusedAttribute": 1,
+    "CredentialManagerSignInWithGoogle": 1,
+    "SwitchIntDef": 2,
+    "DiscouragedApi": 1,
+    "HardwareIds": 1,
+    "SetJavaScriptEnabled": 1,
+    "ObsoleteSdkInt": 8,
+    "StaticFieldLeak": 4,
+    "RedundantNamespace": 1,
+    "MissingApplicationIcon": 1,
+    "ClickableViewAccessibility": 4,
+    "SetTextI18n": 27
+  },
+  "reports": {
+    "xml": {
+      "file": "lint-results.xml",
+      "sha256": "27670bac534e4e7f000e64fc99b0bfe20001e8acabd53b6973e8881e3d402dc4",
+      "bytes": 72045
+    },
+    "txt": {
+      "file": "lint-results.txt",
+      "sha256": "cdae0b23f2a3655a5e36e7bbf6e83bf80eacb1fe3196ecc093c90f956aaa266a",
+      "bytes": 28164
+    },
+    "html": {
+      "file": "lint-results.html",
+      "sha256": "8174b3cc2866208d8a570571d6182e58044cc0bed3b665527384d82dcc65cfc8",
+      "bytes": 188599
+    }
+  },
+  "status": "PASS"
+}
