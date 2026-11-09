@@ -55,7 +55,9 @@ jobs:
           $state | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $out 'probe-status.json') -Encoding utf8
           Write-Host ('KABISEO_DETACHED_STATUS='+($state|ConvertTo-Json -Depth 8 -Compress))
           if(Test-Path (Join-Path $out 'gradle-output.txt')){
-            Get-Content (Join-Path $out 'gradle-output.txt')|Where-Object {$_ -match 'KABISEO_DETACHED_|FAILURE:|Could not resolve|No matching variant|Could not find'} | ForEach-Object{Write-Host $_}
+            # This isolated probe has no JH source, secrets, or repository credentials.
+            # Print bounded real failure context rather than repeatedly guessing.
+            Get-Content (Join-Path $out 'gradle-output.txt') -Tail 45 | ForEach-Object{Write-Host $_}
           }
           exit 0
       - name: Fail closed on scope and report correctness
@@ -79,5 +81,6 @@ jobs:
             jh-graph-output/probe-status.json
             jh-graph-output/declaredOnly.json
             jh-graph-output/jhkotlin1924.json
+            jh-graph-output/gradle-output.txt
           retention-days: 14
           if-no-files-found: error
