@@ -16,3 +16,10 @@
 
 ## 목표 E2E
 `NEON -> melon_song_genre -> genre-pop -> engineConfirmed=true -> native continuity readback`
+
+## E184P2 packaging/test correction
+- E184P1 stopped at Gradle tests because MusicMetadataCachePolicyTest still expected old cache schema 8s/8w.
+- Runtime FIX13 code remains unchanged.
+- Test expectations now verify 9s/9w and explicitly reject old 8s/8w cache rows.
+- Repacked source/package manifests and source-manifest SHA pin were recalculated.
+- E184P2 ZIP SHA-256: d44e8e80b4d6d1b1328923ed8951f0f2148ceb2046955c1d31fd298d480f8b1b
