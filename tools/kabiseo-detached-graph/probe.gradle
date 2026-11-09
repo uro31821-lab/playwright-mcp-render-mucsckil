@@ -11,7 +11,7 @@ repositories {
     google { metadataSources { mavenPom() } }
     mavenCentral { metadataSources { mavenPom() } }
 }
-def cameraVersion = (project.findProperty('cameraVersion') ?: '1.5.2').toString()
+def cameraVersion = (System.getenv('JH_CAMERA_VERSION') ?: '1.5.2').trim()
 if (!['1.4.2','1.5.2','1.5.3'].contains(cameraVersion)) throw new GradleException('Camera version not in reviewed allowlist')
 def roots = [
     "androidx.camera:camera-core:${cameraVersion}",

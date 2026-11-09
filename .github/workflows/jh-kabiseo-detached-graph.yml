@@ -31,7 +31,8 @@ jobs:
           if(-not $g) {
             $state.status='NO_PREINSTALLED_GRADLE';$state.note='No external Gradle binary was downloaded or executed.'
           } else {
-            $state.cameraVersionScenario='1.4.2';$state.previousCamera152Result='Run 42538437298 previously selected kotlin-stdlib2.0.21'
+            $env:JH_CAMERA_VERSION='1.4.2'
+          $state.cameraVersionScenario='1.4.2';$state.previousCamera152Result='Run 42538437298 previously selected kotlin-stdlib2.0.21'
           $state.gradlePath=$g.Source
             $state.gradleCommandSha256=(Get-FileHash $g.Source -Algorithm SHA256).Hash.ToLowerInvariant()
             $display=@(& $g.Source --version 2>&1)
@@ -47,7 +48,7 @@ jobs:
               Set-Content -Path (Join-Path $project 'settings.gradle') -Value "rootProject.name = 'kabiseo-detached-metadata-probe'" -Encoding utf8
               Push-Location $project
               try {
-                & $g.Source --no-daemon --no-parallel --no-configuration-cache --warning-mode=none -PcameraVersion=1.4.2 metadataOnlyGraph *> (Join-Path $out 'gradle-output.txt')
+                & $g.Source --no-daemon --no-parallel --no-configuration-cache --warning-mode=none metadataOnlyGraph *> (Join-Path $out 'gradle-output.txt')
                 $state.gradleExitCode=$LASTEXITCODE
                 $state.status=if($LASTEXITCODE -eq 0){'DETACHED_GRADLE_METADATA_RESOLVED'}else{'DETACHED_GRADLE_METADATA_FAILED'}
               } finally {Pop-Location}
