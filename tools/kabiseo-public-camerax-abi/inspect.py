@@ -150,13 +150,20 @@ def run():
                 'newer':name_members(new,owner,names)
             }
         missing_core=[]
+        changed_descriptors=[]
         for owner,v in signatures.items():
             for name,decl in v['newer']['names'].items():
-                if decl and not v['older']['names'].get(name):missing_core.append(owner+'.'+name)
+                prior=v['older']['names'].get(name,[])
+                if decl and not prior:missing_core.append(owner+'.'+name)
+                for descriptor in decl:
+                    if descriptor not in prior:
+                        changed_descriptors.append({'owner':owner,'name':name,'descriptor':descriptor})
         report['comparison']={
             **delta,'selectedClassCount142':len(old),'selectedClassCount152':len(new),
             'matchedCallNameCatalog':signatures,
             'knownCameraOperationNameMissingIn142':missing_core,
+            'knownCameraOperationExactDescriptorsOnlyIn152':changed_descriptors,
+            'knownCameraOperationExactDescriptorsOnlyIn152Count':len(changed_descriptors),
             'previousGradleKotlinStdlib142WithExplicit1924':'1.9.24',
             'previousGradleKotlinStdlib152WithExplicit1924':'2.0.21',
             'sourceCompleteNotVerified':True,
@@ -170,7 +177,8 @@ def run():
     summary={k:report.get(k) for k in ('schema','status','securityGateVerdict','releaseApproved','failure')}
     c=report.get('comparison') or {}
     summary['comparison']={k:c.get(k) for k in ('selectedClassCount142','selectedClassCount152',
-       'publicMemberSignaturesNewerOnlyCount','publicClassesNewerOnly','knownCameraOperationNameMissingIn142')}
+       'publicMemberSignaturesNewerOnlyCount','knownCameraOperationNameMissingIn142',
+       'knownCameraOperationExactDescriptorsOnlyIn152Count','knownCameraOperationExactDescriptorsOnlyIn152')}
     print('KABISEO_CAMERAX_ABI='+json.dumps(summary,ensure_ascii=False,separators=(',',':')))
     if report['status']!='PUBLIC_ABI_SURFACE_COMPARED_NOT_APP_VALIDATED':raise SystemExit(2)
 if __name__=='__main__':run()
