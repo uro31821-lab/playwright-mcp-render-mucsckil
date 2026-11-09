@@ -1,0 +1,79 @@
+/* JH CAMERA V041: isolated published metadata review; no Android app/plugin/phone. */
+import groovy.json.JsonOutput
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.result.ResolvedDependencyResult
+import org.gradle.api.artifacts.result.UnresolvedDependencyResult
+
+repositories {
+    google { metadataSources { gradleMetadata(); mavenPom() } }
+    mavenCentral { metadataSources { gradleMetadata(); mavenPom() } }
+}
+def roots=[
+ 'androidx.camera:camera-core:1.4.2',
+ 'androidx.camera:camera-camera2:1.4.2',
+ 'androidx.camera:camera-lifecycle:1.4.2',
+ 'androidx.camera:camera-view:1.4.2',
+ 'androidx.activity:activity-ktx:1.10.1',
+ 'com.google.mediapipe:tasks-core:1.1.1',
+ 'com.google.mediapipe:tasks-vision:1.1.1',
+ 'com.google.protobuf:protobuf-javalite:4.36.2',
+ 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+]
+def scenarios=[
+ direct3372:[roots:['com.google.guava:guava:33.7.2-android'],force:null],
+ direct3380:[roots:['com.google.guava:guava:33.8.0-android'],force:null],
+ media3372Force:[roots:roots,force:'33.7.2-android'],
+ media3380Force:[roots:roots,force:'33.8.0-android'],
+ media3380Root:[roots:roots+['com.google.guava:guava:33.8.0-android'],force:null]
+]
+scenarios.each { n,s ->
+  def c=configurations.create(n)
+  c.canBeConsumed=false;c.canBeResolved=true;c.transitive=true
+  c.resolutionStrategy.force('com.google.protobuf:protobuf-javalite:4.36.2')
+  if(s.force)c.resolutionStrategy.force('com.google.guava:guava:'+s.force)
+  s.roots.each { dependencies.add(n,it) }
+}
+tasks.register('readVariants') {
+ doLast {
+  def out=new File(System.getenv('JH_VARIANT_OUTPUT') ?: 'jh-variant-output')
+  out.mkdirs()
+  scenarios.each { n,s ->
+    def resolution=configurations.getByName(n).incoming.resolutionResult
+    def nodes=resolution.allComponents.findAll { it.id instanceof ModuleComponentIdentifier }
+      .collect { x -> [group:x.id.group,module:x.id.module,version:x.id.version] }
+    def edges=resolution.allDependencies.collect { d ->
+      if(d instanceof ResolvedDependencyResult)
+        return [from:d.from.id.displayName,requested:d.requested.displayName,selected:d.selected.id.displayName]
+      if(d instanceof UnresolvedDependencyResult) {
+        def errors=[];def e=d.failure
+        for(int k=0;k<4 && e!=null;k++) {
+          errors.add([type:e.class.simpleName,message:(e.message ?: '').take(950)])
+          e=e.cause
+        }
+        return [from:d.from.id.displayName,requested:d.requested.displayName,unresolved:true,causes:errors]
+      }
+      return [unknown:true]
+    }
+    def choices=['com.google.guava:guava','org.jetbrains.kotlin:kotlin-stdlib',
+        'com.google.protobuf:protobuf-javalite','androidx.camera:camera-core',
+        'com.google.mediapipe:tasks-core','com.google.mediapipe:tasks-vision'].collectEntries { ga ->
+      def bits=ga.split(':')
+      def x=nodes.find { it.group==bits[0] && it.module==bits[1] }
+      [(ga):x?.version]
+    }
+    def bad=edges.findAll{ it.unresolved==true }
+    def rec=[schema:'KABISEO_PUBLIC_VARIANT_METADATA_V041',scenario:n,
+      checkedAtUtc:java.time.Instant.now().toString(),gradleVersion:gradle.gradleVersion,
+      moduleCount:nodes.size(),edgeCount:edges.size(),selected:choices,
+      missing:bad,missingCount:bad.size(),roots:s.roots,
+      repositories:'Google Maven and Maven Central, gradleMetadata and mavenPom',
+      originalJHSourceRead:false,androidPluginApplied:false,appBuilt:false,
+      vendorCodeExecuted:false,securityGateVerdict:'REVIEW',releaseApproved:false,
+      limitations:'Detached Gradle, no Android variant or original JH source'}
+    new File(out,n+'.json').text=JsonOutput.prettyPrint(JsonOutput.toJson(rec))
+    println('KABISEO_VARIANT_'+n+'='+JsonOutput.toJson([
+      nodes:rec.moduleCount,edges:rec.edgeCount,selected:rec.selected,
+      missing:bad.take(8),missingCount:rec.missingCount]))
+  }
+ }
+}
