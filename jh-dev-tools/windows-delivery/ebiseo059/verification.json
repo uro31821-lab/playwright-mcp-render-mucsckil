@@ -1,21 +1,25 @@
 {
   "schema": "JH_EBISEO059_MELON_TITLE_RETRY_FIX13_VERIFICATION_V1",
   "candidate": "JH184-EBISEO059-MELON-TITLE-RETRY-FIX13-20261110",
-  "confirmedV183Phone": {
-    "versionCode": 183,
+  "confirmedV184Phone": {
+    "versionCode": 184,
     "androidBuild": "PASS",
     "originalCertificateSigning": "PASS",
     "updateInstall": "PASS",
-    "phoneReadback": "VERSION183_READBACK_PASS",
+    "phoneReadback": "VERSION184_READBACK_PASS",
     "nowPlayingTitle": "NEON",
     "nowPlayingArtist": "A2O 및 A2O LITE",
+    "playbackStatus": "PLAYING",
+    "genreEvidence": "melon_song_genre",
+    "genreVerified": true,
+    "mappedGenrePreset": "genre-pop",
+    "genreConfidence": 94,
+    "profileApplied": true,
     "engineConfirmed": true,
     "nativeReadback": "NATIVE_CONTINUITY_READBACK_CONFIRMED",
-    "observedPreset": "vocals",
-    "genreEvidence": "vocal_clarity_fallback",
-    "genreVerified": false,
-    "genreCacheHit": true,
-    "e2e": "FAIL_GENRE_ONLY"
+    "activationStatus": "ACTIVE",
+    "applicationVerified": true,
+    "e2e": "PASS"
   },
   "fix13": {
     "melonCombinedQueryFirst": true,
@@ -42,9 +46,10 @@
     "versionCode": 184,
     "versionName": "jh184-stage77-location-once-native-select-fix3-keepalive-fix13-ebiseo059-melon-title-retry"
   },
-  "windowsGradleBuild": "NOT_RUN",
-  "originalCertificateSigning": "NOT_RUN",
-  "phoneInstall": "NOT_RUN",
-  "phoneE2E": "NOT_RUN",
-  "expectedPhoneE2E": "NEON -> melon_song_genre -> genre-pop -> engineConfirmed=true -> native continuity readback"
+  "windowsGradleBuild": "PASS",
+  "originalCertificateSigning": "PASS",
+  "phoneInstall": "UPDATE_ACCEPTED",
+  "phoneReadback": "VERSION184_READBACK_PASS",
+  "phoneE2E": "PASS",
+  "verifiedPhoneE2E": "NEON -> melon_song_genre -> genre-pop -> engineConfirmed=true -> NATIVE_CONTINUITY_READBACK_CONFIRMED"
 }
