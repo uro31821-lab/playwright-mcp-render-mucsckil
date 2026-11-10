@@ -85,6 +85,15 @@ export function createPhotoClaimGate({
             claims.get(rec.ownerId) !== rec) {
           return {ok:false,code:'PHONE_APPROVAL_UNVERIFIED'};
         }
+        // When the device proves the exact JPEG digest with its enrolled
+        // AndroidKeyStore signing key, bind this chat claim to those bytes.
+        // Never allow a differently uploaded photo to reach the GPT image tool.
+        if (receipt.photoSha256 !== undefined) {
+          if (typeof receipt.photoSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(receipt.photoSha256)) {
+            return {ok:false,code:'PHOTO_INTENT_DIGEST_INVALID'};
+          }
+          rec.expectedPhotoSha256 = receipt.photoSha256;
+        }
         rec.delivered = true;
         const pairingToken = rec.pairingToken;
         rec.pairingToken = null;
@@ -99,6 +108,12 @@ export function createPhotoClaimGate({
       if (!auth.ok) return auth;
       const photo = photoSession.consume(accessRecord);
       if (!photo?.ok) return photo ?? {ok:false,code:'PHOTO_NOT_READY'};
+      if (auth.record.expectedPhotoSha256 &&
+          photo.sha256 !== auth.record.expectedPhotoSha256) {
+        claims.delete(auth.ownerId);
+        if (photo.imageBytes?.fill) photo.imageBytes.fill(0);
+        return {ok:false,code:'SIGNED_PHOTO_DIGEST_MISMATCH'};
+      }
       claims.delete(auth.ownerId);
       return photo;
     },
