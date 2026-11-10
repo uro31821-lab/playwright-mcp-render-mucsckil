@@ -10,6 +10,7 @@ import sys
 BASE = Path("app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess")
 UI = BASE / "ui/CapturePreviewScreen.kt"
 CODEC = BASE / "jhglass/JhGlassPhotoClient.kt"
+SIGNER = BASE / "jhglass/JhGlassDeviceSigner.kt"
 SIGNATURE = (
     "@Composable\nfun CapturePreviewScreen(\n"
     "    preview: CapturePreview,\n"
@@ -18,70 +19,34 @@ SIGNATURE = (
     ") {"
 )
 SHARE_LABEL = "          Text(text = stringResource(R.string.share), color = Color.White)\n"
-STATE_CODE = '''  // Only the explicitly confirmed photo may be offered to JH. Reset on new preview.
-  var showJhConfirm by remember(preview) { mutableStateOf(false) }
-  var jhPrivacyConfirmed by remember(preview) { mutableStateOf(false) }
+STATE_CODE = '''  // A photo is sent only on an explicit tap. No repeated screen consent,
+  // background upload, or automatic retry; reset on a NEW photo preview.
   var jhSendSubmitted by remember(preview) { mutableStateOf(false) }
 '''
 BUTTON = '''          if (preview is CapturePreview.Photo) {
-            // No server-approved credential => button stays disabled.
             androidx.compose.material3.Button(
                 onClick = {
-                  if (jhTransferEnabled && !jhSendSubmitted) {
-                    jhPrivacyConfirmed = false
-                    showJhConfirm = true
+                  // One explicit tap authorizes at most this photo. The signer
+                  // and uploader must be invoked by the supplied trusted callback.
+                  if (jhTransferEnabled && onJhTransferPhoto != null && !jhSendSubmitted) {
+                    jhSendSubmitted = true
+                    onJhTransferPhoto.invoke(preview.bitmap)
                   }
                 },
-                enabled = jhTransferEnabled && !jhSendSubmitted,
+                enabled = jhTransferEnabled && onJhTransferPhoto != null && !jhSendSubmitted,
                 modifier = Modifier.testTag("jh_transfer_button"),
             ) {
               Text(text = "JH로 보내기")
             }
-            if (!jhTransferEnabled) {
-              Text(text = "JH 보안 연결 검증 후 활성화", color = Color.LightGray)
+            if (!jhTransferEnabled || onJhTransferPhoto == null) {
+              Text(text = "JH 최초 보안 연결 후 활성화", color = Color.LightGray)
+            } else {
+              Text(text = "누르면 이 사진 1장만 전송 · 환자·개인정보 전송 금지",
+                   color = Color.LightGray)
             }
           }
 '''
-CONFIRM = '''
-  if (showJhConfirm && preview is CapturePreview.Photo) {
-    androidx.compose.material3.AlertDialog(
-        modifier = Modifier.testTag("jh_photo_consent_dialog"),
-        onDismissRequest = { showJhConfirm = false },
-        title = { Text("JH 사진 전송 확인") },
-        text = {
-          Column {
-            Text("이 사진은 JH로 전달됩니다. 환자나 다른 사람의 개인정보가 있다면 취소하세요.")
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              androidx.compose.material3.Checkbox(
-                  checked = jhPrivacyConfirmed,
-                  onCheckedChange = { jhPrivacyConfirmed = it },
-                  modifier = Modifier.testTag("jh_privacy_checkbox"),
-              )
-              Text("환자·개인 식별정보가 없는 사진임을 확인")
-            }
-          }
-        },
-        confirmButton = {
-          androidx.compose.material3.TextButton(
-              enabled = jhTransferEnabled && jhPrivacyConfirmed && !jhSendSubmitted,
-              modifier = Modifier.testTag("jh_final_send_button"),
-              onClick = {
-                showJhConfirm = false
-                if (jhTransferEnabled && jhPrivacyConfirmed && !jhSendSubmitted) {
-                  jhSendSubmitted = true // never dispatch twice from the same preview
-                  onJhTransferPhoto(preview.bitmap)
-                }
-              },
-          ) { Text("전송 승인") }
-        },
-        dismissButton = {
-          androidx.compose.material3.TextButton(onClick = { showJhConfirm = false }) {
-            Text("취소")
-          }
-        },
-    )
-  }
-'''
+CONFIRM = ''
 
 
 def fail(message):
@@ -96,8 +61,8 @@ def patch(root: Path, kotlin_file: Path) -> str:
     text = original.read_text(encoding="utf-8")
     if 'jh_transfer_button' in text:
         if all(token in text for token in (
-            "jhTransferEnabled: Boolean = false", 'jh_photo_consent_dialog',
-            'jh_privacy_checkbox', 'jh_final_send_button', 'Intent.ACTION_SEND',
+            "jhTransferEnabled: Boolean = false", 'jhSendSubmitted = true',
+            'onJhTransferPhoto.invoke', 'Intent.ACTION_SEND',
         )):
             return "ALREADY_APPLIED"
         fail("Unknown/previous JH patch exists; never auto-overwrite")
@@ -129,12 +94,16 @@ def patch(root: Path, kotlin_file: Path) -> str:
     text = text.replace(SHARE_LABEL, SHARE_LABEL + BUTTON)
     text = text.replace(trailer, CONFIRM + trailer)
     if (text.count('Modifier.testTag("jh_transfer_button")') != 1 or
-        text.count('jh_photo_consent_dialog') != 1 or
+        text.count('onJhTransferPhoto.invoke(preview.bitmap)') != 1 or
         text.count('Intent.ACTION_SEND') != 1):
         fail("Patch output validation failed")
+    signer = kotlin_file.with_name("JhGlassDeviceSigner.kt")
+    if not signer.is_file() or "class JhGlassDeviceSigner" not in signer.read_text(encoding="utf-8"):
+        fail("Missing AndroidKeyStore signer source")
     target = root / CODEC
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(kotlin_file.read_bytes())
+    (root / SIGNER).write_bytes(signer.read_bytes())
     original.write_text(text, encoding="utf-8", newline="\n")
     return "APPLIED"
 
