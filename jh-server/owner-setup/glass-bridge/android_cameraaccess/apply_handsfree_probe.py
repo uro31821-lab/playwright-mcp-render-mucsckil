@@ -10,6 +10,7 @@ BASE = Path("app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraac
 MAIN = BASE / "MainActivity.kt"
 VOICE = BASE / "jhglass/JhGlassVoiceProbe.kt"
 GRADLE = Path("app/build.gradle.kts")
+CATALOG = Path("gradle/libs.versions.toml")
 VOICEMARKER = "JH_GLASS_HANDSFREE_STAGE14"
 
 def require_once(text, needle):
@@ -20,14 +21,16 @@ def require_once(text, needle):
 def patch(root: Path, overlay: Path) -> str:
     main_path = root / MAIN
     gradle_path = root / GRADLE
+    catalog_path = root / CATALOG
     voice_path = overlay / "JhGlassVoiceProbe.kt"
-    if not all(p.is_file() for p in (main_path, gradle_path, voice_path)):
+    if not all(p.is_file() for p in (main_path, gradle_path, catalog_path, voice_path)):
         raise RuntimeError("STAGE14_SOURCE_FILES_MISSING")
     main = main_path.read_text("utf-8")
     gradle = gradle_path.read_text("utf-8")
+    catalog = catalog_path.read_text("utf-8")
     if VOICEMARKER in main:
         if ("JhGlassVoiceProbe" in main and "libs.mwdat.speech" in gradle
-                and (root / VOICE).is_file()):
+                and 'mwdat-speech = ' in catalog and (root / VOICE).is_file()):
             return "ALREADY_APPLIED"
         raise RuntimeError("STAGE14_INCOMPATIBLE_PARTIAL_PATCH")
     # Nothing runs if DAT version/app source deviates from the pinned sample.
@@ -45,8 +48,10 @@ def patch(root: Path, overlay: Path) -> str:
         raise RuntimeError("STAGE14_UPSTREAM_LIFECYCLE_CHANGED")
     for needle in ("  implementation(libs.mwdat.camera)",):
         require_once(gradle, needle)
-    if "mwdat.speech" in gradle:
-        raise RuntimeError("STAGE14_GRADLE_ALREADY_PATCHED")
+    if "mwdat.speech" in gradle or 'mwdat-speech = ' in catalog:
+        raise RuntimeError("STAGE14_SPEECH_ALREADY_PATCHED")
+    speech_dependency = 'mwdat-camera = { group = "com.meta.wearable", name = "mwdat-camera", version.ref = "mwdat" }'
+    require_once(catalog, speech_dependency)
     if "class JhGlassVoiceProbe" not in voice_path.read_text("utf-8"):
         raise RuntimeError("STAGE14_VOICE_SOURCE_INVALID")
 
@@ -122,10 +127,13 @@ def patch(root: Path, overlay: Path) -> str:
         "  // Stage14 experimental on-glasses speech support; no online inference.\n"
         "  implementation(libs.mwdat.speech)\n",
     )
+    catalog = catalog.replace(speech_dependency, speech_dependency + '\n' +
+        'mwdat-speech = { group = "com.meta.wearable", name = "mwdat-speech", version.ref = "mwdat" }')
     (root / VOICE).parent.mkdir(parents=True, exist_ok=True)
     (root / VOICE).write_bytes(voice_path.read_bytes())
     main_path.write_text(main, encoding="utf-8", newline="\n")
     gradle_path.write_text(gradle, encoding="utf-8", newline="\n")
+    catalog_path.write_text(catalog, encoding="utf-8", newline="\n")
     return "APPLIED"
 
 if __name__ == "__main__":
