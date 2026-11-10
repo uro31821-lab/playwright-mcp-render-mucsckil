@@ -84,6 +84,14 @@ GitHub Actions test run [42831289969](https://github.com/uro31821-lab/playwright
 - No APK release, user-device change, JH production server import, plugin update or new OpenAI API request; source-only stage. Detailed evidence in `RESULT_STAGE6_ANDROID_COMPILE.md`.
 - Remaining blocker: current JH Android native source / real owner-bound Secure56 phone approval + trusted pairing provider, hardened live server ingress and authenticated per-chat MCP image return.
 
+## Stage 7 — explicit native consent and image receipt verification (hosted CI PASS)
+
+- New optional **JH로 보내기** consent dialog (patient/private-info checkbox is unchecked by default); ordinary Meta `Share` unchanged. JH action remains **disabled by default** until a real approved pairing provider is connected.
+- Android sender now tracks one-use pairing tokens in volatile process memory, will not auto-retry uncertain uploads, and checks server-provided SHA-256 plus JPEG byte length before treating an HTTP 202 as acceptance. No OpenAI API usage or long-lived secrets in APK.
+- Source-only Node [CI 42836361065](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42836361065) **108/108 PASS**; Android [CI 42836340755](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42836340755) **6/6 patch tests and official Meta Kotlin BUILD SUCCESSFUL**. No live device install, no production server MCP/photo upload, no screen-capture E2E.
+- Detailed proof: `RESULT_STAGE7_RECEIPT_AND_CONSENT.md`.
+- **Next efficient test (candidate, not verified):** Use existing approved JH screen-capture MCP to capture the *photograph preview visible on the phone* into the same GPT request, with explicit phone-local screen consent. This is a potential no-paid-API alternative to uploading JPEG via a new backend; not tested on the native Meta CameraAccess app and may have resolution/foreground limitations. Until proved, keep the dedicated upload blockers open.
+
 ## Next incomplete work
 - Connect verified JH OAuth principal to begin/consume MCP tool.
 - Add separate reviewed HTTP ingress, and simulate successful/invalid/replay/oversize requests.
