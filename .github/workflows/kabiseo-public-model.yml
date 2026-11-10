@@ -1,0 +1,35 @@
+name: KaBiseo exact public model pin verification
+on:
+  push:
+    branches: [kabiseo-public-deps-20261110]
+    paths: [.github/workflows/kabiseo-public-model.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify_model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Download TensorFlow's public EfficientDet-Lite0 model to quarantine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public-model-result
+          URL='https://storage.googleapis.com/download.tensorflow.org/models/tflite/task_library/object_detection/rpi/lite-model_efficientdet_lite0_detection_metadata_1.tflite'
+          curl --fail --location --retry 2 --max-time 180 "$URL" -o /tmp/model.tflite
+          SIZE=$(stat -c%s /tmp/model.tflite)
+          SHA=$(sha256sum /tmp/model.tflite | cut -d' ' -f1)
+          printf 'source=%s\nbytes=%s\nsha256=%s\nexpected_bytes=4563519\nexpected_sha256=2e04c53bfeac0ac2a30c057c7e2a777594ce39baaac35a92f74fb1e8c4fc4e0b\n' "$URL" "$SIZE" "$SHA" > public-model-result/check.txt
+          if [[ "$SIZE" == '4563519' && "$SHA" == '2e04c53bfeac0ac2a30c057c7e2a777594ce39baaac35a92f74fb1e8c4fc4e0b' ]]; then
+            mv /tmp/model.tflite public-model-result/efficientdet-lite0.tflite
+            echo 'pinned=true' >> public-model-result/check.txt
+          else
+            echo 'pinned=false' >> public-model-result/check.txt
+          fi
+          cat public-model-result/check.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kabiseo-official-model-check
+          path: public-model-result/*
+          retention-days: 4
