@@ -1,5 +1,8 @@
 # JH Glass Bridge — conversation handoff, 2026-11-10
 
+> **STAGE13 GOAL OVERRIDE — 2026-11-11:** The user has corrected the final product goal. **Do NOT require GPT or Meta AI app UI to stay open**. The phone may be in the pocket. Glasses must start an approved voice-controlled JH experience, capture one photo on user's request, analyze with JH, and speak the answer in the glasses. Current ChatGPT screenshot/Share path is diagnostic only, NOT the final architecture. Official Meta SDK 1.0.1 supports EXPERIMENTAL Voice Invocations and Speech; English-US app launch is documented/tested, ko-KR native app launch has not been validated and has failed in Meta's official community thread. A full GPT backend independent of the ChatGPT app has separate metered API economics; use zero-paid verified/offline path rather than pretending Pro provides free external API. **New canonical:** [STAGE13_TRUE_HANDSFREE_TARGET.md](STAGE13_TRUE_HANDSFREE_TARGET.md), [HANDOFF_STAGE13_CURRENT.md](HANDOFF_STAGE13_CURRENT.md). Old action items below are historical and do not override Stage13.
+
+
 STATUS: This is a **proactive checkpoint**, not a claim that ChatGPT context utilization has reached 95%. Prepare the final handoff again when actual context capacity is near its limit.
 
 ## 1. Goal
