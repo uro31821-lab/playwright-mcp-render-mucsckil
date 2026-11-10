@@ -38,13 +38,19 @@ export class GlassPhotoMailbox {
   #pending = new Map();        // owner -> one in-memory JPEG
   #now;
   #makeToken;
+  #cleanupTimer;
 
   constructor({
     now = () => Date.now(),
     makeToken = () => randomBytes(32).toString("base64url"),
+    cleanupIntervalMs = 15_000,
   } = {}) {
     this.#now = now;
     this.#makeToken = makeToken;
+    if (cleanupIntervalMs > 0) {
+      this.#cleanupTimer = setInterval(() => this.#sweep(), cleanupIntervalMs);
+      this.#cleanupTimer.unref?.();
+    }
   }
 
   #sweep() {
@@ -89,6 +95,18 @@ export class GlassPhotoMailbox {
       expiresAt,
       maxJpegBytes: MAX_JPEG_BYTES,
     };
+  }
+
+  /** One-use pairing must also be burned on failed decoding or rejected upload. */
+  cancelPairing({ pairingToken }) {
+    this.#sweep();
+    if (typeof pairingToken !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(pairingToken)) return false;
+    const hash = hexSha256(pairingToken);
+    const pairing = this.#pairings.get(hash);
+    if (!pairing) return false;
+    this.#pairings.delete(hash);
+    if (this.#activeTokens.get(pairing.ownerId) === hash) this.#activeTokens.delete(pairing.ownerId);
+    return true;
   }
 
   /**
@@ -173,6 +191,7 @@ export class GlassPhotoMailbox {
   }
 
   close() {
+    if (this.#cleanupTimer) clearInterval(this.#cleanupTimer);
     for (const record of this.#pending.values()) wipe(record);
     this.#pending.clear();
     this.#pairings.clear();
