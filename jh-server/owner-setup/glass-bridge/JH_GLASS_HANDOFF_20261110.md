@@ -50,6 +50,15 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - Backend request/response security tests, Android compile/AV/build, then explicitly approved device installation and E2E.
 - JH per-assistant routing on returned image, eventual audio output, cost halt policy.
 
+
+### Stage 3 continuation update — November 10, 2026
+- New development source: photo-ingress.mjs / photo-ingress.test.mjs and photo-session.mjs / photo-session.test.mjs on the same branch. The mailbox gained cancelPairing and a periodic memory-expiry sweep.
+- LOCAL NODE QA: photo-ingress 17/17, photo-session 5/5, verified-owner 6/6 and existing mailbox local QA 13/13, total **41/41 PASS**. GitHub CI and actual HTTP/device tests NOT_RUN.
+- photo-ingress only runs when injected transport/approval/JPEG-decode security gates all exist; it is NOT registered on running JH server. No API charge, no phone update, no production rollout.
+- **CRITICAL BLOCKER:** existing JH server OAuth issues access credentials with expiry and scope but no verified owner subject. A new stable subject cannot be safely fabricated; an owner-authenticated binding and refresh propagation must be developed before any live MCP/image ingress connection.
+- Source and docs verified on GitHub; current exact branch: feature/jh-glass-photo-mailbox-20261110.
+- Next minimal action: build and test robust owner-verified authorization contract for JH OAuth under the existing Secure56 approval boundary, then connect the hardened HTTP/MCP adapters in a separate non-deployed branch candidate. Do not touch existing JH production server or APK yet.
+
 ## 7. Next action
 Wire a **non-deployed**, authenticated HTTP/MCP photo ingress adapter to the tested GlassPhotoMailbox class, inspect the existing JH server auth principal, and run server tests before touching any phone. If verified principal binding is unavailable, block production wiring and report the exact missing contract.
 
