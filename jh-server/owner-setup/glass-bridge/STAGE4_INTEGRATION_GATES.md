@@ -20,6 +20,14 @@ Current `jh-server/server.mjs` under branch `jh-fix3-secure-server`:
 - `secure56-glass-approval.mjs` + `.test.mjs`: standalone HMAC receipt verifier bound to active Secure56 session, separately verified phone-local job and server-owned account/device binding. These trusted readback providers and phone UI approval are currently missing in production; without them authorization must fail closed.\n- `glass-local-http.integration.test.mjs`: **localhost-only** Node HTTP trial of the existing photo ingress, mailbox, authenticated session, and new grant. Test security callbacks and image decoder are stubs; do not confuse them with a shipped verification mechanism.
 - Existing `photo-ingress.mjs`, `photo-session.mjs`, `verified-owner.mjs` remain isolated and unmounted.
 
+## Stage 5 additional chat-isolation gate
+
+`photo-claim-gate.mjs` protects against another conversation under the **same authenticated owner** reading a photo from the original owner-only mailbox. It returns a chat-only 256-bit secret and a request ID, withholds the phone upload token unless a separate Secure56 phone approval is verified, and prohibits exposing raw `photo-session.consume` as a tool.
+
+- Node.js local Stage 5 suite: 23/23 PASS, using mock authenticated photo session and mock phone-approval callback. This is **not** a real phone/local approval proof.
+- GitHub Actions branch CI status must be independently checked; previous local 70/70 and Stage 5 23/23 should not be conflated with a single all-source CI pass.
+- Native JH Android source is not in the accessible server repo; its actual signed approval UI remains pending.
+
 ## Safely wiring to JH (planned, NOT DONE)
 
 1. Introduce a signed, one-shot **GLASS_OAUTH_OWNER_BIND_V1** approval job in existing Secure56 phone-local approval framework. Bind a canonical OAuth request digest, pinned JH server digest, verified owner binding, device/session digest, issuance and expiry, and one-time ID. The owner must actually approve on phone. Existing screen-sharing permission or general browser OAuth submit does **not** substitute for this.
@@ -41,5 +49,5 @@ Current `jh-server/server.mjs` under branch `jh-fix3-secure-server`:
 ## QA
 
 Node.js v22 local test run in isolated Stage 3 + Stage 4 QA directory:
-`node --test *.test.mjs` → 53 / 53 passed.
-Breakdown: Stage 3 ingress+session+owner 28; Stage 4 OAuth owner grant 19; Stage 4 localhost HTTP integration 6. The old Stage 2 mailbox suite was not rerun in the same command, and the Stage 3 local verified-owner text differs from the GitHub production candidate by non-functional formatting. **GitHub Actions, live Render tests, real Secure56 owner grant, Android build, live photograph transfer remain NOT_RUN.**
+`node --test *.test.mjs` → 70 / 70 passed (as recorded in the Stage 4 local QA).
+Breakdown recorded for Stage 4: Stage 3 ingress+session+owner 28; Stage 4 OAuth owner grant 19; Stage 4 localhost HTTP integration 6; Secure56 signed receipt gate 17. The old Stage 2 mailbox suite was not rerun in the same command, and the Stage 3 local verified-owner text differs from the GitHub production candidate by non-functional formatting. **GitHub Actions, live Render tests, real Secure56 owner grant, Android build, live photograph transfer remain NOT_RUN.**
