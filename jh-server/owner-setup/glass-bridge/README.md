@@ -60,6 +60,17 @@ New files:
 **Local Node 22 test run:** 70/70 PASS (Stage 3 suite 28, owner OAuth gate 19, localhost HTTP 6, signed Secure56 approval 17). Not GitHub CI, not a deployed OAuth verifier, not Android/GPT end-to-end. No API calls or paid services used.
 **Current blocker:** Live JH `/oauth/authorize` form does not authenticate an individual owner and its issued tokens lack a stable subject; Secure56 GLASS owner approval must be implemented and actually verified before production wiring. Legacy scope-only tokens and LIFE_HUB_TOKEN fallback must never grant photo access.
 
+## Stage 5: Prevent another chat from claiming the same owner's photo
+
+New isolated source: `photo-claim-gate.mjs` and `photo-claim-gate.test.mjs` (Node.js v22 local **23/23 PASS**, test result captured).
+- Existing mailbox and photo-session are **owner-scoped**, not ChatGPT-conversation-scoped. Exposing `photoSession.consume()` directly as an MCP action could leak a photo to a different conversation for the same owner. **Never expose that raw consume API**.
+- `beginForChat` requires verified OAuth `glassOwnerVerified === true` and returns a 256-bit chat-only claim token and opaque request ID; **it does not return the mobile upload bearer**.
+- `deliverToApprovedPhone` separately requires a trusted Secure56 approval callback bound to the same owner/request. This method is internal to a future phone-only route, never a generic MCP tool. Race/replay/expired/wrong-owner tests pass under mocked approvals.
+- `consumeForChat` requires the valid original chat token, verified same owner and unused 90-second claim; other chats cannot fetch the image using only the same OAuth credentials.
+- No ChatGPT stable conversation identifier or automatic attachment injection is assumed. This design only protects a chat-request-specific image retrieval, pending real host integration.
+- Actual native JH Android app source was not present in the accessible JH GitHub server repository; verified phone-side approval UI and owner account-binding remain **BLOCKED**, not completed.
+- This source must remain isolated from `jh-server/server.mjs` until trusted approval, safe JPEG decoding, HTTPS/rate limits, security review and end-to-end tests are completed.
+
 ## Next incomplete work
 - Connect verified JH OAuth principal to begin/consume MCP tool.
 - Add separate reviewed HTTP ingress, and simulate successful/invalid/replay/oversize requests.
