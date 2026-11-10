@@ -9,7 +9,7 @@ export function createPhotoIngress({ mailbox, trustedTransport, approveRequest, 
   if (!mailbox || typeof mailbox.receivePhoto !== 'function' || typeof mailbox.cancelPairing !== 'function') throw new TypeError('mailbox required');
   const available = [trustedTransport, approveRequest, validateJpeg].every(fn => typeof fn === 'function');
   return async function handlePhotoIngress(req, res) {
-    const send = (status, code) => {
+    const send = (status, code, receipt = null) => {
       if (res.headersSent || res.writableEnded) return;
       res.writeHead(status, {
         'content-type': 'application/json; charset=utf-8',
@@ -17,7 +17,13 @@ export function createPhotoIngress({ mailbox, trustedTransport, approveRequest, 
         'referrer-policy': 'no-referrer',
         'x-content-type-options': 'nosniff',
       });
-      res.end(JSON.stringify({ ok: status === 202, code }));
+      res.end(JSON.stringify({
+        ok: status === 202, code,
+        ...(status === 202 && receipt?.ok && /^[a-f0-9]{64}$/.test(receipt.sha256)
+          && Number.isInteger(receipt.byteLength) && receipt.byteLength >= 32
+          && receipt.byteLength <= MAX_JPEG_BYTES
+            ? { sha256: receipt.sha256, byteLength: receipt.byteLength } : {}),
+      }));
     };
     const pathname = String(req.url || '').split('?')[0];
     if (pathname !== '/jh-glass/v1/photo') return false;
@@ -62,7 +68,7 @@ export function createPhotoIngress({ mailbox, trustedTransport, approveRequest, 
       const valid = await validateJpeg(bytes);
       if (valid !== true) { burn(); send(422, 'JPEG_DECODER_REJECTED'); return true; }
       const receipt = mailbox.receivePhoto({ pairingToken: match[1], contentType: 'image/jpeg', imageBytes: bytes });
-      send(receipt.ok ? 202 : 409, receipt.code);
+      send(receipt.ok ? 202 : 409, receipt.code, receipt);
       return true;
     } catch {
       burn(); send(400, 'INGRESS_FAILED');
