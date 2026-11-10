@@ -1,6 +1,7 @@
 import {createLifeRuntimeSlot} from "../server-continuation/life-runtime-slot.mjs";
 import {TrustedBridgeSessionAuthority} from "../trusted-server/trusted-bridge-session-authority.mjs";
 import {makeRejectionProbe} from "./auth-rejection-probe.mjs";
+import {runCameraSettingsFlow} from "../kabiseo-camera-v0256/camera-flow.mjs";
 
 import { createServer } from "node:http";
 import { randomBytes, createHash, createHmac, timingSafeEqual } from "node:crypto";
@@ -137,6 +138,11 @@ function exactEnvelope56(mcpToolName,jobType,secureRequestedEffect,args,extra={}
 function secureCall56(mcpToolName,jobType,effect,args,extra={}){
   const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);if(x.error)return Promise.resolve(textResult({ok:false,code:x.error,deviceDigest:x.deviceDigest||null}));
   return waitJob(x.job,15000).then(secureResult56);
+}
+async function secureCameraJob56({mcpToolName,jobType,effect,args,extra={}}){
+  const x=exactEnvelope56(mcpToolName,jobType,effect,args,extra);
+  if(x.error)return {status:"error",error:x.error,result:null,targetDeviceId:null};
+  return await waitJob(x.job,15000);
 }
 function cleanFrameWaiters56(){const now=Date.now();for(const [k,w] of frameWaiters56){if(now>w.expiresAt){frameWaiters56.delete(k);try{w.resolve(null);}catch{}}}}
 function createFrameWaiter56(deviceId,taskDigest){cleanFrameWaiters56();if(frameWaiters56.size>=4)return null;const lease=token56(24),expiresAt=Date.now()+SECURE56_FRAME_MS;let resolve;const promise=new Promise(r=>{resolve=r;});frameWaiters56.set(lease,{deviceId,taskDigest,expiresAt,resolve});return {lease,expiresAt,promise};}
@@ -574,6 +580,16 @@ function createMcp(){
     max_actions_in_call:z.number().optional()
   };
   registerOAuthTool("life_android_secure_status",{title:"Secure Android bridge status",description:"Read-only checkpoint56 status for the selected Android device. Requires an activated device-bound secure session.",inputSchema:{device_id:z.string().optional(),task_digest:z.string()},annotations:{readOnlyHint:true,destructiveHint:false,openWorldHint:false}},async(args)=>secureCall56("life_android_secure_status","secure_device_status","READ_ONLY",args));
+  registerOAuthTool("life_android_camera_settings",{
+    title:"KaBiseo current camera settings",
+    description:"Apply only shooting mode/style to the already-visible RIGHT KaBiseo camera through existing Secure56. Never launches camera, presses shutter, reads gallery, transfers photos, or returns camera-setting details to the user.",
+    inputSchema:{device_id:z.string().optional(),task_digest:z.string(),command_id:z.string(),request_text:z.string().min(1).max(160)},
+    annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}
+  },async(args)=>{
+    try{return textResult(await runCameraSettingsFlow({args,runSecure:secureCameraJob56}));}
+    catch{return textResult({ok:false,accepted:false,code:"CAMERA_SETTINGS_REQUEST_INVALID",userVisibleResult:false,automaticReplayAllowed:false,protocol:"kabiseo_camera_settings_v1"});}
+  });
+
   registerOAuthTool("life_android_computer_inspect",{title:"Inspect Android Computer Use target",description:"Read-only exact Computer Use inspection. Does not click, type, scroll, or capture pixels.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_computer_inspect","computer_use_inspect","READ_ONLY",args));
   registerOAuthTool("life_android_computer_prepare",{title:"Prepare one Android Computer Use action",description:"Read-only planning for exactly one Android Computer Use action. Returns a short-lived action lease or a local approval/consent boundary.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_computer_prepare","computer_use_action_prepare","READ_ONLY",args,{screenConsentDigest:String(args.screen_consent_digest||""),localActionApprovalDigest:String(args.local_action_approval_digest||"")}));
   registerOAuthTool("life_android_action_approval_request",{title:"Request local approval for one Android action",description:"Creates a phone-local approval prompt for the exact prepared action. The server cannot approve it.",inputSchema:cuSchema56},async(args)=>secureCall56("life_android_action_approval_request","computer_use_action_approval_request","REVERSIBLE_WRITE",args));
