@@ -1,0 +1,28 @@
+name: JH Glass Source-Only Tests
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - 'jh-server/owner-setup/glass-bridge/**'
+      - '.github/workflows/jh-glass-prototype-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  node-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2, pinned SHA
+      - name: Verify Node and test isolated glass modules
+        run: |
+          node --version
+          node --test jh-server/owner-setup/glass-bridge/*.test.mjs
+      - name: Ensure not wired to production server entrypoint
+        run: |
+          if grep -q 'glass-bridge' jh-server/server.mjs; then
+            echo 'Unexpected production server import found' >&2
+            exit 1
+          fi
+          echo 'NO_PRODUCTION_WIRING_CONFIRMED'
