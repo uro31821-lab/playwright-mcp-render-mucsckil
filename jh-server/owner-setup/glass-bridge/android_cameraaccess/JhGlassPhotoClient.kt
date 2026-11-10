@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.net.URL
+import java.security.MessageDigest
 import javax.net.ssl.HttpsURLConnection
 
 /**
@@ -39,6 +40,8 @@ sealed interface JhPhotoSendResult {
   data object ImageTooLargeOrInvalid : JhPhotoSendResult
   data object Rejected : JhPhotoSendResult
   data object NetworkUnavailable : JhPhotoSendResult
+  data object AlreadySubmitted : JhPhotoSendResult
+  data object UnknownAfterSend : JhPhotoSendResult
   data object Accepted : JhPhotoSendResult
 }
 
@@ -92,6 +95,14 @@ object JhPhotoJpegEncoder {
 class JhGlassPhotoClient(
     private val pairingProvider: JhPairingProvider = JhPairingProvider { null },
 ) {
+  // One-time token fingerprints are held in memory until expiry, without raw tokens.
+  private val tokenDigests = LinkedHashMap<String, Long>()
+  private val pairingLock = Any()
+
+  private fun sha256Hex(bytes: ByteArray): String =
+      MessageDigest.getInstance("SHA-256").digest(bytes)
+          .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
   companion object {
     private const val JH_PHOTO_ENDPOINT =
         "https://jh-secure-bridge-fix4.onrender.com/jh-glass/v1/photo"
@@ -109,9 +120,17 @@ class JhGlassPhotoClient(
         credential.expiresAtEpochMs - now > MAX_PAIRING_MS) {
       return JhPhotoSendResult.ExpiredOrInvalid
     }
+    val fingerprint = sha256Hex(credential.pairingToken.toByteArray(Charsets.UTF_8))
+    val fresh = synchronized(pairingLock) {
+      tokenDigests.entries.removeAll { it.value <= now }
+      if (tokenDigests.containsKey(fingerprint) || tokenDigests.size >= 64) false
+      else { tokenDigests[fingerprint] = credential.expiresAtEpochMs; true }
+    }
+    if (!fresh) return JhPhotoSendResult.AlreadySubmitted
     return withContext(Dispatchers.IO) {
       val jpeg = JhPhotoJpegEncoder.encode(bitmap)
           ?: return@withContext JhPhotoSendResult.ImageTooLargeOrInvalid
+      var requestMayHaveReachedServer = false
       try {
         // Re-check after potentially expensive compression.
         if (credential.expiresAtEpochMs <= System.currentTimeMillis()) {
@@ -129,6 +148,8 @@ class JhGlassPhotoClient(
           conn.setRequestProperty("Content-Type", "image/jpeg")
           conn.setRequestProperty("Cache-Control", "no-store")
           conn.setFixedLengthStreamingMode(jpeg.size)
+          // Any failure from this point has UNKNOWN delivery status; do not retry.
+          requestMayHaveReachedServer = true
           conn.outputStream.use { it.write(jpeg) }
           if (conn.responseCode != 202) return@withContext JhPhotoSendResult.Rejected
           // Read an intentionally bounded response and verify the actual receipt.
@@ -146,7 +167,9 @@ class JhGlassPhotoClient(
           if (response.size > 4096) return@withContext JhPhotoSendResult.Rejected
           val validReceipt = try {
             val obj = JSONObject(String(response, Charsets.UTF_8))
-            obj.optBoolean("ok") && obj.optString("code") == "PHOTO_RECEIVED"
+            obj.optBoolean("ok") && obj.optString("code") == "PHOTO_RECEIVED" &&
+                obj.optString("sha256") == sha256Hex(jpeg) &&
+                obj.optInt("byteLength", -1) == jpeg.size
           } finally {
             response.fill(0)
           }
@@ -156,7 +179,8 @@ class JhGlassPhotoClient(
           conn.disconnect()
         }
       } catch (_: Exception) {
-        JhPhotoSendResult.NetworkUnavailable
+        if (requestMayHaveReachedServer) JhPhotoSendResult.UnknownAfterSend
+        else JhPhotoSendResult.NetworkUnavailable
       } finally {
         jpeg.fill(0)
       }
