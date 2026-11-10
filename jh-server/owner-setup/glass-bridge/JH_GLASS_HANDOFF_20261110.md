@@ -59,8 +59,18 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - Source and docs verified on GitHub; current exact branch: feature/jh-glass-photo-mailbox-20261110.
 - Next minimal action: build and test robust owner-verified authorization contract for JH OAuth under the existing Secure56 approval boundary, then connect the hardened HTTP/MCP adapters in a separate non-deployed branch candidate. Do not touch existing JH production server or APK yet.
 
+### Stage 4 checkpoint — 2026-11-10 (continued)
+
+- GitHub branch unchanged: `feature/jh-glass-photo-mailbox-20261110`. New `owner-oauth-gate.mjs`, `owner-oauth-gate.test.mjs`, `glass-local-http.integration.test.mjs`, and `STAGE4_INTEGRATION_GATES.md` saved.
+- Real server code inspection reconfirmed: `server.mjs` OAuth `/oauth/authorize` button lacks verified human-owner login, token records currently contain expiry and scope only, and LIFE_HUB_TOKEN can authorize generic MCP without a photo-owner subject. **Do not treat that generic OAuth step as photo consent**.
+- Standalone grant-binding contract requires the verified Secure56 phone-local approval callback, one-time proof, exact OAuth client/redirect/PKCE/resource, pinned server, and separate HMAC key. It carries owner through refresh while rejecting forged/replayed grant objects.
+- LOCAL NODE 22 QA: `node --test *.test.mjs`, **53/53 PASS**, including 6 actual loopback HTTP requests with mocked authorization/decoder gates. Previous Stage 3 suite 28, Stage 4 grant 19, new HTTP 6. NOT GitHub CI, live OAuth verification, production server or Android E2E.
+- `STAGE4_INTEGRATION_GATES.md` documents strict steps; owner-approval evidence, real safe JPEG decoder, rate limit and phone transfer UI are **still missing**. Nothing deployed; existing JH app remains untouched; API spend $0.
+- User preferences reconfirmed: avoid Google Drive and unreliable sandbox ZIP links; maintain no-extra-cost policy and checkpoint the 7-section handoff when context is truly nearing limit (no invented 95%).
+- **NEXT:** implement and verify a real Secure56 `GLASS_OAUTH_OWNER_BIND_V1` phone approval workflow (currently not available) and then the guarded photo MCP tool on a non-deployed branch. No launch of anonymous `/oauth/authorize` photo grants.
+
 ## 7. Next action
-Wire a **non-deployed**, authenticated HTTP/MCP photo ingress adapter to the tested GlassPhotoMailbox class, inspect the existing JH server auth principal, and run server tests before touching any phone. If verified principal binding is unavailable, block production wiring and report the exact missing contract.
+Next incomplete work: implement a real, server-verified, phone-local Secure56 owner approval for the OAuth request digest and tested owner token propagation; then separately connect authenticated MCP image consumption with strict ingress gates. Current owner proof provider is NOT implemented. Keep live Render, JH plugin and Android app unchanged until explicit approval.
 
 ## New-chat continuation phrase
 JH 안경비서 이어서. GitHub의 feature/jh-glass-photo-mailbox-20261110 브랜치와 이 인계서를 기준으로, 사진 수신의 인증/MCP 연결부터 다음 미완료 단계로 계속해.
