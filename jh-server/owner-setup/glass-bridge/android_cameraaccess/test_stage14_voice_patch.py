@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from apply_handsfree_probe import patch, MAIN, VOICE, GRADLE, VOICEMARKER
+from apply_handsfree_probe import patch, MAIN, VOICE, GRADLE, CATALOG, VOICEMARKER
 
 ORIGINAL_MAIN = '''package com.meta.wearable.dat.externalsampleapps.cameraaccess
 import androidx.activity.ComponentActivity
@@ -24,6 +24,11 @@ class MainActivity : ComponentActivity() {
   }
 }
 '''
+ORIGINAL_CATALOG = '''[versions]
+mwdat = "1.0.1"
+[libraries]
+mwdat-camera = { group = "com.meta.wearable", name = "mwdat-camera", version.ref = "mwdat" }
+'''
 ORIGINAL_GRADLE = '''dependencies {
   implementation(libs.mwdat.camera)
   implementation(libs.mwdat.mockdevice)
@@ -39,6 +44,9 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         gradle = self.root / GRADLE
         gradle.parent.mkdir(parents=True, exist_ok=True)
         gradle.write_text(ORIGINAL_GRADLE, encoding="utf-8")
+        catalog = self.root / CATALOG
+        catalog.parent.mkdir(parents=True, exist_ok=True)
+        catalog.write_text(ORIGINAL_CATALOG, encoding="utf-8")
         self.overlay = Path(__file__).resolve().parent
     def tearDown(self):
         self.temp.cleanup()
@@ -66,6 +74,8 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         self.assertEqual(patch(self.root,self.overlay),"APPLIED")
         g=(self.root/GRADLE).read_text()
         self.assertEqual(g.count("implementation(libs.mwdat.speech)"),1)
+        catalog=(self.root/CATALOG).read_text()
+        self.assertEqual(catalog.count('mwdat-speech = { group = "com.meta.wearable", name = "mwdat-speech", version.ref = "mwdat" }'),1)
         self.assertIn("implementation(libs.mwdat.camera)",g)
         self.assertIn("implementation(libs.mwdat.mockdevice)",g)
     def test_voice_source_never_calls_api_or_takes_a_photo(self):
@@ -88,6 +98,7 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             patch(self.root,self.overlay)
         self.assertEqual((self.root/GRADLE).read_text(),ORIGINAL_GRADLE)
+        self.assertEqual((self.root/CATALOG).read_text(),ORIGINAL_CATALOG)
         self.assertFalse((self.root/VOICE).exists())
     def test_partial_existing_patch_is_blocked(self):
         p=self.root/MAIN
