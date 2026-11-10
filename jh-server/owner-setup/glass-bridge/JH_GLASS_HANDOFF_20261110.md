@@ -118,8 +118,16 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - Latest source-only result document: `RESULT_STAGE8_LIVE_PREVIEW_CAPTURE.md`. Next: adapt image-block forwarding on a future explicitly consented single capture; only after that can object-vision and per-assistant analysis be E2E verified. Do not repeat original Meta developer setup/CameraAccess stream proof.
 - Consent tokens, device identity, raw photo bytes and screenshot content are not stored in GitHub. Exact 95% conversation usage remains unknown; continue existing 7-part handoff rules.
 
+### Stage 9 decision — stop repeated approval prompts (2026-11-10)
+
+- User objected to approving *every* new screen capture. Agreed target UX: **one user-authorized, bounded JH/Meta pairing session** followed by **one explicit user photo command per image** without additional prompt for ordinary non-sensitive content while session remains valid. Initial secure pairing, renewal/revocation, and sensitive data still require appropriate user control. No automatic OS permission-clicking or Secure56 bypass.
+- Existing JH one-shot `MediaProjection` screen-share is strictly a temporary test method; **do not pretend it can be permanently auto-approved**. CameraAccess DAT photo delivery can avoid that particular repeated approval because the photo comes directly from authorized Meta camera SDK, not a screen scraping route.
+- Source-only specification recorded at `STAGE9_NO_REPEAT_APPROVAL.md`; no operating app, JH server or Android implementation changed by this decision.
+- Next implementation target: phone-authorized owner/device pairing session + per-photo one-time automatically generated server token + explicit spoken/tap trigger + chat-bound MCP image return. Zero background photo capture, and fail closed for patient-identifying/sensitive data.
+- Stage 8 already captured one approved ephemeral frame but pixels were not delivered as inspectable vision input. Current user rejected repeating approvals for this interim path; **do not request a new one-shot screenshot unless explicitly reauthorized**.
+
 ## 7. Next action
-Next action: test **current ChatGPT tool response** using the existing Secure56 one-shot screen-capture path on a CameraAccess photo preview, with explicit phone-local consent. If not supported/insufficient, obtain JH Android native source and complete verified OAuth + photo ingress + MCP. Existing JH and CameraAccess installations must remain untouched until approved.nd implement a real phone-local Secure56 owner approval; then provide its trusted one-use pairing to the Stage 6 compiled CameraAccess JH send UI and connect authenticated chat-scoped MCP image retrieval. Stage 6 Android source compile is PASS, but release, installation, and E2E are NOT_RUN. Current owner proof provider is NOT implemented. Keep live Render, JH plugin and Android app unchanged until explicit approval.
+Next action: implement the bounded once-approved JH/Meta **direct DAT photo transfer session**, with one explicit user command per photo and verified Secure56 owner account binding; avoid repeated screen-consent prompts. Existing Meta CameraAccess install and JH server stay unchanged until tests and separate approval.
 
 ## New-chat continuation phrase
 JH 안경비서 이어서. GitHub의 feature/jh-glass-photo-mailbox-20261110 브랜치와 이 인계서를 기준으로, 사진 수신의 인증/MCP 연결부터 다음 미완료 단계로 계속해.
