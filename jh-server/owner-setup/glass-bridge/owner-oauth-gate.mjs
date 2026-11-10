@@ -9,7 +9,7 @@ const VERIFIED_OWNER = /^owner-binding:[A-Za-z0-9_-]{16,96}$/;
 function digest(data) {
   return createHash('sha256').update(data).digest('hex');
 }
-function oauthRequestDigest(request, allowedResources) {
+export function oauthRequestDigest(request, allowedResources) {
   if (!request || typeof request !== 'object') return null;
   const { response_type, client_id, redirect_uri, code_challenge_method, code_challenge, resource, state = '' } = request;
   if (response_type !== 'code' || code_challenge_method !== 'S256') return null;
