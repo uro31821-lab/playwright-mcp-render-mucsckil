@@ -30,6 +30,12 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - No official supported mechanism verified for inserting an attachment directly into an arbitrary existing ChatGPT conversation.
 - The image mailbox does basic JPEG marker/size checks, but requires hardened HTTP body handling, actual image decode, OAuth owner-binding, token leakage protection, and rate limiting before connection.
 
+
+### Authentication blocker discovered in live server source
+- JH server.mjs currently authorizes OAuth access tokens by scope/expiry (oauthAccessAuthorized56), but the OAuth token records hold only scope and expiresAt, not a verified stable owner/subject identity.
+- A production photo mailbox MUST NOT accept a user-supplied ownerId. Derive a verified owner or a session-bound identity from the existing server authorization boundary and verify continuity across MCP requests and possible OAuth refresh before wiring. LIFE_HUB_TOKEN fallback must not be treated as an owner identity.
+- This is a **confirmed integration blocker**. The new module is deliberately NOT imported by server.mjs.
+
 ## 5. DO NOT repeat
 - Developer mode setup; DAT install; Meta source download; JDK/SDK install; debug APK build/install; camera preview test.
 - No old ZIP retries, Google Drive delivery, Git installer, PowerShell execution policy bypass.
