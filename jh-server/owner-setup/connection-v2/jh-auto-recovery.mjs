@@ -99,12 +99,20 @@ export function createJHAutoRecovery({
       attemptedRecovery:episode?.attempts ?? 0,
       automaticExternalActions:false, noTaskReplay:true});
     if (typeof notifyUser!=='function') return {notificationDelivery:'NOT_CONFIGURED',manualAction:event};
-    if (episode) episode.lastNotifyAt=now();
     try {
       const result=await notifyUser(event);
+      // An installed callback does not prove that an approved delivery channel exists.
+      // The trusted host may explicitly reject delivery because it is unconfigured.
+      // Do not claim a send attempt, schedule a retry, or flip the incident log state.
+      if (result?.code==='NOT_CONFIGURED')
+        return {notificationDelivery:'NOT_CONFIGURED',manualAction:event};
+      if (episode) episode.lastNotifyAt=now();
       if (result?.delivered===true && episode) episode.notified=true;
       return {notificationDelivery:result?.delivered===true?'DELIVERED':'NOT_CONFIRMED',manualAction:event};
-    } catch { return {notificationDelivery:'DELIVERY_FAILED',manualAction:event}; }
+    } catch {
+      if (episode) episode.lastNotifyAt=now();
+      return {notificationDelivery:'DELIVERY_FAILED',manualAction:event};
+    }
   }
   async function runOnce() {
     let report;

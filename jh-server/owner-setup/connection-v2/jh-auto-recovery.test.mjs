@@ -44,6 +44,37 @@ test('no reconnect adapter leads to manual report but no outgoing alert without 
  const m=createJHAutoRecovery({diagnose:async()=>browserFail(),isIdle:idle,acquireMaintenanceLease:lease});
  await m.tick();const r=await m.tick();assert.equal(r.status,'MANUAL_REQUIRED');assert.equal(r.notificationDelivery,'NOT_CONFIGURED');
 });
+test('trusted host with no approved notifier stays NOT_CONFIGURED without phantom delivery or retry',async()=>{
+ let callbacks=0;
+ const monitor=createJHAutoRecovery({
+  diagnose:async()=>report({bridge:{state:'FAIL',code:'NO_ACTIVE_DEVICE'}}),
+  failureThreshold:1,notificationBackoffMs:60000,now:()=>1000,
+  notifyUser:async()=>{callbacks++;return {delivered:false,code:'NOT_CONFIGURED'};}
+ });
+ for(let n=0;n<5;n++){
+  const result=await monitor.tick();
+  assert.equal(result.status,'MANUAL_REQUIRED');
+  assert.equal(result.notificationDelivery,'NOT_CONFIGURED');
+  assert.equal(result.manualAction.cause,'OPEN_JH_SECURE');
+  assert.equal(result.noTaskReplay,true);
+  assert.deepEqual(result.recoveryActions,[]);
+ }
+ assert.equal(callbacks,5,'No actual notification was sent or rate-limited');
+});
+test('configured notifier without delivery acknowledgement still observes cooldown',async()=>{
+ let clock=1000,calls=0;
+ const monitor=createJHAutoRecovery({
+  diagnose:async()=>report({security:{state:'FAIL',code:'SECURE_SESSION_INACTIVE'}}),
+  failureThreshold:1,notificationBackoffMs:60000,now:()=>clock,
+  notifyUser:async()=>{calls++;return {delivered:false,code:'NOT_CONFIRMED'};}
+ });
+ assert.equal((await monitor.tick()).notificationDelivery,'NOT_CONFIRMED');
+ assert.equal((await monitor.tick()).notificationDelivery,'RETRY_DEFERRED');
+ assert.equal(calls,1);
+ clock+=61000;
+ assert.equal((await monitor.tick()).notificationDelivery,'NOT_CONFIRMED');
+ assert.equal(calls,2);
+});
 test('persistent browser failure is retried only at cooldown; max attempts trigger one notification',async()=>{
  let now=1000,repair=0,alerts=0;
  const m=createJHAutoRecovery({diagnose:async()=>browserFail(),isIdle:idle,acquireMaintenanceLease:lease,
