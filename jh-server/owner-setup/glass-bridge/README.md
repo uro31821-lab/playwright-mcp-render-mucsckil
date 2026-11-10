@@ -71,6 +71,10 @@ New isolated source: `photo-claim-gate.mjs` and `photo-claim-gate.test.mjs` (Nod
 - Actual native JH Android app source was not present in the accessible JH GitHub server repository; verified phone-side approval UI and owner account-binding remain **BLOCKED**, not completed.
 - This source must remain isolated from `jh-server/server.mjs` until trusted approval, safe JPEG decoding, HTTPS/rate limits, security review and end-to-end tests are completed.
 
+### Stage 5 hosted CI confirmation
+
+GitHub Actions test run [42831289969](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42831289969) actually completed SUCCESS at commit `067923af5f6e19e38902dc8bea3795fa58cbcf75` on the development branch, using Node.js 24.22.2. **106/106 tests passed, 0 failed** across Stage 2–5 test files. The CI also verified `NO_PRODUCTION_WIRING_CONFIRMED` (the live server source does not import glass-bridge). See `RESULT_STAGE5_GITHUB_CI.md`. This does NOT establish real phone approval, official Meta SDK changes, production deployment or ChatGPT image receiving.
+
 ## Next incomplete work
 - Connect verified JH OAuth principal to begin/consume MCP tool.
 - Add separate reviewed HTTP ingress, and simulate successful/invalid/replay/oversize requests.
