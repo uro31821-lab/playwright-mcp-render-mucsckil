@@ -21,7 +21,8 @@ jobs:
           set -euo pipefail
           node --version
           grep -q "createOwnerEnrollmentHttpHandler" jh-server/owner-setup/owner-enrollment/owner-host-bootstrap.mjs
-          grep -q "owner-service-entry" jh-server/owner-setup/deployment/published-host-router.mjs
+          grep -q "published-service-entry" jh-server/owner-setup/deployment/published-host-router.mjs
+          grep -q "installConfiguredOwnerHost" jh-server/owner-setup/deployment/owner-service-entry.mjs
           grep -q 'JH_OWNER_ENABLED' jh-server/owner-setup/deployment/owner-service-entry.mjs
           node --check jh-server/owner-setup/owner-enrollment/owner-host-bootstrap.mjs
           node --check jh-server/owner-setup/owner-enrollment/owner-enrollment-http.mjs
