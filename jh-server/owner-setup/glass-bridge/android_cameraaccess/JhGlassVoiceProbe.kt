@@ -11,6 +11,7 @@ import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import com.meta.wearable.dat.core.Wearables
 import com.meta.wearable.dat.core.selectors.AutoDeviceSelector
 import com.meta.wearable.dat.core.session.DeviceSession
@@ -196,19 +197,39 @@ class JhGlassVoiceProbe(
               .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
               .build()
       )
+      val spoken = CompletableDeferred<Boolean>()
+      engine.setOnUtteranceProgressListener(
+          object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) = Unit
+            override fun onDone(utteranceId: String?) {
+              spoken.complete(true)
+            }
+            override fun onError(utteranceId: String?) {
+              spoken.complete(false)
+            }
+            override fun onError(utteranceId: String?, errorCode: Int) {
+              spoken.complete(false)
+            }
+            override fun onStop(utteranceId: String?, interrupted: Boolean) {
+              spoken.complete(false)
+            }
+          }
+      )
       val result = engine.speak(
           "안경 음성 연결 시험입니다. 사진 분석은 아직 연결되지 않았습니다.",
-          TextToSpeech.QUEUE_FLUSH,
-          null,
-          "jh_glass_probe_one"
+          TextToSpeech.QUEUE_FLUSH, null, "jh_glass_probe_one"
       )
-      status(if (result == TextToSpeech.SUCCESS) "KOREAN_TTS_QUEUED_ROUTE_UNVERIFIED"
-          else "KOREAN_TTS_QUEUE_REJECTED")
-    } finally {
-      // Allow a bounded speaking window; it is NOT proof of on-glasses audio.
-      withTimeoutOrNull(4000) {
-        kotlinx.coroutines.delay(1500)
+      if (result != TextToSpeech.SUCCESS) {
+        status("KOREAN_TTS_QUEUE_REJECTED")
+        return
       }
+      val finished = withTimeoutOrNull(10_000) { spoken.await() }
+      status(
+          if (finished == true) "KOREAN_TTS_CALLBACK_DONE_ROUTE_UNVERIFIED"
+          else "KOREAN_TTS_COMPLETION_UNVERIFIED"
+      )
+    } finally {
+      // Never use a fixed 1.5-second cutoff that clips Korean replies.
       engine.stop()
       engine.shutdown()
       if (tts === engine) tts = null
