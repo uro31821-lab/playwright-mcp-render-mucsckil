@@ -44,7 +44,7 @@ Review ZIP `JHGlass_Stage12_ReviewOnly.zip` generated in the conversation; SHA-2
 
 The connected repository's existing `jh-server/owner-setup/owner-enrollment/` contains `owner-host-bootstrap.mjs`, `owner-enrollment-http.mjs`, `owner-registry-service.mjs`, etc., including handlers for `/device/owner-enrollment/{begin,finish,challenge,status,cancel}`.
 
-However the **operational** `jh-server/server.mjs` entrypoint on the Render-linked branch `jh-fix3-secure-server` does **not** mount `/device/owner-enrollment/` or `/jh-glass/v1/photo`. The owner-host bootstrap also requires verified Google owner configuration and private encrypted persistence. This is the current operational blocker, not an instruction to disable approval.
+**Important routing correction:** The baseline `jh-server/server.mjs` itself does not mount `/device/owner-enrollment/` or `/jh-glass/v1/photo`. However `jh-server/package.json` actually starts `owner-setup/deployment/published-host-router.mjs`, which has **explicit operator-controlled alternate owner startup paths** and can invoke `owner-service-entry.mjs` / `owner-host-bootstrap.mjs`. Therefore the **live runtime's selected startup mode and owner route availability are UNVERIFIED** without read-only deploy/env/route evidence; do not infer actual production availability solely from the baseline `server.mjs`. The vetted owner host requires Google allowlists and private encrypted persistence. No production change made.
 
 ## Next single safe development step
 
