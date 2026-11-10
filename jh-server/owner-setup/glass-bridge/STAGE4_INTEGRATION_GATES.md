@@ -17,7 +17,7 @@ Current `jh-server/server.mjs` under branch `jh-fix3-secure-server`:
 ## Stage 4 source artifacts
 
 - `owner-oauth-gate.mjs` / `owner-oauth-gate.test.mjs`: standalone grant-binder. Requires trusted Secure56 phone-local approval-verifier, pinned server digest, exact allowed OAuth resource, separate HMAC key, expiry, one-use attestation; binds authorization request digest to verified owner; carries subject across token refresh.
-- `glass-local-http.integration.test.mjs`: **localhost-only** Node HTTP trial of the existing photo ingress, mailbox, authenticated session, and new grant. Test security callbacks and image decoder are stubs; do not confuse them with a shipped verification mechanism.
+- `secure56-glass-approval.mjs` + `.test.mjs`: standalone HMAC receipt verifier bound to active Secure56 session, separately verified phone-local job and server-owned account/device binding. These trusted readback providers and phone UI approval are currently missing in production; without them authorization must fail closed.\n- `glass-local-http.integration.test.mjs`: **localhost-only** Node HTTP trial of the existing photo ingress, mailbox, authenticated session, and new grant. Test security callbacks and image decoder are stubs; do not confuse them with a shipped verification mechanism.
 - Existing `photo-ingress.mjs`, `photo-session.mjs`, `verified-owner.mjs` remain isolated and unmounted.
 
 ## Safely wiring to JH (planned, NOT DONE)
