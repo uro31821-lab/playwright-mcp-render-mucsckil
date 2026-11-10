@@ -25,6 +25,16 @@ Every-photo screen-share approval is unacceptable for ordinary Ray-Ban Meta -> J
 - No supported proof that ChatGPT will accept images as file attachments into an arbitrary existing thread; prefer an authenticated MCP image result for the user's current request and test with the actual host.
 - No extra OpenAI API cost incurred by this source-only design; zero-cost live runtime requires quota/route verification.
 
+## Stage 10 implementation check (2026-11-10)
+
+- No-repeat-confirmation source implementation exists in `android_cameraaccess/apply_cameraaccess_patch.py`: **JH로 보내기 1회 탭 = 해당 사진 1회 콜백**, 기존 Share 유지, 기본 비활성화.
+- `android_cameraaccess/JhGlassDeviceSigner.kt`: AndroidKeyStore 내보내기 불가능한 P-256 개인키; 사용자가 사진 전송을 지시한 경우에만 사진 다이제스트에 서명하도록 만든 별도 클래스. 아직 실제 이벤트/인증 제공자 연결 전.
+- `approved-device-session.mjs`: 최초 Secure56 승인 콜백(운영 실물은 미연결)을 통한 기기 등록과, 등록된 공개키로 사진별 서명·만료·재사용 검증. 기본 등록 유효기간 30일 초안; 장기 갱신 및 영속 저장은 출시 전 재검토해야 함.
+- `photo-claim-gate.mjs`: 서명된 사진 SHA-256와 실제 수신 JPEG SHA-256가 다르면 채팅 전달 거부.
+- GitHub 자동시험: 서버 141/141 성공, 공식 Meta Android 패치 7/7 + Kotlin 컴파일 성공. 자세한 근거는 `RESULT_STAGE10_NO_REPEAT_APPROVAL.md`.
+- **실제 사진 전송/ChatGPT 분석/휴대전화 승인 1회 등록은 여전히 미구현/미검증. 운영 앱·서버 변경 없음.**
+
+
 ## Implementation priorities
 1. Replace planned repetitive per-photo confirmation UI with **bounded user-authorized session scope** and an explicit photo command. Keep secure UI on initial pairing, renewal and sensitive data.
 2. Implement/verify stable OAuth owner binding + actual JH Secure56 device-local pairing approval; no anonymous PHOTO scope or LIFE_HUB_TOKEN fallback.
