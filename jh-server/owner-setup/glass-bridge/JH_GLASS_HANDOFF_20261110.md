@@ -87,8 +87,19 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - Workflow changed to run on `*.mjs` source/test changes only to avoid redundant CI for documentation edits.
 - Next: recover exact latest JH Android native source (the authenticated GitHub server repo includes Android test fixtures only) and implement the owner-verified phone approval job. Continue on current feature branch, keep operating Render/JH apps untouched and never use additional paid OpenAI APIs without an enforced cap.
 
+### Stage 6 update — 2026-11-10, Android Kotlin compile verified
+
+- New source-only Android CameraAccess overlay in `jh-server/owner-setup/glass-bridge/android_cameraaccess/`: `JhGlassPhotoClient.kt`, `apply_cameraaccess_patch.py`, `test_patch.py`, `README_STAGE6.md`.
+- Official Meta source pinned at `f4371bc9f90249d51eb07d7f8a61e8d829294f16`; GitHub Actions [42834093333](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42834093333), JH commit `47da2a525a785cca7db71e753ed9bad9dc44ae42`: **4/4 source patch tests and real `./gradlew :app:compileDebugKotlin` BUILD SUCCESSFUL**. Job ID `129891538797`. Result: `RESULT_STAGE6_ANDROID_COMPILE.md`.
+- The new photo-preview `JH로 보내기` button is **disabled by default**. Existing Meta `Share` behavior is preserved. Kotlin sender has a no-network default pairing provider, HTTPS-only backend URL, 2 MiB pixel JPEG encoder and 90s credential validation. Actual photo payload is NOT yet sent/tested on phone; no clinical data.
+- This is a source compile, not a new APK build/sign/install and not JH integration. Existing JH phone package remains unchanged and current CameraAccess installed app remains unchanged.
+- The real JH native Android source, Secure56 owner-account/phone-local approval, trusted pairing delivery, hardened live photo endpoint, GPT same-chat image receipt, and privacy/cost release gates remain unimplemented/not verified.
+- No repetitive earlier Meta developer-mode, SDK, original APK install or live stream test. No Google Drive or paid OpenAI API call. GitHub dev-only branch; Render operating branch unchanged.
+- Next: locate or reconstruct under existing JH sources the real Secure56 owner-approval phone job, then wire authenticated pairing into this separately compiled CameraAccess UI and verify photo transmission end-to-end under explicit installation/server approvals.
+- Latest status checkpoint is proactively stored; **95% context usage is unknown** and should never be guessed.
+
 ## 7. Next action
-Next incomplete work: obtain current JH Android native source; implement server-verified phone-local Secure56 owner approval, then integrate Stage 5 chat-scoped claim and photo retrieval with hardened ingress. Current owner proof provider is NOT implemented. Keep live Render, JH plugin and Android app unchanged until explicit approval.
+Next incomplete work: obtain current JH Android native source and implement a real phone-local Secure56 owner approval; then provide its trusted one-use pairing to the Stage 6 compiled CameraAccess JH send UI and connect authenticated chat-scoped MCP image retrieval. Stage 6 Android source compile is PASS, but release, installation, and E2E are NOT_RUN. Current owner proof provider is NOT implemented. Keep live Render, JH plugin and Android app unchanged until explicit approval.
 
 ## New-chat continuation phrase
 JH 안경비서 이어서. GitHub의 feature/jh-glass-photo-mailbox-20261110 브랜치와 이 인계서를 기준으로, 사진 수신의 인증/MCP 연결부터 다음 미완료 단계로 계속해.
