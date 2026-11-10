@@ -49,6 +49,17 @@ Status 2026-11-10 (Stage 3): SOURCE CANDIDATE, TESTS ONLY. NOT DEPLOYED. No runn
 ## Test
 node --test jh-server/owner-setup/glass-bridge/photo-*.test.mjs jh-server/owner-setup/glass-bridge/verified-owner.test.mjs
 
+## Stage 4: Owner-approved OAuth gate + localhost HTTP integration (SOURCE ONLY, NOT DEPLOYED)
+
+New files:
+- `owner-oauth-gate.mjs`: validates **server-verified Secure56 phone-local approval** bound to one exact ChatGPT OAuth request, server digest, resource, and nonce; derives stable pseudonymous owner subject via dedicated HMAC key. An ordinary OAuth browser button is not considered proof.
+- `owner-oauth-gate.test.mjs`: checks invalid/expired/forged/replayed approval, exact redirect/client/resource/PKCE binding, one-shot code, owner separation and refresh continuity.
+- `glass-local-http.integration.test.mjs`: real **localhost** HTTP POST against the isolated photo-ingress adapter; verifies one-time JPEG receipt, per-owner consume, replay, oversize denial and fail-closed paths. Signature/approval and safe JPEG decoder callbacks were stubs. **NOT** live proof.
+- `STAGE4_INTEGRATION_GATES.md`: the line-level plan for integrating with current JH OAuth+Secure56 code, without weakening existing auth.
+
+**Local Node 22 test run:** 53/53 PASS (Stage 3 suite 28, new owner gate 19, localhost HTTP 6). Not GitHub CI, not a deployed OAuth verifier, not Android/GPT end-to-end. No API calls or paid services used.
+**Current blocker:** Live JH `/oauth/authorize` form does not authenticate an individual owner and its issued tokens lack a stable subject; Secure56 GLASS owner approval must be implemented and actually verified before production wiring. Legacy scope-only tokens and LIFE_HUB_TOKEN fallback must never grant photo access.
+
 ## Next incomplete work
 - Connect verified JH OAuth principal to begin/consume MCP tool.
 - Add separate reviewed HTTP ingress, and simulate successful/invalid/replay/oversize requests.
