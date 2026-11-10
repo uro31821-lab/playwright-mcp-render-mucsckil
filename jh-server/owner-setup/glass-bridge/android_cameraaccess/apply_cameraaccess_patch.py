@@ -87,7 +87,7 @@ def patch(root: Path, kotlin_file: Path) -> str:
     text = text.replace(SIGNATURE, SIGNATURE.replace(
         "    modifier: Modifier = Modifier,\n",
         "    modifier: Modifier = Modifier,\n"
-        "    onJhTransferPhoto: (android.graphics.Bitmap) -> Unit = {},\n"
+        "    onJhTransferPhoto: ((android.graphics.Bitmap) -> Unit)? = null,\n"
         "    jhTransferEnabled: Boolean = false,\n",
     ))
     text = text.replace(context_marker, context_marker + STATE_CODE)
