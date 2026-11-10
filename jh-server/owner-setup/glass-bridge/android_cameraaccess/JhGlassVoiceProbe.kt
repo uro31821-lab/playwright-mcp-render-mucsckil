@@ -54,11 +54,13 @@ class JhGlassVoiceProbe(
   fun startVoiceLaunchListener(onLaunch: () -> Unit) {
     if (closed || launchJob?.isActive == true) return
     launchJob = scope.launch {
+      var closeChannel: (() -> Unit)? = null
       try {
         // A voice launch can cold-start the Activity via its intent, while this
         // independent stream handles other delivered launches while alive.
         Wearables.registrationState.first { it == RegistrationState.REGISTERED }
         val stream = Wearables.startVoiceInvocationsStream(AutoDeviceSelector())
+        closeChannel = { stream.close() }
         coroutineScope {
           launch { stream.errors.collect { status("VOICE_CHANNEL_ERROR") } }
           launch {
@@ -79,7 +81,7 @@ class JhGlassVoiceProbe(
       } catch (_: Exception) {
         status("VOICE_CHANNEL_UNAVAILABLE")
       } finally {
-        stream.close()
+        closeChannel?.invoke()
       }
     }
   }
