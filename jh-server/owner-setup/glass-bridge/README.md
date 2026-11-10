@@ -102,6 +102,15 @@ GitHub Actions test run [42831289969](https://github.com/uro31821-lab/playwright
 - [RESULT_STAGE10_NO_REPEAT_APPROVAL.md](RESULT_STAGE10_NO_REPEAT_APPROVAL.md)에 세부 근거 및 다음 차단조건 기록.
 
 
+## Stage 11: encrypted enrollment retention and original source recovery (CI PASS)
+
+- `encrypted-device-store.mjs` implements fail-closed, AES-256-GCM encrypted persistent JH owner-to-Android-P256 **public-key** trust. The disk path/32-byte key/server identity must be supplied by a trusted operator; no implicit key creation or token/photo persistence.
+- `approved-device-session.mjs` now accepts a trusted store interface, restores valid P-256 enrollment at startup and persists enrollment/revocation before reporting success; storage failures disable further photo-intent verification in the current process.
+- [GitHub CI run 42844334373](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42844334373) for commit `bdde30dc8fc820a52b1f135fd7aff743cae5517d`: **154/154 tests PASS, 0 failed**, and `NO_PRODUCTION_WIRING_CONFIRMED`. This includes real temporary-disk restart, corruption and revocation tests, but **not** a real deployed Secure56 account approval or Android E2E.
+- E184P2 native Android source ZIP was **found by Library metadata** (2,725,328 bytes), but it could not be read or materialized into the development runtime: `This Project file does not have an authorized raw-byte materialization path`. Do not infer its contents or alter the actual signed JH app without an authorized, direct upload.
+- Existing JH Render operating branch, installed JH and CameraAccess apps, and JH plugin were not changed. No OpenAI API calls made for this stage.
+- Detailed evidence and release blockers: `RESULT_STAGE11_DURABLE_TRUST_AND_SOURCE_RECOVERY.md`.
+
 ## Next incomplete work
 - Connect verified JH OAuth principal to begin/consume MCP tool.
 - Add separate reviewed HTTP ingress, and simulate successful/invalid/replay/oversize requests.
