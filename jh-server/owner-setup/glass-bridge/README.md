@@ -1,6 +1,6 @@
 # JH Glass Bridge — Photo Mailbox Prototype
 
-Status 2026-11-10: SOURCE CANDIDATE, TESTS ONLY. NOT DEPLOYED. No running HTTP route, MCP tool, APK modification, OpenAI API call, or photo storage on disk.
+Status 2026-11-10 (Stage 3): SOURCE CANDIDATE, TESTS ONLY. NOT DEPLOYED. No running HTTP route, MCP tool, APK modification, OpenAI API call, or photo storage on disk.
 
 ## Starting point
 - Meta CameraAccess app on actual phone: build + debug signature + Defender + installation confirmed in user's screenshots.
@@ -29,8 +29,25 @@ Status 2026-11-10: SOURCE CANDIDATE, TESTS ONLY. NOT DEPLOYED. No running HTTP r
 - Tokens without a verified stable subject fail closed; before production wire-up, add owner subject at initial OAuth grant and propagate it on refresh, without weakening existing auth. Only the server may supply the verified record.
 - These are isolated modules; live server.mjs remains unchanged. Local test result for owner contract: 6/6 PASS.
 
+## Stage 3 candidate code and verified local tests
+
+- Added photo-ingress.mjs: isolated HTTP handler for /jh-glass/v1/photo (NOT mounted on running server); denies unsupported routes/methods, untrusted native uploads, non-JPEG, over-2MiB, and decoded-image rejection.
+- Upload requires an injected TRUSTED transport attestation, rate/approval gate, and real JPEG decoder validator. Without those, the endpoint fails closed with 503.
+- photo-mailbox.mjs invalidates one-use pairing tokens on bad uploads and periodically sweeps expired memory. Token never appears in URL or response.
+- Added photo-session.mjs: isolated begin/consume/status wrapper requiring a verified OAuth subject. Current JH server's existing scope-only OAuth records cannot pass this gate.
+- HTTP adapter returns only a receipt; it does not call GPT. ChatGPT existing-thread image auto-injection remains unverified/unimplemented.
+- Local QA in Node 22: 28 unit tests across ingress + owner + session, and 13 legacy mailbox assertions = 41/41 PASS. These are local simulations, not network penetration testing, GitHub CI, live JH server, Android compile, or device E2E.
+- No change to jh-server/server.mjs.
+
+### Required before deployment (still open)
+1. Strong verified OAuth owner identity, with owner-approved login and refresh continuity. Never invent subject from client input.
+2. Trusted HTTPS proxy configuration, rate limits, request timeouts, oversize-stream handling, and real bounded JPEG decoding.
+3. Authorized MCP begin/consume tools and host image-return verification.
+4. CameraAccess photo transfer UI with human consent and patient-data safeguards.
+5. Security review and explicit approval before live server deployment or phone installation.
+
 ## Test
-node --test jh-server/owner-setup/glass-bridge/photo-mailbox.test.mjs
+node --test jh-server/owner-setup/glass-bridge/photo-*.test.mjs jh-server/owner-setup/glass-bridge/verified-owner.test.mjs
 
 ## Next incomplete work
 - Connect verified JH OAuth principal to begin/consume MCP tool.
