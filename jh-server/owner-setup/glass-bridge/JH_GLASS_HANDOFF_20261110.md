@@ -79,6 +79,14 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - Next action: get/locate the current JH Android source and implement a real device-local `glass_owner_oauth_bind` approval job, then wire exact owner binding and signed receipt to the isolated Stage 4/5 gates. Separately verify ephemeral image returns in ChatGPT and build a `JH 전송` CameraAccess UI. Keep no-paid-API policy.
 - Proactive 7-part handoff continues. Exact context 95% is NOT known; do not fabricate it.
 
+### Stage 5 hosted CI proof (2026-11-10)
+
+- GitHub Actions run https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42831289969, head `067923af5f6e19e38902dc8bea3795fa58cbcf75`, completed SUCCESS. Node v24.22.2: **106/106 passed, 0 failed** across all Stage 2–5 JavaScript tests. The separate source-isolation step logged `NO_PRODUCTION_WIRING_CONFIRMED`.
+- Source evidence: `jh-server/owner-setup/glass-bridge/RESULT_STAGE5_GITHUB_CI.md`.
+- This confirms development-branch code tests **only**. Mock phone/local consent; no production Secure56 approval, APK, live MCP or photo transfer, no ChatGPT same-chat auto-attachment.
+- Workflow changed to run on `*.mjs` source/test changes only to avoid redundant CI for documentation edits.
+- Next: recover exact latest JH Android native source (the authenticated GitHub server repo includes Android test fixtures only) and implement the owner-verified phone approval job. Continue on current feature branch, keep operating Render/JH apps untouched and never use additional paid OpenAI APIs without an enforced cap.
+
 ## 7. Next action
 Next incomplete work: obtain current JH Android native source; implement server-verified phone-local Secure56 owner approval, then integrate Stage 5 chat-scoped claim and photo retrieval with hardened ingress. Current owner proof provider is NOT implemented. Keep live Render, JH plugin and Android app unchanged until explicit approval.
 
