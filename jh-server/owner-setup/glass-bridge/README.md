@@ -75,6 +75,15 @@ New isolated source: `photo-claim-gate.mjs` and `photo-claim-gate.test.mjs` (Nod
 
 GitHub Actions test run [42831289969](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42831289969) actually completed SUCCESS at commit `067923af5f6e19e38902dc8bea3795fa58cbcf75` on the development branch, using Node.js 24.22.2. **106/106 tests passed, 0 failed** across Stage 2–5 test files. The CI also verified `NO_PRODUCTION_WIRING_CONFIRMED` (the live server source does not import glass-bridge). See `RESULT_STAGE5_GITHUB_CI.md`. This does NOT establish real phone approval, official Meta SDK changes, production deployment or ChatGPT image receiving.
 
+## Stage 6 — independent CameraAccess Android source candidate, compile verified
+
+- New source: `android_cameraaccess/JhGlassPhotoClient.kt`, `apply_cameraaccess_patch.py`, `test_patch.py`, `README_STAGE6.md`.
+- **Actual official Meta Android SDK compilation PASS**: GitHub [Actions 42834093333](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42834093333), JH commit `47da2a525a785cca7db71e753ed9bad9dc44ae42`, official Meta pinned commit `f4371bc9f90249d51eb07d7f8a61e8d829294f16`. Java17 / Gradle 8.14.1, `./gradlew --no-daemon :app:compileDebugKotlin` → **BUILD SUCCESSFUL in 1m 24s**.
+- Source patch Python tests **4/4 PASS**, patch idempotent, original Android `Share` preserved, new `JH로 보내기` button **disabled by default** until an actual Secure56 approved pairing source exists.
+- Pixel re-encode to <=2 MiB JPEG, no metadata copy and disabled-by-default HTTPS uploader compile, **not** exercised on phone or connected to JH server.
+- No APK release, user-device change, JH production server import, plugin update or new OpenAI API request; source-only stage. Detailed evidence in `RESULT_STAGE6_ANDROID_COMPILE.md`.
+- Remaining blocker: current JH Android native source / real owner-bound Secure56 phone approval + trusted pairing provider, hardened live server ingress and authenticated per-chat MCP image return.
+
 ## Next incomplete work
 - Connect verified JH OAuth principal to begin/consume MCP tool.
 - Add separate reviewed HTTP ingress, and simulate successful/invalid/replay/oversize requests.
