@@ -92,6 +92,16 @@ GitHub Actions test run [42831289969](https://github.com/uro31821-lab/playwright
 - Detailed proof: `RESULT_STAGE7_RECEIPT_AND_CONSENT.md`.
 - **Next efficient test (candidate, not verified):** Use existing approved JH screen-capture MCP to capture the *photograph preview visible on the phone* into the same GPT request, with explicit phone-local screen consent. This is a potential no-paid-API alternative to uploading JPEG via a new backend; not tested on the native Meta CameraAccess app and may have resolution/foreground limitations. Until proved, keep the dedicated upload blockers open.
 
+## Stage 10 — 최초 승인 후 각 사진 한 번 탭 (코드 검증)
+
+- 사용자 확정 UX: **반복되는 화면 공유 승인창 제거**, 최초 등록만 실제 Secure56 휴대전화 승인; 이후 사용자가 사진마다 **전송 버튼 한 번**을 직접 눌러야 함.
+- Server `approved-device-session.mjs`: 최초 등록에 P-256 Android Keystore 공개키/서명 및 모의 Secure56 승인 사용, 사진마다 등록된 키 서명 검증·만료·중복 방지. 실제 Secure56 승인기와 운영 서버에는 아직 연결하지 않았음.
+- Android `JhGlassDeviceSigner.kt`: 비밀키를 휴대전화 AndroidKeyStore 밖으로 꺼내지 않는 코드, 사용자가 선택한 사진의 해시 서명 가능. UI는 매번 확인 `AlertDialog` 없이 **`JH로 보내기` 1회 탭**으로 변경했지만 기본 전송 비활성/콜백 미연결 유지.
+- Photo claim은 서명한 JPEG 해시와 실제 업로드된 JPEG 해시를 대조해 맞지 않으면 폐기.
+- GitHub [Node CI 42841542013](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42841542013) **141/141 통과**; [Android compile 42841253151](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42841253151) **패치 7/7 + BUILD SUCCESSFUL**. 운영 배포·APK 설치·안경 사진의 실제 GPT 분석은 미완료.
+- [RESULT_STAGE10_NO_REPEAT_APPROVAL.md](RESULT_STAGE10_NO_REPEAT_APPROVAL.md)에 세부 근거 및 다음 차단조건 기록.
+
+
 ## Next incomplete work
 - Connect verified JH OAuth principal to begin/consume MCP tool.
 - Add separate reviewed HTTP ingress, and simulate successful/invalid/replay/oversize requests.
