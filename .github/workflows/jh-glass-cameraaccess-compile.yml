@@ -1,0 +1,52 @@
+name: JH Glass CameraAccess Compile (Development Only)
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/**'
+      - '.github/workflows/jh-glass-cameraaccess-compile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile-official-meta-cameraaccess:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout JH source-only candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: JDK 17 for Meta SDK
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify source-only patch against pinned official Meta source
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/meta-wearables"
+          git init "$root"
+          git -C "$root" remote add origin https://github.com/meta/meta-wearables-dat-android.git
+          git -C "$root" fetch --depth=1 origin f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          git -C "$root" checkout --detach FETCH_HEAD
+          test "$(git -C "$root" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          echo META_OFFICIAL_COMMIT_PIN_VERIFIED
+          python3 -m unittest -v discover -s jh-server/owner-setup/glass-bridge/android_cameraaccess -p test_patch.py
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_cameraaccess_patch.py "$root/samples/CameraAccess"
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_cameraaccess_patch.py "$root/samples/CameraAccess"
+          grep -q 'jhTransferEnabled: Boolean = false' "$root/samples/CameraAccess/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/ui/CapturePreviewScreen.kt"
+          grep -q 'Intent.ACTION_SEND' "$root/samples/CameraAccess/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/ui/CapturePreviewScreen.kt"
+          echo JH_CAMERAACCESS_SAFE_PATCH_VERIFIED
+      - name: Android Kotlin compile (no APK install or release)
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/meta-wearables/samples/CameraAccess"
+          cd "$root"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :app:compileDebugKotlin
+          echo JH_CAMERAACCESS_SOURCE_COMPILE_PASS
+      - name: Explicit non-deployment sentinel
+        run: |
+          echo JH_GLASS_SOURCE_ONLY_NO_APK_NO_INSTALL_NO_SERVER_DEPLOY
