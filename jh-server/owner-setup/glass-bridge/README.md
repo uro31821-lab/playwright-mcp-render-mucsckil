@@ -55,9 +55,9 @@ New files:
 - `owner-oauth-gate.mjs`: validates **server-verified Secure56 phone-local approval** bound to one exact ChatGPT OAuth request, server digest, resource, and nonce; derives stable pseudonymous owner subject via dedicated HMAC key. An ordinary OAuth browser button is not considered proof.
 - `owner-oauth-gate.test.mjs`: checks invalid/expired/forged/replayed approval, exact redirect/client/resource/PKCE binding, one-shot code, owner separation and refresh continuity.
 - `glass-local-http.integration.test.mjs`: real **localhost** HTTP POST against the isolated photo-ingress adapter; verifies one-time JPEG receipt, per-owner consume, replay, oversize denial and fail-closed paths. Signature/approval and safe JPEG decoder callbacks were stubs. **NOT** live proof.
-- `STAGE4_INTEGRATION_GATES.md`: the line-level plan for integrating with current JH OAuth+Secure56 code, without weakening existing auth.
+- `secure56-glass-approval.mjs` / `secure56-glass-approval.test.mjs`: verify phone receipt HMAC with active server Secure56 secret PLUS actual phone-local approved job and separate server-owned account/device ownership record. This verifier is source-only; the phone job type and ownership store are NOT installed.\n- `STAGE4_INTEGRATION_GATES.md`: the line-level plan for integrating with current JH OAuth+Secure56 code, without weakening existing auth.
 
-**Local Node 22 test run:** 53/53 PASS (Stage 3 suite 28, new owner gate 19, localhost HTTP 6). Not GitHub CI, not a deployed OAuth verifier, not Android/GPT end-to-end. No API calls or paid services used.
+**Local Node 22 test run:** 70/70 PASS (Stage 3 suite 28, owner OAuth gate 19, localhost HTTP 6, signed Secure56 approval 17). Not GitHub CI, not a deployed OAuth verifier, not Android/GPT end-to-end. No API calls or paid services used.
 **Current blocker:** Live JH `/oauth/authorize` form does not authenticate an individual owner and its issued tokens lack a stable subject; Secure56 GLASS owner approval must be implemented and actually verified before production wiring. Legacy scope-only tokens and LIFE_HUB_TOKEN fallback must never grant photo access.
 
 ## Next incomplete work
