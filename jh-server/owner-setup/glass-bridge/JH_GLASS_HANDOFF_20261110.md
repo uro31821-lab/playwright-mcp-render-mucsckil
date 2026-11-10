@@ -12,6 +12,7 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - CameraAccess app package: com.meta.wearable.dat.externalsampleapps.cameraaccess (different from existing JH app com.koreanlifehub.bridge).
 - JH Render service: jh-secure-bridge-fix4, branch jh-fix3-secure-server, autoDeploy OFF. No live modification.
 - Source candidate branch: feature/jh-glass-photo-mailbox-20261110 in uro31821-lab/playwright-mcp-render-mucsckil.
+- Prototype files: verified-owner.mjs and verified-owner.test.mjs added. A verified stable OAuth subject is REQUIRED before JH wire-up (6/6 isolated tests pass).
 - Prototype files: jh-server/owner-setup/glass-bridge/photo-mailbox.mjs, photo-mailbox.test.mjs, README.md.
 - JH plugin currently inspected as version 1.34.87, but not updated for this work.
 
