@@ -33,7 +33,7 @@ jobs:
           git -C "$root" checkout --detach FETCH_HEAD
           test "$(git -C "$root" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
           echo META_OFFICIAL_COMMIT_PIN_VERIFIED
-          python3 -m unittest -v discover -s jh-server/owner-setup/glass-bridge/android_cameraaccess -p test_patch.py
+          python3 -m unittest discover -v -s jh-server/owner-setup/glass-bridge/android_cameraaccess -p 'test_patch.py'
           python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_cameraaccess_patch.py "$root/samples/CameraAccess"
           python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_cameraaccess_patch.py "$root/samples/CameraAccess"
           grep -q 'jhTransferEnabled: Boolean = false' "$root/samples/CameraAccess/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/ui/CapturePreviewScreen.kt"
