@@ -108,6 +108,16 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - No changes to the installed JH Android app, installed CameraAccess, running Render JH service, plugin release or external accounts. Do not repeat past Meta setup/build/USB.
 - Context 95% is unknown. Handoff stays available proactively; notify only when near limits.
 
+### Stage 8: real one-shot CameraAccess photo-preview capture (2026-11-10)
+
+- User confirmed that a photo preview was open. Native Android JH snapshot independently verified CameraAccess in the RIGHT pane, GPT in LEFT pane, and a visible `Share` label. No `Share` action was invoked.
+- JH Android Secure56 session verified active; task-scoped phone-local screen consent requested and independently read back as `approved:true` / `floating_approved_by_local_tap`.
+- One `SCREENSHOT` read-only action prepared and executed on verified RIGHT work window. Tool receipt: `frame_delivered_ephemeral`, 1419×1812, `persisted:false` — **real device screenshot path works**.
+- **Important distinction:** the pixel payload was not forwarded to the assistant's visual input in this trial. Thus whether ChatGPT can actually analyze the image in this existing conversation remains **UNVERIFIED**; don't claim image-recognition success.
+- No replay of the consumed screenshot. No fresh install, no uploaded photo server, no direct API charge. Zero paid API calls for the test.
+- Latest source-only result document: `RESULT_STAGE8_LIVE_PREVIEW_CAPTURE.md`. Next: adapt image-block forwarding on a future explicitly consented single capture; only after that can object-vision and per-assistant analysis be E2E verified. Do not repeat original Meta developer setup/CameraAccess stream proof.
+- Consent tokens, device identity, raw photo bytes and screenshot content are not stored in GitHub. Exact 95% conversation usage remains unknown; continue existing 7-part handoff rules.
+
 ## 7. Next action
 Next action: test **current ChatGPT tool response** using the existing Secure56 one-shot screen-capture path on a CameraAccess photo preview, with explicit phone-local consent. If not supported/insufficient, obtain JH Android native source and complete verified OAuth + photo ingress + MCP. Existing JH and CameraAccess installations must remain untouched until approved.nd implement a real phone-local Secure56 owner approval; then provide its trusted one-use pairing to the Stage 6 compiled CameraAccess JH send UI and connect authenticated chat-scoped MCP image retrieval. Stage 6 Android source compile is PASS, but release, installation, and E2E are NOT_RUN. Current owner proof provider is NOT implemented. Keep live Render, JH plugin and Android app unchanged until explicit approval.
 
