@@ -24,6 +24,11 @@ Status 2026-11-10: SOURCE CANDIDATE, TESTS ONLY. NOT DEPLOYED. No running HTTP r
 - Clinical/patient data must be blocked by default until separate consent/privacy gating is verified.
 - Do not wire to production, deploy, restart, install, or request paid API work without explicit operational permission.
 
+## OAuth owner-binding preflight
+- Added verified-owner.mjs and verified-owner.test.mjs. The server currently issues scope/expiry-only OAuth records and **does not yet have a stable authenticated subject**.
+- Tokens without a verified stable subject fail closed; before production wire-up, add owner subject at initial OAuth grant and propagate it on refresh, without weakening existing auth. Only the server may supply the verified record.
+- These are isolated modules; live server.mjs remains unchanged. Local test result for owner contract: 6/6 PASS.
+
 ## Test
 node --test jh-server/owner-setup/glass-bridge/photo-mailbox.test.mjs
 
