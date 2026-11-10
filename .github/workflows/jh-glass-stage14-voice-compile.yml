@@ -1,0 +1,51 @@
+name: JH Glass Stage14 Voice + Korean TTS Compile (Source Only)
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/JhGlassVoiceProbe.kt'
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_handsfree_probe.py'
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/test_stage14_voice_patch.py'
+      - '.github/workflows/jh-glass-stage14-voice-compile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  voice-source-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Read-only checkout of JH development branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: JDK17 from verified official Meta SDK release requirements
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Pinned official Meta Android source and no-network Python tests
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/meta-pinned-stage14"
+          git init "${root}"
+          git -C "${root}" remote add origin https://github.com/meta/meta-wearables-dat-android.git
+          git -C "${root}" fetch --depth=1 origin f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          git -C "${root}" checkout --detach FETCH_HEAD
+          test "$(git -C "${root}" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          echo META_PINNED_SDK_101_CONFIRMED
+          python3 -m unittest discover -v -s jh-server/owner-setup/glass-bridge/android_cameraaccess -p 'test_stage14_voice_patch.py'
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_handsfree_probe.py "${root}/samples/CameraAccess"
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_handsfree_probe.py "${root}/samples/CameraAccess"
+          grep -q 'jhVoiceLaunchPending = savedInstanceState == null && isVoiceInvocationsIntent(intent)' "${root}/samples/CameraAccess/app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/MainActivity.kt"
+          grep -q 'implementation(libs.mwdat.speech)' "${root}/samples/CameraAccess/app/build.gradle.kts"
+          echo STAGE14_VOICE_PATCH_IDEMPOTENT_PASS
+      - name: Compile actual experimental DAT Speech and Voice Invocations
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/meta-pinned-stage14/samples/CameraAccess"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :app:compileDebugKotlin
+          echo STAGE14_VOICE_KOTLIN_COMPILE_PASS
+      - name: Assert no APK build, installation or deployment
+        run: |
+          echo STAGE14_SOURCE_ONLY_NO_META_WDC_REGISTRATION_NO_JH_APP_INSTALL_NO_OPENAI_API
