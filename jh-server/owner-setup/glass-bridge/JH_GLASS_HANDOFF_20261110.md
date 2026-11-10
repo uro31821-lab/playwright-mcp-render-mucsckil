@@ -139,8 +139,17 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - 채팅 컨텍스트 사용률은 노출되지 않았으므로 95% 수치를 만들어내지 않는다. 중요 파일과 단계별 근거는 이 7항목 인계서 중심으로 재사용한다.
 
 
+### Stage 11 checkpoint — 2026-11-11 KST
+
+- Found user Library metadata `E184P2(1).zip` (2,725,328 bytes), `E184P2.zip` and a Kabiseo E184 review source candidate. Raw-byte materialization and read both failed (`This Project file does not have an authorized raw-byte materialization path`). Therefore native JH Android source is **identified by filename only but NOT actually accessible for safe integration**. Do not use Google Drive, infer ZIP contents or rely on older manifest as proof.
+- New GitHub source `encrypted-device-store.mjs` and tests: AES-256-GCM encrypted, explicit-key, single-process disk store for owner/device P-256 public key and expiry; no photos/tokens/private key saved. `approved-device-session.mjs` now restores/persists approved device enrollment, requires storage success and fails closed on fault in current process.
+- **Hosted CI PASS**: [run 42844334373](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42844334373), commit `bdde30dc8fc820a52b1f135fd7aff743cae5517d`, **154/154 Node tests, 0 failures**, no JH operating server import. Existing Stage10 Android Kotlin PASS remains reusable; no need to rerun.
+- Actual Secure56 first-time owner/account approval, trusted persistent key setup, fail-safe revoke procedure across process restart, real Android native integration, live photo upload and ChatGPT image analysis remain **NOT_RUN/BLOCKED**. No app/release/deploy/API charge in this stage.
+- **Next one action when the user can provide source**: attach `E184P2(1).zip` directly to this chat (no Drive/download needed if chosen from user's existing Library). Perform ZIP scan/structure/signature check before minimal native patch; never change the installed JH app yet.
+- 7-item handoff rule remains current. Exact conversation context usage is not exposed; do not invent 95%.
+
 ## 7. Next action
-Next action: obtain the current JH Android native source and actually wire Secure56 first-approval + P256 public-key enrollment to the Stage10 Android sender and server; protect picture transmission with signed user commands and verify actual image reaching this ChatGPT workflow. Existing Meta CameraAccess install and JH server stay unchanged until tests and separate approval.
+Next action: obtain authorized native JH app source ZIP E184P2(1).zip as a direct attachment, verify archive/version/signing identity and integrate the genuine Secure56 first approval into the tested persistent P256 device trust; do not deploy or install until security review and explicit authorization. Existing Meta CameraAccess install and JH server stay unchanged until tests and separate approval.
 
 ## New-chat continuation phrase
 JH 안경비서 이어서. GitHub의 feature/jh-glass-photo-mailbox-20261110 브랜치와 이 인계서를 기준으로, 사진 수신의 인증/MCP 연결부터 다음 미완료 단계로 계속해.
