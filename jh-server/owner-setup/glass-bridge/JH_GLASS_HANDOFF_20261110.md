@@ -69,8 +69,18 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - User preferences reconfirmed: avoid Google Drive and unreliable sandbox ZIP links; maintain no-extra-cost policy and checkpoint the 7-section handoff when context is truly nearing limit (no invented 95%).
 - **NEXT:** add actual, locally approved Secure56 `glass_owner_oauth_bind` phone job and server-owned account binding before using the isolated HMAC verifier (currently unavailable) and then the guarded photo MCP tool on a non-deployed branch. No launch of anonymous `/oauth/authorize` photo grants.
 
+### Stage 5 update — 2026-11-10
+
+- GitHub branch feature/jh-glass-photo-mailbox-20261110: `photo-claim-gate.mjs`, `photo-claim-gate.test.mjs`, `STAGE5_CHAT_CLAIM.md` added and sources re-fetched. Chat claim is a separate 256-bit token protecting one original requesting conversation, because owner authentication alone does not isolate ChatGPT threads.
+- LOCAL Node.js v22.16.0 Stage 5 tests **23/23 PASS** (mock session and mock signed phone approval). Previous Stage 4 local 70/70 remains a separate prior result; DO NOT claim 93/93 from one run unless CI actually verifies all files.
+- Phone upload bearer is withheld from chat begin result and delivered only after a separately verified phone approval callback. Competing chat, wrong owner, expiry, replay, overlapping request and late-approval races are rejected in local tests. **Actual Secure56 Android approval job and owner/account binding are still absent.**
+- Search of accessible JH GitHub server branch showed only Android Kotlin test fixtures, not actual production Android app source. Do not claim an implemented phone UI, packaged APK, or server MCP integration.
+- Stage 5 source is still NOT imported into operating `jh-server/server.mjs`; Render autoDeploy was OFF at last check. No JH plugin update or device install was performed.
+- Next action: get/locate the current JH Android source and implement a real device-local `glass_owner_oauth_bind` approval job, then wire exact owner binding and signed receipt to the isolated Stage 4/5 gates. Separately verify ephemeral image returns in ChatGPT and build a `JH 전송` CameraAccess UI. Keep no-paid-API policy.
+- Proactive 7-part handoff continues. Exact context 95% is NOT known; do not fabricate it.
+
 ## 7. Next action
-Next incomplete work: implement a real, server-verified, phone-local Secure56 owner approval for the OAuth request digest and tested owner token propagation; then separately connect authenticated MCP image consumption with strict ingress gates. Current owner proof provider is NOT implemented. Keep live Render, JH plugin and Android app unchanged until explicit approval.
+Next incomplete work: obtain current JH Android native source; implement server-verified phone-local Secure56 owner approval, then integrate Stage 5 chat-scoped claim and photo retrieval with hardened ingress. Current owner proof provider is NOT implemented. Keep live Render, JH plugin and Android app unchanged until explicit approval.
 
 ## New-chat continuation phrase
 JH 안경비서 이어서. GitHub의 feature/jh-glass-photo-mailbox-20261110 브랜치와 이 인계서를 기준으로, 사진 수신의 인증/MCP 연결부터 다음 미완료 단계로 계속해.
