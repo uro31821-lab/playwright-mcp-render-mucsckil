@@ -126,8 +126,21 @@ Ray-Ban Meta glasses -> photo/voice -> GPT & JH Secure Live professional assista
 - Next implementation target: phone-authorized owner/device pairing session + per-photo one-time automatically generated server token + explicit spoken/tap trigger + chat-bound MCP image return. Zero background photo capture, and fail closed for patient-identifying/sensitive data.
 - Stage 8 already captured one approved ephemeral frame but pixels were not delivered as inspectable vision input. Current user rejected repeating approvals for this interim path; **do not request a new one-shot screenshot unless explicitly reauthorized**.
 
+### Stage 10 checkpoint (2026-11-10)
+
+- 최근 사용자 확정: 매번 화면 캡처 승인 요구는 부적합. **최초 기기 페어링의 명시적 승인 1회 → 그 이후 일상 사물 사진은 `JH로 보내기` 한 번 탭/적법한 음성 명령만으로 전송**. 매 사진 반복 보안 팝업·자동 배경촬영 금지.
+- **이번에 실제 GitHub 구현**: `approved-device-session.mjs`와 `approved-device-session.test.mjs` (AndroidKeyStore P-256 공개키 등록 및 소유증명, 서버에서 모의 Secure56 최초 승인 1회, 사진별 서명 검증·재사용 방지·철회·만료), `approved-device-photo-flow.test.mjs`(사진 2장 별도 1회 전송·채팅 격리), `photo-claim-gate.mjs` JPEG SHA-256 일치 검사, `android_cameraaccess/JhGlassDeviceSigner.kt` 기기 내 P-256 개인키 서명, UI 패치에서 매사진 확인창 제거·1회 탭 처리 및 기본 비활성 유지.
+- **실제 GitHub 자동시험 PASS**: Node run [42841542013](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42841542013): **141/141**, 운영 서버 무연결 확인. 공식 Meta pinned Android run [42841253151](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42841253151): Python 7/7, Kotlin `BUILD SUCCESSFUL in 1m 39s`.
+- 상세: `RESULT_STAGE10_NO_REPEAT_APPROVAL.md`. 이는 **소스·모의 연결 테스트 통과**이지 실제 휴대전화 등록/보안 승인/운영 서버 전송/현재 GPT 대화 이미지 해석 완료가 아님.
+- Android KeyStore 키는 등록 후 기기 안에 보존할 수 있도록 설계했으나 실제 앱 연결 안 됨. 서버 등록부는 메모리 임시값이므로 운영 재시작에 견디는 암호화 영속 저장, 실제 JH Secure56 기기-계정 바인딩·인증 제공자 연결, 과금 0 정책, 환자 정보 방지 검증을 마쳐야 함.
+- **반복 금지:** Meta 개발자모드/SDK/원래 CameraAccess 빌드·설치·실시간 영상 확인 및 여러 차례의 개별 화면공유 승인. 실제 필요 시 새 기기 테스트 한 번만 별도 동의.
+- 운영 Render 서버, JH 기존 APK, 플러그인 버전, 이미 설치한 CameraAccess는 손대지 않았음. 추가 OpenAI API 호출 없음.
+- **다음 미완료 작업:** 현재 실기기 JH Android 소스(버전184 포함) 원본 경로 확보 → 실제 최초 1회 기기 등록 승인(Secure56)과 P-256 공개키 바인딩/자동 세션 유효성 연결, 이후 승인된 스테이징 E2E. 필요시 소스를 제공받을 때만 최소 질문.
+- 채팅 컨텍스트 사용률은 노출되지 않았으므로 95% 수치를 만들어내지 않는다. 중요 파일과 단계별 근거는 이 7항목 인계서 중심으로 재사용한다.
+
+
 ## 7. Next action
-Next action: implement the bounded once-approved JH/Meta **direct DAT photo transfer session**, with one explicit user command per photo and verified Secure56 owner account binding; avoid repeated screen-consent prompts. Existing Meta CameraAccess install and JH server stay unchanged until tests and separate approval.
+Next action: obtain the current JH Android native source and actually wire Secure56 first-approval + P256 public-key enrollment to the Stage10 Android sender and server; protect picture transmission with signed user commands and verify actual image reaching this ChatGPT workflow. Existing Meta CameraAccess install and JH server stay unchanged until tests and separate approval.
 
 ## New-chat continuation phrase
 JH 안경비서 이어서. GitHub의 feature/jh-glass-photo-mailbox-20261110 브랜치와 이 인계서를 기준으로, 사진 수신의 인증/MCP 연결부터 다음 미완료 단계로 계속해.
