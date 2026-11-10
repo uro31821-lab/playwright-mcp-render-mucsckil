@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from apply_cameraaccess_patch import patch, UI, CODEC
+from apply_cameraaccess_patch import patch, UI, CODEC, SIGNER
 
 PREVIEW = '''import android.content.Intent
 import androidx.compose.runtime.Composable
@@ -21,7 +21,7 @@ fun CapturePreviewScreen(
 private fun VideoPreview(uri: Uri) {}
 '''
 
-class Stage7PatchTest(unittest.TestCase):
+class Stage10PatchTest(unittest.TestCase):
     def setUp(self):
         self.d = tempfile.TemporaryDirectory()
         self.root = Path(self.d.name)
@@ -31,20 +31,21 @@ class Stage7PatchTest(unittest.TestCase):
 
     def tearDown(self): self.d.cleanup()
 
-    def test_default_disabled_consent_before_any_dispatch(self):
-        self.assertEqual(patch(self.root,self.codec),'APPLIED')
-        actual=(self.root/UI).read_text(encoding='utf-8')
-        self.assertIn('jhTransferEnabled: Boolean = false',actual)
-        self.assertIn('enabled = jhTransferEnabled && !jhSendSubmitted',actual)
-        self.assertIn('jh_photo_consent_dialog',actual)
-        self.assertIn('jh_privacy_checkbox',actual)
-        self.assertIn('jh_final_send_button',actual)
-        self.assertIn('jhPrivacyConfirmed && !jhSendSubmitted',actual)
-        self.assertIn('jhSendSubmitted = true',actual)
-        self.assertIn('onJhTransferPhoto(preview.bitmap)',actual)
-        self.assertIn('Intent.ACTION_SEND',actual)
-        self.assertIn('savePhotoToCache',actual)
-        self.assertEqual(patch(self.root,self.codec),'ALREADY_APPLIED')
+    def test_jh_button_requires_real_sender_and_one_explicit_tap(self):
+        self.assertEqual(patch(self.root, self.codec), 'APPLIED')
+        actual = (self.root/UI).read_text(encoding='utf-8')
+        self.assertIn('jhTransferEnabled: Boolean = false', actual)
+        self.assertIn('onJhTransferPhoto: ((android.graphics.Bitmap) -> Unit)? = null', actual)
+        self.assertIn('enabled = jhTransferEnabled && onJhTransferPhoto != null && !jhSendSubmitted', actual)
+        self.assertIn('jhSendSubmitted = true', actual)
+        self.assertIn('onJhTransferPhoto.invoke(preview.bitmap)', actual)
+        self.assertIn('Intent.ACTION_SEND', actual)
+        self.assertIn('savePhotoToCache', actual)
+        self.assertNotIn('jh_photo_consent_dialog', actual)
+        self.assertNotIn('jh_privacy_checkbox', actual)
+        self.assertNotIn('showJhConfirm', actual)
+        self.assertIn('환자·개인정보 전송 금지', actual)
+        self.assertEqual(patch(self.root, self.codec), 'ALREADY_APPLIED')
 
     def test_does_not_modify_unknown_upstream_code(self):
         p=self.root/UI
@@ -62,7 +63,20 @@ class Stage7PatchTest(unittest.TestCase):
     def test_reuses_only_official_preview_and_independent_client(self):
         self.assertEqual(patch(self.root,self.codec),'APPLIED')
         self.assertTrue((self.root/CODEC).exists())
-        self.assertEqual(len(list(self.root.rglob('*.kt'))),2)
+        self.assertEqual(len(list(self.root.rglob('*.kt'))),3)
+        self.assertTrue((self.root/SIGNER).exists())
+
+    def test_android_keystore_nonexportable_key_and_repeated_prompt_elimination(self):
+        signer = Path(__file__).with_name("JhGlassDeviceSigner.kt").read_text()
+        self.assertIn('KeyStore.getInstance("AndroidKeyStore")', signer)
+        self.assertIn('ECGenParameterSpec("secp256r1")', signer)
+        self.assertIn('Signature.getInstance("SHA256withECDSA")', signer)
+        self.assertIn('.setUserAuthenticationRequired(false)', signer)
+        self.assertIn('fun signUserRequestedPhoto(', signer)
+        self.assertIn('JH_GLASS_PHOTO_INTENT_P256_V1', signer)
+        self.assertIn('JH_GLASS_ENROLL_P256_V1', signer)
+        self.assertNotIn('Log.', signer)
+        self.assertNotIn('OPENAI_API_KEY', signer)
 
     def test_sender_default_no_network_and_no_secrets(self):
         s=self.codec.read_text()
