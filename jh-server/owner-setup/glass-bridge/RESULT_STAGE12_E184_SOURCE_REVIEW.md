@@ -30,7 +30,7 @@ A small **private, review-only** source overlay was produced in the conversation
 3. `AndroidManifest_queries.patch`: adds exactly one specific CameraAccess package visibility entry inside existing `<queries>`; no new runtime permissions, exported components, services or activities.
 4. `JhGlassInitialEnrollmentPolicyJvmTest.kt`: 18 Kotlin unit checks.
 
-Review ZIP `JHGlass_Stage12_ReviewOnly.zip` generated in the conversation; SHA-256 `86369cfadf7dd7235c3ee350ff06cd3544db94c5193407d3a87cd26fcc6c02d1` (7,814 bytes, 6 source/docs entries). Download availability is unverified until the user actually receives it.
+Review ZIP `JHGlass_Stage12_ReviewOnly.zip` generated in the conversation; SHA-256 `9c463ebe3f988252a7ed672b462830bb0aafe420c2dca0acb418be25b2b86f65` (7,938 bytes, 6 source/docs entries). Download availability is unverified until the user actually receives it.
 
 ## Tests run
 
