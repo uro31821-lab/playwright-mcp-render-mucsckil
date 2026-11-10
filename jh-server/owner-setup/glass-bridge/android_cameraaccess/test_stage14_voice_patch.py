@@ -37,7 +37,7 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         main.parent.mkdir(parents=True)
         main.write_text(ORIGINAL_MAIN, encoding="utf-8")
         gradle = self.root / GRADLE
-        gradle.parent.mkdir(parents=True)
+        gradle.parent.mkdir(parents=True, exist_ok=True)
         gradle.write_text(ORIGINAL_GRADLE, encoding="utf-8")
         self.overlay = Path(__file__).resolve().parent
     def tearDown(self):
