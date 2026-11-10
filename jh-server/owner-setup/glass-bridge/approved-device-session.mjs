@@ -41,6 +41,7 @@ export function createApprovedGlassDeviceRegistry({
   serverDigest,
   now = () => Date.now(),
   randomChallenge = () => randomBytes(32).toString('base64url'),
+  deviceTrustStore = null,
 } = {}) {
   if (typeof verifySecure56Enrollment !== 'function') throw new TypeError('Trusted Secure56 initial approval verifier required');
   if (!HEX64.test(serverDigest||'')) throw new TypeError('Pinned server digest required');
@@ -48,6 +49,33 @@ export function createApprovedGlassDeviceRegistry({
   const pending = new Map();
   const devices = new Map();
   const spent = new Map();
+  // Source-only persistent trust: requires an explicit encrypted storage
+  // adapter, provided only by the authenticated JH server after local consent.
+  // Old deployments with no adapter retain their legacy memory-only behavior.
+  let storageFault = false;
+  if (deviceTrustStore !== null) {
+    if (typeof deviceTrustStore.loadAll !== 'function' ||
+        typeof deviceTrustStore.upsert !== 'function' ||
+        typeof deviceTrustStore.remove !== 'function') {
+      throw new TypeError('ENCRYPTED_DEVICE_TRUST_STORE_REQUIRED');
+    }
+    const records = deviceTrustStore.loadAll(); // fail closed on wrong key/tamper
+    if (!Array.isArray(records) || records.length > 64) throw new Error('INVALID_DEVICE_TRUST_STATE');
+    for (const v of records) {
+      if (!v || !/^owner:[0-9a-f]{64}$/.test(v.ownerId||'') ||
+          !HEX64.test(v.deviceDigest||'') ||
+          !Number.isSafeInteger(v.expiresAt) || v.expiresAt <= 0) {
+        throw new Error('INVALID_DEVICE_TRUST_RECORD');
+      }
+      const key = publicKeyFromDerB64(v.publicKeyBase64url);
+      if (!key || key.digest !== v.publicKeyDigest || devices.has(v.ownerId))
+        throw new Error('INVALID_DEVICE_TRUST_PUBLIC_KEY');
+      if (v.expiresAt > now()) devices.set(v.ownerId,{
+        ownerId:v.ownerId,deviceDigest:v.deviceDigest,publicKeyDigest:v.publicKeyDigest,
+        publicKey:key.key,expiresAt:v.expiresAt
+      });
+    }
+  }
   function ownerOf(record) {
     if (record?.glassOwnerVerified !== true) return {ok:false,code:'GLASS_OWNER_APPROVAL_REQUIRED'};
     return verifiedGlassOwner(record,now());
@@ -60,6 +88,7 @@ export function createApprovedGlassDeviceRegistry({
   }
   function startEnrollment({accessRecord,deviceDigest,publicKeyBase64}={}) {
     cleanup();
+    if(storageFault) return {ok:false,code:'DEVICE_TRUST_STORAGE_FAULT'};
     const owner=ownerOf(accessRecord);
     if (!owner.ok) return owner;
     if (!HEX64.test(deviceDigest||'')) return {ok:false,code:'DEVICE_DIGEST_INVALID'};
@@ -68,7 +97,7 @@ export function createApprovedGlassDeviceRegistry({
     if (pending.has(owner.ownerId)) return {ok:false,code:'ENROLLMENT_ALREADY_PENDING'};
     const challenge=randomChallenge();
     if (typeof challenge!=='string'||!CHALLENGE.test(challenge)) return {ok:false,code:'CHALLENGE_GENERATION_FAILED'};
-    const rec={ownerId:owner.ownerId,deviceDigest,publicKey:pub.key,publicKeyDigest:pub.digest,
+    const rec={ownerId:owner.ownerId,deviceDigest,publicKey:pub.key,publicKeyBase64url:publicKeyBase64,publicKeyDigest:pub.digest,
       challenge,expiresAt:now()+ENROLLMENT_MAX_MS,verifying:false};
     pending.set(owner.ownerId,rec);
     return {ok:true,code:'ENROLLMENT_CHALLENGE_READY',challenge,publicKeyDigest:pub.digest,expiresAt:rec.expiresAt};
@@ -103,6 +132,19 @@ export function createApprovedGlassDeviceRegistry({
           approval.deviceReplacementApproved!==true) return {ok:false,code:'DEVICE_REPLACEMENT_REAPPROVAL_REQUIRED'};
       const registered={ownerId:owner.ownerId,deviceDigest:rec.deviceDigest,publicKeyDigest:rec.publicKeyDigest,
         publicKey:rec.publicKey,expiresAt:now()+DEVICE_TRUST_MAX_MS};
+      if (deviceTrustStore) {
+        try {
+          deviceTrustStore.upsert({
+            ownerId:registered.ownerId,deviceDigest:registered.deviceDigest,
+            publicKeyBase64url:rec.publicKeyBase64url,
+            publicKeyDigest:registered.publicKeyDigest,expiresAt:registered.expiresAt
+          });
+        } catch {
+          storageFault=true;devices.clear();spent.clear();
+          // No success confirmation if approved trust did not persist.
+          return {ok:false,code:'DEVICE_TRUST_STORAGE_FAULT'};
+        }
+      }
       devices.set(owner.ownerId,registered);
       spent.delete(owner.ownerId);
       return {ok:true,code:'DEVICE_TRUST_ACTIVE',deviceDigest:rec.deviceDigest,
@@ -114,6 +156,7 @@ export function createApprovedGlassDeviceRegistry({
   }
   function verifyPhotoIntent({requestId,expectedOwnerId,approvalProof}={}) {
     cleanup();
+    if (storageFault) return {verdict:'REJECTED',code:'DEVICE_TRUST_STORAGE_FAULT'};
     if (!CLAIM_ID.test(requestId||'')||!/^owner:[a-f0-9]{64}$/.test(expectedOwnerId||'')) {
       return {verdict:'REJECTED',code:'PHOTO_INTENT_CONTEXT_INVALID'};
     }
@@ -144,6 +187,7 @@ export function createApprovedGlassDeviceRegistry({
   }
   function status(accessRecord) {
     cleanup();
+    if(storageFault) return {ok:false,code:'DEVICE_TRUST_STORAGE_FAULT'};
     const owner=ownerOf(accessRecord);
     if (!owner.ok) return owner;
     const reg=devices.get(owner.ownerId);
@@ -152,9 +196,20 @@ export function createApprovedGlassDeviceRegistry({
   function revoke(accessRecord) {
     const owner=ownerOf(accessRecord);
     if (!owner.ok) return owner;
-    const was=devices.delete(owner.ownerId);
+    if(storageFault) return {ok:false,code:'DEVICE_TRUST_STORAGE_FAULT'};
+    const present=devices.has(owner.ownerId);
+    if(deviceTrustStore) {
+      try {deviceTrustStore.remove(owner.ownerId);}
+      catch {
+        // Immediately block the whole registry. Operator must disable the
+        // bridge until durable revocation is repaired; no false "revoked".
+        storageFault=true;devices.clear();spent.clear();pending.clear();
+        return {ok:false,code:'DEVICE_TRUST_REVOKE_UNPERSISTED'};
+      }
+    }
+    devices.delete(owner.ownerId);
     spent.delete(owner.ownerId);pending.delete(owner.ownerId);
-    return {ok:true,code:was?'DEVICE_TRUST_REVOKED':'NO_DEVICE_TRUST'};
+    return {ok:true,code:present?'DEVICE_TRUST_REVOKED':'NO_DEVICE_TRUST'};
   }
   function close() {pending.clear();devices.clear();spent.clear();}
   return Object.freeze({startEnrollment,finishEnrollment,verifyPhotoIntent,status,revoke,close});
