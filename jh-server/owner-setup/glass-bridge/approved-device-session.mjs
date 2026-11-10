@@ -1,4 +1,4 @@
-import { createHash, createPublicKey, verify as verifyEcdsa } from 'node:crypto';
+import { createHash, createPublicKey, randomBytes, verify as verifyEcdsa } from 'node:crypto';
 import { verifiedGlassOwner } from './verified-owner.mjs';
 
 // Isolated development-only contract; NOT mounted on the running JH server.
@@ -40,7 +40,7 @@ export function createApprovedGlassDeviceRegistry({
   verifySecure56Enrollment,
   serverDigest,
   now = () => Date.now(),
-  randomChallenge,
+  randomChallenge = () => randomBytes(32).toString('base64url'),
 } = {}) {
   if (typeof verifySecure56Enrollment !== 'function') throw new TypeError('Trusted Secure56 initial approval verifier required');
   if (!HEX64.test(serverDigest||'')) throw new TypeError('Pinned server digest required');
@@ -127,7 +127,7 @@ export function createApprovedGlassDeviceRegistry({
     }
     const sig=signatureBytes(p.signature);
     if (!sig) return {verdict:'REJECTED',code:'PHOTO_INTENT_SIGNATURE_INVALID'};
-    const nonceHash=sha(requestId+'|'+p.nonce);
+    const nonceHash=sha(p.nonce);
     const prior=spent.get(expectedOwnerId);
     if (prior?.has(nonceHash)) return {verdict:'REJECTED',code:'PHOTO_INTENT_REPLAY'};
     const msg=glassPhotoIntentMessage({ownerId:expectedOwnerId,serverDigest,deviceDigest:d.deviceDigest,
