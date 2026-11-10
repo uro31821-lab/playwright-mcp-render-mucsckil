@@ -27,8 +27,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -48,7 +46,6 @@ class JhGlassVoiceProbe(
   private val appContext = context.applicationContext
   private var launchJob: Job? = null
   private var questionJob: Job? = null
-  private var voiceStream: com.meta.wearable.dat.core.voiceinvocations.VoiceInvocationsStream? = null
   private var session: DeviceSession? = null
   private var tts: TextToSpeech? = null
   private var closed = false
@@ -62,7 +59,6 @@ class JhGlassVoiceProbe(
         // independent stream handles other delivered launches while alive.
         Wearables.registrationState.first { it == RegistrationState.REGISTERED }
         val stream = Wearables.startVoiceInvocationsStream(AutoDeviceSelector())
-        voiceStream = stream
         coroutineScope {
           launch { stream.errors.collect { status("VOICE_CHANNEL_ERROR") } }
           launch {
@@ -83,8 +79,7 @@ class JhGlassVoiceProbe(
       } catch (_: Exception) {
         status("VOICE_CHANNEL_UNAVAILABLE")
       } finally {
-        voiceStream?.close()
-        voiceStream = null
+        stream.close()
       }
     }
   }
@@ -131,7 +126,7 @@ class JhGlassVoiceProbe(
         status("GLASSES_SPEECH_READY")
         try {
           // STARTED after subscription: an early result cannot be lost.
-          val firstFinal = scope.launch {
+          val firstFinal = launch {
             recognition.transcriptions.first { result: TranscriptionResult? ->
               result != null && result.isFinal && result.text.isNotBlank()
             }.let { final ->
@@ -222,8 +217,6 @@ class JhGlassVoiceProbe(
     closed = true
     questionJob?.cancel()
     launchJob?.cancel()
-    voiceStream?.close()
-    voiceStream = null
     session?.stop()
     session = null
     tts?.stop()
