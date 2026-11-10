@@ -4,7 +4,7 @@ on:
     branches:
       - feature/jh-glass-photo-mailbox-20261110
     paths:
-      - 'jh-server/owner-setup/glass-bridge/**'
+      - 'jh-server/owner-setup/glass-bridge/*.mjs'
       - '.github/workflows/jh-glass-prototype-ci.yml'
   workflow_dispatch:
 permissions:
