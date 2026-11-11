@@ -31,6 +31,20 @@ class IdentityGateTest(unittest.TestCase):
     def test_signer_parse(self):
         self.assertEqual(gate.signers_from_apksigner(CERT), ["aa" * 32])
 
+    def test_android_36_actual_v2_signer_format(self):
+        output = ("Verified using v2 scheme (APK Signature Scheme v2): true\n"
+                  "Number of signers: 1\n"
+                  "V2 Signer: certificate DN: CN=Android Debug\n"
+                  "V2 Signer: certificate SHA-256 digest: " + "aa" * 32 + "\n")
+        self.assertEqual(gate.signers_from_apksigner(output), ["aa" * 32])
+
+    def test_disagreeing_v2_v3_signers_rejected(self):
+        output = ("Number of signers: 1\n"
+                  "V2 Signer: certificate SHA-256 digest: " + "aa" * 32 + "\n"
+                  "V3 Signer: certificate SHA-256 digest: " + "bb" * 32 + "\n")
+        with self.assertRaises(ValueError):
+            gate.signers_from_apksigner(output)
+
     def test_indented_real_apksigner_cert_line(self):
         self.assertEqual(
             gate.signers_from_apksigner("    " + CERT),
