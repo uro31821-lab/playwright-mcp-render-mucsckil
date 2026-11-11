@@ -1,0 +1,27 @@
+name: JH Android Direct Stage1 (Isolated)
+on:
+  push:
+    branches:
+      - feat/jh167-android-direct-stage1-20261028
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-direct:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify candidate without device or production secrets
+        run: node --test jh-server/owner-setup/android-direct/engine.test.mjs
+      - name: Confirm no production imports or Playwright removal
+        run: |
+          test -f jh-server/browser-transport.mjs
+          test -f jh-server/browser-session.mjs
+          test -f jh-server/owner-setup/deployment/published-service-entry.mjs
+          if grep -E '(^import .*browser-|browserTool\(|@playwright/|from .*playwright)' jh-server/owner-setup/android-direct/engine.mjs; then
+            echo 'Unexpected browser dependency in Android-direct engine'
+            exit 1
+          fi
