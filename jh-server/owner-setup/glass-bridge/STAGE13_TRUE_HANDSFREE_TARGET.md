@@ -13,7 +13,7 @@ The previously developed **CameraAccess preview -> JH screenshot -> ChatGPT** pa
 2. Activate JH by a supported glasses voice invocation (only if real device/locale/channel permits); otherwise a specifically user-approved alternate trigger.
 3. Ask in Korean: “에비서, 이게 뭐야?”
 4. Only after this explicit request, use the DAT camera to capture **one frame** plus DAT Speech Korean transcription; validate client/owner and sensitive-image policy.
-5. JH chooses the appropriate assistant (nature/art/shopping/etc), computes the visual answer **on device/offline by default** or through an explicitly approved, hard-zero-billed route; no automatic use of ChatGPT Pro subscription as an API.
+5. JH routes one explicitly requested camera image and question to **GPT via OpenAI API using only account-verified complimentary API credits**. Gate MUST verify complimentary balance/expiration, ensure paid billing or recharge cannot occur, and stop BEFORE any call whose funding cannot be proven to be free; then route the answer through JH assistants. No silent offline-model substitution. ChatGPT Pro subscription is not itself an API credit.
 6. Use Android TTS/audio routing to return a short Korean answer via the connected glasses speaker; do not show the GPT chat or Meta AI phone screen.
 7. End the photo transaction; no continuous camera upload or silent background capture.
 
@@ -22,7 +22,7 @@ The previously developed **CameraAccess preview -> JH screenshot -> ChatGPT** pa
 `Meta DAT voice invocation / Speech / Camera` (wearable sensor and speech input)
 → `Android phone JH foreground service` (runs while device screen is locked; must be verified on Samsung without defeating Android safety)
 → `JH verified Secure56 session + once-enrolled owner/device trust + per-photo signed command + privacy gate`
-→ `JH assistant router + local visual model / optional strictly capped hosted GPT inference`
+→ `JH approved complimentary-only GPT API spend gate → GPT vision model → JH assistant router (NO charged fallback)`
 → `Android Korean TTS + Bluetooth audio route to glasses`.
 
 The glasses are a sensor-and-audio terminal, **not** a standalone GPT computer. A compatible phone remains necessary for the proposed DAT mobile-app path.
@@ -48,8 +48,8 @@ Sources:
 ### Cost reality / required proof
 
 - **ChatGPT Pro subscription ≠ OpenAI API access**. Without opening ChatGPT, genuine hosted GPT inference normally requires a separately metered API; the original $200/month complimentary benefit is conditional and must never silently draw on previously purchased funds.
-- For a **strictly zero-extra-cost** guarantee, default to an offline/on-device local visual model and Korean TTS after measuring phone resources and quality. This will NOT be genuine GPT-6 and may be less accurate; label the model truthfully.
-- An optional GPT API path is disallowed unless server can actually verify remaining complimentary-only credit and stop **before** any billed usage. If this cannot be guaranteed, the API branch stays OFF. No automatic fallback to metered GPT.
+- **USER-CONFIRMED PRIMARY:** Use OpenAI GPT API with only user-granted complimentary API credits. Previous 'offline model by default' language is superseded. An offline model is only an explicitly user-chosen optional alternative, not an automatic replacement.
+- **HARD ZERO-COST GATE:** GPT API is the intended path, but remains disabled until reliable complimentary-only balance/expiry/funding-order evidence AND account-level protection against charged usage/auto-recharge exist. Estimate maximum request charge, reserve budget, stop on missing balance or low margin, and never fall back to metered GPT. Internal estimates alone do not guarantee zero billed spend; verify the billing control in the actual account. See `USER_CONFIRMED_GPT_FREE_CREDITS_POLICY.md`.
 - Alternative Meta AI Connectors early access can serve JH's tools through Meta AI without a separate app, but the assistant is Meta AI rather than GPT; developer access is gated and the user dislikes Meta AI. Do not silently choose it as primary.
 
 ### Feasibility-first tests (do NOT repeat camera preview)
