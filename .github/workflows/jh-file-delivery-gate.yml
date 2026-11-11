@@ -32,7 +32,7 @@ jobs:
           const base = 'host-ebiseo-assist/plugin-overlay/skills/jh-ebiseo-assist/';
           const skill = readFileSync(base+'SKILL.md','utf8');
           const gate = readFileSync(base+'references/file-delivery-gate.md','utf8');
-          assert.match(skill, /references\\/file-delivery-gate\\.md/);
+          assert.ok(skill.includes('references/file-delivery-gate.md'));
           assert.match(gate, /GitHub Releases/);
           assert.match(gate, /USER_DOWNLOAD_CONFIRMED/);
           assert.match(gate, /환자정보/);
