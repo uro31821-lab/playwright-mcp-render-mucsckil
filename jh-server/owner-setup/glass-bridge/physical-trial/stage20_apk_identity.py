@@ -35,7 +35,7 @@ BASELINE_PERMISSIONS = {
 PACKAGE_RE = re.compile(r"^package:\s+name='([^']+)'\s+versionCode='([^']+)'", re.M)
 LABEL_RE = re.compile(r"^(?:application-label|application):\s*(?:label=)?'([^']+)'", re.M)
 PERMISSION_RE = re.compile(r"^uses-permission:\s+name='([^']+)'", re.M)
-CERT_RE = re.compile(r"^Signer\s+#(\d+)\s+certificate SHA-256 digest:\s*([A-Fa-f0-9: ]+)$", re.M)
+CERT_RE = re.compile(r"^\s*Signer\s+#(\d+)\s+certificate SHA-256 digest:\s*([A-Fa-f0-9: ]+)$", re.M)
 SHA_RE = re.compile(r"^[a-f0-9]{64}$")
 
 
