@@ -64,27 +64,45 @@ def existing_sdk(env: dict[str, str]) -> tuple[str, str, str]:
     raise Stage24Blocked("ANDROID_SDK_NOT_FOUND_NO_DOWNLOAD")
 
 
-def single_authorized_usb_transport(adb_output: str) -> str:
+def single_authorized_usb_transport(adb_output: str, selected_usb_serial: str) -> str:
+    # On Windows/libusb, 'adb devices -l' may legitimately omit the 'usb:'
+    # token. The official ADB '-d' selector, not the display format, proves
+    # that this is the one local USB hardware transport.
     serial = list_usb_device(adb_output)
-    lines = [s.strip() for s in adb_output.splitlines() if s.strip()]
-    if len(lines) != 2 or not USB_MARKER.search(lines[1]):
-        raise Stage24Blocked("USB_CABLE_TRANSPORT_NOT_CONFIRMED")
-    # The serial itself is used transiently by Stage22, never included in result.
+    if not selected_usb_serial or serial != selected_usb_serial.strip():
+        raise Stage24Blocked("USB_DEVICE_IDENTITY_MISMATCH")
     return serial
 
 
 def read_public_signers(tools: tuple[str, str, str], runner=run_verified_tool) -> dict:
-    # Stage22's only input not confirming USB transport is strengthened here.
-    # Force a single USB-attached device before invoking its normal read-only path.
-    checked = single_authorized_usb_transport(runner([tools[0], "devices", "-l"]))
+    adb = tools[0]
+    inventory = runner([adb, "devices", "-l"])
+    # Official Android ADB: '-d' targets an attached physical USB device,
+    # failing if there is none or more than one. Never infer USB from serial.
+    usb_serial = runner([adb, "-d", "get-serialno"]).strip()
+    checked = single_authorized_usb_transport(inventory, usb_serial)
+
+    def ensure_same_usb() -> None:
+        if runner([adb, "-d", "get-serialno"]).strip() != checked:
+            raise Stage24Blocked("USB_DEVICE_CHANGED_DURING_READBACK")
+
     def usb_checked_runner(argv: list[str], timeout: int = 35):
-        if argv == [tools[0], "devices", "-l"]:
-            return runner(argv, timeout=timeout)
-        if len(argv) >= 3 and argv[0] == tools[0] and argv[1:3] == ["-s", checked]:
-            return runner(argv, timeout=timeout)
-        if argv[0] in tools[1:]:
+        if argv == [adb, "devices", "-l"]:
+            current = runner(argv, timeout=timeout)
+            ensure_same_usb()
+            single_authorized_usb_transport(current, checked)
+            return current
+        if (len(argv) >= 4 and argv[0] == adb
+                and argv[1:3] == ["-s", checked]
+                and argv[3] in {"shell", "pull"}):
+            ensure_same_usb()
+            # Always issue device commands via USB selector, NOT '-s',
+            # which alone could resolve a non-USB transport.
+            return runner([adb, "-d", *argv[3:]], timeout=timeout)
+        if argv and argv[0] in tools[1:]:
             return runner(argv, timeout=timeout)
         raise Stage24Blocked("UNEXPECTED_TOOL_OR_DEVICE_COMMAND")
+
     details = inspect_phone(*tools, command=usb_checked_runner)
     if details.get("status") != "READ_ONLY_APP_IDENTITY_OBSERVED":
         raise Stage24Blocked("PACKAGE_READBACK_INCOMPLETE")
