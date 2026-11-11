@@ -1,0 +1,56 @@
+name: JH Glass Stage16 Isolated Voice Trial Source Build
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/isolate_stage16_voice_trial.py'
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/test_stage16_isolated_trial.py'
+      - '.github/workflows/jh-glass-stage16-isolated-compile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-side-by-side:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Read-only checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: JDK17
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify official Meta source and staged zero-cost voice trial
+        run: |
+          set -euo pipefail
+          root="${RUNNER_TEMP}/meta-stage16"
+          git init "${root}"
+          git -C "${root}" remote add origin https://github.com/meta/meta-wearables-dat-android.git
+          git -C "${root}" fetch --depth=1 origin f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          git -C "${root}" checkout --detach FETCH_HEAD
+          test "$(git -C "${root}" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          echo META_PINNED_SDK_101_CONFIRMED
+          python3 -m unittest discover -v -s jh-server/owner-setup/glass-bridge/android_cameraaccess -p 'test_stage16_isolated_trial.py'
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_handsfree_probe.py "${root}/samples/CameraAccess"
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/isolate_stage16_voice_trial.py "${root}/samples/CameraAccess"
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/isolate_stage16_voice_trial.py "${root}/samples/CameraAccess"
+          grep -q 'applicationId = "com.koreanlifehub.jhglassprobe"' "${root}/samples/CameraAccess/app/build.gradle.kts"
+          grep -q 'namespace = "com.meta.wearable.dat.externalsampleapps.cameraaccess"' "${root}/samples/CameraAccess/app/build.gradle.kts"
+          grep -q 'android:scheme="jhglassprobe"' "${root}/samples/CameraAccess/app/src/main/AndroidManifest.xml"
+          ! grep -q 'android:scheme="cameraaccess"' "${root}/samples/CameraAccess/app/src/main/AndroidManifest.xml"
+          echo JH_STAGE16_PINNED_PACKAGE_ISOLATION_PASS
+      - name: Gradle Kotlin compile and merged Android manifest inspection
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/meta-stage16/samples/CameraAccess"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :app:compileDebugKotlin :app:processDebugMainManifest
+          manifest="$(find app/build/intermediates/merged_manifests -name AndroidManifest.xml -type f -print -quit)"
+          test -f "$manifest"
+          grep -q 'package="com.koreanlifehub.jhglassprobe"' "$manifest"
+          echo JH_STAGE16_KOTLIN_AND_MERGED_MANIFEST_PASS
+      - name: Explicitly no APK install, signing key or API request
+        run: |
+          echo JH_STAGE16_SOURCE_ONLY_NO_RELEASE_APK_NO_PHONE_INSTALL_NO_DEV_MODE_CHANGE_NO_PAID_API
