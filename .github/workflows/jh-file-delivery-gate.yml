@@ -1,0 +1,45 @@
+name: JH File Delivery Independent Release and Privacy Gate
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - '.github/workflows/jh-file-delivery-gate.yml'
+      - 'jh-server/owner-setup/file-delivery/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only development branch checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Execute file delivery privacy and public-release tests
+        run: |
+          set -euo pipefail
+          node --test jh-server/owner-setup/file-delivery/delivery-gate.test.mjs
+          echo JH_FILE_DELIVERY_GATE_18_TESTS_PASS
+      - name: Read back actual public GitHub Release asset metadata (not a user GET)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api repos/$GITHUB_REPOSITORY/releases/tags/gglass-s26-readonly-20261112 > "${RUNNER_TEMP}/jh-release.json"
+          python3 - <<'PY'
+          import json,os,pathlib
+          d=json.loads((pathlib.Path(os.environ['RUNNER_TEMP'])/'jh-release.json').read_text())
+          assert not d['draft'] and not d.get('prerelease') is None
+          a=[x for x in d['assets'] if x['name']=='GGlass26.zip']
+          assert len(a)==1
+          a=a[0]
+          assert a['size']==15822
+          assert a.get('digest')=='sha256:44f2ba7a85f39af9bf8155af0aa081cfdc13044e5594f285adf3e583345a491c'
+          assert a['browser_download_url']=='https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/releases/download/gglass-s26-readonly-20261112/GGlass26.zip'
+          print('JH_FILE_DELIVERY_PUBLIC_ASSET_READBACK_PASS')
+          print('JH_FILE_DELIVERY_USER_DOWNLOAD_NOT_YET_CONFIRMED')
+          PY
+      - name: No ZIP rebuild or user phone action
+        run: echo JH_DELIVERY_ONLY_NO_GRADLE_NO_SIGNING_NO_PHONE_NO_API
