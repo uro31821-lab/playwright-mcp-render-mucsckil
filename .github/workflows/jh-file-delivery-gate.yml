@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/jh-file-delivery-gate.yml'
       - 'jh-server/owner-setup/file-delivery/**'
+      - 'host-ebiseo-assist/plugin-overlay/skills/jh-ebiseo-assist/SKILL.md'
+      - 'host-ebiseo-assist/plugin-overlay/skills/jh-ebiseo-assist/references/file-delivery-gate.md'
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,6 +23,22 @@ jobs:
           set -euo pipefail
           node --test jh-server/owner-setup/file-delivery/delivery-gate.test.mjs
           echo JH_FILE_DELIVERY_GATE_18_TESTS_PASS
+      - name: Verify JH Ebiseo plugin overlay points to failover and privacy gate
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'JS'
+          import { readFileSync } from 'node:fs';
+          import assert from 'node:assert/strict';
+          const base = 'host-ebiseo-assist/plugin-overlay/skills/jh-ebiseo-assist/';
+          const skill = readFileSync(base+'SKILL.md','utf8');
+          const gate = readFileSync(base+'references/file-delivery-gate.md','utf8');
+          assert.match(skill, /references\\/file-delivery-gate\\.md/);
+          assert.match(gate, /GitHub Releases/);
+          assert.match(gate, /USER_DOWNLOAD_CONFIRMED/);
+          assert.match(gate, /환자정보/);
+          assert.match(gate, /같은 표면에서 파일 이름만 바꿔/);
+          console.log('JH_EBISEO_OVERLAY_DELIVERY_FAILOVER_AND_PRIVACY_PASS');
+          JS
       - name: Read back actual public GitHub Release asset metadata (not a user GET)
         env:
           GH_TOKEN: ${{ github.token }}
