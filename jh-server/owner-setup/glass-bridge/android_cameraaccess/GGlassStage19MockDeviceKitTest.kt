@@ -164,9 +164,19 @@ class GGlassStage19MockDeviceKitTest {
                     withTimeout(10_000L) {
                         recognizer.state.first { it == SpeechState.STARTED }
                     }
-                    glasses.services.speech.simulateTranscription("이 나무", false, 0.9f)
+                    // The SDK may reinitialize the mock source during addSpeech/start.
+                    // Bind INJECTED to the live recognizer and avoid immediate
+                    // partial/final conflation in the SDK StateFlow.
+                    glasses.services.speech.setTranscriptionSource(MockSpeechSource.INJECTED)
+                    delay(350L)
                     glasses.services.speech.simulateTranscription("이게 뭐야", true, 0.95f)
-                    assertEquals("이게 뭐야", waiting.await()?.text)
+                    val received = withTimeoutOrNull(9_000L) { waiting.await() }
+                    assertTrue(
+                        "SDK_MOCK_FINAL_MISSING state=${recognizer.state.value} " +
+                            "sdkLast=${recognizer.transcriptions.value?.isFinal}",
+                        received != null,
+                    )
+                    assertEquals("이게 뭐야", received?.text)
                 } finally {
                     waiting.cancel()
                 }
