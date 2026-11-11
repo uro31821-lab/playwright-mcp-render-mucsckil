@@ -12,6 +12,7 @@ on:
       - 'jh-server/owner-setup/glass-bridge/physical-trial/test_stage24_native_windows_smoke.py'
       - 'jh-server/owner-setup/glass-bridge/physical-trial/실행.cmd'
       - 'jh-server/owner-setup/glass-bridge/physical-trial/stage22_phone_signer_readback.py'
+      - 'jh-server/owner-setup/glass-bridge/physical-trial/test_stage22_phone_signer_readback.py'
       - 'jh-server/owner-setup/glass-bridge/physical-trial/stage20_apk_identity.py'
   workflow_dispatch:
 permissions:
@@ -45,7 +46,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -v -s $root -p "test_stage22_phone_signer_readback.py"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Write-Output "GGLASS_STAGE24_WINDOWS_PREVIOUS_GUARDS_37_PASS"
+          Write-Output "GGLASS_STAGE26_WINDOWS_PRIOR_POLICY_AND_SIGNER_GUARDS_PASS"
       - name: Run Stage24 Windows wrapper fake-USB tests without real device
         shell: pwsh
         run: |
@@ -53,7 +54,7 @@ jobs:
           $root = "jh-server/owner-setup/glass-bridge/physical-trial"
           python -m unittest discover -v -s $root -p "test_stage24_windows_oneclick.py"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Write-Output "GGLASS_STAGE25_WINDOWS_USB_GUARDS_16_PASS"
+          Write-Output "GGLASS_STAGE26_WINDOWS_USB_GUARDS_16_PASS"
       - name: Execute real Windows cmd.exe entrypoint, user decline and missing SDK
         shell: pwsh
         run: |
