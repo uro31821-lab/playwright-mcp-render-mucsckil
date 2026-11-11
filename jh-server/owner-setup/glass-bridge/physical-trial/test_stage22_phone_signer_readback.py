@@ -11,6 +11,7 @@ class FakeReadOnlyPhone:
         self.signers = signers
         self.gglass_present = gglass_present
         self.bad_package = bad_package
+        self.last_package = t.CAMERA_ACCESS
 
     def __call__(self, argv, timeout=35):
         self.calls.append(tuple(argv))
@@ -20,14 +21,20 @@ class FakeReadOnlyPhone:
             return "0\n"
         if argv[:5] == ["adb", "-s", "R59USB", "shell", "pm"]:
             package = argv[-1]
-            if package == t.G_GLASS_TRIAL and not self.gglass_present:
-                return ""
-            return "package:/data/app/~~abc123/p-qRabc/base.apk\n"
+            present = package == t.CAMERA_ACCESS or (
+                package == t.G_GLASS_TRIAL and self.gglass_present)
+            if argv[5:7] == ["list", "packages"]:
+                return ("package:" + package + "\n") if present else ""
+            if argv[5] == "path":
+                self.last_package = package
+                return ("package:/data/app/~~abc123/p-qRabc/base.apk\n"
+                        if present else "")
+            raise AssertionError("UNEXPECTED_PM_OPERATION")
         if argv[:4] == ["adb", "-s", "R59USB", "pull"]:
             Path(argv[-1]).write_bytes(b"PK\x03\x04" + b"STAGE22" * 250)
             return "1 file pulled"
         if argv[:3] == ["aapt2", "dump", "badging"]:
-            package = t.CAMERA_ACCESS if not self.bad_package else t.G_GLASS_TRIAL
+            package = self.last_package if not self.bad_package else t.G_GLASS_TRIAL
             return (
                 f"package: name='{package}' versionCode='1' versionName='1.0'\n"
                 "application-label:'Camera Access'\n"
@@ -119,6 +126,73 @@ class Stage22PhoneReadbackTest(unittest.TestCase):
             if "pull" in c:
                 self.assertFalse(Path(c[-1]).exists(), "Temp APK must be deleted")
         self.assertNotIn("R59USB", str(result))
+
+    def test_camera_present_trial_absent_does_not_query_its_pm_path(self):
+        fake = FakeReadOnlyPhone()
+        result = t.inspect_phone("adb", "aapt2", "apksigner", command=fake)
+        self.assertEqual(result["apps"][1]["status"], "NOT_INSTALLED")
+        self.assertFalse(any(
+            len(c) >= 8 and c[-2] == "path" and c[-1] == t.G_GLASS_TRIAL
+            for c in fake.calls
+        ))
+
+    def test_both_trial_apps_present_return_separate_signers(self):
+        fake = FakeReadOnlyPhone(gglass_present=True)
+        result = t.inspect_phone("adb", "aapt2", "apksigner", command=fake)
+        self.assertTrue(all(
+            x["status"] == "INSTALLED_SIGNER_READ_ONLY_VERIFIED"
+            for x in result["apps"]
+        ))
+
+    def test_exact_installed_name_not_a_prefix(self):
+        self.assertFalse(t.exact_package_present(
+            "package:com.koreanlifehub.jhglassprobe.test\n", t.G_GLASS_TRIAL))
+
+    def test_package_list_invalid_lines_block(self):
+        with self.assertRaises(t.PhoneReadbackBlocked):
+            t.exact_package_present("Error: permission denied\n", t.G_GLASS_TRIAL)
+
+    def test_duplicate_exact_package_list_block(self):
+        lines = "package:" + t.G_GLASS_TRIAL + "\n"
+        with self.assertRaises(t.PhoneReadbackBlocked):
+            t.exact_package_present(lines * 2, t.G_GLASS_TRIAL)
+
+    def test_missing_trial_pm_list_failure_has_exact_stage(self):
+        fake = FakeReadOnlyPhone()
+        def fail_list(argv, timeout=35):
+            if (len(argv) > 7 and argv[3:7] == ["shell", "pm", "list", "packages"]
+                    and argv[-1] == t.G_GLASS_TRIAL):
+                raise t.PhoneReadbackBlocked("READ_ONLY_TOOL_REJECTED")
+            return fake(argv, timeout)
+        with self.assertRaisesRegex(t.PhoneReadbackBlocked, "GGLASS_PACKAGE_LIST_COMMAND_FAILED"):
+            t.inspect_phone("adb", "aapt2", "apksigner", command=fail_list)
+
+    def test_camera_apk_pull_nonzero_reports_phase_without_stderr(self):
+        fake = FakeReadOnlyPhone()
+        def fail_pull(argv, timeout=35):
+            if len(argv) > 3 and argv[3] == "pull":
+                raise t.PhoneReadbackBlocked("READ_ONLY_TOOL_REJECTED")
+            return fake(argv, timeout)
+        with self.assertRaisesRegex(t.PhoneReadbackBlocked, "CAMERAACCESS_APK_PULL_COMMAND_FAILED"):
+            t.inspect_phone("adb", "aapt2", "apksigner", command=fail_pull)
+
+    def test_camera_signer_nonzero_reports_phase(self):
+        fake = FakeReadOnlyPhone()
+        def fail_signer(argv, timeout=35):
+            if argv[:2] == ["apksigner", "verify"]:
+                raise t.PhoneReadbackBlocked("READ_ONLY_TOOL_REJECTED")
+            return fake(argv, timeout)
+        with self.assertRaisesRegex(t.PhoneReadbackBlocked, "CAMERAACCESS_APKSIGNER_VERIFY_COMMAND_FAILED"):
+            t.inspect_phone("adb", "aapt2", "apksigner", command=fail_signer)
+
+    def test_camera_aapt2_nonzero_reports_phase(self):
+        fake = FakeReadOnlyPhone()
+        def fail_badging(argv, timeout=35):
+            if argv[:2] == ["aapt2", "dump"]:
+                raise t.PhoneReadbackBlocked("READ_ONLY_TOOL_REJECTED")
+            return fake(argv, timeout)
+        with self.assertRaisesRegex(t.PhoneReadbackBlocked, "CAMERAACCESS_AAPT2_BADGING_COMMAND_FAILED"):
+            t.inspect_phone("adb", "aapt2", "apksigner", command=fail_badging)
 
     def test_missing_signer_fails_closed(self):
         fake = FakeReadOnlyPhone(signers=False)
