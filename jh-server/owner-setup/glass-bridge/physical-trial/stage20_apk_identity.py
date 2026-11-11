@@ -35,7 +35,10 @@ BASELINE_PERMISSIONS = {
 PACKAGE_RE = re.compile(r"^package:\s+name='([^']+)'\s+versionCode='([^']+)'", re.M)
 LABEL_RE = re.compile(r"^(?:application-label|application):\s*(?:label=)?'([^']+)'", re.M)
 PERMISSION_RE = re.compile(r"^uses-permission:\s+name='([^']+)'", re.M)
-CERT_RE = re.compile(r"^\s*Signer\s+#(\d+)\s+certificate SHA-256 digest:\s*([A-Fa-f0-9: ]+)$", re.M)
+CERT_RE = re.compile(
+    r"^\\s*((?:V\\d+(?:\\.\\d+)?\\s+Signer:|Signer\\s+#\\d+))\\s*certificate SHA-256 digest:\\s*([A-Fa-f0-9: ]+)\\s*$",
+    re.M,
+)
 SHA_RE = re.compile(r"^[a-f0-9]{64}$")
 
 
@@ -59,13 +62,19 @@ def badging_from_aapt2(output):
 
 
 def signers_from_apksigner(output):
-    signers = {}
-    for index, raw in CERT_RE.findall(output):
+    # Official Android build-tools 36 emits "V2 Signer: certificate ..."
+    # whereas older tools use "Signer #1 certificate ...".
+    by_label = {}
+    for label, raw in CERT_RE.findall(output):
         digest = normalized_digest(raw)
-        if not digest or index in signers:
+        if not digest or label in by_label:
             raise ValueError("INVALID_CERT_OUTPUT")
-        signers[index] = digest
-    return [signers[k] for k in sorted(signers)]
+        by_label[label] = digest
+    distinct = sorted(set(by_label.values()))
+    reported = re.search(r"^Number of signers:\\s*(\\d+)\\s*$", output, re.M)
+    if reported and distinct and int(reported.group(1)) != len(distinct):
+        raise ValueError("SIGNER_COUNT_MISMATCH")
+    return distinct
 
 
 def evaluate(badging, certs, approved_cert):
