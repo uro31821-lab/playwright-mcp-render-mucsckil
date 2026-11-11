@@ -19,9 +19,16 @@ function failClosed(code){
 
 export async function runCameraSettingsFlow({args,runSecure,nowMs=()=>Date.now()}){
   const request=validateDirectRequest(args?.request_text);
-  const commandId=String(args?.command_id||'');
+  // camera_command_id is a dedicated transport field. Some MCP clients
+  // reserve command_id for their own correlation metadata; the dedicated
+  // value still must be an exact 32-hex command and pass Secure56 fences.
+  const explicitCameraId=String(args?.camera_command_id||'');
+  const genericCommandId=String(args?.command_id||'');
+  const commandId=explicitCameraId||genericCommandId;
   const taskDigest=String(args?.task_digest||'');
-  if(!HEX32.test(commandId))throw new TypeError('command_id invalid');
+  if(!HEX32.test(commandId)||
+     (HEX32.test(genericCommandId)&&explicitCameraId&&genericCommandId!==explicitCameraId))
+    throw new TypeError('command_id invalid');
   if(!HEX64.test(taskDigest))throw new TypeError('task_digest invalid');
   if(typeof runSecure!=='function')throw new TypeError('runSecure required');
 

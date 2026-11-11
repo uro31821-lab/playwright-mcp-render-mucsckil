@@ -21,14 +21,32 @@ const integration=createCameraHostIntegration({
 integration.register({z,registerOAuthTool:(name,config,cb)=>{
   assert.equal(name,CAMERA_TOOL);
   assert.equal(config.annotations.readOnlyHint,false);
+  assert.ok(Object.hasOwn(config.inputSchema,'camera_command_id'));
   handler=cb;
 },textResult:v=>v});
 assert.equal(typeof handler,'function');
 assert.deepEqual(await handler(request),{ok:true,protocol:PROTOCOL});
 assert.deepEqual(calls,['kabiseo_camera_binding_status','kabiseo_camera_config']);
+const newResult=await handler({device_id:'phone-1',task_digest:'a'.repeat(64),
+  camera_command_id:'b'.repeat(32),request_text:'음식을 시원하고 고급스럽게 찍어줘'});
+assert.equal(newResult.ok,true);
+assert.equal(calls.length,4);
+
 const countAfterSuccess=calls.length;
 assert.equal((await handler({...request,request_text:''})).code,'CAMERA_PREFLIGHT_TEXT_REJECTED');
-assert.equal((await handler({...request,command_id:'bad'})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+const diagnosticWarnings=[];
+const priorWarn=console.warn;
+try{
+  console.warn=(...parts)=>{diagnosticWarnings.push(parts.join(' '));};
+  assert.equal((await handler({...request,command_id:'bad'})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+  assert.equal((await handler({...request,command_id:undefined})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+  assert.equal((await handler({...request,command_id:12345})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+  assert.equal((await handler({...request,command_id:'G'.repeat(32)})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+}finally{console.warn=priorWarn;}
+for(const kind of ['WRONG_LENGTH','MISSING','WRONG_TYPE','WRONG_FORMAT'])
+  assert.ok(diagnosticWarnings.includes('JH_KABISEO_COMMAND_INPUT_SHAPE '+kind));
+assert.ok(!diagnosticWarnings.some(x=>x.includes(request.command_id)));
+
 assert.equal((await handler({...request,task_digest:'bad'})).code,'CAMERA_PREFLIGHT_TASK_REJECTED');
 assert.equal(calls.length,countAfterSuccess);
 
