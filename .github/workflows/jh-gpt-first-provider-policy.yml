@@ -1,0 +1,22 @@
+name: JH GPT-first read-only provider capability checks
+on:
+  push:
+    branches:
+      - jh-gpt-first-unified-booking-v12-20261017
+    paths:
+      - jh-server/owner-setup/general-work/provider-capabilities.mjs
+      - jh-server/owner-setup/general-work/tests/provider-capabilities.test.mjs
+      - .github/workflows/jh-gpt-first-provider-policy.yml
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify read-only booking provider policy
+        run: node --test jh-server/owner-setup/general-work/tests/provider-capabilities.test.mjs
