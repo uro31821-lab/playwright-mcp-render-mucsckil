@@ -6,28 +6,71 @@ on:
       - kabiseo-v0256-secure56-camera-settings-20261111
       - kabiseo-v0256-audio-overlay-fix-20261111
   pull_request:
+    branches: [jh-fix3-secure-server]
     paths:
       - 'jh-server/owner-setup/kabiseo-camera-v0256/**'
       - 'jh-server/owner-setup/server-integration/server.mjs'
       - '.github/workflows/kabiseo-camera-v0256.yml'
 
+permissions: {contents: read}
+
 jobs:
   camera-settings-contract:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+        with: {persist-credentials: false}
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+        with: {node-version: '22'}
+
       - name: Camera flow contract
         run: node jh-server/owner-setup/kabiseo-camera-v0256/camera-flow.test.mjs
+
       - name: Camera overlay and durable policy
         run: node jh-server/owner-setup/kabiseo-camera-v0256/camera-overlay.test.mjs
+
       - name: Camera module syntax
         run: |
-          node --check jh-server/owner-setup/kabiseo-camera-v0256/camera-candidate-entry.mjs
-          node --check jh-server/owner-setup/kabiseo-camera-v0256/camera-compose-audio-host.mjs
-          node --check jh-server/owner-setup/kabiseo-camera-v0256/camera-host-integration.mjs
-          node --check jh-server/owner-setup/kabiseo-camera-v0256/camera-durable-policy.mjs
-      - name: Pinned server syntax
-        run: node --check jh-server/owner-setup/server-integration/server.mjs
+          for f in jh-server/owner-setup/kabiseo-camera-v0256/*.mjs; do node --check "$f"; done
+          node --check jh-server/owner-setup/server-integration/server.mjs
+
+      - name: Install reviewed owner dependencies only
+        run: |
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+
+      - name: Build real Stage25 -> audio -> camera candidate in isolated copy
+        run: |
+          set -euo pipefail
+          TMP_HOST="$RUNNER_TEMP/kabiseo-camera/jh-server"
+          TMP_ROOT="$TMP_HOST/owner-setup"
+          rm -rf "$RUNNER_TEMP/kabiseo-camera"
+          mkdir -p "$RUNNER_TEMP/kabiseo-camera"
+          cp -a jh-server "$TMP_HOST"
+          node --input-type=module -e '
+            import {buildCameraReleaseCandidate} from "./jh-server/owner-setup/kabiseo-camera-v0256/camera-compose-audio-host.mjs";
+            const env={
+              CI:"true",NODE_ENV:"test",JH_OWNER_DEFER_LISTEN:"1",
+              JH_MOBILE_WEB_13_MODE:"EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1",
+              JH_STAGE26_SIGNED_COMPLETION_ACK:"EXPLICIT_IDENTICAL_SIGNED_RESULT_V1",
+              JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS:"EXPLICIT_ORIGINAL_OWNER_REASON_V1",
+              JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS:"EXPLICIT_SIGNED_COMMAND_CAUSE_V1",
+              JH_STAGE44_DEVICE_FOCUS:"EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1",
+              JH_MOBILE13_COMMAND_DIAGNOSTICS:"EXPLICIT_OWNER_DEVICE_READ_ONLY_V1"
+            };
+            const x=await buildCameraReleaseCandidate(process.argv[1],env);
+            if(!x?.candidateSha256||x.baseCatalogChanged!==false||x.automaticReplayAllowed!==false)
+              throw Error("CAMERA_REAL_COMPOSITION_ASSERTION_FAILED");
+            console.log("KABISEO_REAL_COMPOSITION_PASS="+x.candidateSha256);
+          ' "$TMP_ROOT"
+
+      - name: Release boundary
+        run: |
+          echo APK_BUILD=0
+          echo APK_INSTALL=0
+          echo RENDER_DEPLOY=0
+          echo CAMERA_SHUTTER=0
+          echo PHOTO_TRANSFER=0
+          echo GPT_CAMERA_RESULT_CALLBACK=0
+          echo AUTOMATIC_REPLAY=0
