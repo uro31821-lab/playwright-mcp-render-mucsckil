@@ -1,0 +1,48 @@
+name: JH owner admission diagnostic exact deployed 4c compatibility
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/jh168-mobile-unification/owner-admission-diagnostic-candidate.mjs'
+      - 'jh-server/owner-setup/jh168-mobile-unification/owner-admission-exact-live-compat.test.mjs'
+      - '.github/workflows/jh-owner-admission-exact-live-compat.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exact-live-source-compat:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout safe diagnostic Draft (no installed app changes)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Checkout precise LIVE commit into isolated working folder
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+          repository: uro31821-lab/playwright-mcp-render-mucsckil
+          ref: 4c71890021fc299838e6a8ce45ccf5f64712f354
+          path: original-live-4c
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Install exact original pinned packages without scripts
+        run: |
+          npm install --prefix original-live-4c/jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix original-live-4c/jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix original-live-4c/jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Source-only generated PHONE_RIGHT/Stage26 protected runtime comparison
+        env:
+          CI: 'true'
+          NODE_ENV: test
+          JH_OWNER_DEFER_LISTEN: '1'
+          JH_MOBILE_WEB_13_MODE: EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1
+          JH_EXACT_LIVE_ROOT: original-live-4c
+        run: |
+          node --test --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/owner-admission-exact-live-compat.test.mjs
+      - name: No original live source, JH secrets or phone execution altered
+        run: echo ORIGINAL_4C_BYTES_UNCHANGED__OWNER_JOURNAL_UNTOUCHED__DEVICE_ACTION_ZERO
