@@ -16,7 +16,7 @@ class FakeReadOnlyPhone:
         self.calls.append(tuple(argv))
         if argv == ["adb", "devices", "-l"]:
             return "List of devices attached\nR59USB\tdevice product:samsung model:Galaxy\n"
-        if len(argv) >= 7 and argv[:5] == ["adb", "-s", "R59USB", "shell", "getprop"]:
+        if len(argv) >= 6 and argv[:5] == ["adb", "-s", "R59USB", "shell", "getprop"]:
             return "0\n"
         if argv[:5] == ["adb", "-s", "R59USB", "shell", "pm"]:
             package = argv[-1]
