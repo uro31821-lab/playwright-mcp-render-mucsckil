@@ -36,7 +36,7 @@ PACKAGE_RE = re.compile(r"^package:\s+name='([^']+)'\s+versionCode='([^']+)'", r
 LABEL_RE = re.compile(r"^(?:application-label|application):\s*(?:label=)?'([^']+)'", re.M)
 PERMISSION_RE = re.compile(r"^uses-permission:\s+name='([^']+)'", re.M)
 CERT_RE = re.compile(
-    r"^\\s*((?:V\\d+(?:\\.\\d+)?\\s+Signer:|Signer\\s+#\\d+))\\s*certificate SHA-256 digest:\\s*([A-Fa-f0-9: ]+)\\s*$",
+    r"^\s*((?:V\d+(?:\.\d+)?\s+Signer:|Signer\s+#\d+))\s*certificate SHA-256 digest:\s*([A-Fa-f0-9: ]+)\s*$",
     re.M,
 )
 SHA_RE = re.compile(r"^[a-f0-9]{64}$")
@@ -71,7 +71,7 @@ def signers_from_apksigner(output):
             raise ValueError("INVALID_CERT_OUTPUT")
         by_label[label] = digest
     distinct = sorted(set(by_label.values()))
-    reported = re.search(r"^Number of signers:\\s*(\\d+)\\s*$", output, re.M)
+    reported = re.search(r"^Number of signers:\s*(\d+)\s*$", output, re.M)
     if reported and distinct and int(reported.group(1)) != len(distinct):
         raise ValueError("SIGNER_COUNT_MISMATCH")
     return distinct
