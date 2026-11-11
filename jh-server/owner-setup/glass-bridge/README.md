@@ -111,6 +111,14 @@ GitHub Actions test run [42831289969](https://github.com/uro31821-lab/playwright
 - Existing JH Render operating branch, installed JH and CameraAccess apps, and JH plugin were not changed. No OpenAI API calls made for this stage.
 - Detailed evidence and release blockers: `RESULT_STAGE11_DURABLE_TRUST_AND_SOURCE_RECOVERY.md`.
 
+## Stage 15 — independent Korean ASR / Ray-Ban audio diagnostic path (source-only PASS)
+
+- **Reason:** Meta Voice Invocations app-by-name is experimental and Korean `ko-KR` activation is not proven; official Meta discussion #209 reports requests never dispatched to app. Android background mic/camera foreground-service start is restricted. No screen-reading final product.
+- `android_cameraaccess/JhVoiceActivationGate.kt` prevents the same physical voice launch delivered via both Intent and LaunchApp within a 2.5-second monotonic window from starting two turns. Exact-source pure Kotlin/JVM **16/16 assertions PASS**.
+- Existing Stage14 overlay now adds a **DEBUG-only** “안경 음성 시험” user tap for *ASR + TTS hardware isolation without WDC Beta*. With one approved DAT microphone session, wearer says “에비서 안녕”; stores only bounded diagnostic status strings such as `KOREAN_TEST_PHRASE_MATCH`, **never raw speech**. No new permissions, paid API or photo analysis. Voice launch status is deduped, SDK init failure stays fail-closed.
+- [Official Meta source CI 42939707305](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42939707305): **10/10 source tests PASS**, `./gradlew :app:compileDebugKotlin` **BUILD SUCCESSFUL** (1m25s). Existing installed JH and CameraAccess apps are unchanged. This does NOT prove actual glasses ASR, media route or background use.
+- Evidence: `RESULT_STAGE15_VOICE_DIAGNOSTICS.md`; current seven-part handoff: `HANDOFF_STAGE15_CURRENT.md`. Next gate: safe debug-signer/WDC readiness review, explicit user-approved single hardware trial.
+
 ## Next incomplete work
 - Connect verified JH OAuth principal to begin/consume MCP tool.
 - Add separate reviewed HTTP ingress, and simulate successful/invalid/replay/oversize requests.
