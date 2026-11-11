@@ -1,0 +1,75 @@
+{
+  "schema": "jh.jebiseo-native-overlay.v1",
+  "status": "CODE_CANDIDATE_NOT_INSTALLED",
+  "baseline": {
+    "artifact": "JH168_Stage62_NativeSelectPick_FIX3_KeepAlive_20261104.zip",
+    "sha256": "cfcb182ea69f9f0cb9fb415fc38fcf815f205639e8a66b4cc32c6f15361d341b",
+    "sourceManifestSha256": "1fa6048151ca373f670239ff71efe2141c86d882a2eccef3e8282ac802643d31",
+    "sourceFileCount": 424
+  },
+  "applicationId": "com.koreanlifehub.bridge",
+  "versionCode": 168,
+  "versionName": "jh168-stage62-fix3-jebiseo-auto3-candidate",
+  "signing": "UNSIGNED_EXISTING_CERTIFICATE_REQUIRED",
+  "modified": [
+    {
+      "path": "app/build.gradle.kts",
+      "beforeSha256": "e9062034ad465fe1859f432dab620b1f39ef0d8f01bf19d6016dac9bdfb0a429",
+      "afterSha256": "351a710964ccd9e1ee81a47c8d439917e3efd79979f7207d32b1de10934a7a72"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/BridgeService.kt",
+      "beforeSha256": "29ed37d20168e3a34b7bedd51f7222ed7f0071498cd77db2b029b5428df988bf",
+      "afterSha256": "2f4768dd6c985c8522b253e408a3b23f3dc5e42919fe8d2dd2e31f298c1dc2e7"
+    }
+  ],
+  "added": [
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/JebiseoTextHandoffPolicy.kt",
+      "sha256": "04feec181e4cd35f5d164502229f31ac3dc538e9574f35b94da5a75476d4e020"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/JebiseoTextHandoffTransport.kt",
+      "sha256": "f1cf726b1254d6fadcf5c61621170f438d30c0fbea798374a4b02ab4048ddc5c"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/JebiseoTextHandoffRuntime.kt",
+      "sha256": "68b6acd23fd25a618b073c1a30d4815b9c68df1fa956632a4ab7a67476bef385"
+    },
+    {
+      "path": "app/src/test/java/com/koreanlifehub/bridge/JebiseoTextHandoffPolicyTest.kt",
+      "sha256": "aa3c846c6533ffe091815e1e8f5fe1429eacc76ccd8804867caaf9f2a132daa4"
+    }
+  ],
+  "preserved": [
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/AndroidAgent.kt",
+      "sha256": "00935137717cfb1695e705bf451e23d16d64b34bab6f5a8c88e04d3b909a36b7"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/AgentFocusPolicy.kt",
+      "sha256": "b1aeda9126e54fed05f4ece9b3c54e3bafcf800ad773a6277fa6ca9a30452eeb"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/SecureBridge56.kt",
+      "sha256": "cecd15e6a254ad6d5c023cb0efb6c627a65b41ec0b8dc2c30611eafbfa38e4bf"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/SiteSwitchPolicy.kt",
+      "sha256": "e637fad21c7c79672c059d2a0e6fe30bc7b984dc5b720d63f8678b964450ae5c"
+    },
+    {
+      "path": "app/src/main/java/com/koreanlifehub/bridge/GeminiSubmitReviewPolicy.kt",
+      "sha256": "23d2330b336078faf4c1e635c22b44a9cd837e64adae453ffeb3729a782c4cd2"
+    }
+  ],
+  "verification": {
+    "unitTests": 1283,
+    "newJebiseoTestsIncluded": 9,
+    "failed": 0,
+    "skipped": 0,
+    "releaseBuild": "SUCCESS",
+    "liveExecutionVerified": false,
+    "unsignedApkSha256": "d9f5368a78a999f6375eadee3322c7c72d7d92074a12426708ba64ef26d3e11b"
+  }
+}

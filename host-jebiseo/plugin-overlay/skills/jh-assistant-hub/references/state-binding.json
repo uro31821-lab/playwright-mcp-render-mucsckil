@@ -1,0 +1,16 @@
+{
+  "schema":"jh.assistant-hub-binding.v1",
+  "ownerScope":"personal-jh",
+  "taskFileName":"JH_Assistant_Tasks_v1.json",
+  "routineFileName":"JH_Assistant_Routines_v1.json",
+  "taskSchema":"jh.assistant-tasks.v1",
+  "routineSchema":"jh.assistant-routines.v1",
+  "storage":"private_library",
+  "mode":"conversation_triggered",
+  "backgroundEnabled":false,
+  "personalStateInPlugin":false,
+  "existingMemoryMigration":false,
+  "sourceRepository":"uro31821-lab/playwright-mcp-render-mucsckil",
+  "sourceDirectory":"host-assistant-hub",
+  "identityPolicy":"Resolve exact file name with current authenticated Library tools; preserve returned ID/version; create only after a successful unambiguous absence; never hard-code file IDs in the skill."
+}

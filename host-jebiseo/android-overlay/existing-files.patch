@@ -1,0 +1,62 @@
+--- a/app/build.gradle.kts
++++ b/app/build.gradle.kts
+@@ -12,7 +12,7 @@
+         minSdk = 26
+         targetSdk = 35
+         versionCode = 168
+-        versionName = "jh168-stage62-native-select-pick-fix3-keepalive"
++        versionName = "jh168-stage62-fix3-jebiseo-auto3-candidate"
+     }
+ 
+     // Compiled here, signed on the original PC only. No private key is bundled.
+--- a/app/src/main/java/com/koreanlifehub/bridge/BridgeService.kt
++++ b/app/src/main/java/com/koreanlifehub/bridge/BridgeService.kt
+@@ -146,6 +146,7 @@
+   AndroidComputerUseActionApprovalRuntime.clear();AndroidComputerUseConsentRuntime.screen.clear("screen_grant_cleared_on_command_change");AndroidComputerUseFrameBroker.clear()
+   GuidedForms.reset();FormTransport.reset()
+   RightPaneContextRuntime.clear()
++  JebiseoTextHandoffRuntime.clear()
+   ChatGptReturnRuntime.clear(forgetOrigin=true)
+   VisualOcrCommandRuntime.discardPending();VisualOcrTransport.reset()
+   secureCompletionCorrelation.discardAll()
+@@ -876,7 +877,11 @@
+               val text=j.optString("text")
+               val value=j.optString("value")
+               val step=AgentStep(action,text,value)
+-              if(VisualOutputTransport.matches(step)) {
++              if(JebiseoTextHandoffTransport.matches(j)) {
++                // Reserved three-phase route receives the ORIGINAL authenticated envelope.
++                // It never falls back to generic LEFT clicking, set_text or an Intent.
++                completeResult(id,JebiseoTextHandoffTransport.execute(this,j))
++              }else if(VisualOutputTransport.matches(step)) {
+                 // This branch remains under the existing Secure56 signed-job gate.
+                 // It renders only locally verified JSON; it never acts on Chrome/UI fields.
+                 completeResult(id, VisualOutputTransport.deliver(this,step))
+@@ -1229,7 +1234,11 @@
+    if(!v.ok)return v
+    if(j.optBoolean("containsCredential",false) || j.optString("dataClass").equals("SECRET",true))return SecureBridge56.Verify(false,"credential_class_never_crosses_secure_bridge")
+    val tool=j.optString("mcpToolName")
+-   if(tool.isNotBlank()){
++   if(JebiseoTextHandoffTransport.matches(j)){
++     // Narrow per-protocol binding; the general Secure56 tool allowlist is unchanged.
++     val bind=JebiseoTextHandoffTransport.verifyBinding(j,active)
++     if(!bind.ok)return bind
++   }else if(tool.isNotBlank()){
+      val bind=SecureBridge56Runtime.session.bindTool(tool,j.optString("taskDigest"),j.optString("targetDeviceDigest"),j.optString("secureRequestedEffect"),active.deviceDigest)
+      if(!bind.ok)return bind
+    }
+@@ -1527,12 +1536,13 @@
+    // 10.8: Removed heuristic background credential fill/auto-submit.
+    // Ciphertext and Keystore remain untouched; use the phone password manager locally.
+  }
+- override fun onInterrupt(){ChatGptReturnLifecycle.clear();ChatGptReturnRuntime.clear(forgetOrigin=true)}
++ override fun onInterrupt(){ChatGptReturnLifecycle.clear();ChatGptReturnRuntime.clear(forgetOrigin=true);JebiseoTextHandoffRuntime.clear()}
+  override fun onDestroy(){
+    BridgeConnectionForeground.stop(this)
+    networkCallback?.let{cb->try{(getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)?.unregisterNetworkCallback(cb)}catch(_:Exception){}}
+    networkCallback=null
+    ChatGptReturnLifecycle.clear();ChatGptReturnRuntime.clear(forgetOrigin=true)
++   JebiseoTextHandoffRuntime.clear()
+    accessibilityConnected=false;running=false;securePollTransport.close();pollWorker?.interrupt(); AndroidComputerUseApprovalOverlay.clear(); ScreenConsentReviewOverlay.clear(); VisualOcrCommandRuntime.discardPending(); directTicket?.cancel(); computerUseAdapter.cancelAll(); AndroidComputerUseActionApprovalRuntime.clear(); AndroidComputerUseConsentRuntime.screen.clear("screen_grant_cleared_on_service_stop"); AndroidComputerUseFrameBroker.clear(); RightPaneContextRuntime.clear(); secureCompletionCorrelation.clear(); secureJobs.clear(); verifiedMcpBindings.clear(); cleanRestartActions.clear(); siteJobGenerations.clear(); splitJobs.clear(); splitJobTypes.clear(); SecureBridge56Runtime.session.clear()
+    SplitComfortRuntime.clear()
+    LeftWebMode.disable()
