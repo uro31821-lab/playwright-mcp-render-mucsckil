@@ -1,5 +1,5 @@
 import {
-  BASE_CATALOG_DIGEST,CAMERA_TOOL,BINDING_JOB,CONFIG_JOB,
+  BASE_CATALOG_DIGEST,CAMERA_TOOL,CAMERA_TOOL_V2,BINDING_JOB,CONFIG_JOB,
   BINDING_OPERATION,CONFIG_OPERATION,CAMERA_EXTENSION,PROTOCOL
 } from './camera-contract.mjs';
 import {runCameraSettingsFlow} from './camera-flow.mjs';
@@ -66,12 +66,7 @@ export function createCameraHostIntegration({getCatalogDigest,runSecure,now=Date
     },
     register({z,registerOAuthTool,textResult}={}){
       if(!z||typeof registerOAuthTool!=='function'||typeof textResult!=='function')fail('CAMERA_REGISTER_PORT_REQUIRED');
-      registerOAuthTool(CAMERA_TOOL,{
-        title:'KaBiseo current camera settings',
-        description:'Apply only shooting mode/style to the already-visible RIGHT KaBiseo camera through existing Secure56. Never launches camera, presses shutter, reads gallery, transfers photos, or returns camera-setting details.',
-        inputSchema:{device_id:z.string().optional(),task_digest:z.string(),command_id:z.string().optional(),camera_command_id:z.string().optional(),request_text:z.string().min(1).max(160)},
-        annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}
-      },async args=>{
+      const handleCameraSettings=async args=>{
         try{
           const result=await runCameraSettingsFlow({args,runSecure,nowMs:now});
           return textResult(result.ok?{ok:true,protocol:PROTOCOL}:{ok:false,code:result.code,protocol:PROTOCOL});
@@ -82,8 +77,28 @@ export function createCameraHostIntegration({getCatalogDigest,runSecure,now=Date
             console.warn('JH_KABISEO_COMMAND_INPUT_SHAPE '+commandArgumentShape(args));
           return textResult({ok:false,code,protocol:PROTOCOL});
         }
-      });
-      return Object.freeze({tool:CAMERA_TOOL,extension:CAMERA_EXTENSION});
+      };
+      registerOAuthTool(CAMERA_TOOL,{
+        title:'KaBiseo current camera settings (legacy)',
+        description:'Legacy KaBiseo settings-only tool; preserves existing Secure56 behavior. Never launches camera, takes photos, or sends images.',
+        inputSchema:{device_id:z.string().optional(),task_digest:z.string(),command_id:z.string().optional(),camera_command_id:z.string().optional(),request_text:z.string().min(1).max(160)},
+        annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}
+      },handleCameraSettings);
+      // Versioned tool avoids cached ChatGPT schema that omitted camera_command_id.
+      // Do not inherit the generic command_id field (may be host bookkeeping):
+      // only the dedicated, mandatory, valid 32-hex ID enters the signed flow.
+      registerOAuthTool(CAMERA_TOOL_V2,{
+        title:'KaBiseo camera settings only v2',
+        description:'Apply mode/style only to the already-visible right KaBiseo camera via existing Secure56. Requires a dedicated camera_command_id. No launch, shutter, gallery, transfer, automatic replay or user-facing camera details.',
+        inputSchema:{device_id:z.string().optional(),task_digest:z.string(),camera_command_id:z.string().min(32).max(32),request_text:z.string().min(1).max(160)},
+        annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}
+      },args=>handleCameraSettings({
+        device_id:args?.device_id,
+        task_digest:args?.task_digest,
+        camera_command_id:args?.camera_command_id,
+        request_text:args?.request_text
+      }));
+      return Object.freeze({tool:CAMERA_TOOL,versionedTool:CAMERA_TOOL_V2,extension:CAMERA_EXTENSION});
     }
   });
 }
