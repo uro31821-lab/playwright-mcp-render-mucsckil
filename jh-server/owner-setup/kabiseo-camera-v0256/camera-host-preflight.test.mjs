@@ -28,7 +28,19 @@ assert.deepEqual(await handler(request),{ok:true,protocol:PROTOCOL});
 assert.deepEqual(calls,['kabiseo_camera_binding_status','kabiseo_camera_config']);
 const countAfterSuccess=calls.length;
 assert.equal((await handler({...request,request_text:''})).code,'CAMERA_PREFLIGHT_TEXT_REJECTED');
-assert.equal((await handler({...request,command_id:'bad'})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+const diagnosticWarnings=[];
+const priorWarn=console.warn;
+try{
+  console.warn=(...parts)=>{diagnosticWarnings.push(parts.join(' '));};
+  assert.equal((await handler({...request,command_id:'bad'})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+  assert.equal((await handler({...request,command_id:undefined})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+  assert.equal((await handler({...request,command_id:12345})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+  assert.equal((await handler({...request,command_id:'G'.repeat(32)})).code,'CAMERA_PREFLIGHT_COMMAND_REJECTED');
+}finally{console.warn=priorWarn;}
+for(const kind of ['WRONG_LENGTH','MISSING','WRONG_TYPE','WRONG_FORMAT'])
+  assert.ok(diagnosticWarnings.includes('JH_KABISEO_COMMAND_INPUT_SHAPE '+kind));
+assert.ok(!diagnosticWarnings.some(x=>x.includes(request.command_id)));
+
 assert.equal((await handler({...request,task_digest:'bad'})).code,'CAMERA_PREFLIGHT_TASK_REJECTED');
 assert.equal(calls.length,countAfterSuccess);
 
