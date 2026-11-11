@@ -2,6 +2,8 @@ import {createHash} from 'node:crypto';
 
 export const BASE_CATALOG_DIGEST='a777e1a88a0b7633ba983ca3054d2eb28f3b9c41596e0a46b93597d478a42ca1';
 export const CAMERA_TOOL='life_android_camera_settings';
+// Public MCP transport alias only; signed Secure56 job/tool identity remains CAMERA_TOOL.
+export const CAMERA_TOOL_V2='life_android_camera_settings_v2';
 export const BINDING_JOB='kabiseo_camera_binding_status';
 export const CONFIG_JOB='kabiseo_camera_config';
 export const BINDING_OPERATION='KABISEO_CAMERA_BINDING_READ_V1';
