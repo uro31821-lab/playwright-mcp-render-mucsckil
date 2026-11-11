@@ -153,9 +153,19 @@ export function selectAttestedCameraRuntime(ownerRoot,audioParent){
     baseCatalogChanged:false,automaticReplayAllowed:false});
 }
 
-export async function buildCameraReleaseCandidate(ownerRoot,env=process.env){
+export const CAMERA_ENABLE_FLAG='EXPLICIT_KABISEO_CAMERA_V0256';
+
+export function cameraActivationEnabled(env=process.env){
+  const flag=env?.JH_KABISEO_CAMERA_ENABLE;
+  if(flag===undefined||flag==='')return false;
+  if(flag!==CAMERA_ENABLE_FLAG)fail('CAMERA_ENABLE_FLAG_INVALID');
+  if(env?.JH_EBISEO_AUDIO_ENABLE!=='EXPLICIT_EBISEO_AUDIO_V05')
+    fail('CAMERA_EBISEO_AUDIO_REQUIRED');
+  return true;
+}
+
+export function buildCameraOverlayFromVerifiedAudio(ownerRoot,audio,env=process.env){
   const root=rootDir(ownerRoot);
-  const audio=await buildCurrentAudioReleaseCandidate(root,env);
   const audioParent=selectAudioCandidateRuntime(root,env);
   if(audioParent.file!==audio.file||audioParent.sha256!==audio.candidateSha256)
     fail('CAMERA_AUDIO_BUILD_SELECTION_MISMATCH');
@@ -182,5 +192,14 @@ export async function buildCameraReleaseCandidate(ownerRoot,env=process.env){
   const selected=selectAttestedCameraRuntime(root,selectAudioCandidateRuntime(root,env));
   if(selected.sha256!==composed.sha256)fail('CAMERA_READBACK_MISMATCH');
   return Object.freeze({...selected,entryFile:p.entry,ownerFile:p.owner,unifiedFile:p.unified,
-    stampFile:p.stamp,candidateSha256:composed.sha256,listenerStarted:false,apkChanged:false});
+    stampFile:p.stamp,candidateSha256:composed.sha256,listenerStarted:false,apkChanged:false,
+    cameraOverlayActive:true});
+}
+
+export async function buildCameraReleaseCandidate(ownerRoot,env=process.env){
+  const root=rootDir(ownerRoot);
+  const audioEnv={...env};
+  delete audioEnv.JH_KABISEO_CAMERA_ENABLE;
+  const audio=await buildCurrentAudioReleaseCandidate(root,audioEnv);
+  return buildCameraOverlayFromVerifiedAudio(root,audio,audioEnv);
 }
