@@ -1,0 +1,95 @@
+name: G Glass Stage21 Actual APK Identity Evidence No Install
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - '.github/workflows/jh-glass-stage21-apk-evidence.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  read-only-apk-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout JH development branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Temurin Java 17
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Stage official pinned Meta 1.0.1 and isolated G Glass trial
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init "${RUNNER_TEMP}/meta"
+          git -C "${RUNNER_TEMP}/meta" remote add origin https://github.com/meta/meta-wearables-dat-android.git
+          git -C "${RUNNER_TEMP}/meta" fetch --depth=1 origin f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          git -C "${RUNNER_TEMP}/meta" checkout --detach FETCH_HEAD
+          test "$(git -C "${RUNNER_TEMP}/meta" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          echo STAGE21_PINNED_META_COMMIT_OK
+          APP="${RUNNER_TEMP}/meta/samples/CameraAccess"
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_handsfree_probe.py "$APP"
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/isolate_stage16_voice_trial.py "$APP"
+          test "$(grep -c 'applicationId = "com.koreanlifehub.jhglassprobe"' "$APP/app/build.gradle.kts")" = 1
+          test "$(grep -c 'android:scheme="jhglassprobe"' "$APP/app/src/main/AndroidManifest.xml")" = 1
+          ! grep -q 'applicationId = "com.koreanlifehub.bridge"' "$APP/app/build.gradle.kts"
+          echo STAGE21_ISOLATED_SOURCE_OK
+      - name: One Android debug APK build, NO release signing or installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/meta/samples/CameraAccess"
+          chmod +x gradlew
+          ./gradlew --no-daemon :app:assembleDebug
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          echo STAGE21_ACTUAL_APK_BUILT_NO_INSTALL
+      - name: Read Android package, certificate and permissions, fail closed for phone use
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="${RUNNER_TEMP}/meta/samples/CameraAccess/app/build/outputs/apk/debug/app-debug.apk"
+          aapt2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 -print | sort -V | tail -1)"
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner -print | sort -V | tail -1)"
+          test -x "$aapt2" && test -x "$apksigner"
+          "$aapt2" dump badging "$apk" > "$RUNNER_TEMP/gglass-aapt2.txt"
+          "$apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/gglass-apksigner.txt"
+          python3 - "$RUNNER_TEMP/gglass-aapt2.txt" "$RUNNER_TEMP/gglass-apksigner.txt" "$apk" <<'PY'
+          import hashlib, pathlib, sys
+          sys.path.insert(0, "jh-server/owner-setup/glass-bridge/physical-trial")
+          import stage20_apk_identity as gate
+          appbadging = pathlib.Path(sys.argv[1]).read_text()
+          signing = pathlib.Path(sys.argv[2]).read_text()
+          apk = pathlib.Path(sys.argv[3])
+          b = gate.badging_from_aapt2(appbadging)
+          certs = gate.signers_from_apksigner(signing)
+          assert b["package_name"] == gate.TRIAL_PACKAGE, b
+          assert b["label"] == gate.TRIAL_LABEL, b
+          assert b["debuggable"] is True, b
+          assert b["version_code"], b
+          assert len(certs) == 1
+          unknown = sorted(set(b["permissions"]) - gate.BASELINE_PERMISSIONS)
+          assert not unknown, "PERMISSION_EXPANSION: " + repr(unknown)
+          state = gate.evaluate(b, certs, None)
+          assert state["identity_gate"] == "BLOCKED", state
+          assert "PREAPPROVED_SIGNER_FINGERPRINT_MISSING" in state["reasons"], state
+          assert state["installation_authorized"] is False
+          print("STAGE21_APK_PACKAGE="+b["package_name"])
+          print("STAGE21_APK_VERSION_CODE="+b["version_code"])
+          print("STAGE21_DEBUGGABLE=true")
+          print("STAGE21_SIGNER_EPHEMERAL_CI_SHA256="+certs[0])
+          print("STAGE21_APK_SHA256="+hashlib.sha256(apk.read_bytes()).hexdigest())
+          print("STAGE21_APK_BYTES="+str(apk.stat().st_size))
+          print("STAGE21_INSTALLED_CERT_IDENTITY=UNKNOWN")
+          print("STAGE21_IDENTITY_POLICY_FAIL_CLOSED=PASS")
+          print("STAGE21_SOURCE_PROVENANCE=PINNED_META_AND_JH_DEV")
+          print("STAGE21_SECURITY_VERDICT=REVIEW_AV_AND_USER_CERT_UNVERIFIED")
+          print("STAGE21_INSTALL_AUTHORIZED=FALSE")
+          PY
+          echo STAGE21_APK_IDENTITY_AUDIT_PASS_NO_PHONE_RELEASE
+      - name: Final guardrail
+        run: |
+          echo EPHEMERAL_CI_DEBUG_SIGNER_ONLY_NO_RELEASE_KEY_OR_APK_UPLOAD
+          echo NO_USER_PHONE_NO_META_WDC_NO_JH_DEPLOY_NO_OPENAI_API
