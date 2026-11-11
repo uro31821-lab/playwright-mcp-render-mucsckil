@@ -57,12 +57,16 @@ def build(destination: Path, handoff: Path) -> Path:
 조회 대상: Meta CameraAccess 앱과 G Glass 시험 앱의 공개 인증서/버전뿐.
 RESULT.txt에 결과 또는 차단 이유가 저장됩니다.
 
+이 수정본은 Windows에서 adb devices -l에 usb: 표시가 없어도
+adb -d로 USB 단일 기기를 확인하면 진행합니다. Wi-Fi 기기는 차단합니다.
+이전 USB_CABLE_TRANSPORT_NOT_CONFIRMED 오류는 이 판별 수정 대상입니다.
+
 이 프로그램은 APK 설치·삭제·앱 설정 변경·화면/사진 수집·API 호출을
 하지 않습니다. 인증서 지문을 알아도 설치 승인이나 Meta Beta 가입을
 뜻하지 않습니다. 현재는 본인 휴대폰에서 실제 검증한 결과가 없습니다.
 """
     (destination / "사용안내.txt").write_text(guide, encoding="utf-8")
-    shutil.copy2(handoff, destination / "docs" / "HANDOFF_STAGE24.md")
+    shutil.copy2(handoff, destination / "docs" / "HANDOFF_STAGE25_USB_FIX.md")
     initial = {"schema": "JH_GGLASS_STAGE24_WINDOWS_READONLY_V1",
                "status": "NOT_RUN", "device_access": False,
                "install_permitted": False}
