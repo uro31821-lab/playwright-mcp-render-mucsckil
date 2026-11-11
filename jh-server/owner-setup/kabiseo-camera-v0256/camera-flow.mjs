@@ -12,6 +12,11 @@ function safeBinding(result){
   return {sessionId:result.sessionId,rightWindowId:result.rightWindowId};
 }
 
+// Expose a fixed, data-free phase code; never include a camera session, image, or raw exception.
+function failClosed(code){
+  return {ok:false,accepted:false,code,userVisibleResult:false,automaticReplayAllowed:false,protocol:PROTOCOL};
+}
+
 export async function runCameraSettingsFlow({args,runSecure,nowMs=()=>Date.now()}){
   const request=validateDirectRequest(args?.request_text);
   const commandId=String(args?.command_id||'');
@@ -21,23 +26,25 @@ export async function runCameraSettingsFlow({args,runSecure,nowMs=()=>Date.now()
   if(typeof runSecure!=='function')throw new TypeError('runSecure required');
 
   const common={device_id:args?.device_id,task_digest:taskDigest,command_id:commandId};
-  const bindingJob=await runSecure({
+  let bindingJob;
+  try { bindingJob=await runSecure({
     mcpToolName:CAMERA_TOOL,jobType:BINDING_JOB,effect:'READ_ONLY',args:common,
     extra:{commandId,operation:BINDING_OPERATION,packageName:EXPECTED_PACKAGE,
       cameraExtension:CAMERA_EXTENSION,allowedSideEffect:'READ_CURRENT_CAMERA_BINDING_ONLY'}
-  });
+  }); } catch { return failClosed('CAMERA_BINDING_DISPATCH_FAILED'); }
   const binding=safeBinding(bindingJob?.result);
-  if(!binding)return {ok:false,accepted:false,code:'CAMERA_NOT_READY',userVisibleResult:false,automaticReplayAllowed:false,protocol:PROTOCOL};
+  if(!binding)return failClosed('CAMERA_NOT_READY');
 
   const cameraExpiresAtMs=nowMs()+10_000;
-  const configJob=await runSecure({
+  let configJob;
+  try { configJob=await runSecure({
     mcpToolName:CAMERA_TOOL,jobType:CONFIG_JOB,effect:'WRITE_REVERSIBLE',args:common,
     extra:{commandId,operation:CONFIG_OPERATION,packageName:EXPECTED_PACKAGE,
       cameraExtension:CAMERA_EXTENSION,allowedSideEffect:'CURRENT_CAMERA_SETTINGS_ONLY',
       cameraTarget:{deviceId:String(configJobDevice(args,bindingJob)),taskId:taskDigest,commandId,
         sessionId:binding.sessionId,rightWindowId:binding.rightWindowId},
       cameraExpiresAtMs,directRequest:request}
-  });
+  }); } catch { return failClosed('CAMERA_CONFIG_DISPATCH_FAILED'); }
   const applied=configJob?.result?.ok===true&&configJob?.result?.resultVerified===true;
   return {ok:applied,accepted:applied,code:applied?'CAMERA_SETTINGS_ACCEPTED':'CAMERA_SETTINGS_NOT_CONFIRMED',
     userVisibleResult:false,automaticReplayAllowed:false,protocol:PROTOCOL};
