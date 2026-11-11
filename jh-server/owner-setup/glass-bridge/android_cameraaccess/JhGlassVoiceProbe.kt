@@ -25,6 +25,8 @@ import com.meta.wearable.dat.speech.addSpeech
 import com.meta.wearable.dat.speech.types.TranscriptionResult
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -128,25 +130,36 @@ class JhGlassVoiceProbe(
         }
         status("GLASSES_SPEECH_READY")
         try {
-          // STARTED after subscription: an early result cannot be lost.
-          val firstFinal = launch {
+          // The collector starts UNDISTPATCHED before recognition.start(),
+          // so even an immediate first final cannot be dropped.
+          val finalDeferred = async(start = CoroutineStart.UNDISPATCHED) {
             recognition.transcriptions.first { result: TranscriptionResult? ->
               result != null && result.isFinal && result.text.isNotBlank()
-            }.let { final ->
-              if (final != null) {
+            }
+          }
+          try {
+            val started = recognition.start().getOrNull()
+            if (started == null) {
+              status("GLASSES_SPEECH_START_FAILED")
+            } else {
+              status("GLASSES_SPEECH_START_ACCEPTED")
+              val heard = withTimeoutOrNull(18_000) { finalDeferred.await() }
+              if (heard == null) {
+                status("GLASSES_TRANSCRIPT_TIMEOUT")
+              } else {
                 status("GLASSES_FINAL_TRANSCRIPT_RECEIVED")
+                // Intentional fixed known test words. NEVER persist the raw
+                // recognized transcript, patient speech or ambient audio.
+                val normalized = heard.text.filterNot(Char::isWhitespace)
+                val matched = normalized.contains("에비서") && normalized.contains("안녕")
+                status(if (matched) "KOREAN_TEST_PHRASE_MATCH"
+                    else "KOREAN_TEST_PHRASE_NOT_MATCHED")
+                recognition.stop()
                 speakFixedTestReply()
               }
             }
-          }
-          val started = recognition.start().getOrNull()
-          if (started == null) {
-            status("GLASSES_SPEECH_START_FAILED")
-            firstFinal.cancel()
-          } else {
-            // Strictly one final utterance, time-bounded. No idle listening.
-            withTimeoutOrNull(18_000) { firstFinal.join() }
-            firstFinal.cancel()
+          } finally {
+            finalDeferred.cancel()
           }
         } finally {
           recognition.stop()
