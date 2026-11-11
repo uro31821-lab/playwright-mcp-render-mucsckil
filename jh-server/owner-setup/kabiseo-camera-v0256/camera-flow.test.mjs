@@ -29,4 +29,37 @@ assert.equal(notReady.ok,false);assert.equal(configCalled,false);
 
 await assert.rejects(()=>runCameraSettingsFlow({args:{request_text:'',task_digest:'a'.repeat(64),command_id:'d'.repeat(32)},runSecure}),/camera request invalid/);
 await assert.rejects(()=>runCameraSettingsFlow({args:{request_text:'음식 모드',task_digest:'bad',command_id:'d'.repeat(32)},runSecure}),/task_digest invalid/);
-console.log('KABISEO_SERVER_FLOW_PASS=14');
+// A transport exception is not proof that camera settings were applied.
+// Differentiate the read and write phase without exposing the private exception.
+const bindingAttempts=[];
+const bindingFailure=await runCameraSettingsFlow({
+  args:{request_text:'음식 모드',task_digest:'a'.repeat(64),command_id:'e'.repeat(32),device_id:'phone-1'},
+  runSecure:async req=>{bindingAttempts.push(req.jobType);throw Error('private-binding-detail');}
+});
+assert.equal(bindingFailure.code,'CAMERA_BINDING_DISPATCH_FAILED');
+assert.equal(bindingFailure.ok,false);
+assert.equal(bindingFailure.userVisibleResult,false);
+assert.equal(bindingFailure.automaticReplayAllowed,false);
+assert.deepEqual(bindingAttempts,['kabiseo_camera_binding_status']);
+assert.equal(JSON.stringify(bindingFailure).includes('private-binding-detail'),false);
+
+const configAttempts=[];
+const configFailure=await runCameraSettingsFlow({
+  args:{request_text:'음식을 시원하고 고급스럽게 찍어줘',task_digest:'a'.repeat(64),command_id:'f'.repeat(32),device_id:'phone-1'},
+  runSecure:async req=>{
+    configAttempts.push(req.jobType);
+    if(req.jobType==='kabiseo_camera_binding_status')
+      return {targetDeviceId:'phone-1',result:{ok:true,sessionId:'activity:7',rightWindowId:77}};
+    throw Error('private-config-detail');
+  },nowMs:()=>1000
+});
+assert.equal(configFailure.code,'CAMERA_CONFIG_DISPATCH_FAILED');
+assert.equal(configFailure.ok,false);
+assert.equal(configFailure.accepted,false);
+assert.equal(configFailure.userVisibleResult,false);
+assert.equal(configFailure.automaticReplayAllowed,false);
+assert.deepEqual(configAttempts,['kabiseo_camera_binding_status','kabiseo_camera_config']);
+assert.equal(JSON.stringify(configFailure).includes('private-config-detail'),false);
+
+const count=(s.match(/assert\.(?:equal|deepEqual|rejects|ok)\(/g)||[]).length;
+console.log('KABISEO_SERVER_FLOW_PASS='+count);
