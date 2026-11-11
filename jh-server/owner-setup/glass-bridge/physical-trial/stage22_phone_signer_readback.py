@@ -12,7 +12,7 @@ Nothing may grant physical-trial approval or Meta WDC Beta eligibility.
 import argparse
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import tempfile
@@ -64,6 +64,12 @@ def base_apk_from_pm_output(output: str) -> str | None:
     base = [line[len("package:"):] for line in raw if line.endswith("/base.apk")]
     if len(base) != 1 or not BASE_APK_PATH.fullmatch(base[0]):
         raise PhoneReadbackBlocked("PACKAGE_MANAGER_BASE_APK_UNTRUSTED")
+    # Never let a malicious/errant PackageManager response redirect a read to
+    # another location. Regex anchors alone are not sufficient for dot-segments.
+    parts = PurePosixPath(base[0]).parts
+    if (".." in parts or "/./" in base[0] or "\\" in base[0]
+            or "//" in base[0] or "\x00" in base[0]):
+        raise PhoneReadbackBlocked("PACKAGE_MANAGER_PATH_TRAVERSAL_BLOCKED")
     return base[0]
 
 
