@@ -1,10 +1,12 @@
+> **Latest API authorization (2026-11-11):** Free credit grants are consumed first, then **already-purchased prepaid API credits may be consumed**. Do not auto-recharge or make new purchases, and stop before existing balances plus safety margin are exhausted. Source of truth: [USER_CONFIRMED_GPT_FREE_CREDITS_POLICY.md](USER_CONFIRMED_GPT_FREE_CREDITS_POLICY.md). Actual current balance/account settings and real API billing gate still unverified.
+
 # G Glass — Stage17 external open-source evidence and selective integration (2026-11-11)
 
 ## Provenance and current goal
 
 - This review incorporates the user's Library file **JH_안비서_오픈소스_조사_인계서_20261111.md** (13,864 bytes, 130 lines) and the already populated JH_OpenSource_Scout_v1.json record \`inv-meta-glasses-gpt-20261111\` (E3_CODE_VERIFIED).
 - The older research uses **안비서**. The user's **latest confirmed** spoken brand is **G Glass (지글라스)**, target launch “Hey Meta, start G Glass”. The original JH assistant and Secure56 constraints are unchanged.
-- Final user experience: phone in pocket, no ChatGPT/Meta AI phone UI visible; one explicit image request, glasses Speech (Korean), GPT API funded **only** by verified complimentary credits, JH routing, answer spoken through glasses. No unpaid-to-paid rollover, automatic fallback, incidental patient capture, or MediaProjection.
+- Final user experience: phone in pocket, no ChatGPT/Meta AI phone UI visible; one explicit image request, glasses Speech (Korean), GPT API funded by verified complimentary grants first, then **already purchased prepaid credits**, JH routing, answer spoken through glasses. No new purchase or automatic recharge after existing prepaid credit exhaustion, no automatic model fallback, incidental patient capture, or MediaProjection.
 - Current Android developer baseline: **Meta DAT 1.0.1** pinned SHA \`f4371bc9f90249d51eb07d7f8a61e8d829294f16\`; original user's installed CameraAccess stream proof retained. Source-only G Glass candidate is on \`feature/jh-glass-photo-mailbox-20261110\`, isolated package \`com.koreanlifehub.jhglassprobe\`. Do NOT change original JH APK or CameraAccess installation.
 
 ## Candidate-by-candidate verified code and gate
@@ -42,7 +44,7 @@ The existing \`JhGlassVoiceProbe.kt\` now invokes this fail-closed guard and rej
 
 1. **Exact real output routing:** Android inventory and successful TextToSpeech callback do NOT prove actual Ray-Ban speakers (Android TTS media playback route may be different). With an explicitly approved physical test, check the output device selected by Android and audibly confirm on glasses, including phone call interruption and disconnect. No forced \`MODE_IN_COMMUNICATION\` before proof, especially due to JH's existing audio/EQ path.
 2. **One user-directed still photo** + Korean final transcript. Avoid permanent video streaming and auto-capture. Use Meta official camera API already proven; strip photo from state after one-shot and guard against sensitive bystanders/patients.
-3. **Actual free-credit GPT API funding control**: user explicitly confirmed GPT API (not local AI fallback) and **0 additional paid usage**. Current credit balance, expiry, funding order, and account-level hard block are unverified; GPT API remains OFF until independently proven. Avoid default realtime/LiveKit services that may require separate billing.
+3. **Actual free-credit GPT API funding control**: user explicitly confirmed GPT API (not local AI fallback) and **no new payment beyond existing prepaid credits**. Current free and purchased credit balances, expiry, funding order, recharge OFF and the account-level no-overage boundary remain unverified; GPT API remains OFF until independently proven. Avoid default realtime/LiveKit services that may require separate billing.
 4. **Phone in pocket**: phone-lock and background start limitations, Meta Beta name registration for **G Glass**, Android foreground connected-device/microphone policy, no unsolicited permission click, auto-retry or microphone recording.
 5. **Release gate**: source compile + static security + genuine target signing and user's separate install approval → one physical end-to-end trial. No APK installation, JH runtime or Render production changes in current development stage.
 
