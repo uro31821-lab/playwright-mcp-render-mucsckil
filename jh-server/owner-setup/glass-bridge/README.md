@@ -1,5 +1,6 @@
 # JH Glass Bridge — Photo Mailbox Prototype
 
+## User-confirmed API policy — 2026-11-11\n\n**GPT API is the preferred inference engine using only free/complimentary credits actually issued to the user's API account, with zero extra bills.** No automatically recharged or paid API calls. If a trustworthy complimentary balance and account-level hard spend block cannot be established, **do not call the API**, and do not silently substitute a local model. Historic $200 monthly benefit / ~$190 then available / auto-recharge OFF were earlier reports, not live reverified account balances. Read [USER_CONFIRMED_GPT_FREE_CREDITS_POLICY.md](USER_CONFIRMED_GPT_FREE_CREDITS_POLICY.md). No API implemented or invoked yet.\n\n
 Status 2026-11-10 (Stage 3): SOURCE CANDIDATE, TESTS ONLY. NOT DEPLOYED. No running HTTP route, MCP tool, APK modification, OpenAI API call, or photo storage on disk.
 
 ## Starting point
