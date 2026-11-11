@@ -173,13 +173,20 @@ export async function buildCurrentAudioReleaseCandidate(ownerRoot,env=process.en
   writeNew(p.stamp,JSON.stringify(stamp,null,2)+'\n');
   const selected=selectAttestedAudioRuntime(root,upstream.selectStage25PendingOperatorRuntime56(root,env));
   const releaseBinding=createPinnedAudioReleaseAuthority().requireAudioRoutes({routes:AUDIO_ROUTES,contractSha256:AUDIO_CONTRACT_SHA256});
-  return Object.freeze({...provenance,file:p.runtime,entryFile:p.entry,ownerFile:p.owner,unifiedFile:p.unified,
+  const audioResult=Object.freeze({...provenance,file:p.runtime,entryFile:p.entry,ownerFile:p.owner,unifiedFile:p.unified,
     stampFile:p.stamp,parentRuntimeFile:parent.file,parentRuntimeSha256:parent.sha256,
     candidateSha256:selected.sha256,releaseBinding,routingModel:'ANDROID_THEN_MANUAL',
     parentFeatureFlagsPreserved:true,baseCatalogChanged:false,signingChanged:false,
     storageNamespaceChanged:false,originalPublishedRouterChanged:false,
     originalAuthenticationGatesPreserved:true,ownerSelectorChanged:true,
     activated:false,listenerStarted:false,networkRequests:0,runtimeVerifiedLive:false});
+  const cameraFlag=env?.JH_KABISEO_CAMERA_ENABLE;
+  if(cameraFlag!==undefined&&cameraFlag!==''){
+    const camera=await import('../kabiseo-camera-v0256/camera-compose-audio-host.mjs');
+    if(!camera.cameraActivationEnabled(env))fail('CAMERA_ACTIVATION_REQUIRED');
+    return camera.buildCameraOverlayFromVerifiedAudio(root,audioResult,env);
+  }
+  return audioResult;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(new URL(import.meta.url).pathname)){
   if(process.argv.length!==4||process.argv[3]!=='--local-test-profile')
