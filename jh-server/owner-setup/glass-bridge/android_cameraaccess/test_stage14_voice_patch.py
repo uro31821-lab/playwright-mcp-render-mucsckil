@@ -18,6 +18,13 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     maybeStartMockDeviceTestServer()
     enableEdgeToEdge()
+    setContent {
+      CameraAccessScaffold(
+          viewModel = viewModel,
+          onRequestWearablesPermission = ::requestWearablesPermission,
+          onRequestRecordAudioPermission = ::requestRecordAudioPermission,
+      )
+    }
   }
   override fun onStart() {
     super.onStart()
