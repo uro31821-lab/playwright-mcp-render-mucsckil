@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from apply_handsfree_probe import patch, MAIN, VOICE, GRADLE, CATALOG, VOICEMARKER
+from apply_handsfree_probe import patch, MAIN, VOICE, LAUNCH_GATE, GRADLE, CATALOG, VOICEMARKER
 
 ORIGINAL_MAIN = '''package com.meta.wearable.dat.externalsampleapps.cameraaccess
 import androidx.activity.ComponentActivity
@@ -60,6 +60,9 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         self.assertIn("jhVoiceProbe.startOneVoiceQuestion(",main)
         self.assertIn("jhVoiceProbe.startVoiceLaunchListener",main)
         self.assertIn("jhVoiceProbe.close()",main)
+        self.assertIn("jhVoiceGate.acceptVoiceLaunch()",main)
+        self.assertIn('"META_VOICE_INTENT_RECEIVED"',main)
+        self.assertIn('"META_VOICE_STREAM_RECEIVED"',main)
     def test_upstream_camera_and_meta_permissions_untouched(self):
         self.assertEqual(patch(self.root,self.overlay),"APPLIED")
         src=(self.root/MAIN).read_text()
@@ -68,6 +71,8 @@ class Stage14VoiceSourceTest(unittest.TestCase):
             if term=="requestWearablesPermission":
                 self.assertIn("::requestWearablesPermission",src)
             else: self.assertIn(term,src)
+        self.assertIn("Wearables.initialize(this).onSuccess",src)
+        self.assertIn("DAT_INITIALIZATION_FAILED",src)
         self.assertNotIn("MediaProjection",src)
         self.assertNotIn("ACTION_SEND",src)
     def test_only_speech_dependency_added(self):
@@ -103,6 +108,7 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         self.assertEqual((self.root/GRADLE).read_text(),ORIGINAL_GRADLE)
         self.assertEqual((self.root/CATALOG).read_text(),ORIGINAL_CATALOG)
         self.assertFalse((self.root/VOICE).exists())
+        self.assertFalse((self.root/LAUNCH_GATE).exists())
     def test_partial_existing_patch_is_blocked(self):
         p=self.root/MAIN
         p.write_text(ORIGINAL_MAIN.replace("class MainActivity : ComponentActivity() {",
@@ -113,6 +119,32 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         self.assertEqual(patch(self.root,self.overlay),"APPLIED")
         self.assertEqual((self.root/VOICE).read_bytes(),
                          (self.overlay/"JhGlassVoiceProbe.kt").read_bytes())
+        self.assertEqual((self.root/LAUNCH_GATE).read_bytes(),
+                         (self.overlay/"JhVoiceActivationGate.kt").read_bytes())
+    def test_korean_voice_can_be_isolated_from_beta_wake_without_paid_api(self):
+        self.assertEqual(patch(self.root, self.overlay),"APPLIED")
+        src=(self.root/MAIN).read_text(encoding="utf-8")
+        self.assertIn('if (BuildConfig.DEBUG)',src)
+        self.assertIn('Text("안경 음성 시험")',src)
+        self.assertIn('recordJhVoiceStatus("DEBUG_USER_TAP_STARTED")',src)
+        self.assertIn('jhVoiceEvents.collectAsState()',src)
+        self.assertIn('history.takeLast(3)',src)
+        self.assertNotIn('startForegroundService',src)
+        self.assertNotIn('MediaProjection',src)
+
+    def test_diagnostic_codes_are_sanitized_without_raw_speech_or_secrets(self):
+        self.assertEqual(patch(self.root, self.overlay),"APPLIED")
+        main=(self.root/MAIN).read_text()
+        voice=(self.root/VOICE).read_text()
+        self.assertIn('Regex("^[A-Z0-9_]{3,64}$")',main)
+        self.assertIn('takeLast(5)',main)
+        self.assertIn("KOREAN_TEST_PHRASE_MATCH",voice)
+        self.assertIn("KOREAN_TEST_PHRASE_NOT_MATCHED",voice)
+        self.assertIn("GLASSES_TRANSCRIPT_TIMEOUT",voice)
+        self.assertNotIn("status(heard.text)",voice)
+        self.assertNotIn("Log.",voice)
+        self.assertNotIn("OPENAI_API_KEY",voice)
+
     def test_no_new_android_permissions_or_foreground_service(self):
         self.assertEqual(patch(self.root,self.overlay),"APPLIED")
         src=(self.root/MAIN).read_text()
