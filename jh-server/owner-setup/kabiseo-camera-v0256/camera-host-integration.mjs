@@ -10,6 +10,18 @@ function signal(type,payload){
     Object.hasOwn(payload||{},'cameraExtension');
 }
 function fail(code){throw Object.assign(Error(code),{code});}
+// Fixed diagnostic codes only. Never serialize exception text, command values,
+// camera state, photo content or activity/window identifiers into MCP responses.
+function safeHandlerErrorCode(error){
+  const mapping={
+    'camera request invalid':'CAMERA_PREFLIGHT_TEXT_REJECTED',
+    'command_id invalid':'CAMERA_PREFLIGHT_COMMAND_REJECTED',
+    'task_digest invalid':'CAMERA_PREFLIGHT_TASK_REJECTED',
+    'runSecure required':'CAMERA_PREFLIGHT_RUNNER_REJECTED'
+  };
+  const m=typeof error?.message==='string'?error.message:'';
+  return Object.hasOwn(mapping,m)?mapping[m]:'CAMERA_HANDLER_INTERNAL_ERROR';
+}
 function validate(type,payload,deviceId,now){
   if(!signal(type,payload))return;
   if(!exactCameraExtension(payload.cameraExtension))fail('CAMERA_EXTENSION_MISMATCH');
@@ -34,6 +46,7 @@ function validate(type,payload,deviceId,now){
 export function createCameraHostIntegration({getCatalogDigest,runSecure,now=Date.now}={}){
   if(typeof getCatalogDigest!=='function'||typeof runSecure!=='function')fail('CAMERA_HOST_PORT_REQUIRED');
   if(getCatalogDigest()!==BASE_CATALOG_DIGEST)fail('CAMERA_BASE_CATALOG_MISMATCH');
+  console.info('JH_KABISEO_HANDLER_DIAGNOSTIC_V2_READY');
   const classify=createCameraDurableClassifier({getCatalogDigest});
   return Object.freeze({
     classify,
@@ -53,8 +66,10 @@ export function createCameraHostIntegration({getCatalogDigest,runSecure,now=Date
         try{
           const result=await runCameraSettingsFlow({args,runSecure,nowMs:now});
           return textResult(result.ok?{ok:true,protocol:PROTOCOL}:{ok:false,code:result.code,protocol:PROTOCOL});
-        }catch{
-          return textResult({ok:false,code:'CAMERA_SETTINGS_REQUEST_INVALID',protocol:PROTOCOL});
+        }catch(error){
+          const code=safeHandlerErrorCode(error);
+          console.warn('JH_KABISEO_HANDLER_DIAGNOSTIC '+code);
+          return textResult({ok:false,code,protocol:PROTOCOL});
         }
       });
       return Object.freeze({tool:CAMERA_TOOL,extension:CAMERA_EXTENSION});
