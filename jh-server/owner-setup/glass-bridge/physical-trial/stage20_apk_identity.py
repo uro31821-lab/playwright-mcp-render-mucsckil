@@ -77,7 +77,10 @@ def evaluate(badging, certs, approved_cert):
         reasons.append("APP_LABEL_MISMATCH")
     if not badging.get("version_code"):
         reasons.append("APK_VERSION_MISSING")
-    extra = sorted(set(badging.get("permissions", [])) - BASELINE_PERMISSIONS)
+    # AndroidX generates this exact *app-owned, package-scoped* receiver guard.
+    # Do not generalize to arbitrary custom permissions or other app IDs.
+    permitted = BASELINE_PERMISSIONS | {TRIAL_PACKAGE + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"}
+    extra = sorted(set(badging.get("permissions", [])) - permitted)
     if extra:
         reasons.append("PERMISSION_EXPANSION_REQUIRES_REVIEW")
     if len(certs) != 1:
