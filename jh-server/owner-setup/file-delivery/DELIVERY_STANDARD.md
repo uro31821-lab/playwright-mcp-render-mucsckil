@@ -29,3 +29,11 @@ G Glass Stage25/26 사용자 다운로드에서, ZIP CRC/해시가 PASS였는데
 ## JH 플러그인 전파 상태
 - JH 개발 저장소의 전달 정책과 테스트는 새 소스/CI에서 검증한다.
 - 현재 `jh-secure-live` 플러그인 실행 릴리스 자체를 갱신했다는 증거가 없으면 **PLUGIN_RELEASE_NOT_VERIFIED**로 표시한다. 기존 installed 플러그인 변경을 단정하지 않는다.
+
+## 최종 외부 다운로드 검증 (2026-11-12 추가)
+
+- **실제 GitHub CI** [43051395945](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/43051395945): **SUCCESS**.
+- JH 공통 파일 전달 단위시험 **18/18 PASS**, 에비서 plugin-overlay 참조·비공개 자료 공개 차단 규칙 PASS.
+- **인증 헤더·쿠키 없는 `curl -L` 실제 HTTP GET**을 통해 공개 Releases의 `GGlass26.zip`을 내려받아 용량 **15,822 bytes**, SHA-256 **`44f2ba7a85f39af9bf8155af0aa081cfdc13044e5594f285adf3e583345a491c`**, ZIP CRC 8 entries 전부 확인.
+- 따라서 **`EXTERNAL_ANONYMOUS_GET_VERIFIED=true` (GitHub Actions 환경에서)**. 다만 사용자 PC 브라우저·네트워크에서 성공한 증거가 아직 없으므로 **`USER_DOWNLOAD_CONFIRMED=false`**.
+- 변경 범위는 현재 JH 개발 저장소 코드/CI 및 미래 JH 플러그인 편입용 overlay. **사용자의 설치된 JH Secure Live 릴리스 1.34.97은 아직 갱신 성공 증거가 없음**. JH 운영/휴대폰 설치/Meta WDC/API는 변경하지 않음.
