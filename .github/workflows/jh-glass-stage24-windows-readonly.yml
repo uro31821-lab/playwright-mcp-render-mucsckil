@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/jh-glass-stage24-windows-readonly.yml'
       - 'jh-server/owner-setup/glass-bridge/physical-trial/stage24_windows_oneclick.py'
+      - 'jh-server/owner-setup/glass-bridge/physical-trial/stage24_package_and_smoke.py'
+      - 'jh-server/owner-setup/glass-bridge/HANDOFF_STAGE24_CURRENT.md'
       - 'jh-server/owner-setup/glass-bridge/physical-trial/test_stage24_windows_oneclick.py'
       - 'jh-server/owner-setup/glass-bridge/physical-trial/test_stage24_native_windows_smoke.py'
       - 'jh-server/owner-setup/glass-bridge/physical-trial/실행.cmd'
@@ -75,6 +77,23 @@ jobs:
           } else {
             Write-Output "GGLASS_STAGE24_CI_DEFENDER_UNAVAILABLE_SECURITY_REVIEW"
           }
+      - name: Package exact Windows-tested one-click source and smoke extracted folder
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = "jh-server/owner-setup/glass-bridge"
+          $source = "$root/physical-trial/stage24_package_and_smoke.py"
+          $dest = Join-Path $env:RUNNER_TEMP "gglass_s24_bundle"
+          python $source $dest "$root/HANDOFF_STAGE24_CURRENT.md"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output "GGLASS_STAGE24_ONE_EXTRACT_WINDOWS_DELIVERY_CONTENT_PASS"
+      - name: Deliver verified source-only package as single downloadable GitHub artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GGlass-S24-ReadOnly-Windows-Verified
+          path: ${{ runner.temp }}/gglass_s24_bundle/
+          if-no-files-found: error
+          retention-days: 30
       - name: Final no-device, no paid API, no deploy rule
         shell: pwsh
         run: |
