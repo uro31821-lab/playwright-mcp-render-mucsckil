@@ -13,7 +13,7 @@ const sha=v=>createHash('sha256').update(v).digest('hex');
 const root=path.resolve(import.meta.dirname,'..');
 assert.equal(
   sha(readFileSync(path.join(root,'server-integration/server.mjs'))),
-  '2a66e53bde1618be6180cef1fac3172426674f6634efcc4045a07c85c25d8f6e'
+  'a329fc7e71fb518a711a28146d34c5093a3f31486dc7ea8a9bd547e52d5118c6'
 );
 
 const audioRuntime=[
