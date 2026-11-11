@@ -41,11 +41,14 @@ jobs:
           jar tf "${RUNNER_TEMP}/camera-aar/classes.jar" | grep -E 'Photo|photo|Camera\\.class' | head -95 || true
           echo CAMERA_PHOTO_CLASS_NAMES_END
           echo CAMERA_PHOTO_SIGNATURES_BEGIN
-          for cls in $(jar tf "${RUNNER_TEMP}/camera-aar/classes.jar" | grep -E '(PhotoState|PhotoQuality|PhotoResolution|Photo\\.class|PhotoCaptureData|CameraKt)\\.class$' | head -35); do
-             dot="${cls%.class}"
-             dot="${dot//\//.}"
-             echo "CLASS $dot"
-             javap -cp "${RUNNER_TEMP}/camera-aar/classes.jar" -p "$dot" 2>/dev/null | head -45 || true
+          for cls in \
+            com.meta.wearable.dat.camera.photo.Photo \
+            com.meta.wearable.dat.camera.photo.types.PhotoState \
+            com.meta.wearable.dat.camera.photo.types.PhotoQuality \
+            com.meta.wearable.dat.camera.photo.types.PhotoResolution \
+            com.meta.wearable.dat.camera.photo.types.PhotoCaptureData; do
+              echo "CLASS $cls"
+              javap -cp "${RUNNER_TEMP}/camera-aar/classes.jar" -p "$cls" | head -50
           done
           echo CAMERA_PHOTO_SIGNATURES_END
           echo NO_PHONE_NO_API_NO_DEPLOY
