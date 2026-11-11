@@ -22,6 +22,15 @@ function safeHandlerErrorCode(error){
   const m=typeof error?.message==='string'?error.message:'';
   return Object.hasOwn(mapping,m)?mapping[m]:'CAMERA_HANDLER_INTERNAL_ERROR';
 }
+// Diagnostic classes, never the command itself. A valid client command must
+// still pass the exact 32-hex check in camera-flow.mjs; no fallback or replay.
+function commandArgumentShape(args){
+  const value=args?.command_id;
+  if(value===undefined)return 'MISSING';
+  if(typeof value!=='string')return 'WRONG_TYPE';
+  if(value.length!==32)return 'WRONG_LENGTH';
+  return /^[a-f0-9]{32}$/.test(value)?'VALID':'WRONG_FORMAT';
+}
 function validate(type,payload,deviceId,now){
   if(!signal(type,payload))return;
   if(!exactCameraExtension(payload.cameraExtension))fail('CAMERA_EXTENSION_MISMATCH');
@@ -69,6 +78,8 @@ export function createCameraHostIntegration({getCatalogDigest,runSecure,now=Date
         }catch(error){
           const code=safeHandlerErrorCode(error);
           console.warn('JH_KABISEO_HANDLER_DIAGNOSTIC '+code);
+          if(code==='CAMERA_PREFLIGHT_COMMAND_REJECTED')
+            console.warn('JH_KABISEO_COMMAND_INPUT_SHAPE '+commandArgumentShape(args));
           return textResult({ok:false,code,protocol:PROTOCOL});
         }
       });
