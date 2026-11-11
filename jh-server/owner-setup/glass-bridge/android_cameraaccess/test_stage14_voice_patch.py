@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from apply_handsfree_probe import patch, MAIN, VOICE, LAUNCH_GATE, AUDIO_POLICY, GRADLE, CATALOG, VOICEMARKER
+from apply_handsfree_probe import patch, MAIN, VOICE, LAUNCH_GATE, AUDIO_POLICY, PHOTO_COMMAND, PHOTO_PROBE, GRADLE, CATALOG, VOICEMARKER
 
 ORIGINAL_MAIN = '''package com.meta.wearable.dat.externalsampleapps.cameraaccess
 import androidx.activity.ComponentActivity
@@ -120,6 +120,8 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         self.assertFalse((self.root/VOICE).exists())
         self.assertFalse((self.root/LAUNCH_GATE).exists())
         self.assertFalse((self.root/AUDIO_POLICY).exists())
+        self.assertFalse((self.root/PHOTO_COMMAND).exists())
+        self.assertFalse((self.root/PHOTO_PROBE).exists())
     def test_partial_existing_patch_is_blocked(self):
         p=self.root/MAIN
         p.write_text(ORIGINAL_MAIN.replace("class MainActivity : ComponentActivity() {",
@@ -134,6 +136,10 @@ class Stage14VoiceSourceTest(unittest.TestCase):
                          (self.overlay/"JhVoiceActivationGate.kt").read_bytes())
         self.assertEqual((self.root/AUDIO_POLICY).read_bytes(),
                          (self.overlay/"GGlassAudioOutputGuard.kt").read_bytes())
+        self.assertEqual((self.root/PHOTO_COMMAND).read_bytes(),
+                         (self.overlay/"GGlassOnePhotoCommand.kt").read_bytes())
+        self.assertEqual((self.root/PHOTO_PROBE).read_bytes(),
+                         (self.overlay/"GGlassOneShotPhotoProbe.kt").read_bytes())
     def test_korean_voice_can_be_isolated_from_beta_wake_without_paid_api(self):
         self.assertEqual(patch(self.root, self.overlay),"APPLIED")
         src=(self.root/MAIN).read_text(encoding="utf-8")
@@ -157,6 +163,37 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         self.assertNotIn("status(heard.text)",voice)
         self.assertNotIn("Log.",voice)
         self.assertNotIn("OPENAI_API_KEY",voice)
+
+    def test_one_photo_only_after_exact_final_korean_request(self):
+        self.assertEqual(patch(self.root,self.overlay),"APPLIED")
+        speech=(self.root/VOICE).read_text(encoding="utf-8")
+        cmd=(self.root/PHOTO_COMMAND).read_text(encoding="utf-8")
+        self.assertIn("GGlassOnePhotoCommand.matchesFinalUtterance(",speech)
+        self.assertIn("GGlassOneShotPhotoProbe.captureOnce(selected, status)",speech)
+        self.assertIn("status(\"GLASSES_USER_PHOTO_REQUEST\")",speech)
+        self.assertIn("if (!isFinal || text.length > 80) return false",cmd)
+        self.assertIn('"이게뭐야"',cmd)
+        self.assertIn('"지글라스이거뭐야"',cmd)
+        self.assertNotIn("captureOnce(selected, status)",cmd)
+
+    def test_photo_probe_no_stream_no_save_no_network_and_cleanup(self):
+        self.assertEqual(patch(self.root,self.overlay),"APPLIED")
+        photo=(self.root/PHOTO_PROBE).read_text(encoding="utf-8")
+        self.assertIn("Permission.CAMERA",photo)
+        self.assertIn("PermissionStatus.Granted",photo)
+        self.assertIn("session.addCamera(",photo)
+        self.assertIn("val photo = attached.photo",photo)
+        self.assertIn("PhotoState.STARTED",photo)
+        self.assertIn("photo.photoStream.first()",photo)
+        self.assertIn("PhotoResolution.FULL",photo)
+        self.assertIn("GLASSES_ONE_PHOTO_EVENT_RECEIVED",photo)
+        self.assertIn("camera?.stop()",photo)
+        self.assertNotIn("stream.start(",photo)
+        self.assertNotIn("videoStream",photo)
+        self.assertNotIn("FileOutputStream",photo)
+        self.assertNotIn("Http",photo)
+        self.assertNotIn("OPENAI_API_KEY",photo)
+        self.assertNotIn("MediaProjection",photo)
 
     def test_no_new_android_permissions_or_foreground_service(self):
         self.assertEqual(patch(self.root,self.overlay),"APPLIED")
