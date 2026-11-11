@@ -42,6 +42,11 @@ Sources:
 - No user consent can be auto-clicked; DAT microphone initial grant may redirect into Meta AI app one time.
 - No OpenAI API calls, credentials, external photo services or cloud speech providers are included in Stage14.
 
+## Stage14 final hosted CI readback
+
+- [GitHub Actions run 42927492768](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42927492768), tested commit `d4dc89d648e5767f0e7ae36758c635236c575b72`: Python **8/8 passed**, pinned Meta SDK 1.0.1 check, idempotent patch, actual Kotlin **BUILD SUCCESSFUL in 1m 23s**. **No APK install, no WDC enrollment, no API**.
+- Korean TTS completion now uses a bounded `UtteranceProgressListener.onDone`, not a 1.5-second cutoff; source-only result proves compile, **not** audible route to glasses. Evidence in `RESULT_STAGE14_VOICE_COMPILE.md`.
+
 ## Next test gate
 
 1. Confirm hosted CI compile result of `.github/workflows/jh-glass-stage14-voice-compile.yml` (actual Kotlin compile, not just Python source tests).
