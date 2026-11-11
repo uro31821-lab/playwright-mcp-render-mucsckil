@@ -47,3 +47,16 @@ No rebuilding Stage19/21 for old unchanged source, no repackaging earlier unveri
 **Complete source-matched Stage24 Windows package delivery and AV readback** (without phone), then offer voluntary one-click owner-local read-only scan. If the user doesn't want USB/ADB action, keep BLOCKED and consider a separately authorized package-visibility method, not silent broader phone access.
 
 Status: Stage24 actual Windows cmd.exe and 50/50 unit guards PASS; **real phone readback and physical Ray-Ban E2E NOT_RUN**; JH production unchanged.
+
+## Stage24 final verified delivery artifact (source matched)
+
+- Final SUCCESS CI including packaging and its native Windows bundled-CMD smoke: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/43033925299
+- GitHub artifact ID `13862980847`, `GGlass-S24-ReadOnly-Windows-Verified`, generated only after the 50/50 Windows unit checks and fail-closed native command smoke. User download representation `GGlass_S24_ReadOnly_CLEAN.zip`.
+- Exact SHA-256 (GitHub artifact and locally verified conversation file): `99955c74f02de5a876be556801a4e338bd150f6e53cf94643576286250a8321d`; size **15,295 bytes**; **8 files**, archive CRC PASS.
+- Every entry except `data/MANIFEST_SHA256.json` has verified size and SHA-256; exactly 7 entries tracked; `실행.cmd` ASCII+CRLF PASS and points at `data/stage24_windows_oneclick.py`; result starts as `NOT_RUN`.
+- First delivery candidate accidentally contained **two Python __pycache__ .pyc binaries** after native smoke. This was detected before final release, blocked and corrected by removing all bytecode caches. Final ZIP contents only `.py/.cmd/.md/.txt/.json` with **zero .pyc/.exe/.apk/.dll/.jar**.
+- Delivery file integrity and path availability verified in the current container; **user's actual download success is still NOT CONFIRMED**.
+- Security verdict remains **REVIEW**: Windows Defender capability readback on CI is not a completed scan, and actual owner Windows Defender/AV and device USB inspection still NOT_RUN. Do not bypass AV to run it.
+- No new APK, JH phone install/update, Meta developer account change, OpenAI API call, private signing key, app permissions grant, or actual physical device access.
+
+**Next one action**: user-voluntary Windows Defender scan and complete ZIP extraction, then `실행.cmd` on an already trusted Windows/USB setup. The user must explicitly type YES; no phone if they decline. Actual owner-installed app signer remains UNKNOWN until this local scan is reported.
