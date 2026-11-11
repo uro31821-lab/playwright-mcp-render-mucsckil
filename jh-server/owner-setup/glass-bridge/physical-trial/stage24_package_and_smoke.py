@@ -146,6 +146,18 @@ def main():
     smoke_cmd(folder, "YES\n", "ANDROID_SDK_NOT_FOUND_NO_DOWNLOAD")
     print("GGLASS_STAGE24_BUNDLED_WINDOWS_CMD_YES_NO_SDK_BLOCK_PASS")
 
+    # The native Python runs may have created __pycache__ under data/.
+    # Never distribute compiled bytecode or other executable binaries.
+    for cache in list(folder.rglob("__pycache__")):
+        if cache.is_dir():
+            shutil.rmtree(cache)
+    for junk in list(folder.rglob("*.pyc")):
+        junk.unlink()
+    if any(p.is_file() and p.suffix.lower() in {
+        ".pyc", ".pyo", ".exe", ".dll", ".jar", ".apk", ".pyd"
+    } for p in folder.rglob("*")):
+        raise RuntimeError("STAGE24_EXECUTABLE_BINARY_INCLUDED")
+
     # A real user download starts in NOT_RUN. Recheck integrity afterward.
     (folder / "RESULT.txt").write_text(json.dumps(
         {"schema": "JH_GGLASS_STAGE24_WINDOWS_READONLY_V1",
