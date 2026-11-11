@@ -61,4 +61,38 @@ assert.equal(configFailure.automaticReplayAllowed,false);
 assert.deepEqual(configAttempts,['kabiseo_camera_binding_status','kabiseo_camera_config']);
 assert.equal(JSON.stringify(configFailure).includes('private-config-detail'),false);
 
+// MCP clients may reserve generic command_id for outer command bookkeeping.
+// Dedicated camera_command_id must still be 32-hex and cross the same signed
+// binding/config request boundary; no fallback to a guessed active command.
+const cameraCommand='c'.repeat(32);
+const dedicatedCalls=[];
+const dedicated=await runCameraSettingsFlow({
+  args:{request_text:'음식을 시원하고 고급스럽게 찍어줘',
+    task_digest:'a'.repeat(64),camera_command_id:cameraCommand,device_id:'phone-1'},
+  runSecure:async req=>{
+    dedicatedCalls.push(req);
+    if(req.jobType==='kabiseo_camera_binding_status')
+      return {targetDeviceId:'phone-1',result:{ok:true,sessionId:'activity:7',rightWindowId:77}};
+    return {targetDeviceId:'phone-1',result:{ok:true,resultVerified:true}};
+  },nowMs:()=>1000
+});
+assert.equal(dedicated.ok,true);
+assert.equal(dedicatedCalls.length,2);
+assert.equal(dedicatedCalls[0].extra.commandId,cameraCommand);
+assert.equal(dedicatedCalls[1].extra.cameraTarget.commandId,cameraCommand);
+assert.equal(dedicatedCalls[1].args.command_id,cameraCommand);
+
+const mismatchCalls=[];
+await assert.rejects(()=>runCameraSettingsFlow({
+  args:{request_text:'음식 모드',task_digest:'a'.repeat(64),
+    camera_command_id:'c'.repeat(32),command_id:'d'.repeat(32)},
+  runSecure:async req=>mismatchCalls.push(req)
+}),/command_id invalid/);
+assert.equal(mismatchCalls.length,0);
+await assert.rejects(()=>runCameraSettingsFlow({
+  args:{request_text:'음식 모드',task_digest:'a'.repeat(64),camera_command_id:'broken'},
+  runSecure:async req=>mismatchCalls.push(req)
+}),/command_id invalid/);
+assert.equal(mismatchCalls.length,0);
+console.log('KABISEO_DEDICATED_COMMAND_CONTRACT_PASS');
 console.log('KABISEO_SERVER_FLOW_PASS=29');
