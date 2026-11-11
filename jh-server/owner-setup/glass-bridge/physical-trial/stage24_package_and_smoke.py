@@ -15,7 +15,7 @@ import tempfile
 
 
 SOURCE = Path(__file__).resolve().parent
-BUNDLE_NAME = "GGlass_S24_ReadOnly"
+BUNDLE_NAME = "GGlass_S26_ReadOnly"
 PYTHON_FILES = (
     "stage20_apk_identity.py",
     "stage22_phone_signer_readback.py",
@@ -45,7 +45,7 @@ def build(destination: Path, handoff: Path) -> Path:
         raise RuntimeError("STAGE24_CMD_EOL_UNVERIFIED")
     (destination / "실행.cmd").write_bytes(cmd_bytes)
 
-    guide = """G Glass Stage24 | 앱 서명 확인 전용 (설치 기능 없음)
+    guide = """G Glass Stage26 | 앱 서명 확인 전용 (설치 기능 없음)
 
 이 ZIP을 통째로 압축 해제하고 '실행.cmd'를 더블클릭합니다.
 중요: Windows Defender 또는 다른 보안 기능의 경고를 우회하지 마세요.
@@ -59,15 +59,21 @@ RESULT.txt에 결과 또는 차단 이유가 저장됩니다.
 
 이 수정본은 Windows에서 adb devices -l에 usb: 표시가 없어도
 adb -d로 USB 단일 기기를 확인하면 진행합니다. Wi-Fi 기기는 차단합니다.
-이전 USB_CABLE_TRANSPORT_NOT_CONFIRMED 오류는 이 판별 수정 대상입니다.
+이전 USB_CABLE_TRANSPORT_NOT_CONFIRMED 오류는 이미 수정됐습니다.
+
+Stage26에서는 G Glass 시험 앱이 미설치 상태라면 NOT_INSTALLED로 표시합니다.
+읽기 명령이 실패하면 PACKAGE_LIST / PACKAGE_PATH / APK_PULL /
+AAPT2_BADGING / APKSIGNER_VERIFY 등 해당 단계만 알려줍니다.
+RESULT.txt의 diagnostic_revision 값이 stage26으로 시작하는지 확인하세요.
 
 이 프로그램은 APK 설치·삭제·앱 설정 변경·화면/사진 수집·API 호출을
 하지 않습니다. 인증서 지문을 알아도 설치 승인이나 Meta Beta 가입을
 뜻하지 않습니다. 현재는 본인 휴대폰에서 실제 검증한 결과가 없습니다.
 """
     (destination / "사용안내.txt").write_text(guide, encoding="utf-8")
-    shutil.copy2(handoff, destination / "docs" / "HANDOFF_STAGE25_USB_FIX.md")
+    shutil.copy2(handoff, destination / "docs" / "HANDOFF_STAGE26.md")
     initial = {"schema": "JH_GGLASS_STAGE24_WINDOWS_READONLY_V1",
+               "diagnostic_revision": "stage26-missing-package-and-step-failures",
                "status": "NOT_RUN", "device_access": False,
                "install_permitted": False}
     (destination / "RESULT.txt").write_text(
@@ -84,8 +90,8 @@ def add_manifest(destination: Path) -> None:
         data = file.read_bytes()
         files.append({"path": file.relative_to(destination).as_posix(),
                       "size_bytes": len(data), "sha256": digest(data)})
-    manifest = {"schema": "JH_GGLASS_STAGE24_PACKAGE_V1",
-                "source_tested_by": "https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/43032544658",
+    manifest = {"schema": "JH_GGLASS_STAGE26_PACKAGE_V1",
+                "source_tested_by": "https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/workflows/jh-glass-stage24-windows-readonly.yml",
                 "windows_native_no_phone_tested": True,
                 "user_phone_tested": False,
                 "security_verdict": "REVIEW_LOCAL_AV_NOT_VERIFIED",
@@ -165,6 +171,7 @@ def main():
     # A real user download starts in NOT_RUN. Recheck integrity afterward.
     (folder / "RESULT.txt").write_text(json.dumps(
         {"schema": "JH_GGLASS_STAGE24_WINDOWS_READONLY_V1",
+         "diagnostic_revision": "stage26-missing-package-and-step-failures",
          "status": "NOT_RUN", "device_access": False, "install_permitted": False},
         indent=2) + "\n", encoding="utf-8")
     add_manifest(folder)
