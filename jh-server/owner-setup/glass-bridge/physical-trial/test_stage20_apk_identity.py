@@ -60,6 +60,21 @@ class IdentityGateTest(unittest.TestCase):
         b["permissions"] += ["android.permission.QUERY_ALL_PACKAGES"]
         self.assertIn("PERMISSION_EXPANSION_REQUIRES_REVIEW", self.verdict(b, approved="aa" * 32)["reasons"])
 
+    def test_exact_own_dynamic_receiver_permission_allowed(self):
+        b = self.base()
+        b["permissions"].append(
+            "com.koreanlifehub.jhglassprobe.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+        self.assertEqual(self.verdict(b, approved="aa" * 32)["identity_gate"], "PASS")
+
+    def test_other_package_receiver_permission_blocked(self):
+        b = self.base()
+        b["permissions"].append(
+            "com.koreanlifehub.bridge.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+        self.assertIn(
+            "PERMISSION_EXPANSION_REQUIRES_REVIEW",
+            self.verdict(b, approved="aa" * 32)["reasons"],
+        )
+
     def test_multiple_certificates_block(self):
         self.assertIn("EXACTLY_ONE_SIGNER_REQUIRED",
                       self.verdict(certs=["aa" * 32, "bb" * 32], approved="aa" * 32)["reasons"])
