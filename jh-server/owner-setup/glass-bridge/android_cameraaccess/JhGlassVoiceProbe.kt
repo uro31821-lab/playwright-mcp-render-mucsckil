@@ -179,14 +179,30 @@ class JhGlassVoiceProbe(
   /** Does not force the phone loudspeaker on or override Android route. */
   private suspend fun speakFixedTestReply() {
     val manager = appContext.getSystemService(AudioManager::class.java)
-    val supportsBluetoothOutput = manager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-        ?.any { device ->
-          device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-              device.type == AudioDeviceInfo.TYPE_BLE_HEADSET
-        } == true
-    if (!supportsBluetoothOutput) {
-      status("BLUETOOTH_MEDIA_OUTPUT_NOT_FOUND")
-      return
+    // Reading the output inventory does NOT prove that Android media audio
+    // will actually be routed to the wearer's Ray-Ban Meta pair.
+    // Refuse the test when more than one BT media output is possible;
+    // never silently choose an unrelated headset or force communication mode.
+    val readiness = GGlassAudioOutputGuard.evaluate(
+        outputs = manager?.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            ?.map { device -> GGlassAudioOutput(device.id, device.type) }.orEmpty(),
+        mediaTypes = setOf(
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+            AudioDeviceInfo.TYPE_BLE_HEADSET,
+        ),
+    )
+    when (readiness) {
+      GGlassAudioOutputReadiness.NONE -> {
+        status("BLUETOOTH_MEDIA_OUTPUT_NOT_FOUND")
+        return
+      }
+      GGlassAudioOutputReadiness.AMBIGUOUS -> {
+        status("BLUETOOTH_MEDIA_OUTPUT_AMBIGUOUS")
+        return
+      }
+      GGlassAudioOutputReadiness.SINGLE_BLUETOOTH_CANDIDATE -> {
+        status("BLUETOOTH_MEDIA_OUTPUT_CANDIDATE_ONLY")
+      }
     }
     val ready = CompletableDeferred<Boolean>()
     val engine = TextToSpeech(appContext) { result ->
