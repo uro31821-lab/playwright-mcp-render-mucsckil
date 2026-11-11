@@ -29,6 +29,8 @@ jobs:
           git -C "${RUNNER_TEMP}/dat" fetch --depth=1 origin f4371bc9f90249d51eb07d7f8a61e8d829294f16
           git -C "${RUNNER_TEMP}/dat" checkout --detach FETCH_HEAD
           test "$(git -C "${RUNNER_TEMP}/dat" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          # Reuse Stage20 policy tests before spending build time on the real APK.
+          python3 -m unittest discover -q -s jh-server/owner-setup/glass-bridge/physical-trial -p 'test_stage20_apk_identity.py'
           base="jh-server/owner-setup/glass-bridge/android_cameraaccess"
           app="${RUNNER_TEMP}/dat/samples/CameraAccess"
           python3 -m unittest discover -q -s "$base" -p 'test_stage14_voice_patch.py'
