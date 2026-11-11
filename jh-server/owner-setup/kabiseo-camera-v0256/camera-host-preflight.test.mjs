@@ -21,11 +21,17 @@ const integration=createCameraHostIntegration({
 integration.register({z,registerOAuthTool:(name,config,cb)=>{
   assert.equal(name,CAMERA_TOOL);
   assert.equal(config.annotations.readOnlyHint,false);
+  assert.ok(Object.hasOwn(config.inputSchema,'camera_command_id'));
   handler=cb;
 },textResult:v=>v});
 assert.equal(typeof handler,'function');
 assert.deepEqual(await handler(request),{ok:true,protocol:PROTOCOL});
 assert.deepEqual(calls,['kabiseo_camera_binding_status','kabiseo_camera_config']);
+const newResult=await handler({device_id:'phone-1',task_digest:'a'.repeat(64),
+  camera_command_id:'b'.repeat(32),request_text:'음식을 시원하고 고급스럽게 찍어줘'});
+assert.equal(newResult.ok,true);
+assert.equal(calls.length,4);
+
 const countAfterSuccess=calls.length;
 assert.equal((await handler({...request,request_text:''})).code,'CAMERA_PREFLIGHT_TEXT_REJECTED');
 const diagnosticWarnings=[];
