@@ -2,7 +2,9 @@ name: KaBiseo v0.25.6 camera settings
 
 on:
   push:
-    branches: [kabiseo-v0256-secure56-camera-settings-20261111]
+    branches:
+      - kabiseo-v0256-secure56-camera-settings-20261111
+      - kabiseo-v0256-audio-overlay-fix-20261111
   pull_request:
     paths:
       - 'jh-server/owner-setup/kabiseo-camera-v0256/**'
@@ -19,5 +21,13 @@ jobs:
           node-version: '20'
       - name: Camera flow contract
         run: node jh-server/owner-setup/kabiseo-camera-v0256/camera-flow.test.mjs
-      - name: Server syntax
+      - name: Camera overlay and durable policy
+        run: node jh-server/owner-setup/kabiseo-camera-v0256/camera-overlay.test.mjs
+      - name: Camera module syntax
+        run: |
+          node --check jh-server/owner-setup/kabiseo-camera-v0256/camera-candidate-entry.mjs
+          node --check jh-server/owner-setup/kabiseo-camera-v0256/camera-compose-audio-host.mjs
+          node --check jh-server/owner-setup/kabiseo-camera-v0256/camera-host-integration.mjs
+          node --check jh-server/owner-setup/kabiseo-camera-v0256/camera-durable-policy.mjs
+      - name: Pinned server syntax
         run: node --check jh-server/owner-setup/server-integration/server.mjs
