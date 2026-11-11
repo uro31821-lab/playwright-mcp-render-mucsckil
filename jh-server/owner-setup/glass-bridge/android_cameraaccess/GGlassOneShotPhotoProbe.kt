@@ -1,9 +1,10 @@
 package com.meta.wearable.dat.externalsampleapps.cameraaccess.jhglass
 
 import com.meta.wearable.dat.camera.addCamera
-import com.meta.wearable.dat.camera.types.PhotoQuality
-import com.meta.wearable.dat.camera.types.PhotoResolution
-import com.meta.wearable.dat.camera.types.PhotoState
+import com.meta.wearable.dat.camera.photo.Photo
+import com.meta.wearable.dat.camera.photo.types.PhotoQuality
+import com.meta.wearable.dat.camera.photo.types.PhotoResolution
+import com.meta.wearable.dat.camera.photo.types.PhotoState
 import com.meta.wearable.dat.camera.types.StreamConfiguration
 import com.meta.wearable.dat.camera.types.VideoQuality
 import com.meta.wearable.dat.core.Wearables
@@ -37,6 +38,7 @@ internal object GGlassOneShotPhotoProbe {
           return@coroutineScope false
         }
         var camera: com.meta.wearable.dat.camera.Camera? = null
+        var activePhoto: Photo? = null
         try {
           val attached = session.addCamera(
               StreamConfiguration(videoQuality = VideoQuality.LOW, frameRate = 2)
@@ -49,6 +51,7 @@ internal object GGlassOneShotPhotoProbe {
           // Accessing this experimental standalone Photo capability starts it
           // lazily. No video stream is started.
           val photo = attached.photo
+          activePhoto = photo
           val ready = withTimeoutOrNull(10_000) {
             photo.state.first { it == PhotoState.STARTED }
           }
@@ -60,18 +63,18 @@ internal object GGlassOneShotPhotoProbe {
             // NEVER save, upload, decode, log or retain photo.imageData.
             // Receipt event only; image bytes are left inside the ephemeral
             // SDK object and made unreachable on scope completion.
-            photo.photoStream.first()
-            true
+            val captured = photo.photoStream.first()
+            // The SDK exposes a byte-array image and metadata. Reject an
+            // empty receipt; keep neither in a field, file, log or network.
+            captured.imageData.isNotEmpty()
           }
           try {
-            val accepted = photo.capturePhoto(
+            // Official DAT 1.0.1 Photo.capturePhoto() returns Unit;
+            // success is proven ONLY by the subsequent photoStream receipt.
+            photo.capturePhoto(
                 resolution = PhotoResolution.FULL,
                 quality = PhotoQuality.HIGH,
-            ).fold(onSuccess = { true }, onFailure = { _, _ -> false })
-            if (!accepted) {
-              status("GLASSES_PHOTO_CAPTURE_REJECTED")
-              return@coroutineScope false
-            }
+            )
             val received = withTimeoutOrNull(20_000) { oneEvent.await() } == true
             if (!received) {
               status("GLASSES_PHOTO_TRANSFER_TIMEOUT")
@@ -90,6 +93,7 @@ internal object GGlassOneShotPhotoProbe {
         } finally {
           // Stopping Camera invalidates standalone Photo and its stream.
           // No immediate auto-retry: one voice request permits one attempt.
+          activePhoto?.stop()
           camera?.stop()
         }
       }
