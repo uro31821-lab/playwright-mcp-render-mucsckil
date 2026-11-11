@@ -59,5 +59,21 @@ jobs:
           print('JH_FILE_DELIVERY_PUBLIC_ASSET_READBACK_PASS')
           print('JH_FILE_DELIVERY_USER_DOWNLOAD_NOT_YET_CONFIRMED')
           PY
+      - name: Test anonymous HTTP GET of public release asset and ZIP SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/releases/download/gglass-s26-readonly-20261112/GGlass26.zip'
+          # No GH_TOKEN, cookies, Authorization or login in this step.
+          curl --location --fail --silent --show-error --retry 2 --connect-timeout 15 --max-time 90 "$url" --output "${RUNNER_TEMP}/jh-anon-download.zip"
+          python3 - <<'PY'
+          import hashlib,os,pathlib,zipfile
+          p=pathlib.Path(os.environ['RUNNER_TEMP'])/'jh-anon-download.zip'
+          assert p.is_file() and p.stat().st_size==15822, 'GGLASS_PUBLIC_BYTES_UNEXPECTED'
+          assert hashlib.sha256(p.read_bytes()).hexdigest()=='44f2ba7a85f39af9bf8155af0aa081cfdc13044e5594f285adf3e583345a491c', 'GGLASS_PUBLIC_HASH_MISMATCH'
+          with zipfile.ZipFile(p) as z:
+            assert len(z.namelist())==8 and z.testzip() is None, 'GGLASS_PUBLIC_ZIP_INVALID'
+          print('JH_FILE_DELIVERY_PUBLIC_ANONYMOUS_GET_SHA256_CRC_PASS')
+          PY
       - name: No ZIP rebuild or user phone action
         run: echo JH_DELIVERY_ONLY_NO_GRADLE_NO_SIGNING_NO_PHONE_NO_API
