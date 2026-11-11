@@ -11,6 +11,8 @@ MAIN = BASE / "MainActivity.kt"
 VOICE = BASE / "jhglass/JhGlassVoiceProbe.kt"
 LAUNCH_GATE = BASE / "jhglass/JhVoiceActivationGate.kt"
 AUDIO_POLICY = BASE / "jhglass/GGlassAudioOutputGuard.kt"
+PHOTO_COMMAND = BASE / "jhglass/GGlassOnePhotoCommand.kt"
+PHOTO_PROBE = BASE / "jhglass/GGlassOneShotPhotoProbe.kt"
 GRADLE = Path("app/build.gradle.kts")
 CATALOG = Path("gradle/libs.versions.toml")
 VOICEMARKER = "JH_GLASS_HANDSFREE_STAGE14"
@@ -27,7 +29,9 @@ def patch(root: Path, overlay: Path) -> str:
     voice_path = overlay / "JhGlassVoiceProbe.kt"
     gate_path = overlay / "JhVoiceActivationGate.kt"
     audio_policy_path = overlay / "GGlassAudioOutputGuard.kt"
-    if not all(p.is_file() for p in (main_path, gradle_path, catalog_path, voice_path, gate_path, audio_policy_path)):
+    photo_command_path = overlay / "GGlassOnePhotoCommand.kt"
+    photo_probe_path = overlay / "GGlassOneShotPhotoProbe.kt"
+    if not all(p.is_file() for p in (main_path, gradle_path, catalog_path, voice_path, gate_path, audio_policy_path, photo_command_path, photo_probe_path)):
         raise RuntimeError("STAGE14_SOURCE_FILES_MISSING")
     main = main_path.read_text("utf-8")
     gradle = gradle_path.read_text("utf-8")
@@ -36,6 +40,7 @@ def patch(root: Path, overlay: Path) -> str:
         if ("JhGlassVoiceProbe" in main and "libs.mwdat.speech" in gradle
                 and 'mwdat-speech = ' in catalog and (root / VOICE).is_file()
                 and (root / LAUNCH_GATE).is_file() and (root / AUDIO_POLICY).is_file()
+                and (root / PHOTO_COMMAND).is_file() and (root / PHOTO_PROBE).is_file()
                 and 'jhVoiceGate.acceptVoiceLaunch()' in main):
             return "ALREADY_APPLIED"
         raise RuntimeError("STAGE14_INCOMPATIBLE_PARTIAL_PATCH")
@@ -221,6 +226,8 @@ def patch(root: Path, overlay: Path) -> str:
     (root / VOICE).write_bytes(voice_path.read_bytes())
     (root / LAUNCH_GATE).write_bytes(gate_path.read_bytes())
     (root / AUDIO_POLICY).write_bytes(audio_policy_path.read_bytes())
+    (root / PHOTO_COMMAND).write_bytes(photo_command_path.read_bytes())
+    (root / PHOTO_PROBE).write_bytes(photo_probe_path.read_bytes())
     main_path.write_text(main, encoding="utf-8", newline="\n")
     gradle_path.write_text(gradle, encoding="utf-8", newline="\n")
     catalog_path.write_text(catalog, encoding="utf-8", newline="\n")
