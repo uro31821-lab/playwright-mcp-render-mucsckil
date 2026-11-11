@@ -76,14 +76,23 @@ def single_authorized_usb_transport(adb_output: str, selected_usb_serial: str) -
 
 def read_public_signers(tools: tuple[str, str, str], runner=run_verified_tool) -> dict:
     adb = tools[0]
-    inventory = runner([adb, "devices", "-l"])
-    # Official Android ADB: '-d' targets an attached physical USB device,
-    # failing if there is none or more than one. Never infer USB from serial.
-    usb_serial = runner([adb, "-d", "get-serialno"]).strip()
+    def usb_stage(label: str, argv: list[str], timeout: int = 35) -> str:
+        try:
+            return runner(argv, timeout=timeout)
+        except PhoneReadbackBlocked as exc:
+            if str(exc) == "READ_ONLY_TOOL_REJECTED":
+                raise Stage24Blocked(f"{label}_COMMAND_FAILED") from None
+            raise
+        except (OSError, subprocess.TimeoutExpired):
+            raise Stage24Blocked(f"{label}_COMMAND_FAILED") from None
+
+    inventory = usb_stage("USB_INVENTORY", [adb, "devices", "-l"])
+    # Official Android ADB '-d' selects USB; no usb: listing token required.
+    usb_serial = usb_stage("USB_SELECTOR", [adb, "-d", "get-serialno"]).strip()
     checked = single_authorized_usb_transport(inventory, usb_serial)
 
     def ensure_same_usb() -> None:
-        if runner([adb, "-d", "get-serialno"]).strip() != checked:
+        if usb_stage("USB_SELECTOR_RECHECK", [adb, "-d", "get-serialno"]).strip() != checked:
             raise Stage24Blocked("USB_DEVICE_CHANGED_DURING_READBACK")
 
     def usb_checked_runner(argv: list[str], timeout: int = 35):
