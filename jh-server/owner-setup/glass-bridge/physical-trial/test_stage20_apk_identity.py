@@ -31,6 +31,12 @@ class IdentityGateTest(unittest.TestCase):
     def test_signer_parse(self):
         self.assertEqual(gate.signers_from_apksigner(CERT), ["aa" * 32])
 
+    def test_indented_real_apksigner_cert_line(self):
+        self.assertEqual(
+            gate.signers_from_apksigner("    " + CERT),
+            ["aa" * 32],
+        )
+
     def test_valid_identity_is_not_install_approval(self):
         r = self.verdict(approved="AA:" * 31 + "AA")
         self.assertEqual(r["identity_gate"], "PASS")
