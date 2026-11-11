@@ -80,7 +80,7 @@ class Stage16IsolatedVoiceTest(unittest.TestCase):
         self.assertNotIn('QUERY_ALL_PACKAGES',updated)
 
     def test_launcher_name_is_unique_for_WDC_trial_but_not_approved(self):
-        self.assertEqual(TRIAL_NAME, "GPT Glass")  # Spoken candidate; WDC Beta approval not implied.
+        self.assertEqual(TRIAL_NAME, "G Glass")  # Spoken candidate; WDC Beta approval not implied.
         before=(self.root/STRINGS).read_text()
         isolate(self.root)
         after=(self.root/STRINGS).read_text()
