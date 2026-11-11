@@ -1,0 +1,111 @@
+name: G Glass S26 permanent public download, verified no-install archive
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - '.github/workflows/jh-glass-s26-permanent-download.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  permanent-delivery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download EXACT previously verified Stage26 source artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: GGlass-S26-Command-Diagnostics-Verified
+          run-id: 43046713330
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/s26_source
+      - name: Verify exact file contents, ZIP structure and security boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, zipfile
+          folder = pathlib.Path(os.environ['RUNNER_TEMP']) / 's26_source'
+          manifest_path = folder / 'data' / 'MANIFEST_SHA256.json'
+          assert manifest_path.is_file(), 'STAGE26_MANIFEST_MISSING'
+          m = json.loads(manifest_path.read_text('utf-8'))
+          listed = sorted(item['path'] for item in m['files'])
+          expect = sorted(['data/stage20_apk_identity.py', 'data/stage22_phone_signer_readback.py',
+            'data/stage24_windows_oneclick.py', 'docs/HANDOFF_STAGE26.md', 'RESULT.txt', '사용안내.txt', '실행.cmd'])
+          assert listed == expect, 'STAGE26_FILES_NOT_EXACT'
+          actual = sorted(x.relative_to(folder).as_posix() for x in folder.rglob('*') if x.is_file()
+                          and x != manifest_path)
+          assert listed == actual, 'STAGE26_EXTRA_OR_MISSING_FILE'
+          for x in m['files']:
+            p = folder / x['path']
+            assert not p.is_symlink(), 'STAGE26_LINKED_FILE'
+            b = p.read_bytes()
+            assert len(b) == x['size_bytes']
+            assert hashlib.sha256(b).hexdigest() == x['sha256'], 'STAGE26_FILE_TAMPERED'
+          first = (folder/'RESULT.txt').read_text('utf-8')
+          status = json.loads(first)
+          assert status.get('diagnostic_revision') == 'stage26-missing-package-and-step-failures'
+          assert status.get('status') == 'NOT_RUN'
+          cmd = (folder/'실행.cmd').read_bytes()
+          assert b'\r\n' in cmd and b'\n' in cmd and cmd.count(b'\r\n') == cmd.count(b'\n')
+          assert b'install' not in cmd.lower() and all(x<128 for x in cmd)
+          allowed = {'.py','.cmd','.txt','.md','.json'}
+          assert all(p.suffix.lower() in allowed for p in folder.rglob('*') if p.is_file())
+          target = pathlib.Path(os.environ['RUNNER_TEMP'])/'GGlass26.zip'
+          with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED) as z:
+            for p in sorted(folder.rglob('*')):
+              if p.is_file(): z.write(p, arcname=p.relative_to(folder).as_posix())
+          with zipfile.ZipFile(target) as z:
+            assert z.testzip() is None
+            assert sorted(z.namelist()) == sorted(expect+['data/MANIFEST_SHA256.json'])
+          sha=hashlib.sha256(target.read_bytes()).hexdigest()
+          print('GGLASS_S26_RELEASE_ZIP_SHA256='+sha)
+          print('GGLASS_S26_RELEASE_ZIP_BYTES='+str(target.stat().st_size))
+          (pathlib.Path(os.environ['RUNNER_TEMP'])/'GGlass26.sha256').write_text(sha+'  GGlass26.zip\n')
+          PY
+          echo GGLASS_S26_SOURCE_PROVENANCE_AND_MANIFEST_PASS
+      - name: Create immutable public GitHub release asset (no device operation)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_tag='gglass-s26-readonly-20261112'
+          if gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'STAGE26_RELEASE_ALREADY_EXISTS_NO_OVERWRITE'
+            exit 9
+          fi
+          cat > "${RUNNER_TEMP}/RELEASE_NOTES.md" <<'EOF'
+          G Glass Stage26 read-only CameraAccess signer diagnostic for Windows.
+
+          This is NOT an APK installer, does not alter JH Secure Live or phone apps,
+          does not touch photos or OpenAI API and requires explicit owner YES.
+          Windows CI synthetic tests passed; real user's phone test is NOT verified.
+
+          Download the attached GGlass26.zip directly from this public GitHub
+          release page, instead of short-lived GitHub Actions Artifacts or
+          ChatGPT sandbox links. Verify the attached GGlass26.sha256 before use.
+          Run Windows Defender locally; do not bypass warnings.
+          Source branch: feature/jh-glass-photo-mailbox-20261110
+          Source GitHub Actions run: 43046713330 (Windows validated).
+          EOF
+          gh release create "$release_tag" "${RUNNER_TEMP}/GGlass26.zip" "${RUNNER_TEMP}/GGlass26.sha256" \
+             --repo "$GITHUB_REPOSITORY" \
+             --target 93a69b116a0385d41a8ece077c5ee573048a1120 \
+             --title 'G Glass Stage26 read-only Windows diagnostic' \
+             --notes-file "${RUNNER_TEMP}/RELEASE_NOTES.md" \
+             --prerelease --latest=false
+          echo GGLASS_S26_PUBLIC_RELEASE_CREATED
+      - name: Read back public release identity and asset metadata
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/gglass-s26-readonly-20261112" \
+             --jq '{tag:.tag_name,draft:.draft,assets:[.assets[]|{name:.name,size:.size,digest:.digest,url:.browser_download_url}]}'
+          echo GGLASS_S26_PUBLIC_RELEASE_READBACK_PASS
+      - name: No APK install, no JH/phone changes, no paid API
+        run: echo GGLASS_S26_NO_PHONE_NO_JH_DEPLOY_NO_META_WDC_NO_OPENAI_API
