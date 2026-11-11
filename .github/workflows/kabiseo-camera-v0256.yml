@@ -27,6 +27,9 @@ jobs:
       - name: Camera flow contract
         run: node jh-server/owner-setup/kabiseo-camera-v0256/camera-flow.test.mjs
 
+      - name: Camera MCP host preflight
+        run: node jh-server/owner-setup/kabiseo-camera-v0256/camera-host-preflight.test.mjs
+
       - name: Camera overlay and durable policy
         run: node jh-server/owner-setup/kabiseo-camera-v0256/camera-overlay.test.mjs
 
