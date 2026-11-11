@@ -1,0 +1,103 @@
+name: G Glass Stage19 Official Meta MockDeviceKit Emulator
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - '.github/workflows/jh-glass-stage19-emulator.yml'
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/GGlassStage19MockDeviceKitTest.kt'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-mock-device:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout development branch only
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Java 17 for pinned Meta SDK 1.0.1
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Stage pinned Meta CameraAccess and isolate G Glass identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init "${RUNNER_TEMP}/meta"
+          git -C "${RUNNER_TEMP}/meta" remote add origin https://github.com/meta/meta-wearables-dat-android.git
+          git -C "${RUNNER_TEMP}/meta" fetch --depth=1 origin f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          git -C "${RUNNER_TEMP}/meta" checkout --detach FETCH_HEAD
+          test "$(git -C "${RUNNER_TEMP}/meta" rev-parse HEAD)" = "f4371bc9f90249d51eb07d7f8a61e8d829294f16"
+          python3 -m unittest discover -v -s jh-server/owner-setup/glass-bridge/android_cameraaccess -p 'test_stage14_voice_patch.py'
+          python3 -m unittest discover -v -s jh-server/owner-setup/glass-bridge/android_cameraaccess -p 'test_stage16_isolated_trial.py'
+          APP="${RUNNER_TEMP}/meta/samples/CameraAccess"
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_handsfree_probe.py "$APP"
+          python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/isolate_stage16_voice_trial.py "$APP"
+          test "$(grep -c 'applicationId = "com.koreanlifehub.jhglassprobe"' "$APP/app/build.gradle.kts")" = 1
+          mkdir -p "$APP/app/src/androidTest/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/jhglass"
+          cp jh-server/owner-setup/glass-bridge/android_cameraaccess/GGlassStage19MockDeviceKitTest.kt "$APP/app/src/androidTest/java/com/meta/wearable/dat/externalsampleapps/cameraaccess/jhglass/"
+          echo META_PINNED_SOURCE_AND_ISOLATED_APP_PASS
+      - name: Compile real SDK and Android instrumentation against Meta Maven dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}/meta/samples/CameraAccess"
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :app:compileDebugAndroidTestKotlin :app:assembleDebug :app:assembleDebugAndroidTest
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          test -s app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          echo STAGE19_META_REAL_SDK_ANDROID_TEST_COMPILE_PASS
+      - name: Provision ephemeral Android 35 emulator (no personal phone)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ANDROID_HOME:-}"
+          if test ! -c /dev/kvm; then echo KVM_UNAVAILABLE; exit 86; fi
+          sudo chmod 666 /dev/kvm
+          sdkmanager --install 'platforms;android-36' 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64' </dev/null
+          echo no | avdmanager create avd -f -n gglass_stage19 -k 'system-images;android-35;google_apis;x86_64' --device pixel_5
+          nohup "${ANDROID_HOME}/emulator/emulator" -avd gglass_stage19 -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-metrics >"${RUNNER_TEMP}/gglass-emulator.log" 2>&1 &
+          echo $! > "${RUNNER_TEMP}/gglass-emulator.pid"
+          adb -s emulator-5554 wait-for-device
+          ready=0
+          for i in $(seq 1 100); do
+            if test "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1; then ready=1; break; fi
+            sleep 5
+          done
+          test "$ready" = 1 || { tail -80 "${RUNNER_TEMP}/gglass-emulator.log"; exit 87; }
+          test "$(adb -s emulator-5554 shell getprop ro.kernel.qemu | tr -d '\r')" = 1
+          test "$(adb devices | awk '$2=="device"{print $1}' | paste -sd,)" = emulator-5554
+          adb -s emulator-5554 shell settings put global window_animation_scale 0
+          adb -s emulator-5554 shell settings put global transition_animation_scale 0
+          adb -s emulator-5554 shell settings put global animator_duration_scale 0
+          echo GGLASS_STAGE19_ONE_EMULATOR_READY
+      - name: Install only isolated debug APKs and run exactly five tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="${RUNNER_TEMP}/meta/samples/CameraAccess"
+          test "$(adb devices | awk '$2=="device"{print $1}' | paste -sd,)" = emulator-5554
+          test "$(adb -s emulator-5554 shell getprop ro.kernel.qemu | tr -d '\r')" = 1
+          # Installed package is not JH Secure Live and no physical device is attached.
+          adb -s emulator-5554 install -r -t "$APP/app/build/outputs/apk/debug/app-debug.apk"
+          adb -s emulator-5554 install -r -t "$APP/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+          set +e
+          adb -s emulator-5554 shell am instrument -w -r \
+            -e class com.meta.wearable.dat.externalsampleapps.cameraaccess.jhglass.GGlassStage19MockDeviceKitTest \
+            com.koreanlifehub.jhglassprobe.test/androidx.test.runner.AndroidJUnitRunner \
+            | tee "${RUNNER_TEMP}/gglass-stage19-instrumentation.txt"
+          code=${PIPESTATUS[0]}
+          set -e
+          test "$code" = 0
+          grep -Eq 'OK \(5 tests\)' "${RUNNER_TEMP}/gglass-stage19-instrumentation.txt"
+          grep -q 'INSTRUMENTATION_CODE: -1' "${RUNNER_TEMP}/gglass-stage19-instrumentation.txt"
+          echo GGLASS_STAGE19_REAL_META_MOCKDEVICEKIT_5_OF_5_PASS
+      - name: Failure diagnostics (no logs of personal content)
+        if: failure()
+        shell: bash
+        run: |
+          if test -f "${RUNNER_TEMP}/gglass-stage19-instrumentation.txt"; then tail -65 "${RUNNER_TEMP}/gglass-stage19-instrumentation.txt"; fi
+          if test -f "${RUNNER_TEMP}/gglass-emulator.log"; then tail -35 "${RUNNER_TEMP}/gglass-emulator.log"; fi
+          echo NO_PHONE_NO_REAL_GLASSES_NO_JH_DEPLOY_NO_PAID_GPT_API
