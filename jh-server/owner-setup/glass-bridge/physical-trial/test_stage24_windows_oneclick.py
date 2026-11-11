@@ -10,32 +10,77 @@ from test_stage22_phone_signer_readback import FakeReadOnlyPhone
 
 
 class FakeUsbPhone(FakeReadOnlyPhone):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.usb_serial = "R59USB"
+        self.actual_calls = []
+
     def __call__(self, argv, timeout=35):
+        self.actual_calls.append(tuple(argv))
         if argv == ["adb", "devices", "-l"]:
-            self.calls.append(tuple(argv))
-            return "List of devices attached\nR59USB\tdevice usb:1-3 product:samsung model:Galaxy\n"
+            return ("List of devices attached\n"
+                    "R59USB\tdevice product:samsung model:Galaxy transport_id:1\n")
+        if argv == ["adb", "-d", "get-serialno"]:
+            return self.usb_serial + "\n"
+        if len(argv) >= 3 and argv[:2] == ["adb", "-d"]:
+            return super().__call__(
+                ["adb", "-s", "R59USB", *argv[2:]], timeout=timeout)
         return super().__call__(argv, timeout=timeout)
 
 
 class Stage24WindowsReadOnlyTest(unittest.TestCase):
-    def test_usb_marker_present(self):
-        self.assertEqual(s24.single_authorized_usb_transport(
-            "List of devices attached\nR59USB device usb:1-3 model:Galaxy\n"), "R59USB")
+    def test_usb_marker_present_with_d_selector(self):
+        self.assertEqual(
+            s24.single_authorized_usb_transport(
+                "List of devices attached\nR59USB device usb:1-3 model:Galaxy\n",
+                "R59USB"),
+            "R59USB")
 
-    def test_no_usb_marker_is_blocked(self):
+    def test_windows_without_usb_marker_accepted_with_d_selector(self):
+        self.assertEqual(
+            s24.single_authorized_usb_transport(
+                "List of devices attached\nR59USB device model:Galaxy transport_id:1\n",
+                "R59USB"),
+            "R59USB")
+
+    def test_mismatched_usb_serial_rejected(self):
         with self.assertRaises(s24.Stage24Blocked):
             s24.single_authorized_usb_transport(
-                "List of devices attached\nR59USB device model:Galaxy\n")
+                "List of devices attached\nR59USB device model:Galaxy\n", "OTHER")
 
     def test_wifi_device_blocked(self):
         with self.assertRaises(Exception):
             s24.single_authorized_usb_transport(
-                "List of devices attached\n192.168.0.1:5555 device usb:1-3\n")
+                "List of devices attached\n192.168.0.1:5555 device usb:1-3\n",
+                "192.168.0.1:5555")
 
     def test_two_devices_blocked(self):
         with self.assertRaises(Exception):
             s24.single_authorized_usb_transport(
-                "List of devices attached\nR59USB device usb:1\nR58USB device usb:2\n")
+                "List of devices attached\nR59USB device usb:1\nR58USB device usb:2\n",
+                "R59USB")
+
+    def test_usb_serial_changed_mid_transaction_rejected(self):
+        fake = FakeUsbPhone()
+        count = 0
+        def changed(argv, timeout=35):
+            nonlocal count
+            if argv == ["adb", "-d", "get-serialno"]:
+                count += 1
+                if count >= 3:
+                    return "DIFFERENT\n"
+            return fake(argv, timeout)
+        with self.assertRaises(s24.Stage24Blocked):
+            s24.read_public_signers(("adb", "aapt2", "apksigner"), runner=changed)
+
+    def test_missing_direct_usb_selector_is_blocked(self):
+        fake = FakeUsbPhone()
+        def no_usb(argv, timeout=35):
+            if argv == ["adb", "-d", "get-serialno"]:
+                raise s24.Stage24Blocked("USB_SELECTOR_UNAVAILABLE")
+            return fake(argv, timeout)
+        with self.assertRaises(s24.Stage24Blocked):
+            s24.read_public_signers(("adb", "aapt2", "apksigner"), runner=no_usb)
 
     def test_readonly_success_with_fake_phone(self):
         fake = FakeUsbPhone()
@@ -43,7 +88,13 @@ class Stage24WindowsReadOnlyTest(unittest.TestCase):
         self.assertFalse(result["owner_install_permission"])
         self.assertEqual(result["apps"][0]["installed_signer_certificate_sha256"], "ab" * 32)
         self.assertNotIn("R59USB", str(result))
-        self.assertNotIn("install", str(fake.calls).replace("NOT_INSTALLED", ""))
+        self.assertNotIn("install", str(fake.actual_calls).replace("NOT_INSTALLED", ""))
+        device_data_calls = [x for x in fake.actual_calls
+                             if len(x) > 2 and x[0] == "adb"
+                             and ("shell" in x or "pull" in x)]
+        self.assertTrue(device_data_calls)
+        self.assertTrue(all(x[1] == "-d" for x in device_data_calls))
+        self.assertFalse(any(x[1] == "-s" for x in device_data_calls))
 
     def test_readonly_missing_cert_fails(self):
         fake = FakeUsbPhone(signers=False)
