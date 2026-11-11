@@ -128,6 +128,7 @@ def blocked(reason: str) -> dict:
 def save_report(path: Path, info: dict) -> None:
     # Caller validates that this is the package's own RESULT.txt. No secrets.
     report = {"schema": SCHEMA,
+              "diagnostic_revision": "stage26-missing-package-and-step-failures",
               "checked_at_utc": datetime.now(timezone.utc).isoformat(),
               **info, "physical_device_modified": False,
               "install_permitted": False, "gpt_api_called": False}
@@ -152,7 +153,7 @@ def main(argv: list[str] | None = None, input_fn=input,
         save_report(path, blocked("PYTHON_3_10_REQUIRED"))
         return 12
 
-    print("G Glass Stage24: already installed app identity READ ONLY.")
+    print("G Glass Stage26: already installed app identity READ ONLY.")
     print("No app installs, changes, photos, screen capture, Meta or GPT API.")
     print("Only one already authorized USB phone is allowed.")
     try:
