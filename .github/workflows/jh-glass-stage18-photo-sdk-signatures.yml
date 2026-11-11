@@ -1,0 +1,51 @@
+name: JH Glass Stage18 Official DAT Photo Signatures (Read-Only)
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - '.github/workflows/jh-glass-stage18-photo-sdk-signatures.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-pinned-maven:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Compile official unchanged sample to pin actual 1.0.1 Maven AAR
+        run: |
+          set -euo pipefail
+          git clone -q --filter=blob:none https://github.com/meta/meta-wearables-dat-android.git "${RUNNER_TEMP}/dat"
+          cd "${RUNNER_TEMP}/dat"
+          git checkout -q f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          test "$(git rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          cd samples/CameraAccess
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :app:compileDebugKotlin
+      - name: Inspect exact first-party camera types (NO code execution from artifact)
+        run: |
+          set -euo pipefail
+          found="$(find "$HOME/.gradle/caches/modules-2/files-2.1/com.meta.wearable/mwdat-camera/1.0.1" -name '*.aar' -type f -print -quit)"
+          test -s "$found"
+          echo CAMERA_AAR_FILE_FOUND
+          mkdir -p "${RUNNER_TEMP}/camera-aar"
+          unzip -p "$found" classes.jar > "${RUNNER_TEMP}/camera-aar/classes.jar"
+          test -s "${RUNNER_TEMP}/camera-aar/classes.jar"
+          echo CAMERA_PHOTO_CLASS_NAMES_BEGIN
+          jar tf "${RUNNER_TEMP}/camera-aar/classes.jar" | grep -E 'Photo|photo|Camera\\.class' | head -95 || true
+          echo CAMERA_PHOTO_CLASS_NAMES_END
+          echo CAMERA_PHOTO_SIGNATURES_BEGIN
+          for cls in $(jar tf "${RUNNER_TEMP}/camera-aar/classes.jar" | grep -E '(PhotoState|PhotoQuality|PhotoResolution|Photo\\.class|PhotoCaptureData|CameraKt)\\.class$' | head -35); do
+             dot="${cls%.class}"
+             dot="${dot//\//.}"
+             echo "CLASS $dot"
+             javap -cp "${RUNNER_TEMP}/camera-aar/classes.jar" -p "$dot" 2>/dev/null | head -45 || true
+          done
+          echo CAMERA_PHOTO_SIGNATURES_END
+          echo NO_PHONE_NO_API_NO_DEPLOY
