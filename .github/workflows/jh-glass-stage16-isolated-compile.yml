@@ -6,6 +6,10 @@ on:
     paths:
       - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/isolate_stage16_voice_trial.py'
       - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/test_stage16_isolated_trial.py'
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/JhGlassVoiceProbe.kt'
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/GGlassAudioOutputGuard.kt'
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_handsfree_probe.py'
+      - 'jh-server/owner-setup/glass-bridge/android_cameraaccess/test_stage14_voice_patch.py'
       - '.github/workflows/jh-glass-stage16-isolated-compile.yml'
   workflow_dispatch:
 permissions:
@@ -32,6 +36,7 @@ jobs:
           git -C "${root}" checkout --detach FETCH_HEAD
           test "$(git -C "${root}" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
           echo META_PINNED_SDK_101_CONFIRMED
+          python3 -m unittest discover -v -s jh-server/owner-setup/glass-bridge/android_cameraaccess -p 'test_stage14_voice_patch.py'
           python3 -m unittest discover -v -s jh-server/owner-setup/glass-bridge/android_cameraaccess -p 'test_stage16_isolated_trial.py'
           python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/apply_handsfree_probe.py "${root}/samples/CameraAccess"
           python3 jh-server/owner-setup/glass-bridge/android_cameraaccess/isolate_stage16_voice_trial.py "${root}/samples/CameraAccess"
