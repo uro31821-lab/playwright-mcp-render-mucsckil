@@ -65,6 +65,34 @@ jobs:
             console.log("KABISEO_REAL_COMPOSITION_PASS="+x.candidateSha256);
           ' "$TMP_ROOT"
 
+      - name: Build through Ebiseo activation hook
+        run: |
+          set -euo pipefail
+          TMP_HOST="$RUNNER_TEMP/kabiseo-activation/jh-server"
+          TMP_ROOT="$TMP_HOST/owner-setup"
+          rm -rf "$RUNNER_TEMP/kabiseo-activation"
+          mkdir -p "$RUNNER_TEMP/kabiseo-activation"
+          cp -a jh-server "$TMP_HOST"
+          node --input-type=module -e '
+            import {buildCurrentAudioReleaseCandidate} from "./jh-server/owner-setup/ebiseo-audio-v05/audio-compose-current-host.mjs";
+            const env={
+              CI:"true",NODE_ENV:"test",JH_OWNER_DEFER_LISTEN:"1",
+              JH_MOBILE_WEB_13_MODE:"EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1",
+              JH_STAGE26_SIGNED_COMPLETION_ACK:"EXPLICIT_IDENTICAL_SIGNED_RESULT_V1",
+              JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS:"EXPLICIT_ORIGINAL_OWNER_REASON_V1",
+              JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS:"EXPLICIT_SIGNED_COMMAND_CAUSE_V1",
+              JH_STAGE44_DEVICE_FOCUS:"EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1",
+              JH_MOBILE13_COMMAND_DIAGNOSTICS:"EXPLICIT_OWNER_DEVICE_READ_ONLY_V1",
+              JH_EBISEO_AUDIO_ENABLE:"EXPLICIT_EBISEO_AUDIO_V05",
+              JH_KABISEO_CAMERA_ENABLE:"EXPLICIT_KABISEO_CAMERA_V0256"
+            };
+            const x=await buildCurrentAudioReleaseCandidate(process.argv[1],env);
+            if(x?.cameraOverlayActive!==true||!x?.candidateSha256||
+               x.baseCatalogChanged!==false||x.automaticReplayAllowed!==false)
+              throw Error("CAMERA_ACTIVATION_HOOK_ASSERTION_FAILED");
+            console.log("KABISEO_AUDIO_ACTIVATION_PASS="+x.candidateSha256);
+          ' "$TMP_ROOT"
+
       - name: Release boundary
         run: |
           echo APK_BUILD=0
