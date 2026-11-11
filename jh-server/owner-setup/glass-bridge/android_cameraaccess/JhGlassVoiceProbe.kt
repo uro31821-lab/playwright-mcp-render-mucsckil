@@ -155,7 +155,22 @@ class JhGlassVoiceProbe(
                 status(if (matched) "KOREAN_TEST_PHRASE_MATCH"
                     else "KOREAN_TEST_PHRASE_NOT_MATCHED")
                 recognition.stop()
-                speakFixedTestReply()
+                if (GGlassOnePhotoCommand.matchesFinalUtterance(
+                        heard.text, heard.isFinal)) {
+                  status("GLASSES_USER_PHOTO_REQUEST")
+                  val received = GGlassOneShotPhotoProbe.captureOnce(selected, status)
+                  speakFixedTestReply(
+                      if (received)
+                          "안경에서 사진 한 장을 받았습니다. GPT 분석은 아직 연결되지 않았습니다."
+                      else
+                          "사진을 받지 못했습니다. 카메라 연결과 권한을 확인해 주세요."
+                  )
+                } else {
+                  // All non-photo speech still gets the inert Stage14 reply.
+                  speakFixedTestReply(
+                      "안경 음성 연결 시험입니다. 사진 분석은 아직 연결되지 않았습니다."
+                  )
+                }
               }
             }
           } finally {
@@ -177,7 +192,7 @@ class JhGlassVoiceProbe(
   }
 
   /** Does not force the phone loudspeaker on or override Android route. */
-  private suspend fun speakFixedTestReply() {
+  private suspend fun speakFixedTestReply(fixedReply: String) {
     val manager = appContext.getSystemService(AudioManager::class.java)
     // Reading the output inventory does NOT prove that Android media audio
     // will actually be routed to the wearer's Ray-Ban Meta pair.
@@ -245,7 +260,7 @@ class JhGlassVoiceProbe(
           }
       )
       val result = engine.speak(
-          "안경 음성 연결 시험입니다. 사진 분석은 아직 연결되지 않았습니다.",
+          fixedReply,
           TextToSpeech.QUEUE_FLUSH, null, "jh_glass_probe_one"
       )
       if (result != TextToSpeech.SUCCESS) {
