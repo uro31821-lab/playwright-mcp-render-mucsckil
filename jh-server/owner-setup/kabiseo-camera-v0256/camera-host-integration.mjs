@@ -69,7 +69,7 @@ export function createCameraHostIntegration({getCatalogDigest,runSecure,now=Date
       registerOAuthTool(CAMERA_TOOL,{
         title:'KaBiseo current camera settings',
         description:'Apply only shooting mode/style to the already-visible RIGHT KaBiseo camera through existing Secure56. Never launches camera, presses shutter, reads gallery, transfers photos, or returns camera-setting details.',
-        inputSchema:{device_id:z.string().optional(),task_digest:z.string(),command_id:z.string(),request_text:z.string().min(1).max(160)},
+        inputSchema:{device_id:z.string().optional(),task_digest:z.string(),command_id:z.string().optional(),camera_command_id:z.string().optional(),request_text:z.string().min(1).max(160)},
         annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}
       },async args=>{
         try{
