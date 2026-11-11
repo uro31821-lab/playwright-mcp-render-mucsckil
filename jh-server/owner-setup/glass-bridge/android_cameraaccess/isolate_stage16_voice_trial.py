@@ -14,7 +14,7 @@ import sys
 TRIAL_ID = "com.koreanlifehub.jhglassprobe"
 UPSTREAM_ID = "com.meta.wearable.dat.externalsampleapps.cameraaccess"
 MAIN_ID = "com.koreanlifehub.bridge"
-TRIAL_NAME = "Anbiseo"
+TRIAL_NAME = "GPT Glass"
 TRIAL_SCHEME = "jhglassprobe"
 GRADLE = Path("app/build.gradle.kts")
 MANIFEST = Path("app/src/main/AndroidManifest.xml")
