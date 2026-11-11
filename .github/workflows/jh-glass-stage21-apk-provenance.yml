@@ -63,7 +63,7 @@ jobs:
           "$AAPT2" dump badging "$apk" | sed -n '/^package:/p;/^application-label:/p;/^uses-permission:/p;/^application-debuggable/p' | head -45
           # Keep inspection local, show only cert labels/public digests and scheme facts.
           "$APKSIGNER" verify --verbose --print-certs "$apk" > "${RUNNER_TEMP}/gglass21_apksigner.txt" 2>&1
-          grep -Ei '^(Verified|Signer|certificate)' "${RUNNER_TEMP}/gglass21_apksigner.txt" || true
+          grep -Ei '(Verified|Signer|certificate)' "${RUNNER_TEMP}/gglass21_apksigner.txt" || true
           set +e
           python3 "$stage20" --apk "$apk" --aapt2 "$AAPT2" --apksigner "$APKSIGNER" \
             --output "${RUNNER_TEMP}/gglass21_readonly.json" > /dev/null
