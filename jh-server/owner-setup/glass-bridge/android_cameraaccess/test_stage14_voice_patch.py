@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from apply_handsfree_probe import patch, MAIN, VOICE, LAUNCH_GATE, GRADLE, CATALOG, VOICEMARKER
+from apply_handsfree_probe import patch, MAIN, VOICE, LAUNCH_GATE, AUDIO_POLICY, GRADLE, CATALOG, VOICEMARKER
 
 ORIGINAL_MAIN = '''package com.meta.wearable.dat.externalsampleapps.cameraaccess
 import androidx.activity.ComponentActivity
@@ -101,6 +101,9 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         self.assertIn("TextToSpeech",s)
         self.assertIn("Locale.KOREAN",s)
         self.assertIn("UtteranceProgressListener",s)
+        self.assertIn("GGlassAudioOutputGuard.evaluate(",s)
+        self.assertIn("BLUETOOTH_MEDIA_OUTPUT_AMBIGUOUS",s)
+        self.assertIn("BLUETOOTH_MEDIA_OUTPUT_CANDIDATE_ONLY",s)
         self.assertIn("withTimeoutOrNull(10_000) { spoken.await() }",s)
         self.assertNotIn("delay(1500)",s)
         self.assertNotIn("OPENAI_API_KEY",s)
@@ -116,6 +119,7 @@ class Stage14VoiceSourceTest(unittest.TestCase):
         self.assertEqual((self.root/CATALOG).read_text(),ORIGINAL_CATALOG)
         self.assertFalse((self.root/VOICE).exists())
         self.assertFalse((self.root/LAUNCH_GATE).exists())
+        self.assertFalse((self.root/AUDIO_POLICY).exists())
     def test_partial_existing_patch_is_blocked(self):
         p=self.root/MAIN
         p.write_text(ORIGINAL_MAIN.replace("class MainActivity : ComponentActivity() {",
@@ -128,6 +132,8 @@ class Stage14VoiceSourceTest(unittest.TestCase):
                          (self.overlay/"JhGlassVoiceProbe.kt").read_bytes())
         self.assertEqual((self.root/LAUNCH_GATE).read_bytes(),
                          (self.overlay/"JhVoiceActivationGate.kt").read_bytes())
+        self.assertEqual((self.root/AUDIO_POLICY).read_bytes(),
+                         (self.overlay/"GGlassAudioOutputGuard.kt").read_bytes())
     def test_korean_voice_can_be_isolated_from_beta_wake_without_paid_api(self):
         self.assertEqual(patch(self.root, self.overlay),"APPLIED")
         src=(self.root/MAIN).read_text(encoding="utf-8")
