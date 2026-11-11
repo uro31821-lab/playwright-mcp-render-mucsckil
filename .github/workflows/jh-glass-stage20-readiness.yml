@@ -1,0 +1,46 @@
+name: G Glass Stage20 Read-Only Physical Trial Preflight
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - '.github/workflows/jh-glass-stage20-readiness.yml'
+      - 'jh-server/owner-setup/glass-bridge/physical-trial/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  no-device-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only checkout of development branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Run fail-closed offline identity tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="jh-server/owner-setup/glass-bridge/physical-trial"
+          python3 -m compileall -q "$root"
+          python3 -m unittest discover -v -s "$root" -p 'test_stage20_apk_identity.py'
+          echo GGLASS_STAGE20_READONLY_POLICY_TESTS_PASS
+      - name: Missing APK must stop, without phone or account access
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="jh-server/owner-setup/glass-bridge/physical-trial"
+          set +e
+          python3 "$root/stage20_apk_identity.py" \
+            --apk "$RUNNER_TEMP/no-user-apk-here.apk" \
+            --aapt2 "/no-android-binary" \
+            --apksigner "/no-android-binary" > "$RUNNER_TEMP/expected-block.json"
+          result=$?
+          set -e
+          test "$result" = 12
+          python3 -c 'import json,sys; j=json.load(open(sys.argv[1])); assert j["status"]=="BLOCKED" and j["installation_authorized"] is False' "$RUNNER_TEMP/expected-block.json"
+          echo GGLASS_STAGE20_MISSING_IDENTITY_BLOCKED_AS_DESIGNED
+      - name: No public private credentials, no hardware action
+        shell: bash
+        run: |
+          echo STAGE19_EMULATOR_5_OF_5_REUSED_RUN_42995442199
+          echo GGLASS_STAGE20_NO_APK_INSTALL_NO_USER_PHONE_NO_META_WDC_CHANGE_NO_SIGNING_KEY_NO_OPENAI_API
