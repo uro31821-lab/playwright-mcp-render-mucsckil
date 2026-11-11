@@ -24,6 +24,14 @@ jobs:
           python3 -m compileall -q "$root"
           python3 -m unittest discover -v -s "$root" -p 'test_stage20_apk_identity.py'
           echo GGLASS_STAGE20_READONLY_POLICY_TESTS_PASS
+      - name: Stage22 installed signer readback -- pure fake USB device only
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="jh-server/owner-setup/glass-bridge/physical-trial"
+          python3 -m unittest discover -v -s "$root" -p 'test_stage22_phone_signer_readback.py'
+          echo GGLASS_STAGE22_READONLY_USB_SIGNER_17_TESTS_PASS
+          echo GGLASS_STAGE22_NO_ACTUAL_ADB_NO_INSTALL_NO_PHONE_ACCESS
       - name: Missing APK must stop, without phone or account access
         shell: bash
         run: |
