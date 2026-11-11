@@ -16,6 +16,7 @@ import com.meta.wearable.dat.core.session.DeviceSession
 import com.meta.wearable.dat.core.session.DeviceSessionState
 import com.meta.wearable.dat.core.types.Permission
 import com.meta.wearable.dat.core.types.PermissionStatus
+import com.meta.wearable.dat.core.types.RegistrationState
 import com.meta.wearable.dat.mockdevice.MockDeviceKit
 import com.meta.wearable.dat.mockdevice.api.GlassesModel
 import com.meta.wearable.dat.mockdevice.api.MockDeviceKitConfig
@@ -24,14 +25,17 @@ import com.meta.wearable.dat.mockdevice.api.MockGlasses
 import com.meta.wearable.dat.mockdevice.api.speech.MockSpeechSource
 import com.meta.wearable.dat.speech.addSpeech
 import com.meta.wearable.dat.speech.removeSpeech
+import com.meta.wearable.dat.speech.types.SpeechState
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,8 +81,23 @@ class GGlassStage19MockDeviceKitTest {
         glasses.services.camera.setCapturedImage(photoUri)
         glasses.services.cameraCapture.setCapturedPhoto(photoUri)
 
-        session = Wearables.createSession(SpecificDeviceSelector(glasses.deviceIdentifier))
-            .getOrNull() ?: error("STAGE19_MOCK_SESSION_FAILED")
+        // MockDeviceKit registration and connection become visible asynchronously.
+        // Wait for the SDK to observe this pair before requesting its session.
+        session = runBlocking {
+            withTimeout(20_000L) {
+                Wearables.registrationState.first { it == RegistrationState.REGISTERED }
+                Wearables.devices.first { it.contains(glasses.deviceIdentifier) }
+                var selected: DeviceSession? = null
+                for (attempt in 0 until 12) {
+                    selected = Wearables.createSession(
+                        SpecificDeviceSelector(glasses.deviceIdentifier)
+                    ).getOrNull()
+                    if (selected != null) break
+                    delay(300L) // test-only transient connection readiness
+                }
+                selected ?: error("STAGE19_MOCK_SESSION_FAILED_AFTER_REGISTRATION")
+            }
+        }
         session.start()
         runBlocking {
             withTimeout(20_000L) {
@@ -89,7 +108,14 @@ class GGlassStage19MockDeviceKitTest {
 
     @After
     fun tearDown() {
-        if (::session.isInitialized) session.stop()
+        if (::session.isInitialized) {
+            session.stop()
+            runBlocking {
+                withTimeoutOrNull(5_000L) {
+                    session.state.first { it == DeviceSessionState.STOPPED }
+                }
+            }
+        }
         if (::kit.isInitialized) kit.disable()
         testPhoto?.delete()
     }
@@ -133,6 +159,11 @@ class GGlassStage19MockDeviceKitTest {
                 try {
                     val started = recognizer.start().getOrNull()
                     assertTrue("Speech start rejected", started != null)
+                    // SDK start accepted is NOT the same as listening. Inject
+                    // mock results only after the recognizer actually starts.
+                    withTimeout(10_000L) {
+                        recognizer.state.first { it == SpeechState.STARTED }
+                    }
                     glasses.services.speech.simulateTranscription("이 나무", false, 0.9f)
                     glasses.services.speech.simulateTranscription("이게 뭐야", true, 0.95f)
                     assertEquals("이게 뭐야", waiting.await()?.text)
