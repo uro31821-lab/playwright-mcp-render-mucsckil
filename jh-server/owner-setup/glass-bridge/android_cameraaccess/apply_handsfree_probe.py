@@ -10,6 +10,7 @@ BASE = Path("app/src/main/java/com/meta/wearable/dat/externalsampleapps/cameraac
 MAIN = BASE / "MainActivity.kt"
 VOICE = BASE / "jhglass/JhGlassVoiceProbe.kt"
 LAUNCH_GATE = BASE / "jhglass/JhVoiceActivationGate.kt"
+AUDIO_POLICY = BASE / "jhglass/GGlassAudioOutputGuard.kt"
 GRADLE = Path("app/build.gradle.kts")
 CATALOG = Path("gradle/libs.versions.toml")
 VOICEMARKER = "JH_GLASS_HANDSFREE_STAGE14"
@@ -25,7 +26,8 @@ def patch(root: Path, overlay: Path) -> str:
     catalog_path = root / CATALOG
     voice_path = overlay / "JhGlassVoiceProbe.kt"
     gate_path = overlay / "JhVoiceActivationGate.kt"
-    if not all(p.is_file() for p in (main_path, gradle_path, catalog_path, voice_path, gate_path)):
+    audio_policy_path = overlay / "GGlassAudioOutputGuard.kt"
+    if not all(p.is_file() for p in (main_path, gradle_path, catalog_path, voice_path, gate_path, audio_policy_path)):
         raise RuntimeError("STAGE14_SOURCE_FILES_MISSING")
     main = main_path.read_text("utf-8")
     gradle = gradle_path.read_text("utf-8")
@@ -33,7 +35,8 @@ def patch(root: Path, overlay: Path) -> str:
     if VOICEMARKER in main:
         if ("JhGlassVoiceProbe" in main and "libs.mwdat.speech" in gradle
                 and 'mwdat-speech = ' in catalog and (root / VOICE).is_file()
-                and (root / LAUNCH_GATE).is_file() and 'jhVoiceGate.acceptVoiceLaunch()' in main):
+                and (root / LAUNCH_GATE).is_file() and (root / AUDIO_POLICY).is_file()
+                and 'jhVoiceGate.acceptVoiceLaunch()' in main):
             return "ALREADY_APPLIED"
         raise RuntimeError("STAGE14_INCOMPATIBLE_PARTIAL_PATCH")
     # Nothing runs if DAT version/app source deviates from the pinned sample.
@@ -217,6 +220,7 @@ def patch(root: Path, overlay: Path) -> str:
     (root / VOICE).parent.mkdir(parents=True, exist_ok=True)
     (root / VOICE).write_bytes(voice_path.read_bytes())
     (root / LAUNCH_GATE).write_bytes(gate_path.read_bytes())
+    (root / AUDIO_POLICY).write_bytes(audio_policy_path.read_bytes())
     main_path.write_text(main, encoding="utf-8", newline="\n")
     gradle_path.write_text(gradle, encoding="utf-8", newline="\n")
     catalog_path.write_text(catalog, encoding="utf-8", newline="\n")
