@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import subprocess
 from datetime import datetime, timezone
 
 from stage22_phone_signer_readback import (
@@ -23,7 +24,6 @@ from stage22_phone_signer_readback import (
 )
 
 SCHEMA = "JH_GGLASS_STAGE24_WINDOWS_READONLY_V1"
-USB_MARKER = re.compile(r"(?<![A-Za-z0-9])usb:[^\s]+")
 ALLOWED_ARGS = ("--result",)
 MAX_VERSION_DIRS = 80
 
@@ -161,7 +161,7 @@ def main(argv: list[str] | None = None, input_fn=input,
                   "apps": result.get("apps", []),
                   "meta_beta_verified": False,
                   "phone_signer_approved": False}
-    except (Stage24Blocked, PhoneReadbackBlocked, OSError, ValueError) as exc:
+    except (Stage24Blocked, PhoneReadbackBlocked, OSError, ValueError, subprocess.TimeoutExpired) as exc:
         report = blocked(str(exc) if isinstance(exc, (Stage24Blocked, PhoneReadbackBlocked))
                          else "LOCAL_ENVIRONMENT_READBACK_FAILED")
     save_report(path, report)
