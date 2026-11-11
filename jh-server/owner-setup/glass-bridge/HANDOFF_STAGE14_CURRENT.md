@@ -1,4 +1,6 @@
-# JH Glass — Stage14 latest 7-part handoff (2026-11-11 KST)
+# JH Glass — Stage14 latest 7-part handoff
+
+> **SUPERSEDED BY STAGE15:** [HANDOFF_STAGE15_CURRENT.md](HANDOFF_STAGE15_CURRENT.md) — 10/10 CI + actual pinned Meta Kotlin compile + 16/16 pure-Kotlin duplicate gate. Development-only ASR/TTS debug button for one hardware test; not installed.\n\n (2026-11-11 KST)
 
 1. **Goal:** Ray-Ban Meta glasses worn, phone in pocket, ChatGPT and Meta AI **phone app UIs closed**; invoke JH from glasses by Meta-approved voice app launch, speak Korean question, glasses take **one user-directed** photo, JH/AI answers, and **glasses speaker** reads Korean reply. No recurrent screen-share approval, no Share chooser, no paid OpenAI API use. Meta companion app still required for pairing; it need not be manually opened each request.
 
