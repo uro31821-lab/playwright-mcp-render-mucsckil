@@ -1,0 +1,30 @@
+name: G Glass Existing Prepaid Credits Gate QA
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - 'jh-server/owner-setup/glass-bridge/prepaid-credit-gate.mjs'
+      - 'jh-server/owner-setup/glass-bridge/prepaid-credit-gate.test.mjs'
+      - '.github/workflows/jh-glass-prepaid-credit-policy-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  free-then-existing-prepaid:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read-only checkout of G Glass candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Check JavaScript syntax without installing dependencies
+        run: |
+          node --check jh-server/owner-setup/glass-bridge/prepaid-credit-gate.mjs
+          node --check jh-server/owner-setup/glass-bridge/prepaid-credit-gate.test.mjs
+      - name: Test allowed free then already-purchased credit without external API
+        run: |
+          node --test jh-server/owner-setup/glass-bridge/prepaid-credit-gate.test.mjs
+          echo G_GLASS_PREPAID_BUDGET_POLICY_TEST_PASS
+      - name: Assert source only no API no recharge no deployments
+        run: |
+          echo G_GLASS_NO_REAL_API_NO_BILLING_CHANGES_NO_AUTO_RECHARGE_NO_DEPLOY
