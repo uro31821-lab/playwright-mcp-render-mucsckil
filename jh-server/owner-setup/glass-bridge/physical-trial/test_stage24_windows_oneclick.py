@@ -96,6 +96,40 @@ class Stage24WindowsReadOnlyTest(unittest.TestCase):
         self.assertTrue(all(x[1] == "-d" for x in device_data_calls))
         self.assertFalse(any(x[1] == "-s" for x in device_data_calls))
 
+    def test_yes_with_missing_trial_saves_stage26_success(self):
+        fake = FakeUsbPhone()
+        with tempfile.TemporaryDirectory() as folder:
+            result_path = Path(folder) / "RESULT.txt"
+            with patch.object(s24, "existing_sdk", return_value=("adb", "aapt2", "apksigner")):
+                code = s24.main(["--result", str(result_path)],
+                                input_fn=lambda _: "YES", runner=fake, platform="nt")
+            self.assertEqual(code, 0)
+            output = json.loads(result_path.read_text("utf-8"))
+            self.assertEqual(output["diagnostic_revision"], "stage26-missing-package-and-step-failures")
+            self.assertEqual(output["apps"][0]["status"], "INSTALLED_SIGNER_READ_ONLY_VERIFIED")
+            self.assertEqual(output["apps"][1]["status"], "NOT_INSTALLED")
+            self.assertFalse(output["install_permitted"])
+            self.assertNotIn("R59USB", str(output))
+
+    def test_stage26_result_identifies_exact_failing_command(self):
+        fake = FakeUsbPhone()
+        def fail_camera_path(argv, timeout=35):
+            if (len(argv) > 5 and argv[:3] == ["adb", "-d", "shell"]
+                    and argv[3:6] == ["pm", "path", "com.meta.wearable.dat.externalsampleapps.cameraaccess"]):
+                raise s24.PhoneReadbackBlocked("READ_ONLY_TOOL_REJECTED")
+            return fake(argv, timeout)
+        with tempfile.TemporaryDirectory() as folder:
+            result_path = Path(folder) / "RESULT.txt"
+            with patch.object(s24, "existing_sdk", return_value=("adb", "aapt2", "apksigner")):
+                code = s24.main(["--result", str(result_path)],
+                                input_fn=lambda _: "YES", runner=fail_camera_path, platform="nt")
+            self.assertEqual(code, 12)
+            result = json.loads(result_path.read_text("utf-8"))
+            self.assertEqual(result["reason"], "CAMERAACCESS_PACKAGE_PATH_COMMAND_FAILED")
+            self.assertEqual(result["diagnostic_revision"], "stage26-missing-package-and-step-failures")
+            self.assertFalse(result["physical_device_modified"])
+            self.assertNotIn("R59USB", str(result))
+
     def test_readonly_missing_cert_fails(self):
         fake = FakeUsbPhone(signers=False)
         with self.assertRaises(Exception):
