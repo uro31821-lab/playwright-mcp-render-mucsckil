@@ -36,7 +36,7 @@ The existing \`JhGlassVoiceProbe.kt\` now invokes this fail-closed guard and rej
 
 **Local evidence:** \`kotlinc GGlassAudioOutputGuard.kt GGlassAudioOutputGuardTest.kt -include-runtime -d /tmp/gglass_route/test.jar && java -jar ...\` → \`G_GLASS_AUDIO_ROUTE_GUARD_PASS assertions=16\`; genuine Kotlin compiler, no Android hardware exercised.
 
-**CI:** Source-only Meta DAT build .github/workflows/jh-glass-stage16-isolated-compile.yml expanded to run Stage14 + Stage16 source tests and trigger on G Glass audio preflight changes. Read the latest CI job for verified PASS/FAIL; do not count an in-progress job as successful. No production deploy, paid API call, Windows signing, camera/photo upload, phone installation or AV bypass in this stage.
+**CI VERIFIED SUCCESS:** [GitHub Actions run 42961296388](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/42961296388) (job `130328186213`), official pinned Meta DAT 1.0.1: **10/10 Stage14 source tests + 8/8 Stage16 isolation tests PASS**, `JH_STAGE16_PINNED_PACKAGE_ISOLATION_PASS`; real Android `:app:compileDebugKotlin :app:processDebugMainManifest` **BUILD SUCCESSFUL in 1m41s**, `JH_STAGE16_KOTLIN_AND_MERGED_MANIFEST_PASS`. Separate local Kotlin media guard 16/16 PASS. No production deploy, paid API call, Windows signing, camera/photo upload, phone installation or AV bypass in this stage.
 
 ## Next development gates
 
