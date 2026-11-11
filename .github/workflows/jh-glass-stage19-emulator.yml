@@ -56,8 +56,13 @@ jobs:
           test -n "${ANDROID_HOME:-}"
           if test ! -c /dev/kvm; then echo KVM_UNAVAILABLE; exit 86; fi
           sudo chmod 666 /dev/kvm
-          sdkmanager --install 'platforms;android-36' 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64' </dev/null
-          echo no | avdmanager create avd -f -n gglass_stage19 -k 'system-images;android-35;google_apis;x86_64' --device pixel_5
+          # Android SDK is installed on the runner, but cmdline-tools is not always on PATH.
+          SDKMANAGER="$(find "$ANDROID_HOME" -maxdepth 6 -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+          test -n "$SDKMANAGER" && test -x "$SDKMANAGER" || { echo ANDROID_SDK_CMDLINE_TOOLS_MISSING; exit 88; }
+          AVDMANAGER="${SDKMANAGER%/sdkmanager}/avdmanager"
+          test -x "$AVDMANAGER" || { echo ANDROID_AVD_MANAGER_MISSING; exit 89; }
+          "$SDKMANAGER" --install 'platforms;android-36' 'platform-tools' 'emulator' 'system-images;android-35;google_apis;x86_64' </dev/null
+          echo no | "$AVDMANAGER" create avd -f -n gglass_stage19 -k 'system-images;android-35;google_apis;x86_64' --device pixel_5
           nohup "${ANDROID_HOME}/emulator/emulator" -avd gglass_stage19 -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -no-metrics >"${RUNNER_TEMP}/gglass-emulator.log" 2>&1 &
           echo $! > "${RUNNER_TEMP}/gglass-emulator.pid"
           adb -s emulator-5554 wait-for-device
