@@ -24,25 +24,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git init "\${RUNNER_TEMP}/dat"
-          git -C "\${RUNNER_TEMP}/dat" remote add origin https://github.com/meta/meta-wearables-dat-android.git
-          git -C "\${RUNNER_TEMP}/dat" fetch --depth=1 origin f4371bc9f90249d51eb07d7f8a61e8d829294f16
-          git -C "\${RUNNER_TEMP}/dat" checkout --detach FETCH_HEAD
-          test "$(git -C "\${RUNNER_TEMP}/dat" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          git init "${RUNNER_TEMP}/dat"
+          git -C "${RUNNER_TEMP}/dat" remote add origin https://github.com/meta/meta-wearables-dat-android.git
+          git -C "${RUNNER_TEMP}/dat" fetch --depth=1 origin f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          git -C "${RUNNER_TEMP}/dat" checkout --detach FETCH_HEAD
+          test "$(git -C "${RUNNER_TEMP}/dat" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
           base="jh-server/owner-setup/glass-bridge/android_cameraaccess"
-          app="\${RUNNER_TEMP}/dat/samples/CameraAccess"
+          app="${RUNNER_TEMP}/dat/samples/CameraAccess"
           python3 -m unittest discover -q -s "$base" -p 'test_stage14_voice_patch.py'
           python3 -m unittest discover -q -s "$base" -p 'test_stage16_isolated_trial.py'
           python3 "$base/apply_handsfree_probe.py" "$app"
           python3 "$base/isolate_stage16_voice_trial.py" "$app"
           grep -Fq 'applicationId = "com.koreanlifehub.jhglassprobe"' "$app/app/build.gradle.kts"
-          test "$(git -C "\${RUNNER_TEMP}/dat" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
+          test "$(git -C "${RUNNER_TEMP}/dat" rev-parse HEAD)" = f4371bc9f90249d51eb07d7f8a61e8d829294f16
           echo GGLASS21_PINNED_OFFICIAL_SOURCE_AND_ISOLATED_ID_PASS
       - name: Build isolated test candidate only
         shell: bash
         run: |
           set -euo pipefail
-          cd "\${RUNNER_TEMP}/dat/samples/CameraAccess"
+          cd "${RUNNER_TEMP}/dat/samples/CameraAccess"
           chmod +x gradlew
           ./gradlew --no-daemon :app:assembleDebug :app:processDebugMainManifest
           test -s app/build/outputs/apk/debug/app-debug.apk
@@ -51,10 +51,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          apk="\${RUNNER_TEMP}/dat/samples/CameraAccess/app/build/outputs/apk/debug/app-debug.apk"
+          apk="${RUNNER_TEMP}/dat/samples/CameraAccess/app/build/outputs/apk/debug/app-debug.apk"
           stage20="jh-server/owner-setup/glass-bridge/physical-trial/stage20_apk_identity.py"
           test -f "$stage20"
-          sdk="\${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          sdk="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           AAPT2="$(find "$sdk/build-tools" -mindepth 2 -maxdepth 2 -type f -name aapt2 | sort -V | tail -1)"
           APKSIGNER="$(find "$sdk/build-tools" -mindepth 2 -maxdepth 2 -type f -name apksigner | sort -V | tail -1)"
           test -x "$AAPT2" && test -x "$APKSIGNER"
@@ -64,10 +64,10 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$apk" | sed -n '/^Verified/p;/^Signer #1 certificate SHA-256 digest:/p'
           set +e
           python3 "$stage20" --apk "$apk" --aapt2 "$AAPT2" --apksigner "$APKSIGNER" \
-            --output "\${RUNNER_TEMP}/gglass21_readonly.json" > /dev/null
+            --output "${RUNNER_TEMP}/gglass21_readonly.json" > /dev/null
           rc=$?
           set -e
-          python3 - "\${RUNNER_TEMP}/gglass21_readonly.json" "$rc" <<'PY'
+          python3 - "${RUNNER_TEMP}/gglass21_readonly.json" "$rc" <<'PY'
           import json, sys
           r=json.load(open(sys.argv[1],encoding='utf-8'))
           assert sys.argv[2] == '12', 'Preflight must block when owner-approved certificate absent'
