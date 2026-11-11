@@ -1,0 +1,23 @@
+name: KaBiseo v0.25.6 camera settings
+
+on:
+  push:
+    branches: [kabiseo-v0256-secure56-camera-settings-20261111]
+  pull_request:
+    paths:
+      - 'jh-server/owner-setup/kabiseo-camera-v0256/**'
+      - 'jh-server/owner-setup/server-integration/server.mjs'
+      - '.github/workflows/kabiseo-camera-v0256.yml'
+
+jobs:
+  camera-settings-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Camera flow contract
+        run: node jh-server/owner-setup/kabiseo-camera-v0256/camera-flow.test.mjs
+      - name: Server syntax
+        run: node --check jh-server/owner-setup/server-integration/server.mjs
