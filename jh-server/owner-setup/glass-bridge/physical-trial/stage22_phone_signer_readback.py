@@ -100,32 +100,76 @@ def verify_sdk_tool(tool: Path) -> str:
     return str(tool)
 
 
+def _package_label(package: str) -> str:
+    if package == CAMERA_ACCESS:
+        return "CAMERAACCESS"
+    if package == G_GLASS_TRIAL:
+        return "GGLASS"
+    raise PhoneReadbackBlocked("PACKAGE_OUT_OF_SCOPE")
+
+
+def exact_package_present(output: str, package: str) -> bool:
+    """Only exact installed package name; ignore substring-matching results."""
+    _package_label(package)
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    if not lines:
+        return False
+    if len(lines) > 100 or any(not x.startswith("package:") for x in lines):
+        raise PhoneReadbackBlocked("PACKAGE_LIST_FORMAT_UNEXPECTED")
+    values = [x[len("package:"):] for x in lines]
+    if any(not re.fullmatch(r"[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)+", x) for x in values):
+        raise PhoneReadbackBlocked("PACKAGE_LIST_FORMAT_UNEXPECTED")
+    if values.count(package) > 1:
+        raise PhoneReadbackBlocked("PACKAGE_LIST_DUPLICATE_EXACT_MATCH")
+    return package in values
+
+
+def _stage_read(command, label: str, argv: list[str], timeout: int = 35) -> str:
+    """Sanitized phase-only failure, never raw adb stdout/stderr/device serial."""
+    try:
+        return command(argv, timeout=timeout)
+    except PhoneReadbackBlocked as exc:
+        if str(exc) == "READ_ONLY_TOOL_REJECTED":
+            raise PhoneReadbackBlocked(f"{label}_COMMAND_FAILED") from None
+        raise
+    except (OSError, subprocess.TimeoutExpired):
+        raise PhoneReadbackBlocked(f"{label}_COMMAND_FAILED") from None
+
+
 def read_installed_package(serial: str, package: str, adb: str,
                            aapt2: str, apksigner: str,
                            command=run_verified_tool) -> dict:
-    if package not in ALLOWED_PACKAGES:
-        raise PhoneReadbackBlocked("PACKAGE_OUT_OF_SCOPE")
-    # Android PackageManager only: no OS permissions/screens/user data touched.
-    location = base_apk_from_pm_output(
-        command([adb, "-s", serial, "shell", "pm", "path", package]))
-    if location is None:
+    tag = _package_label(package)
+    # Read-only exact-name PackageManager inventory first. A missing G Glass
+    # trial is normal; pm path can return nonzero for an absent package.
+    listing = _stage_read(command, f"{tag}_PACKAGE_LIST",
+                          [adb, "-s", serial, "shell", "pm", "list", "packages", package])
+    if not exact_package_present(listing, package):
         return {"package_name": package, "status": "NOT_INSTALLED",
                 "signer_approved_for_g_glass": False}
+
+    location = base_apk_from_pm_output(_stage_read(
+        command, f"{tag}_PACKAGE_PATH",
+        [adb, "-s", serial, "shell", "pm", "path", package]))
+    if location is None:
+        raise PhoneReadbackBlocked(f"{tag}_PACKAGE_PATH_MISSING_AFTER_LISTED")
     with tempfile.TemporaryDirectory(prefix="jh-glass-stage22-") as tmp:
         local = Path(tmp) / "base.apk"
-        # Only the known app APK, not /data/data, photos, private files or secrets.
-        command([adb, "-s", serial, "pull", location, str(local)], timeout=60)
+        _stage_read(command, f"{tag}_APK_PULL",
+                    [adb, "-s", serial, "pull", location, str(local)], timeout=60)
         if local.is_symlink() or not local.is_file() or not (1024 < local.stat().st_size < 200_000_000):
-            raise PhoneReadbackBlocked("COPIED_APK_MISSING_OR_INVALID_SIZE")
+            raise PhoneReadbackBlocked(f"{tag}_COPIED_APK_INVALID")
         with local.open("rb") as f:
             if f.read(4) != b"PK\x03\x04":
-                raise PhoneReadbackBlocked("COPIED_FILE_NOT_APK")
+                raise PhoneReadbackBlocked(f"{tag}_COPIED_NOT_APK")
         sha = sha256_file(local)
-        badge = badging_from_aapt2(command([aapt2, "dump", "badging", str(local)]))
+        badge = badging_from_aapt2(_stage_read(
+            command, f"{tag}_AAPT2_BADGING", [aapt2, "dump", "badging", str(local)]))
         if badge.get("package_name") != package:
             raise PhoneReadbackBlocked("APP_APK_PACKAGE_IDENTITY_MISMATCH")
-        certs = signers_from_apksigner(
-            command([apksigner, "verify", "--verbose", "--print-certs", str(local)]))
+        certs = signers_from_apksigner(_stage_read(
+            command, f"{tag}_APKSIGNER_VERIFY",
+            [apksigner, "verify", "--verbose", "--print-certs", str(local)]))
         if len(certs) != 1 or not SHA256.fullmatch(certs[0]):
             raise PhoneReadbackBlocked("APP_APK_SIGNER_UNVERIFIED")
         return {
@@ -135,14 +179,14 @@ def read_installed_package(serial: str, package: str, adb: str,
             "installed_apk_sha256": sha,
             "installed_signer_certificate_sha256": certs[0],
             "signed_cryptographically_verified": True,
-            "signer_approved_for_g_glass": False,  # never infer consent
+            "signer_approved_for_g_glass": False,
         }
 
 
 def inspect_phone(adb: str, aapt2: str, apksigner: str,
                   command=run_verified_tool) -> dict:
-    serial = list_usb_device(command([adb, "devices", "-l"]))
-    is_emulator = command([adb, "-s", serial, "shell", "getprop", "ro.kernel.qemu"]).strip()
+    serial = list_usb_device(_stage_read(command, "ADB_DEVICE_INVENTORY", [adb, "devices", "-l"]))
+    is_emulator = _stage_read(command, "ADB_DEVICE_TYPE", [adb, "-s", serial, "shell", "getprop", "ro.kernel.qemu"]).strip()
     if is_emulator == "1" or is_emulator not in {"", "0"}:
         raise PhoneReadbackBlocked("EMULATOR_OR_UNTRUSTED_DEVICE")
     readback = [
