@@ -53,4 +53,4 @@ assert.equal(unexpected.code,'CAMERA_HANDLER_INTERNAL_ERROR');
 assert.equal(unexpectedCalls,1);
 assert.equal(JSON.stringify(unexpected).includes('private'),false);
 assert.equal(Object.hasOwn(unexpected,'mode'),false);
-console.log('KABISEO_HOST_PREFLIGHT_PASS=14');
+console.log('KABISEO_HOST_PREFLIGHT_PASS');
