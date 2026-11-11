@@ -1,0 +1,81 @@
+name: G Glass Stage24 Windows OneClick No-Phone ReadOnly Trial
+on:
+  push:
+    branches:
+      - feature/jh-glass-photo-mailbox-20261110
+    paths:
+      - '.github/workflows/jh-glass-stage24-windows-readonly.yml'
+      - 'jh-server/owner-setup/glass-bridge/physical-trial/stage24_windows_oneclick.py'
+      - 'jh-server/owner-setup/glass-bridge/physical-trial/test_stage24_windows_oneclick.py'
+      - 'jh-server/owner-setup/glass-bridge/physical-trial/test_stage24_native_windows_smoke.py'
+      - 'jh-server/owner-setup/glass-bridge/physical-trial/실행.cmd'
+      - 'jh-server/owner-setup/glass-bridge/physical-trial/stage22_phone_signer_readback.py'
+      - 'jh-server/owner-setup/glass-bridge/physical-trial/stage20_apk_identity.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows-readonly-security:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - name: Exact development branch checkout, no user files
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Python 3.12 preinstalled action
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify CMD physical entrypoint encoding and no install commands
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = "jh-server/owner-setup/glass-bridge/physical-trial"
+          python -c "from pathlib import Path; p=Path('$root')/'실행.cmd'; b=p.read_bytes(); assert b'\r\n' in b and b.count(b'\r\n')==b.count(b'\n'); assert all(x<128 for x in b); assert b'install' not in b.lower() and b'uninstall' not in b.lower(); print('GGLASS_STAGE24_WINDOWS_CMD_CRLF_ASCII_AND_NO_INSTALL_PASS')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m compileall -q $root
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run Stage20 and Stage22 prior guard regressions on actual Windows
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = "jh-server/owner-setup/glass-bridge/physical-trial"
+          python -m unittest discover -v -s $root -p "test_stage20_apk_identity.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m unittest discover -v -s $root -p "test_stage22_phone_signer_readback.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output "GGLASS_STAGE24_WINDOWS_PREVIOUS_GUARDS_37_PASS"
+      - name: Run Stage24 Windows wrapper fake-USB tests without real device
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = "jh-server/owner-setup/glass-bridge/physical-trial"
+          python -m unittest discover -v -s $root -p "test_stage24_windows_oneclick.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output "GGLASS_STAGE24_WINDOWS_UNIT_GUARDS_13_PASS"
+      - name: Execute real Windows cmd.exe entrypoint, user decline and missing SDK
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python "jh-server/owner-setup/glass-bridge/physical-trial/test_stage24_native_windows_smoke.py"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Write-Output "GGLASS_STAGE24_NATIVE_WINDOWS_CMD_NO_PHONE_SMOKE_PASS"
+      - name: Read-only Windows Defender capability check (not a security clearance)
+        if: success()
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $ErrorActionPreference = "Stop"
+          if (Get-Command Get-MpComputerStatus -ErrorAction SilentlyContinue) {
+            $status = Get-MpComputerStatus
+            if ($status.AMServiceEnabled -and $status.AntivirusEnabled) {
+              Write-Output "GGLASS_STAGE24_CI_DEFENDER_AVAILABLE_AV_SCAN_NOT_CERTIFIED"
+            } else {
+              Write-Output "GGLASS_STAGE24_CI_DEFENDER_NOT_ACTIVE_SECURITY_REVIEW"
+            }
+          } else {
+            Write-Output "GGLASS_STAGE24_CI_DEFENDER_UNAVAILABLE_SECURITY_REVIEW"
+          }
+      - name: Final no-device, no paid API, no deploy rule
+        shell: pwsh
+        run: |
+          Write-Output "GGLASS_STAGE24_NO_REAL_PHONE_NO_PACKAGE_INSTALL_NO_JH_DEPLOY_NO_META_WDC_CHANGE_NO_GPT_API_CALL"
