@@ -1,3 +1,4 @@
+import {createGoalHost} from './camera-goal.mjs';
 import {
   BASE_CATALOG_DIGEST,CAMERA_TOOL,CAMERA_TOOL_V2,BINDING_JOB,CONFIG_JOB,
   BINDING_OPERATION,CONFIG_OPERATION,CAMERA_EXTENSION,PROTOCOL
@@ -52,20 +53,28 @@ function validate(type,payload,deviceId,now){
   fail('CAMERA_ROUTE_MISMATCH');
 }
 
-export function createCameraHostIntegration({getCatalogDigest,runSecure,now=Date.now}={}){
+export function createCameraHostIntegration({getCatalogDigest,runSecure,runSecureFrame,now=Date.now}={}){
   if(typeof getCatalogDigest!=='function'||typeof runSecure!=='function')fail('CAMERA_HOST_PORT_REQUIRED');
   if(getCatalogDigest()!==BASE_CATALOG_DIGEST)fail('CAMERA_BASE_CATALOG_MISMATCH');
   console.info('JH_KABISEO_HANDLER_DIAGNOSTIC_V2_READY');
-  const classify=createCameraDurableClassifier({getCatalogDigest});
+  const legacyClassify=createCameraDurableClassifier({getCatalogDigest});
+  const goal=createGoalHost({getCatalogDigest,runSecure,runSecureFrame,now});
+  const classify=(job,payload)=>goal.classify(job,payload)??legacyClassify(job,payload);
+  function validateAll(type,payload,deviceId){
+    const v=goal.validate(type,payload,deviceId);
+    if(v===false)fail('GOAL_SCOPE_REJECTED');
+    if(v===null)validate(type,payload,deviceId,now);
+  }
   return Object.freeze({
     classify,
-    beforeMk(type,payload,deviceId){validate(type,payload,deviceId,now);},
+    beforeMk(type,payload,deviceId){validateAll(type,payload,deviceId);},
     beforeDispatch(job){
-      try{validate(job?.type,job,job?.targetDeviceId,now);return {allowed:true};}
+      try{validateAll(job?.type,job,job?.targetDeviceId);return {allowed:true};}
       catch(e){return {allowed:false,code:e?.code||'CAMERA_DISPATCH_REJECTED',httpStatus:409};}
     },
     register({z,registerOAuthTool,textResult}={}){
       if(!z||typeof registerOAuthTool!=='function'||typeof textResult!=='function')fail('CAMERA_REGISTER_PORT_REQUIRED');
+      goal.register({z,registerOAuthTool,textResult});
       const handleCameraSettings=async args=>{
         try{
           const result=await runCameraSettingsFlow({args,runSecure,nowMs:now});

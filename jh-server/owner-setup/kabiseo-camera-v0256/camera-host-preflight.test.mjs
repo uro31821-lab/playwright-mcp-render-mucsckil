@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import {createCameraHostIntegration} from './camera-host-integration.mjs';
 import {BASE_CATALOG_DIGEST,CAMERA_TOOL,CAMERA_TOOL_V2,PROTOCOL} from './camera-contract.mjs';
 
-const spec=()=>({optional:spec,min:spec,max:spec});
-const z={string:spec};
+const spec=()=>({optional:spec,min:spec,max:spec,length:spec});
+const z={string:spec,enum:spec,record:spec,unknown:spec};
 const request={request_text:'음식을 시원하고 고급스럽게 찍어줘',
   task_digest:'a'.repeat(64),command_id:'b'.repeat(32),device_id:'phone-1'};
 const calls=[];
@@ -29,7 +29,7 @@ integration.register({z,registerOAuthTool:(name,config,cb)=>{
     assert.ok(Object.hasOwn(config.inputSchema,'camera_command_id'));
     assert.ok(!Object.hasOwn(config.inputSchema,'command_id'));
     versionedHandler=cb;
-  }else assert.fail('unexpected tool registration');
+  }else assert.equal(name,'life_android_camera_goal_v1');
 },textResult:v=>v});
 assert.equal(typeof handler,'function');
 assert.equal(typeof versionedHandler,'function');

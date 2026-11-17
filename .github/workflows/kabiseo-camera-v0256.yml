@@ -33,6 +33,9 @@ jobs:
       - name: Camera overlay and durable policy
         run: node jh-server/owner-setup/kabiseo-camera-v0256/camera-overlay.test.mjs
 
+      - name: Goal scope, local-button-only arming, and ephemeral camera frames
+        run: node --test jh-server/owner-setup/kabiseo-camera-v0256/camera-goal.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-goal-frame.test.mjs
+
       - name: Camera module syntax
         run: |
           for f in jh-server/owner-setup/kabiseo-camera-v0256/*.mjs; do node --check "$f"; done
