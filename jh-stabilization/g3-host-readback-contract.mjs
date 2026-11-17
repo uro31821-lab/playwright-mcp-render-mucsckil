@@ -19,7 +19,8 @@ export function inspectG3HostTrace(trace) {
   if (trace.schema !== 'jh.g3.host-readback.v1' || trace.redaction !== 'NO_PRIVATE_PAYLOAD') return bad('BAD_TRACE_CONTRACT');
   const b=trace.binding;
   if (!b || !valid(b.sourceRef) || !valid(b.threadId) || (b.taskId !== null && !valid(b.taskId))
-      || !Number.isSafeInteger(b.conditionRevision) && b.conditionRevision !== null
+      || (b.conditionRevision !== null
+          && (!Number.isSafeInteger(b.conditionRevision) || b.conditionRevision < 0))
       || Object.keys(b).some(k=>!['sourceRef','threadId','taskId','conditionRevision'].includes(k))) return bad('INVALID_BINDING');
   const obs=trace.observations;
   if (!Array.isArray(obs) || obs.length < 3 || obs.length > 40) return unchanged('HOST_CALL_OBSERVATIONS_MISSING');
@@ -35,7 +36,19 @@ export function inspectG3HostTrace(trace) {
   if(phaseList[0]!=='route_plan' || phaseList.at(-1)!=='visible_delivery' || phaseList.filter(x=>x==='response_check').length!==1) return bad('REQUIRED_HOST_CALL_MISSING');
   const checkPos=phaseList.indexOf('response_check');
   if(checkPos<=0||checkPos>=phaseList.length-1) return bad('CHECK_NOT_PRE_DELIVERY');
+  // A single routed request has one initial plan and one final delivery.
+  // Duplicate phases make a source-only packet look as if it represented
+  // multiple executions; do not accept that as one correlated host trace.
+  if(phaseList.filter(p=>p==='route_plan').length!==1
+      || phaseList.filter(p=>p==='visible_delivery').length!==1)
+    return bad('DUPLICATE_HOST_BOUNDARY');
   const plan=trace.plannedFeatures, returns=trace.returnedFeatures;
+  // A returned helper result must have an observed phase before the response
+  // contract check. JSON results alone do not establish a helper invocation.
+  if(returns.length && !phaseList.slice(1,checkPos).includes('feature_result'))
+    return bad('FEATURE_RESULT_CALL_MISSING');
+  if(phaseList.slice(checkPos+1,-1).includes('feature_result'))
+    return bad('FEATURE_RESULT_AFTER_RESPONSE_CHECK');
   if(!Array.isArray(plan)||!Array.isArray(returns)||plan.length>20||returns.length>20) return bad('INVALID_FEATURE_ARRAY');
   const seen=new Set();
   for(const f of plan){
