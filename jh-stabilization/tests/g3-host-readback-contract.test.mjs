@@ -36,3 +36,10 @@ check('T19 trace cannot authenticate receipts alone',()=>{},'TRACE_CONTRACT_PASS
 check('T20 handoff from another thread is rejected',x=>x.observations[1].binding={...binding,threadId:'other'},'BLOCKED');
 check('T21 correct structural check is not a provider success',x=>x.returnedFeatures[0].evidenceRefs=['source:untrusted-claim'],'TRACE_CONTRACT_PASS');
 check('T22 empty planned/returned with route & check can pass',x=>{x.plannedFeatures=[];x.returnedFeatures=[]},'TRACE_CONTRACT_PASS');
+
+check('T23 a returned helper without an observed feature call is blocked',x=>x.observations.splice(1,1),'BLOCKED');
+check('T24 a feature result after response_check is blocked',x=>{x.observations[1].phase='response_check';x.observations[2].phase='feature_result'},'BLOCKED');
+check('T25 duplicate route plan boundary is blocked',x=>{x.observations.splice(1,0,{phase:'route_plan',seq:2,binding,receiptRef:'hostroute:duplicate'});for(let i=2;i<x.observations.length;i++)x.observations[i].seq=i+1},'BLOCKED');
+check('T26 duplicate visible delivery boundary is blocked',x=>{x.observations.splice(2,0,{phase:'visible_delivery',seq:3,binding,receiptRef:'hostdelivery:early'});for(let i=3;i<x.observations.length;i++)x.observations[i].seq=i+1},'BLOCKED');
+check('T27 negative condition revision fails binding checks',x=>{const badBinding={...binding,conditionRevision:-1};x.binding=badBinding;x.observations.forEach(o=>o.binding=badBinding)},'BLOCKED');
+check('T28 one helper-result phase can carry an already-bundled result packet',x=>{x.plannedFeatures.push({id:'place_context',owner:'travel',status:'planned'});x.returnedFeatures.push({id:'place_context',owner:'travel',status:'blocked',reason:'NOT_AVAILABLE',evidenceRefs:[]})},'TRACE_CONTRACT_PASS');
