@@ -1,25 +1,60 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {keepActiveCameraLead} from '../stab01-active-capture-guard.mjs';
-const ctx={hostVerified:true,threadId:'thread',lead:'camera',phase:'capture',status:'active',startBasis:'user_explicit',revision:7};
-const make=(intent={kind:'task',primary:'photo',topics:['photo','camera'],helpers:['photo','personal'],continuationOfActiveGoal:true,contextRevision:7},diff={})=>({threadId:'thread',sourceRef:'turn-2',intent,conversationContext:ctx,activeTask:null,...diff});
-const run=(intent,diff)=>keepActiveCameraLead(make(intent,diff));
-test('C01 same verified camera with one reference image retains camera',()=>{let r=run();assert.equal(r.status,'CONTINUED');assert.equal(r.input.intent.primary,'camera');assert.deepEqual(r.input.intent.topics,['camera']);});
-test('C02 three image reference additions stay one camera goal',()=>{for(let n=1;n<=3;n++){let r=run({...make().intent,referenceImageCount:n});assert.equal(r.input.intent.primary,'camera');assert.equal(r.authorizesExecution,false);}});
-test('C03 ten reference images remain same goal',()=>{let r=run({...make().intent,referenceImageCount:10});assert.equal(r.status,'CONTINUED');});
-test('C04 do not preserve camera for a new explicit edit',()=>{let i={...make().intent,explicitAssistant:'photo',explicitEdit:true};assert.equal(run(i).reason,'EXPLICIT_GOAL_OVERRIDES');});
-test('C05 mood correction does not trigger automatic photo editor',()=>{let r=run({...make().intent,mood:'warm'});assert.deepEqual(r.input.intent.helpers,['personal']);});
-test('R01 active Tasks continuation stays with original router',()=>assert.equal(run(undefined,{activeTask:{id:'t-1',lead:'camera'}}).reason,'PERSISTENT_TASK_OWNS_CONTINUITY'));
-test('R02 stop/continue/select do not get remapped',()=>{for(let kind of ['stop','continue','select','change','mode'])assert.equal(run({...make().intent,kind}).reason,'EXISTING_ROUTER_OWNS_KIND');});
-test('R03 explicit different goal is respected',()=>assert.equal(run({...make().intent,explicitNewGoal:true}).reason,'EXPLICIT_GOAL_OVERRIDES'));
-test('R04 camera exclusion honored',()=>assert.equal(run({...make().intent,excluded:['camera']}).reason,'USER_EXCLUDED_CAMERA'));
-test('G01 missing host trust cannot capture camera intent',()=>assert.equal(run(undefined,{conversationContext:{...ctx,hostVerified:false}}).reason,'CURRENT_CAMERA_CONTEXT_UNVERIFIED'));
-test('G02 stale revision cannot capture camera intent',()=>assert.equal(run({...make().intent,contextRevision:6}).reason,'CURRENT_CAMERA_CONTEXT_UNVERIFIED'));
-test('G03 foreign thread cannot capture camera intent',()=>assert.equal(run(undefined,{threadId:'other'}).reason,'CURRENT_CAMERA_CONTEXT_UNVERIFIED'));
-test('G04 host does not confirm continuation, do not infer from photo',()=>assert.equal(run({...make().intent,continuationOfActiveGoal:false}).reason,'CONTINUATION_NOT_CONFIRMED'));
-test('G05 no auto command, camera capture proof, or state write',()=>{let r=run();assert.equal(r.authorizesExecution,false);assert.equal(r.changesPersistentState,false);assert.equal(r.cameraCaptureVerified,false);});
-test('G06 no input mutation',()=>{let i=make();let c=structuredClone(i);run(i.intent);assert.deepEqual(i,c);});
-test('G07 unrelated food topic must not be taken over by camera',()=>assert.equal(run({...make().intent,topics:['food']}).reason,'DIFFERENT_TOPIC_PRESENT'));
-test('G08 unresolved external effect blocks continuity normalization',()=>assert.equal(run(undefined,{conversationContext:{...ctx,hasUnresolvedExternalEffect:true}}).reason,'ORIGINAL_EFFECT_INSPECTION_REQUIRED'));
-test('G09 fresh explicit shopping lead must be preserved',()=>assert.equal(run({...make().intent,primary:'shopping'}).reason,'EXPLICIT_GOAL_OVERRIDES'));
-test('G10 malformed helper list never causes execution or crash',()=>{const r=run({...make().intent,helpers:'photo'});assert.equal(r.input.intent.primary,'camera');assert.deepEqual(r.input.intent.helpers,[])});
+
+const context={hostVerified:true,threadId:'thread',lead:'camera',phase:'capture',status:'active',
+  startBasis:'user_explicit',taskLookupStatus:'VERIFIED_NO_TASK',hasUnresolvedExternalEffect:false,revision:7};
+const intent={kind:'task',primary:'photo',primaryBasis:'HOST_INFERRED_IMAGE_ONLY',
+  topics:['photo','camera'],helpers:['personal'],continuationOfActiveGoal:true,
+  contextRevision:7,explicitNewGoal:false,explicitEdit:false};
+const create=()=>({threadId:'thread',sourceRef:'turn-2',activeTask:null,
+  conversationContext:{...context},intent:{...intent}});
+const tests=[
+ ['same_camera',x=>{},'CONTINUED'],
+ ['ten_reference_images',x=>{x.intent.referenceImageCount=10},'CONTINUED'],
+ ['new_explicit_goal',x=>{x.intent.explicitNewGoal=true},'UNCHANGED'],
+ ['explicit_edit',x=>{x.intent.explicitEdit=true},'UNCHANGED'],
+ ['direct_editor',x=>{x.intent.explicitAssistant='photo'},'UNCHANGED'],
+ ['user_selected_editor',x=>{x.intent.primaryBasis='USER_EXPLICIT'},'UNCHANGED'],
+ ['missing_edit_disposition',x=>{delete x.intent.explicitEdit},'UNCHANGED'],
+ ['missing_goal_disposition',x=>{delete x.intent.explicitNewGoal},'UNCHANGED'],
+ ['different_domain',x=>{x.intent.topics=['food']},'UNCHANGED'],
+ ['unverified_host',x=>{x.conversationContext.hostVerified=false},'UNCHANGED'],
+ ['stale_context_revision',x=>{x.intent.contextRevision=6},'UNCHANGED'],
+ ['foreign_thread',x=>{x.threadId='other'},'UNCHANGED'],
+ ['pending_effect',x=>{x.conversationContext.hasUnresolvedExternalEffect=true},'UNCHANGED'],
+ ['effect_state_unknown',x=>{delete x.conversationContext.hasUnresolvedExternalEffect},'UNCHANGED'],
+ ['task_lookup_unknown',x=>{delete x.conversationContext.taskLookupStatus},'UNCHANGED'],
+ ['saved_task',x=>{x.activeTask={id:'persisted'}},'UNCHANGED'],
+ ['stop',x=>{x.intent.kind='stop'},'UNCHANGED'],
+ ['continue',x=>{x.intent.kind='continue'},'UNCHANGED'],
+ ['direct_photo_request',x=>{x.intent.assistantRequests=[{id:'photo'}]},'UNCHANGED'],
+ ['explicit_photo_collaborator',x=>{x.intent.helpers=['photo']},'UNCHANGED'],
+ ['workflow_requested',x=>{x.intent.workflow={stageId:'example'}},'UNCHANGED'],
+ ['chosen_photo_lead',x=>{x.intent.userChosenLead='photo'},'UNCHANGED'],
+ ['camera_excluded',x=>{x.intent.excluded=['camera']},'UNCHANGED'],
+ ['no_continuation',x=>{x.intent.continuationOfActiveGoal=false},'UNCHANGED'],
+ ['no_provenance',x=>{delete x.intent.primaryBasis},'UNCHANGED'],
+ ['wrong_current_lead',x=>{x.conversationContext.lead='photo'},'UNCHANGED'],
+ ['missing_source_binding',x=>{delete x.sourceRef},'UNCHANGED'],
+ ['mood_adjustment',x=>{x.intent.mood='warm'},'CONTINUED'],
+ ['eight_reference_images',x=>{x.intent.referenceImageCount=8},'CONTINUED'],
+ ['original_request_unchanged',x=>{},'CONTINUED'],
+];
+for (const [name,mutate,expected] of tests){
+  test(name,()=>{
+    const input=create();mutate(input);const before=structuredClone(input);
+    const outcome=keepActiveCameraLead(input);
+    assert.equal(outcome.status,expected,name);
+    assert.deepEqual(input,before,'no original request mutation');
+    assert.equal(outcome.authorizesExecution,false);
+    assert.equal(outcome.changesPersistentState,false);
+    assert.equal(outcome.cameraCaptureVerified,false);
+    if(expected==='UNCHANGED')assert.equal(outcome.input,input,'preserve original reference');
+    else {
+      assert.equal(outcome.input.intent.primary,'camera');
+      assert.deepEqual(outcome.input.intent.topics,input.intent.topics,'do not change original topics');
+      assert.deepEqual(outcome.input.intent.helpers,input.intent.helpers,'do not change original helpers');
+    }
+  });
+}
