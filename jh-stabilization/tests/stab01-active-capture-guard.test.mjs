@@ -58,3 +58,13 @@ for (const [name,mutate,expected] of tests){
     }
   });
 }
+
+// G3 session-end semantics, no auto-restart and no device/Tasks changes.
+for(const [name,mutate,reason] of [
+ ['camera_end_event',x=>{x.intent.cameraSessionAction='END'},'CAMERA_SESSION_ENDED_BY_USER'],
+ ['camera_end_host_evidence',x=>{x.conversationContext.explicitCameraEnded=true},'CAMERA_SESSION_ENDED_BY_USER'],
+ ['camera_ended_session_status',x=>{x.conversationContext.cameraSessionStatus='ENDED'},'CAMERA_SESSION_ENDED_BY_USER'],
+ ['camera_active_session_follows_photo',x=>{x.conversationContext.cameraSessionStatus='ACTIVE';x.intent.referenceImageCount=1},null],
+ ['camera_active_session_follows_multiple_photos',x=>{x.conversationContext.cameraSessionStatus='ACTIVE';x.intent.referenceImageCount=10},null],
+ ['camera_active_session_follows_mood',x=>{x.conversationContext.cameraSessionStatus='ACTIVE';x.intent.mood='warm'},null],
+ ])test('G3_'+name,()=>{const x=create();mutate(x);const before=structuredClone(x);const r=keepActiveCameraLead(x);assert.equal(r.status,reason?'UNCHANGED':'CONTINUED');if(reason)assert.equal(r.reason,reason);assert.deepEqual(x,before);assert.equal(r.authorizesExecution,false);});
