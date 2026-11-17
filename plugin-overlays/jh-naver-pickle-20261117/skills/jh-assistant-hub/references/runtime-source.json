@@ -1,0 +1,1206 @@
+{
+  "schema": "jh.assistant-hub-source.v1",
+  "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
+  "sourceBranch": "jh-geubiseo-20261104",
+  "sourceDirectory": "host-assistant-hub",
+  "version": "1.34.117",
+  "runtime": "node>=20, built-in modules only",
+  "dependenciesAdded": [],
+  "files": {
+    "SKILL.md": "048ecfb2bda2c47d069775275a10c2fa26de88c9ab831625f7f05e2dfb26a9ed",
+    "references/assistant-attribution.md": "ac94536589b18f187b7e3caff3aa44ba48311c5b063d05f6e3b0a2825fd29ba5",
+    "references/capabilities.json": "0cdb7c5589e2bb31bb4c2e90ddd99e9338977765a03c92e649aec044a0878b48",
+    "references/combined-workflows.md": "434098576deac29e38189904a3f5b4334d4d328631b8505605ff9b30a99dad20",
+    "references/host-flow.md": "d805474e234fe587ed0f251cefe428080de7c47cd4f03ca69aade96cd2308074",
+    "references/integration-overlay.json": "1f7b6e85aa1a55fd930aec0fd503ea48eac09b6ca86c464039c9819f70e5f812",
+    "references/purchase-workflow.md": "83d7edc92495de04556b85db4bc5aac8490768c215d808d652a6d1cc96868faa",
+    "references/routing-law.md": "12b4ee8ec60db9a6d3c9b8d798d17a4350fd2a5831b81418b39026e73dde7401",
+    "references/scenarios.json": "0699679cd34479168ab673ccc64e05cdbac6bd13ae17ae6422e5035e2705bbaa",
+    "references/shared-explanation.md": "dfb071c0071ce6249cb6d0ad4559fd9e894ce2193a7ffff1471480819b075b42",
+    "references/shared-research-development.md": "57d8f92ba1b5727d3e088210f9b0b25818958df249c3824ba1b92683fde4b13d",
+    "references/state-binding.json": "ee662b26ef0123587f11bd5bb8d9f5fe2879922fc1f0366987b264df39aa931d",
+    "references/workflow-groups.json": "1c9eb95d6cf96b29cab936ad25cecf831b1a1ce89711d98af6c578f5457ad52e",
+    "references/workflow-integration.md": "21fc295347f8f7ce5c11e622f4edeb35b19c0560d4908d45bf44f5f7b05c240f",
+    "scripts/cli.mjs": "2ef257aecf4cc4c16bb961fa19fb156773c70bdcfd54eae80ab409123e6f91a7",
+    "scripts/response-links.mjs": "fd2d4eaaa0ac3336fab38f9e7f4cb3afc39f3c144d0ebbc0d0c077f2a39c6a83",
+    "scripts/router.mjs": "1767d8bb461e5149af45e2ab01b823ccaf8bc033925c88606967638841fd5994",
+    "scripts/routines.mjs": "7f8cbd445b790e7eb95cc2edd364ab537c7dcf900445e7fd344ec53616a35f4c",
+    "scripts/routing-contract.mjs": "43a578ad12b396cb2e1c40854117c1e1c77620497ea7a971d70b2a56de45aba9",
+    "scripts/tasks.mjs": "b7ecf87b0cdc71e5b1d7204375266a5fb36f2a5794400b1b8c78f6d3e57a57c1",
+    "scripts/workflows.mjs": "17c611d55a1c59e0aefc69cb9b3fa31a0ef6e6f4d53a5c923b92cd6d70a643f2",
+    "tests/account-inventory.test.mjs": "0577d0a701ed8162196bf6ba24a0a2bf77f7d2cbf6424bd9f77db519846b2abc",
+    "tests/art-expansion.test.mjs": "4b319d0915b8cc0fe597c8bb7b0879b2a6536072ceb6c973af446149f54ac2f6",
+    "tests/billing.test.mjs": "c2a1362454cde58114aced3e202f94994e2cf07d65db95672250df148349f635",
+    "tests/contingency.test.mjs": "6ed660e89666bc9c977d9c2ba38db4549b08a62cf1c3c7f537fe06483008b526",
+    "tests/continuation-integration.test.mjs": "79bbc2135ab309a0818fe543977301a2907ea2c274171c0e54e00db0c52c6772",
+    "tests/ddanbiseo.test.mjs": "49b22d614f920a8e54a59867955ae22768cdd69e17ac6e16156b05ed569b7171",
+    "tests/gongmun-biseo.test.mjs": "edc628fc6b4b7a80499a1e6c3c5438709c8f12e5fd405e98e9269eaa2a36258f",
+    "tests/government.test.mjs": "461d7f9472f34034f9476fe86d8a87daafb72e1d6599bd6d33c76f35f47f1f23",
+    "tests/history-integration.test.mjs": "83bb6fcc8aa8c6af9a8def00b207fff79e443169a580c93ead29cb5f97f8ab25",
+    "tests/idea.test.mjs": "2a563dbe122a33fca7869d8a8bdddc6ab24007dde947051b6014342c487c3f62",
+    "tests/inbiseo.test.mjs": "fc9ab238450a66eb94ef122313e21d2ef68154f2c2a94ba3312e40bca03767b0",
+    "tests/insurance.test.mjs": "f2347b12f8b6b4f1ce1de50d6cb0e82c37ef9f01d1e3672d5242108412182fbd",
+    "tests/integration.test.mjs": "26a6d712319be47e93fc9b4954ea197e5f46a63eabc62cf5a185f91c6455c54f",
+    "tests/jabiseo-geology.test.mjs": "486645965210c3f63f064d0871cb23f1d752d133dc208d9563ef37c2094e9504",
+    "tests/jabiseo.test.mjs": "3111b2d92499c6e031b5ad232359cc0c2c62879332dac93ece1df9ac704700a3",
+    "tests/manager.test.mjs": "a625578fe8516cc1cb27924b76ba1aaa90ccd46cbbb93bd57ca2b550f4497470",
+    "tests/preparation.test.mjs": "79c6f2eb0ba27bfb32fc9ef59677d91d194099b06eca2b8c2bf5a9f1a97389aa",
+    "tests/repair.test.mjs": "bb87f18c785b312149be367f10a3e9263859aaab7aceb9e1d2a7a066be4fc1fe",
+    "tests/response-links.test.mjs": "e5f1ecff57eccc4e1097053a5356083d4a79b05b1ecc4c2c43a14961d48b5c38",
+    "tests/revenue.test.mjs": "f6990644dc066ada903664f59123e754c05370c696fd5b2a6f3a4719fdabd936",
+    "tests/router.test.mjs": "e1bf2fe6c894987ba6665019b69dd64d222249bee3bddb6a7d6718a99198cd6c",
+    "tests/routines.test.mjs": "2f8bd4392b381c9e69028756b9a0deffe8752da56446a502af574725a583ba3f",
+    "tests/routing-contract.test.mjs": "916443faed4b4afe9e22e06543ad2d4400798bef5385b71b3ca4cd7945605bcf",
+    "tests/shared-flow.test.mjs": "f24d69df15eaa1f15b24fa02e0c81937da492aed444f6626999366335f52defb",
+    "tests/tasks.test.mjs": "781ddab672cc1162cda13222697a27bf6c58a4cb0d540bce33636bd9258913c3",
+    "tests/tongbiseo.test.mjs": "2be3b922a43875a6745404017ec40102b5a600790bb827485419d1b9101f7ed3",
+    "tests/tropical.test.mjs": "94d5fcf16971e2cb06638dacf35d1b0d53d558cc992ad6623f350754622477a9",
+    "tests/video-required-output.test.mjs": "f5faebc241f444bbd5d2dc8e4bfb1de39606d784f199f0ae44eaef0f39ddd959",
+    "tests/video.test.mjs": "30a398e684eaaae561aadebc8b0d376198b077e25284543762f73ffb12d931d6",
+    "tests/weather.test.mjs": "a35e91f6783ad9f330fc40cce2c520bc89c5b07ebac716ab7c2349d77eb37fd4",
+    "tests/workflow-expansion.test.mjs": "f1e005a895d72e394807006f5044003fd56429ef901418391eff93f4b1e31573",
+    "tests/workflows.test.mjs": "3c9f7ce89a7bcbf9d13773bce839ea5e5f45ddc16f657939c9f9457ec4b04084",
+    "scripts/stored-workflow.mjs": "e667862d022813ae011797a6bf5813c98c19d343ee62b5afab7a6b3010b39234",
+    "scripts/task-context.mjs": "4e740ac0621cea0db717dcc341e2dba22171876a361d98e6bf61beb78057f741",
+    "references/stored-workflow.md": "173ca95b31dff5c98bab154377eb1a5173ebd177031665fe146b3af0584ecc8c",
+    "tests/stored-workflow.test.mjs": "cf3fdf52cbc789a35c02edbbecf5f04d4f6b4bed9eedeffece342b08dd9c4cd7",
+    "scripts/automation_result.py": "3a3ecbc141553a0f0fc790a7c7629a5af5e1d01cf0d295067b533360eed8d587",
+    "tests/test_automation_result.py": "27f6ac1781b97ea552215a214d6d50e34eda071e6631562b416d6435d5ee95a8",
+    "references/automation-result.md": "107f85cdb1d9f01eb856745aa9b627369f94f9b06420c958116bd32764f2d52e",
+    "references/distributed-features.md": "1e029a0e04960414e8e8e9b22201d83cf388091831eec3b37e990f1b942abcec",
+    "scripts/owned-features.mjs": "37ea1bd100d7a26c8bc00e9749f3918bdb434974860e501e25532c95726ed2a9",
+    "tests/owned-features.test.mjs": "c063c51292f6c4d7cf5d3f33137771e6d48f623fe8ef9f53ef14ca750db5304e",
+    "tests/feature-results.test.mjs": "148607e40b9131e932d241ec71819ae1496ba68db377f897c63d9deb8dc51314",
+    "tests/naver-pickle-integration.test.mjs": "d0fa7dcb1c7225086bc8983cea791e05aa79e57867cc64125e0eb2af2381b72b"
+  },
+  "note": "Hashes identify the current packaged hub bytes, excluding this provenance file. Original repository provenance is retained; the latest private-plugin overlay is recorded below. Actual publication and saved-source readback are separate receipts.",
+  "additionalPluginOverlays": [
+    {
+      "version": "1.33.0",
+      "source": "Private plugin update from verified current release",
+      "baseReleaseId": "pluginrel_6aec8b0539688191a11ced712e8567a1",
+      "changedPaths": [
+        "references/capabilities.json"
+      ],
+      "newCapability": "reservation",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router code unchanged; base provenance and previous overlay retained. This record does not assert server deployment or live E2E."
+    },
+    {
+      "version": "1.34.0",
+      "source": "Private plugin shopping integration overlay",
+      "baseReleaseId": "pluginrel_6aed07f0b6708191ad146639b8d9a84d",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json"
+      ],
+      "newCapability": "shopping",
+      "remoteRepositoryUpdated": false,
+      "note": "Original router SHA-256 verified and reused unchanged. Existing app/MCP, state and prior specialties preserved. Local tests are not live checkout evidence."
+    },
+    {
+      "version": "1.34.9",
+      "source": "Private plugin statistics integration overlay",
+      "baseReleaseId": "pluginrel_6aed4751dd7881918ef221d8ffc6c973",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/scenarios.json",
+        "tests/tongbiseo.test.mjs"
+      ],
+      "newCapability": "statistics",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router, task and routine implementations preserved. Local interpreted-intent tests are not live data retrieval, chart rendering, phone execution or all-chat refresh evidence."
+    },
+    {
+      "version": "1.34.10",
+      "source": "Private plugin nostalgia integration overlay",
+      "baseReleaseId": "pluginrel_6aed7065a5948191bdf7e3931c55cfe7",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md"
+      ],
+      "newCapability": "nostalgia",
+      "bundledSpecialist": "jh-eungbiseo",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router reused unchanged. Specialist copied from saved personal skill; package source and requested routing tested locally. No phone or server deployment is asserted."
+    },
+    {
+      "version": "1.34.11",
+      "source": "Private plugin video integration from current verified release",
+      "baseReleaseId": "pluginrel_6aed71963f948191be249d73d11247e9",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/scenarios.json",
+        "tests/video.test.mjs"
+      ],
+      "newCapability": "video",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router and task code retained. Public video helpers preserve the main topic and current menu. Package tests do not assert video playback or private content access."
+    },
+    {
+      "version": "1.34.12",
+      "source": "Private plugin media and real-event routing clarification",
+      "baseReleaseId": "pluginrel_6aed72034904819186e25991d7135cf9",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md"
+      ],
+      "updatedCapabilities": [
+        "news",
+        "nostalgia"
+      ],
+      "remoteRepositoryUpdated": false,
+      "note": "Existing specialist IDs, generic router and helpers retained. Host interprets media/music vs. real events; this entry is not a publication or live search receipt."
+    },
+    {
+      "version": "1.34.13",
+      "source": "Private plugin inbiseo person integration overlay",
+      "baseReleaseId": "pluginrel_6aed7439af508191b4b42f525e612b8d",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/scenarios.json",
+        "tests/inbiseo.test.mjs"
+      ],
+      "newCapability": "person",
+      "newSkill": "jh-inbiseo",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router, task, routine and CLI code retained. Person skill and host semantic routing added to current plugin source. Local routing tests do not assert live web/image or phone execution.",
+      "inbiseoRuleSource": {
+        "kind": "personal-skill-snapshot",
+        "name": "jh-inbiseo",
+        "skillId": "6aed6c61be308191ad9c13e1ddb41d0e",
+        "sourceSha256": "0d6d0d974efc64b233924a032f3860f90e7ec907d3792d5783d4482d51dcba89",
+        "packagedChanges": "Added only plugin-local hub and attribution binding; core person-guide rules preserved."
+      }
+    },
+    {
+      "version": "1.34.27",
+      "source": "Private plugin Gongmun assistant integration from verified current release",
+      "baseReleaseId": "pluginrel_6aef5230081c8191b98a56114be29529",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/scenarios.json",
+        "tests/gongmun-biseo.test.mjs"
+      ],
+      "newCapability": "official_document",
+      "newSkill": "jh-gongmun-biseo",
+      "remoteRepositoryUpdated": false,
+      "personalSkillSource": {
+        "name": "jh-gongmun-biseo",
+        "gitCommit": "d9a1d73326f9757df5cf1e84b91fe8ea94cf6cf5",
+        "files": {
+          "SKILL.md": "2f244daa9864e3b4f778543af75e4727b05c149a208299a1243544a612ad1360",
+          "references/workflow.md": "a6eb663b8cbf90e78b1a313e4c2670aa2b8f516394a0ab933b8798226b5ed3b9",
+          "references/integration.md": "ee19afd4fe8560b877016c9b35c31584564faaee6231327ff523cbd833468459",
+          "agents/openai.yaml": "939d96936d1705b9bc14d06fba5072b08df8ec0f0da74cdc51c06d5e5e68a6d3"
+        },
+        "skillId": "6aeff7afd42881918c6c233e586147aa",
+        "note": "Core documents match the reconciled saved skill exactly. The package keeps authored agent metadata; personal storage adds host UI metadata."
+      },
+      "verification": {
+        "hubContractTests": {
+          "passed": 138,
+          "failed": 0,
+          "skipped": 0
+        },
+        "syntheticDocumentResponses": {
+          "cases": 7,
+          "reviewed": 7,
+          "realUserDocument": false
+        },
+        "liveSubmissionTested": false
+      },
+      "note": "Generic router, task, routine and CLI implementations preserved. Added host semantic guidance, back-links and current-menu coordination. Synthetic interpretation and local contracts do not prove legal accuracy on unseen documents, live submission, reminder delivery or automatic refresh in all conversations."
+    },
+    {
+      "version": "1.34.28",
+      "source": "Private plugin billing integration from current verified release",
+      "baseReleaseId": "pluginrel_6aeff83109608191a8e759a36556daaf",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "tests/billing.test.mjs"
+      ],
+      "newCapability": "billing",
+      "newSkill": "jh-cheongguseo-biseo",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router/task/routine logic preserved. Host skill performs evidence reasoning; local cashflow/report helpers do not access bank accounts or execute cancellations. Publication and live usage require separate receipts."
+    },
+    {
+      "version": "1.34.30",
+      "source": "Private personal skill jh-daebiseo and verified current plugin overlay",
+      "baseReleaseId": "pluginrel_6af008117ea081919c96d9ec312f48d1",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "scripts/router.mjs",
+        "tests/contingency.test.mjs"
+      ],
+      "newCapability": "contingency",
+      "privateSkillCommit": "1b046786afe50a72ffaa5f0df86aab246e899444",
+      "remoteRepositoryUpdated": false,
+      "note": "Private skill source synchronized separately; no server deployment or live reservation test."
+    },
+    {
+      "version": "1.34.31",
+      "source": "Weather integration reconciled with current private plugin release",
+      "baseReleaseId": "pluginrel_6af008baa74881918e99791f08c43dd8",
+      "newCapability": "weather",
+      "newSkill": "jh-nalssibiseo",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "scripts/router.mjs",
+        "tests/weather.test.mjs"
+      ],
+      "remoteRepositoryUpdated": false,
+      "note": "Preserves nature/geology and contingency integration. Combines current weather relevance with existing disruption handling; task/routine persistence and external execution unchanged."
+    },
+    {
+      "version": "1.34.32",
+      "source": "Private plugin sports extension of existing nostalgia capability",
+      "baseReleaseId": "pluginrel_6af00970b57c8191ae421aecc989ff83",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md"
+      ],
+      "updatedCapabilities": [
+        "nostalgia",
+        "news"
+      ],
+      "remoteRepositoryUpdated": false,
+      "note": "Host semantic guidance distinguishes matches and records from incident investigations. Existing capability IDs, router, task/routine code, App/MCP configuration and action rights are retained. Publication, live sports lookup and final child integration require separate verification."
+    },
+    {
+      "version": "1.34.33",
+      "source": "Private plugin art fashion design architecture expansion",
+      "baseReleaseId": "pluginrel_6af009f8b7e48191a3418019f35c1319",
+      "sourceRepository": "uro31821-lab/playwright-mcp-render-mucsckil",
+      "sourceBranch": "jh-geubiseo-expansion-20261108",
+      "sourceDirectory": "host-geubiseo-expansion-20261108/plugin-overlay",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/runtime-source.json",
+        "references/scenarios.json",
+        "tests/art-expansion.test.mjs"
+      ],
+      "note": "Package source overlay; commit, publication and source readback are separate receipts. Routing-contract tests do not prove photo-identification or natural-language accuracy."
+    },
+    {
+      "version": "1.34.36",
+      "baseReleaseId": "pluginrel_6af00c5a67748191a4ec511182133775",
+      "source": "Saved preparation skill and current private plugin overlay",
+      "newCapability": "preparation",
+      "newSkill": "jh-junbibiseo",
+      "changedPaths": [
+        "skills/jh-assistant-hub/references/capabilities.json",
+        "skills/jh-assistant-hub/scripts/router.mjs",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-assistant-hub/references/host-flow.md",
+        "skills/jh-assistant-hub/tests/preparation.test.mjs"
+      ],
+      "remoteRepositoryUpdated": false,
+      "note": "Existing task/routine implementations, App/MCP identity and all default prompts preserved. Local contracts and saved source are distinct from live external task completion."
+    },
+    {
+      "version": "1.34.38",
+      "baseReleaseId": "pluginrel_6af00e94adec8191962b0467f05f9fff",
+      "source": "Preparation input and event selection refinement",
+      "updatedCapabilities": [
+        "preparation"
+      ],
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/runtime-source.json"
+      ],
+      "note": "Text or speech supplied to host is enough; optional screenshots/files share one intake. Selected-event isolation and corrections preserve provenance. Existing runtime unchanged; no live event execution."
+    },
+    {
+      "version": "1.34.44",
+      "source": "Verified current private plugin plus saved jh-biseo-manager personal skill",
+      "baseReleaseId": "pluginrel_6af01ef4e6d08191b2f7fe07187b5dfc",
+      "newCapability": "assistant_management",
+      "newSkill": "jh-biseo-manager",
+      "changedPaths": [
+        "SKILL.md",
+        "references/host-flow.md",
+        "references/capabilities.json",
+        "tests/manager.test.mjs",
+        "scripts/cli.mjs"
+      ],
+      "personalSkillCommit": "56a60b2097222e1b08bac85578f3635ec8010317",
+      "remoteRepositoryUpdated": false,
+      "verification": {
+        "localContractTests": {
+          "passed": 197,
+          "failed": 0,
+          "skipped": 0
+        },
+        "hostClickUi": "not_run",
+        "crossThreadPersistentReadback": "not_run",
+        "newExternalExecutions": false
+      },
+      "note": "Existing router/tasks/routines retained. CLI adds a read-only manager view using original task validation and listing; no third ledger. Video guidance reviewed from actual English auto captions; playback not performed. Registration and local contracts do not prove live button rendering, all-chat refresh, or external completion."
+    },
+    {
+      "version": "1.34.67",
+      "source": "Assistant management registry and history integration",
+      "baseReleaseId": "pluginrel_6af099a360b88191a8ac45a16416813e",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/scenarios.json",
+        "tests/history-integration.test.mjs"
+      ],
+      "newCapability": "history",
+      "remoteRepositoryUpdated": false,
+      "note": "Existing router/task engine retained. Package hashes identify current files; 217 related contract/regression tests passed. This is not evidence of natural-language host UI or cross-chat live resume."
+    },
+    {
+      "version": "1.34.70",
+      "source": "Owned private plugin retirement and manager continuation update",
+      "baseReleaseId": "pluginrel_6af1285118188191aac1b683d6e7b56c",
+      "changedPaths": [
+        "SKILL.md",
+        "references/capabilities.json",
+        "references/host-flow.md",
+        "references/runtime-source.json",
+        "references/scenarios.json",
+        "scripts/cli.mjs",
+        "scripts/router.mjs",
+        "tests/continuation-integration.test.mjs",
+        "tests/gongmun-biseo.test.mjs",
+        "tests/inbiseo.test.mjs"
+      ],
+      "removedCapabilities": [
+        "gemini"
+      ],
+      "addedOperation": "manager.continue",
+      "remoteRepositoryUpdated": false,
+      "verification": {
+        "affectedNodeTestsPassed": 247,
+        "affectedNodeTestsFailed": 0,
+        "targetedSyntheticDefectsRechecked": 2,
+        "actualCurrentTaskPersistedAndReadBack": true,
+        "nativeClickUi": "not_run",
+        "liveOtherUserConversationResume": "not_run"
+      },
+      "note": "Packaged source verification and one actual current task save/readback. Synthetic transitions do not prove native click rendering or live other-conversation resume. Assistant exclusions are scoped to the current task, not global rules."
+    },
+    {
+      "version": "1.34.88",
+      "source": "Current private plugin with saved government-services specialist",
+      "baseReleaseId": "pluginrel_6af2dac6e5288191b33f65dca64d8332",
+      "newCapability": "government_services",
+      "newSkill": "jh-gwanbiseo",
+      "personalSkillCommit": "0057e468fbff78f893e8078ce90735a21b4bf38e",
+      "remoteRepositoryUpdated": false,
+      "changedPaths": [
+        "plugin.json",
+        ".codex-plugin/plugin.json",
+        "skills/jh-assistant-hub/references/capabilities.json",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-natural-assistant-routing/SKILL.md",
+        "skills/jh-natural-assistant-routing/references/routing-map.json",
+        "skills/jh-service-routing-boundaries/SKILL.md",
+        "skills/jh-service-routing-boundaries/references/domain-ownership.json",
+        "skills/jh-gongmun-biseo/SKILL.md",
+        "skills/jh-assistant-hub/references/host-flow.md",
+        "skills/jh-assistant-hub/references/scenarios.json",
+        "skills/jh-assistant-ops-board/references/status-registry.json",
+        "skills/jh-natural-assistant-routing/tests/routing-map.test.mjs",
+        "skills/jh-gwanbiseo/SKILL.md",
+        "skills/jh-gwanbiseo/references/handoff.md",
+        "skills/jh-gwanbiseo/references/services.md",
+        "skills/jh-gwanbiseo/references/workflow.md",
+        "skills/jh-gwanbiseo/agents/openai.yaml",
+        "skills/jh-gwanbiseo/tests/test_case_tools.py",
+        "skills/jh-gwanbiseo/scripts/case_tools.py",
+        "skills/jh-gwanbiseo/references/runtime.md",
+        "skills/jh-assistant-hub/tests/government.test.mjs"
+      ],
+      "fileHashes": {
+        "plugin.json": "5d3144738d4dccd1b6591ab0c884fae8580f452b23485d29f66f320bf70500ac",
+        ".codex-plugin/plugin.json": "10235936049e72956c5e508f2d6c50ffa711bc8029da13393351076a74c23e4e",
+        "skills/jh-assistant-hub/references/capabilities.json": "569b0e75b9fe93bfcba212a616a7674e786b2667ee13f981e08927a02876889f",
+        "skills/jh-assistant-hub/SKILL.md": "4cf789e8b2cac273e441211aaad3cd75d4b67c547c92a1b665c233f4fcb59eee",
+        "skills/jh-natural-assistant-routing/SKILL.md": "42fdc071b8dd43f44673466cec68d2efd093fc8caa115b2468bddaf56879d016",
+        "skills/jh-natural-assistant-routing/references/routing-map.json": "5641e18ce484c968de58c951721250563aea4ce8a00b6ec476515201b17aa173",
+        "skills/jh-service-routing-boundaries/SKILL.md": "2e531191ad458224cd9413cd652ddeba6427bf382eb75c92bf2063ebc2ca3963",
+        "skills/jh-service-routing-boundaries/references/domain-ownership.json": "fd3caf460752f9910d5ea432d1a86eea723387908fa5af1ce776053d83aad984",
+        "skills/jh-gongmun-biseo/SKILL.md": "90ab4f1276fc0ea0bf83e9bfeeeac2dd690b89a496c5ce9420088596d131405b",
+        "skills/jh-assistant-hub/references/host-flow.md": "6fb422bbb29e2215b1f4b53708d96cde8a60bbd635a2c250c166702d87dfc691",
+        "skills/jh-assistant-hub/references/scenarios.json": "ceece1420ad8b4d19b16b685dfc84e9a6cd62f69fbe8336478c48b6520147ad6",
+        "skills/jh-assistant-ops-board/references/status-registry.json": "451e095a08df9b9013fcdc93f3a54f2398426ee6ee1b86e97ee3c1307a464e63",
+        "skills/jh-natural-assistant-routing/tests/routing-map.test.mjs": "ae052c66d9b1e92c3caf10fa942860a1d446c1f44f00026388537500b34ab37d",
+        "skills/jh-gwanbiseo/SKILL.md": "8d3fc84c7e6e2e55123b0e5168957471b27e09ddd2d650b571389b64f6aaad31",
+        "skills/jh-gwanbiseo/references/handoff.md": "649775f9a840f7c995584d2437e26019118699fbab328dbf0e33485471188320",
+        "skills/jh-gwanbiseo/references/services.md": "3481c663bb9c9f25c0ebc90c1b265b95f6855c9e6b9301f700039e5b4545ef12",
+        "skills/jh-gwanbiseo/references/workflow.md": "c3fefb396b6db2354aac22098d404cb95818539a8a7627309db25c6d1027ed51",
+        "skills/jh-gwanbiseo/agents/openai.yaml": "bcccf45420057c687bb148f8c898394ad8fca34f44d5d8356d26f326bacd87a2",
+        "skills/jh-gwanbiseo/tests/test_case_tools.py": "61fbe55e5394d7c4976a8fcd2de935d26de2e710e1127f568a546dc297a28e7f",
+        "skills/jh-gwanbiseo/scripts/case_tools.py": "7f44eeaa1c22042da77b682f6fb01ff39c40cbd18a9dd3a104603638aae57dad",
+        "skills/jh-gwanbiseo/references/runtime.md": "0e476d1b0cf2abfb8110cc8b5e1b138ce073d980aa1aef3cf9ab02fd93a872de",
+        "skills/jh-assistant-hub/tests/government.test.mjs": "ded9175d19706a26f014977dddc104ec09e5f304f5eb78b3187d2ee51f8f8d9c"
+      },
+      "verification": {
+        "hubAndRoutingTests": {
+          "passed": 233,
+          "failed": 0,
+          "skipped": 0
+        },
+        "documentAndEvidenceTests": {
+          "passed": 24,
+          "failed": 0,
+          "skipped": 0
+        },
+        "syntheticResponseCasesReviewed": 2,
+        "cliSmoke": "passed",
+        "liveAuthenticatedIssuance": "not_run",
+        "liveSubmission": "not_run"
+      },
+      "note": "Preserves all default prompts, presentation, App/MCP binding, shared router/task/routine logic and existing execution permissions. Source registration is not live service completion."
+    },
+    {
+      "version": "1.34.91",
+      "source": "Current owned private JH plugin plus saved repair specialist",
+      "baseReleaseId": "pluginrel_6af3b3fa837c8191b2b56985ca1becc4",
+      "newCapability": "repair",
+      "newSkill": "jh-suribiseo",
+      "personalSkillCommit": "7f1e235f1fa6fe90323405618ede2a8468b887b2",
+      "remoteRepositoryUpdated": false,
+      "changedPaths": [
+        "plugin.json",
+        ".codex-plugin/plugin.json",
+        "skills/jh-assistant-hub/references/capabilities.json",
+        "skills/jh-natural-assistant-routing/references/routing-map.json",
+        "skills/jh-service-routing-boundaries/references/domain-ownership.json",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-natural-assistant-routing/SKILL.md",
+        "skills/jh-service-routing-boundaries/SKILL.md",
+        "skills/jh-secure-live/SKILL.md",
+        "skills/jh-ideabiseo/SKILL.md",
+        "skills/jh-assistant-hub/references/host-flow.md",
+        "skills/jh-assistant-hub/references/scenarios.json",
+        "skills/jh-assistant-ops-board/references/status-registry.json",
+        "skills/jh-natural-assistant-routing/tests/routing-map.test.mjs",
+        "skills/jh-suribiseo/SKILL.md",
+        "skills/jh-suribiseo/agents/openai.yaml",
+        "skills/jh-suribiseo/tests/test_repair.py",
+        "skills/jh-suribiseo/references/workflow.md",
+        "skills/jh-suribiseo/references/providers-and-evidence.md",
+        "skills/jh-suribiseo/references/runtime.md",
+        "skills/jh-suribiseo/scripts/repair_tools.py",
+        "skills/jh-assistant-hub/tests/repair.test.mjs",
+        "skills/jh-assistant-hub/references/runtime-source.json"
+      ],
+      "verification": {
+        "hubAndRouting": {
+          "passed": 241,
+          "failed": 0,
+          "skipped": 0
+        },
+        "repairCalculationsAndSecurity": {
+          "passed": 28,
+          "failed": 0,
+          "skipped": 0
+        },
+        "syntheticResponseCasesReviewed": 5,
+        "officialPublicSourcePagesChecked": 3,
+        "liveContact": "not_run",
+        "liveBooking": "not_run",
+        "physicalRepair": "not_run"
+      },
+      "note": "Current-region/Jeju priority with service fit, source freshness, estimate omissions, schedule scope/deadline and user-report provenance. Existing App/MCP identity, prompts, shared router/tasks/routines and security permissions preserved. Contract tests are not live vendor availability, calls, bookings or repair success."
+    },
+    {
+      "version": "1.34.93",
+      "source": "Verified current owned private plugin plus four-role routing law",
+      "baseReleaseId": "pluginrel_6af3f70410188191810655a9fb770f1c",
+      "changedPaths": [
+        ".codex-plugin/plugin.json",
+        "plugin.json",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-assistant-hub/references/assistant-attribution.md",
+        "skills/jh-assistant-hub/references/host-flow.md",
+        "skills/jh-assistant-hub/references/routing-law.md",
+        "skills/jh-assistant-hub/references/runtime-source.json",
+        "skills/jh-assistant-hub/scripts/cli.mjs",
+        "skills/jh-assistant-hub/scripts/router.mjs",
+        "skills/jh-assistant-hub/scripts/routing-contract.mjs",
+        "skills/jh-assistant-hub/tests/account-inventory.test.mjs",
+        "skills/jh-assistant-hub/tests/art-expansion.test.mjs",
+        "skills/jh-assistant-hub/tests/billing.test.mjs",
+        "skills/jh-assistant-hub/tests/continuation-integration.test.mjs",
+        "skills/jh-assistant-hub/tests/ddanbiseo.test.mjs",
+        "skills/jh-assistant-hub/tests/gongmun-biseo.test.mjs",
+        "skills/jh-assistant-hub/tests/government.test.mjs",
+        "skills/jh-assistant-hub/tests/history-integration.test.mjs",
+        "skills/jh-assistant-hub/tests/idea.test.mjs",
+        "skills/jh-assistant-hub/tests/inbiseo.test.mjs",
+        "skills/jh-assistant-hub/tests/insurance.test.mjs",
+        "skills/jh-assistant-hub/tests/jabiseo-geology.test.mjs",
+        "skills/jh-assistant-hub/tests/jabiseo.test.mjs",
+        "skills/jh-assistant-hub/tests/manager.test.mjs",
+        "skills/jh-assistant-hub/tests/preparation.test.mjs",
+        "skills/jh-assistant-hub/tests/repair.test.mjs",
+        "skills/jh-assistant-hub/tests/router.test.mjs",
+        "skills/jh-assistant-hub/tests/routing-contract.test.mjs",
+        "skills/jh-assistant-hub/tests/tongbiseo.test.mjs",
+        "skills/jh-assistant-hub/tests/video.test.mjs",
+        "skills/jh-assistant-hub/tests/weather.test.mjs",
+        "skills/jh-biseo-manager/SKILL.md",
+        "skills/jh-biseo-manager/references/host-flow.md",
+        "skills/jh-natural-assistant-routing/SKILL.md",
+        "skills/jh-natural-assistant-routing/references/routing-map.json",
+        "skills/jh-natural-assistant-routing/tests/routing-map.test.mjs",
+        "skills/jh-optional-assistant-suggestions/SKILL.md",
+        "skills/jh-secure-live/SKILL.md"
+      ],
+      "remoteRepositoryUpdated": false,
+      "routingLaw": "JH-ROUTING-LAW-1.0",
+      "verification": {
+        "hubContracts": {
+          "passed": 254,
+          "failed": 0,
+          "skipped": 0,
+          "includesNewRoutingContracts": 31
+        },
+        "routingMapAndBoundaryChecks": {
+          "passed": 23,
+          "failed": 0
+        },
+        "independentCorrectionChecks": {
+          "passed": 26,
+          "failed": 0
+        },
+        "freshContextScenarioReview": {
+          "cases": 3,
+          "realUserExecution": false
+        },
+        "liveClickUi": "not_run",
+        "allExistingChatRefresh": "not_asserted"
+      },
+      "note": "All reply branches now receive primary, collaborator, required-attachment and optional roles. Required links and actual attribution are checked against the response; optional request evidence is bound to the current task and menu. Router-map IDs match the current 41-capability catalog. Interpreted-intent and response-contract checks do not prove live external execution or future host compliance."
+    },
+    {
+      "version": "1.34.95",
+      "source": "Verified current owned private plugin with preserved assistant workflow integration",
+      "baseReleaseId": "pluginrel_6af41c3c864081919696ea51f322d619",
+      "changedPaths": [
+        ".codex-plugin/plugin.json",
+        "plugin.json",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-assistant-hub/references/host-flow.md",
+        "skills/jh-assistant-hub/references/purchase-workflow.md",
+        "skills/jh-assistant-hub/references/runtime-source.json",
+        "skills/jh-assistant-hub/references/shared-explanation.md",
+        "skills/jh-assistant-hub/references/workflow-groups.json",
+        "skills/jh-assistant-hub/references/workflow-integration.md",
+        "skills/jh-assistant-hub/scripts/cli.mjs",
+        "skills/jh-assistant-hub/scripts/router.mjs",
+        "skills/jh-assistant-hub/scripts/workflows.mjs",
+        "skills/jh-assistant-hub/tests/workflows.test.mjs",
+        "skills/jh-babiseo/SKILL.md",
+        "skills/jh-biseo-manager/SKILL.md",
+        "skills/jh-biseo-manager/references/combinations.md",
+        "skills/jh-biseo-manager/references/consolidation-plan.md",
+        "skills/jh-biseo-manager/references/feature-preservation.json",
+        "skills/jh-biseo-manager/references/feature-preservation.md",
+        "skills/jh-biseo-manager/references/host-flow.md",
+        "skills/jh-biseo-manager/scripts/check_feature_preservation.py",
+        "skills/jh-ddanbiseo/SKILL.md",
+        "skills/jh-gongbiseo/SKILL.md",
+        "skills/jh-natural-assistant-routing/SKILL.md",
+        "skills/jh-optional-assistant-suggestions/SKILL.md",
+        "skills/jh-secure-live/SKILL.md",
+        "skills/jh-seolbiseo/SKILL.md",
+        "skills/jh-shoppingbiseo/SKILL.md"
+      ],
+      "remoteRepositoryUpdated": false,
+      "newCapability": null,
+      "workflowGroups": [
+        "assistance",
+        "purchase",
+        "documents",
+        "expenses",
+        "outing",
+        "reading"
+      ],
+      "verification": {
+        "hubContracts": {
+          "passed": 282,
+          "failed": 0,
+          "existing": 254,
+          "newWorkflowCases": 28
+        },
+        "routingMap": {
+          "passed": 3,
+          "failed": 0
+        },
+        "preservation": {
+          "catalogEntries": 41,
+          "rows": 41,
+          "protectedFiles": 459,
+          "specialistBodies": 5
+        },
+        "independentBoundaryReview": "passed",
+        "freshContextScenarioReview": {
+          "cases": 3,
+          "passed": 3,
+          "realUserExecution": false,
+          "clarificationApplied": "guide supplemental help versus actual workflow advance"
+        },
+        "liveExternalExecution": "not_run",
+        "liveClickUi": "not_run",
+        "allExistingChatRefresh": "not_asserted"
+      },
+      "note": "Preserves existing assistant IDs, names, specialist bodies, task/routine formats and execution permissions. Workflow plans distinguish supplement, saved handoff, and return. Source packaging is not publication, persistence, real-user choice or external execution evidence."
+    },
+    {
+      "version": "1.34.96",
+      "source": "Verified current owned private plugin with four preserved combination expansions",
+      "baseVersion": "1.34.95",
+      "baseReleaseId": "pluginrel_6af46f974c4c8191a17ce8bee6aa5369",
+      "changedPaths": [
+        ".codex-plugin/plugin.json",
+        "plugin.json",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-assistant-hub/references/combined-workflows.md",
+        "skills/jh-assistant-hub/references/host-flow.md",
+        "skills/jh-assistant-hub/references/runtime-source.json",
+        "skills/jh-assistant-hub/references/workflow-groups.json",
+        "skills/jh-assistant-hub/references/workflow-integration.md",
+        "skills/jh-assistant-hub/tests/workflow-expansion.test.mjs",
+        "skills/jh-assistant-hub/tests/workflows.test.mjs",
+        "skills/jh-biseo-manager/SKILL.md",
+        "skills/jh-biseo-manager/references/combinations.md",
+        "skills/jh-biseo-manager/references/consolidation-plan.md",
+        "skills/jh-biseo-manager/references/feature-preservation.json",
+        "skills/jh-biseo-manager/references/feature-preservation.md",
+        "skills/jh-biseo-manager/references/host-flow.md",
+        "skills/jh-biseo-manager/scripts/check_feature_preservation.py",
+        "skills/jh-chaekbiseo/SKILL.md",
+        "skills/jh-ideabiseo/SKILL.md",
+        "skills/jh-jabiseo/SKILL.md",
+        "skills/jh-jeanbiseo/SKILL.md",
+        "skills/jh-natural-assistant-routing/SKILL.md",
+        "skills/jh-newbiseo-worldview/SKILL.md",
+        "skills/jh-secure-live/SKILL.md",
+        "skills/jh-suribiseo/SKILL.md",
+        "skills/jh-tongbiseo/SKILL.md"
+      ],
+      "remoteRepositoryUpdated": false,
+      "newCapability": null,
+      "workflowGroupsAdded": [
+        "management",
+        "life_solution",
+        "news_data"
+      ],
+      "workflowGroupsExpanded": [
+        "reading"
+      ],
+      "workflowCatalogVersion": "1.1.0",
+      "verification": {
+        "hubContracts": {
+          "passed": 302,
+          "failed": 0,
+          "skipped": 0,
+          "existing": 282,
+          "newExpansionCases": 20
+        },
+        "routingMap": {
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        },
+        "preservation": {
+          "catalogEntries": 41,
+          "rows": 41,
+          "groups": 9,
+          "baselinePublicFiles": 489,
+          "protectedFiles": 464,
+          "specialistBodies": 7,
+          "reviewedExistingInfrastructure": 18,
+          "reviewedNewFiles": 2
+        },
+        "changedSkillValidation": {
+          "passed": 11,
+          "failed": 0
+        },
+        "changedMarkdownLinks": {
+          "files": 18,
+          "broken": 0
+        },
+        "freshContextScenarioReview": {
+          "cases": 6,
+          "realUserExecution": false,
+          "concreteRemainingIssues": 0,
+          "clarificationsVerified": [
+            "first numeric news question is led by statistics",
+            "current-task proposal scope is not trial or write authorization"
+          ]
+        },
+        "liveExternalExecution": "not_run",
+        "liveClickUi": "not_run",
+        "allExistingChatRefresh": "not_asserted"
+      },
+      "note": "Existing router, workflow, task and routine runtime files remain byte-identical. The existing reading ID and all old stages remain; standalone statistics and nature remain available. Management improvement can supplement an existing domain task without taking it over. Source tests and this record are not publication, actual saved-state readback, live external execution or future host compliance receipts."
+    },
+    {
+      "version": "1.34.97",
+      "source": "Verified current owned private plugin with preserved development composition and shared request-only evidence",
+      "baseVersion": "1.34.96",
+      "baseReleaseId": "pluginrel_6af47f7378c88191821e8b585e5ce21e",
+      "changedPaths": [
+        ".codex-plugin/plugin.json",
+        "plugin.json",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-assistant-hub/references/host-flow.md",
+        "skills/jh-assistant-hub/references/runtime-source.json",
+        "skills/jh-assistant-hub/references/shared-research-development.md",
+        "skills/jh-assistant-hub/references/workflow-groups.json",
+        "skills/jh-assistant-hub/references/workflow-integration.md",
+        "skills/jh-assistant-hub/scripts/workflows.mjs",
+        "skills/jh-assistant-hub/tests/shared-flow.test.mjs",
+        "skills/jh-assistant-hub/tests/workflows.test.mjs",
+        "skills/jh-biseo-manager/SKILL.md",
+        "skills/jh-biseo-manager/references/combinations.md",
+        "skills/jh-biseo-manager/references/consolidation-plan.md",
+        "skills/jh-biseo-manager/references/feature-preservation.json",
+        "skills/jh-biseo-manager/references/feature-preservation.md",
+        "skills/jh-biseo-manager/references/host-flow.md",
+        "skills/jh-biseo-manager/scripts/check_feature_preservation.py",
+        "skills/jh-dev-toolkit/SKILL.md",
+        "skills/jh-gongbiseo/SKILL.md",
+        "skills/jh-junbibiseo/SKILL.md",
+        "skills/jh-natural-assistant-routing/SKILL.md",
+        "skills/jh-newbiseo-worldview/SKILL.md",
+        "skills/jh-open-source-scout/SKILL.md",
+        "skills/jh-optional-assistant-suggestions/SKILL.md",
+        "skills/jh-secure-live/SKILL.md",
+        "skills/jh-tongbiseo/SKILL.md"
+      ],
+      "remoteRepositoryUpdated": false,
+      "newCapability": null,
+      "workflowGroups": 9,
+      "navigationCompositions": [
+        "creation"
+      ],
+      "sharedEvidenceStages": [
+        "assistance/verify_evidence",
+        "news_data/verify_evidence"
+      ],
+      "workflowCatalogVersion": "1.2.0",
+      "verification": {
+        "hubContracts": {
+          "passed": 325,
+          "failed": 0,
+          "skipped": 0,
+          "existing": 302,
+          "newSharedFlowCases": 23
+        },
+        "routingMap": {
+          "passed": 3,
+          "failed": 0,
+          "skipped": 0
+        },
+        "preservation": {
+          "catalogEntries": 41,
+          "rows": 41,
+          "groups": 9,
+          "compositions": 1,
+          "baselinePublicFiles": 491,
+          "protectedFiles": 466,
+          "specialistBodies": 6,
+          "reviewedExistingInfrastructure": 19,
+          "reviewedNewFiles": 2,
+          "negativeCheckerCasesDetected": 5
+        },
+        "changedSkillValidation": {
+          "passed": 11,
+          "failed": 0
+        },
+        "changedMarkdownLinks": {
+          "files": 18,
+          "broken": 0
+        },
+        "freshContextScenarioReview": {
+          "cases": 6,
+          "realUserExecution": false,
+          "concreteRemainingIssues": 0,
+          "clarificationsVerified": [
+            "general evidence requests versus explicitly requested Perplexity service"
+          ]
+        },
+        "liveExternalResearch": "not_run",
+        "liveClickUi": "not_run",
+        "allExistingChatRefresh": "not_asserted"
+      },
+      "note": "The existing development, continuation, task and routine execution paths remain unchanged. workflows.mjs only exposes and validates a navigation composition; it does not execute creation as a generic workflow. General evidence requests preserve provider-specific availability and cost boundaries. Fixture continuity and response contracts do not prove live research, actual source correction, publication, saved-state readback or future host compliance."
+    },
+    {
+      "version": "1.34.108",
+      "date": "2026-11-14",
+      "source": "Current owned plugin; recurring food and product video-attachment omission correction",
+      "baseVersion": "1.34.107",
+      "baseReleaseId": "pluginrel_6af6c703c8b0819195706c1259472239",
+      "changedPaths": [
+        ".codex-plugin/plugin.json",
+        "plugin.json",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-assistant-hub/references/host-flow.md",
+        "skills/jh-assistant-hub/references/routing-law.md",
+        "skills/jh-assistant-hub/references/runtime-source.json",
+        "skills/jh-assistant-hub/scripts/routing-contract.mjs",
+        "skills/jh-assistant-hub/tests/routing-contract.test.mjs",
+        "skills/jh-assistant-hub/tests/video-required-output.test.mjs",
+        "skills/jh-meokbiseo/SKILL.md",
+        "skills/jh-natural-assistant-routing/SKILL.md",
+        "skills/jh-secure-live/SKILL.md",
+        "skills/jh-shoppingbiseo/SKILL.md",
+        "skills/jh-yeongbiseo/SKILL.md",
+        "skills/jh-yeongbiseo/references/answer-links.md"
+      ],
+      "remoteRepositoryUpdated": false,
+      "newCapability": null,
+      "scope": [
+        "food/shopping direct skill entry and final-answer handoff",
+        "visible video-section URL/status and known navigation-page rejection",
+        "actual speaker-segment boundary within claimed video section"
+      ],
+      "verification": {
+        "hub": {
+          "passed": 357,
+          "failed": 0,
+          "skipped": 0
+        },
+        "routingMap": {
+          "passed": 3,
+          "failed": 0,
+          "reusedSameInput": true
+        },
+        "newRegressionCases": 25,
+        "beforeFixObservedFalsePasses": 8,
+        "additionalObservedSpeakerBoundaryFalsePasses": 2,
+        "skillValidation": {
+          "passed": 6,
+          "failed": 0
+        },
+        "brokenRelativeMarkdownLinks": 0,
+        "independentInstructionReview": "passed after clarifying unavailable attribution and general primary",
+        "offlineForwardExamples": {
+          "count": 2,
+          "foodNoMatchingVideo": "visible honest outcome",
+          "shoppingShortSelection": "retained video section and original purchase selection",
+          "actualSearch": false
+        }
+      },
+      "preserved": [
+        "capabilities IDs and labels",
+        "original router/task/routine execution",
+        "current menu and exclusions/STOP",
+        "Nov12 video platform preferences",
+        "no extra credits and no video creation",
+        "unrelated source and private data"
+      ],
+      "limits": [
+        "Actual omissions in other chats were user-reported; those chats checker calls were not observed.",
+        "Source tests do not enforce that every future host invokes the checker.",
+        "Structural acceptance does not verify a URL content, public accessibility, relevance or playback."
+      ],
+      "note": "The food skill previously lacked a direct video handoff. Shopping completion text could be read as stopping before required attachments. Current skill entry pointers and narrowly scoped response checks now require visible outcomes without inventing video availability or external success."
+    },
+    {
+      "version": "1.34.110",
+      "date": "2026-11-15",
+      "source": "Current owned plugin; user-confirmed assistant assignment and integration runbook",
+      "baseVersion": "1.34.109",
+      "baseReleaseId": "pluginrel_6af9bac3bb208191b49df3d0798416d2",
+      "changedPaths": [
+        ".codex-plugin/plugin.json",
+        "plugin.json",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-assistant-hub/references/runtime-source.json",
+        "skills/jh-assistant-ops-board/SKILL.md",
+        "skills/jh-biseo-manager/SKILL.md",
+        "skills/jh-biseo-manager/references/host-flow.md",
+        "skills/jh-biseo-manager/references/integration-runbook.md",
+        "skills/jh-secure-live/SKILL.md"
+      ],
+      "remoteRepositoryUpdated": false,
+      "newCapability": null,
+      "runbook": {
+        "id": "JH-ASSISTANT-ASSIGNMENT-INTEGRATION",
+        "version": "1.0.0",
+        "sha256": "0b2f6cc67b33c7229c4b54a8df0094f3057737f7487ae49470979f580a7eee8e",
+        "assignmentExamples": 18,
+        "commonChecks": 10
+      },
+      "verification": {
+        "documentAndEntryLinks": {
+          "checked": 110,
+          "broken": 0
+        },
+        "changedSkillFrontmatter": {
+          "passed": 4,
+          "failed": 0
+        },
+        "offlineAssignmentExamples": {
+          "passed": 4,
+          "failed": 0,
+          "realServiceCalls": false
+        },
+        "existingCodeResults": {
+          "reusedForIdenticalRuntimeAndTests": true,
+          "observedOn": "2026-11-15",
+          "nodeCases": 381,
+          "videoHandoffCases": 23,
+          "fullSuiteRepeated": false
+        },
+        "savedSourceReadback": "recorded separately after publication"
+      },
+      "note": "Adds a shared runbook and entry pointers only. Current routing, task, continuation, workflow and video runtime remain unchanged. Assignment plans, actual contributions, source/code checks, saved readback and live outcomes remain distinct; no background schedule or new state ledger."
+    },
+    {
+      "version": "1.34.111",
+      "date": "2026-11-15",
+      "source": "Current owned plugin; user-confirmed visible links, existing photo taste continuation, and feature-preserving consolidation checks",
+      "baseVersion": "1.34.110",
+      "baseReleaseId": "pluginrel_6af9c1af2a7081918e3ccc3ce39acfd5",
+      "changedPaths": [
+        ".codex-plugin/plugin.json",
+        "plugin.json",
+        "skills/jh-assistant-hub/SKILL.md",
+        "skills/jh-assistant-hub/references/host-flow.md",
+        "skills/jh-assistant-hub/references/routing-law.md",
+        "skills/jh-assistant-hub/references/runtime-source.json",
+        "skills/jh-assistant-hub/scripts/response-links.mjs",
+        "skills/jh-assistant-hub/scripts/routing-contract.mjs",
+        "skills/jh-assistant-hub/tests/response-links.test.mjs",
+        "skills/jh-assistant-hub/tests/routing-contract.test.mjs",
+        "skills/jh-assistant-hub/tests/video-required-output.test.mjs",
+        "skills/jh-biseo-manager/SKILL.md",
+        "skills/jh-biseo-manager/references/integration-runbook.md",
+        "skills/jh-ebiseo-assist/SKILL.md",
+        "skills/jh-natural-assistant-routing/SKILL.md",
+        "skills/jh-photo-taste/SKILL.md",
+        "skills/jh-photo-taste/references/host-flow.md",
+        "skills/jh-pyeonbiseo/SKILL.md",
+        "skills/jh-secure-live/SKILL.md",
+        "skills/jh-yeongbiseo/SKILL.md",
+        "skills/jh-yeongbiseo/references/answer-links.md"
+      ],
+      "remoteRepositoryUpdated": false,
+      "newCapability": null,
+      "runbook": {
+        "id": "JH-ASSISTANT-ASSIGNMENT-INTEGRATION",
+        "version": "1.0.1",
+        "sha256": "ea18ef6d3488b1f31b678fa6bcd357150f05a4a81569422bb1ad21af43d565d4",
+        "assignmentExamples": 19,
+        "commonChecks": 10
+      },
+      "verification": {
+        "integratedRouterManagerNaturalRouting": {
+          "tests": 400,
+          "pass": 400,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "unchangedPhotoTasteRuntime": {
+          "tests": 28,
+          "pass": 28,
+          "fail": 0,
+          "cancelled": 0,
+          "skipped": 0,
+          "todo": 0
+        },
+        "relativeDocumentLinks": {
+          "checked": 181,
+          "broken": 0
+        },
+        "changedSkillFrontmatter": {
+          "passed": 8,
+          "failed": 0
+        },
+        "savedSourceReadback": "recorded separately after publication"
+      },
+      "scope": [
+        "actual clickable link destinations and source/video obligations",
+        "current-image positive feedback to existing feature-only taste store",
+        "existing assistant consolidation preservation and handoff checklist"
+      ],
+      "preserved": [
+        "existing capability IDs and names",
+        "task/routine storage and effects",
+        "photo taste runtime and private state identity",
+        "App/MCP metadata, phone APK, settings, camera and audio execution boundaries"
+      ],
+      "limits": [
+        "Host must actually invoke the response checker; source tests do not prove all-chat activation.",
+        "Clickable structure does not establish external access, relevance or video playback.",
+        "No new actual image preference was saved; existing private Drive state metadata only was confirmed."
+      ],
+      "note": "No new assistant, state ledger, scheduled automation, raw-image collection or phone operation. User-requested matching-image approval is linked to existing textual feature storage; ordinary menu selection remains separate."
+    },
+    {
+      "version": "1.34.112",
+      "baseReleaseId": "pluginrel_6af9c9bff86c8191be2c4ee1e893afd4",
+      "source": "Verified P1 development candidate 9c43564d9c9fb9fe5d8e8f90afcaf60f1eec5ca3",
+      "scope": [
+        "stored task workflow planning",
+        "full context continuation",
+        "review-before-handoff",
+        "catalog checks after receipt recovery"
+      ],
+      "verification": {
+        "nodeTestsPassed": 418,
+        "nodeTestsFailed": 0,
+        "nodeTestsSkipped": 0,
+        "nodeVersion": "v24.22.1",
+        "independentCliProcesses": 28,
+        "deviceE2E": "NOT_RUN"
+      },
+      "remoteRepositoryUpdated": false,
+      "note": "Publication and saved-source readback are separate receipts. No Android/server change or new scheduler."
+    },
+    {
+      "version": "1.34.113",
+      "baseReleaseId": "pluginrel_6afb27c5102c81919a87625cfc56c16b",
+      "source": "Assignment/integration runbook audit 2026-11-17",
+      "changedPaths": [
+        "SKILL.md"
+      ],
+      "relatedPluginPaths": [
+        "skills/jh-biseo-manager/SKILL.md",
+        "skills/jh-biseo-manager/references/host-flow.md",
+        "skills/jh-biseo-manager/references/integration-runbook.md",
+        "skills/jh-assistant-ops-board/references/status-registry.json",
+        "skills/jh-geubiseo/SKILL.md",
+        "skills/jh-pyeonbiseo/SKILL.md"
+      ],
+      "remoteRepositoryUpdated": false,
+      "newCapability": null,
+      "runbook": {
+        "id": "JH-ASSISTANT-ASSIGNMENT-INTEGRATION",
+        "version": "1.0.2",
+        "sha256": "8393acdcafeb16c8c86ab054aa537ba641b00be450163ba72573d25319d2190d",
+        "assignmentExamples": 20,
+        "commonChecks": 10
+      },
+      "verification": {
+        "current112IntegratedTests": {
+          "passed": 418,
+          "failed": 0,
+          "skipped": 0
+        },
+        "photoTasteRuntimeTests": {
+          "passed": 28,
+          "failed": 0
+        },
+        "normalizedAssignmentCases": {
+          "matched": 25,
+          "differences": 0
+        },
+        "hubRuntimeAndTestsChanged": false
+      },
+      "scope": [
+        "stored-workflow entry in runbook",
+        "unambiguous image preference feature recording",
+        "camera framing versus photo editing",
+        "scoped operational verification states"
+      ],
+      "note": "Published source/readback and actual user-image save are separate evidence. No new capability, ledger, phone operation or scheduling. Private personal manager compatibility changes are saved separately."
+    },
+    {
+      "version": "1.34.117",
+      "baseReleaseId": "pluginrel_6afbbc2f11948191873684198a6989a0",
+      "source": "Merged Pickle and NAVER handoffs using existing distributed-feature route",
+      "changedPaths": [
+        "SKILL.md",
+        "references/distributed-features.md",
+        "scripts/owned-features.mjs",
+        "tests/naver-pickle-integration.test.mjs"
+      ],
+      "newCapability": null,
+      "addedRequestScopedFeatures": [
+        "experience_reviews",
+        "place_context",
+        "reservation_prep",
+        "purchase_handoff",
+        "execution_path"
+      ],
+      "verification": {
+        "nodeTestsPassed": 182,
+        "nodeTestsFailed": 0,
+        "externalServiceE2E": "NOT_RUN",
+        "androidChanged": false
+      },
+      "sourceArchive": {
+        "repository": "uro31821-lab/playwright-mcp-render-mucsckil",
+        "branch": "dev/naver-pickle-integration-20261117",
+        "path": "plugin-overlays/jh-naver-pickle-20261117"
+      },
+      "note": "Existing 42 assistant IDs and 9 workflow groups remain unchanged. Guided reservation and manual ordering retained. Release publication/readback require separate receipt."
+    }
+  ],
+  "automationResultInspection": {
+    "scope": "provider record and current attempt correlation; no external effects",
+    "commonHelper": "scripts/automation_result.py",
+    "consumer": "../jh-yeoldaeeo-biseo/scripts/briefing_import.py",
+    "deliveryStatus": "unknown",
+    "python": "standard library only; existing Python host path",
+    "verification": "18 common tests + 23 briefing-import tests + 16 trading-regression tests passed; actual provider response inspected read-only",
+    "phoneE2E": "BLOCKED_NO_ACTIVE_DEVICE",
+    "p2p3": "not implemented or enabled",
+    "titleValidation": "anchored report headings; reject conflicting dates, quoted/code dates, and mismatched observation day",
+    "consumerSha256": "e465ea6ce2cf4718a4cf8355ae113ef4cfef762e4657ec4b294abdd74ebdfd4f"
+  },
+  "featureDistribution": {
+    "version": "1.34.116",
+    "runbookVersion": "1.0.4",
+    "entry": "existing route/workflow.plan intent.featureNeeds",
+    "scope": "request-scoped ownership and cooperation; current primary retained",
+    "owners": {
+      "result_readback": "current specialist",
+      "task_handoff": "assistant_management",
+      "progress_check": "preparation",
+      "preference_context": "personal",
+      "procedure_support": "guide",
+      "improvement": "suggestion with personal/preparation"
+    },
+    "validation": {
+      "nodePassed": 459,
+      "newReturnTests": 12,
+      "actualCurrentTaskProgress": "Library15/revision30 → manager.continue → preparation → checked return",
+      "phone": "not performed",
+      "externalServiceExecution": "not performed"
+    },
+    "preservation": "current 1.34.114 source; catalog, existing task/workflow/output contracts and existing specialist bodies preserved",
+    "pendingResultFirst": true,
+    "backgroundActivation": false,
+    "newCapabilityIds": [],
+    "returnValidation": "route.check_response featureResults: current source/thread/task/condition/menu, owner-visible summary, evidence or honest blocked/not_used reason",
+    "legacyHelperDeferral": "pending-result deferral also applies to helpers from existing relevance/saved-helper paths"
+  }
+}
