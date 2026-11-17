@@ -19,6 +19,8 @@ export function keepActiveCameraLead(input) {
   const {intent, activeTask, conversationContext: ctx, threadId, sourceRef} = input;
   // All current secure/Tasks continuations are owned by existing router.
   if (!VALID_ROUTABLE.has(intent.kind)) return invalid('EXISTING_ROUTER_OWNS_KIND', input);
+  if (intent.cameraSessionAction === 'END' || ctx?.explicitCameraEnded === true || ctx?.cameraSessionStatus === 'ENDED')
+    return invalid('CAMERA_SESSION_ENDED_BY_USER', input);
   if (activeTask !== null && activeTask !== undefined) return invalid('PERSISTENT_TASK_OWNS_CONTINUITY', input);
   if (!isId(threadId) || !isId(sourceRef)) return invalid('INVALID_CURRENT_BINDING', input);
   // The host must explicitly decide that the user is continuing, not changing
