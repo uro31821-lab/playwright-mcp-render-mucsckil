@@ -1,0 +1,61 @@
+{
+  "recordedAt": "2026-11-17T16:25:36.511+00:00",
+  "status": "UNSIGNED_REVIEW_CANDIDATE_BUILD_PASS",
+  "sourceDigestSha256": "aed68348390ece3ef98dae0b28197543e2648731fd2dcd1bef918dcb1fd94428",
+  "sourceFiles": 588,
+  "tests": {
+    "suites": 150,
+    "tests": 1457,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": {
+    "Warning": 161
+  },
+  "apk": {
+    "filename": "JH217_UNSIGNED.apk",
+    "bytes": 122827567,
+    "sha256": "4eb526fd9768a29a31ee8291dd01aa51739a73bad0fab3ccc15bf560b2238547",
+    "applicationId": "com.koreanlifehub.bridge",
+    "versionCode": 217,
+    "versionNumberFinalized": true,
+    "debuggable": false,
+    "signed": false
+  },
+  "deviceE2E": "NOT_RUN",
+  "installed": false,
+  "productionDeployed": false,
+  "runtimeVerified": false,
+  "offlineBuildVerified": false,
+  "schema": "JH217_CAMERA_SAME_PANE_RELEASE_BUILD_V1",
+  "assembly": {
+    "command": [
+      "--no-daemon",
+      "--max-workers=1",
+      "--console=plain",
+      "--stacktrace",
+      ":app:compileReleaseKotlin",
+      ":app:lintRelease",
+      ":app:testReleaseUnitTest",
+      ":app:assembleRelease"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 318,
+    "jdkVersion": "17.0.21+9",
+    "gradleVersion": "8.11.1",
+    "compileSdk": 36,
+    "buildTools": "35.0.0",
+    "runtimeProxySelected": true,
+    "tlsVerification": "system-truststore",
+    "installed": false,
+    "signed": false
+  },
+  "changedSourceFiles": [
+    "app/build.gradle.kts",
+    "app/src/main/java/com/jh/photomaster/MainActivity.kt",
+    "app/src/main/java/com/koreanlifehub/bridge/AssistantSwitchActions.kt"
+  ],
+  "voice215": "PAUSED_NOT_INCLUDED",
+  "serverCommit": "5c97a5c7de70a7c85a8bc0d46c209f630281811c"
+}
