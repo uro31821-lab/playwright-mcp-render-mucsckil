@@ -1,0 +1,58 @@
+{
+  "schema": "jh.windows-apk-profile.v1",
+  "id": "JH217-CAMERA-SAME-PANE-ORIGINAL-CERT-1",
+  "version": "1",
+  "entrypoint": "실행.cmd",
+  "required_files": {
+    "00-README-FIRST.txt": {
+      "sha256": "ee8d0f9fe5d6ec521485fc2c497363c683517df05d96d133213b7973cce2f742",
+      "size": 1977
+    },
+    "JH-RUN-SAFETY.ps1": {
+      "sha256": "296c5624171a9f5b04e83947af59945f8357533f10a4321d39a0c11058d8e2ec",
+      "size": 7450
+    },
+    "JH217-LIB.ps1": {
+      "sha256": "8197ecc4d0e6166d63c5ec6014763ae781d452325c1e940818cbf2b5799033b7",
+      "size": 16047
+    },
+    "ONECLICK.ps1": {
+      "sha256": "b0f3de2143cb86d0b89a2430c7d43b2262a861b8b4880ed8a6315760a680d107",
+      "size": 8667
+    },
+    "POWER_SHELL_ERROR_CHECKLIST.txt": {
+      "sha256": "99331a860ad08a0933041b85494abf946a04bf596e0c35d2fbf1314fbfa2481d",
+      "size": 4123
+    },
+    "delivery-manifest.json": {
+      "sha256": "671a2401b4559ec250ef9ec49a787869f6913e72dccdfc933a26ca5326a6d1ae",
+      "size": 1125
+    },
+    "payload/JH217_UNSIGNED.apk": {
+      "sha256": "4eb526fd9768a29a31ee8291dd01aa51739a73bad0fab3ccc15bf560b2238547",
+      "size": 122827567
+    },
+    "payload/build-receipt.json": {
+      "sha256": "ee268e0b1cd192f026446a60539eec2c272eec57fc9b656066b1ef9dba3a5ccd",
+      "size": 1707
+    },
+    "실행.cmd": {
+      "sha256": "a84d5b15847dac085e5416148143de8b841547ffc27dee2390327a31b97a5f16",
+      "size": 5529
+    }
+  },
+  "review_status": "reviewed",
+  "evidence_refs": [
+    "source:jh-dev-tools/windows-delivery/jh217",
+    "source:jh216-fix2-verified-runner",
+    "test:Test-JH217.ps1",
+    "test:Test-JH217-KeyDiscovery.ps1",
+    "test:Test-JH217-ApkCase.ps1",
+    "sha256:4eb526fd9768a29a31ee8291dd01aa51739a73bad0fab3ccc15bf560b2238547"
+  ],
+  "limitations": [
+    "Profile pins reviewed bytes; package only after current Windows synthetic tests pass.",
+    "Actual original-PC signing, Defender, USB update and right-pane/capture E2E are pending.",
+    "Only exact installed JH216 baseline is accepted. JH215 voice remains paused."
+  ]
+}
