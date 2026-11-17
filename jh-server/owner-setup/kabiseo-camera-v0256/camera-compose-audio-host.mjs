@@ -4,6 +4,7 @@ import {createHash} from 'node:crypto';
 import {buildCurrentAudioReleaseCandidate} from '../ebiseo-audio-v05/audio-compose-current-host.mjs';
 import {selectAudioCandidateRuntime} from '../ebiseo-audio-v05/audio-current-selector.mjs';
 import {CAMERA_EXTENSION} from './camera-contract.mjs';
+import {GOAL_EXTENSION} from './camera-goal.mjs';
 
 const sha=v=>createHash('sha256').update(v).digest('hex');
 const fail=code=>{throw Object.assign(Error(code),{code});};
@@ -55,7 +56,7 @@ export function composeCameraRuntime(audioRuntime){
     fail('CAMERA_AUDIO_PARENT_REQUIRED');
   let out=audioRuntime;
   const audioImport='import {createAudioHostIntegration} from "../ebiseo-audio-v05/audio-host-integration.mjs";';
-  out=one(out,audioImport,audioImport+'\nimport {createCameraHostIntegration} from "../kabiseo-camera-v0256/camera-host-integration.mjs";');
+  out=one(out,audioImport,audioImport+'\nimport {createCameraHostIntegration} from "../kabiseo-camera-v0256/camera-host-integration.mjs";\nimport {createGoalFramePort} from "../kabiseo-camera-v0256/camera-goal-frame.mjs";');
 
   const clean='function cleanFrameWaiters56(){';
   const cameraHost=[
@@ -66,7 +67,9 @@ export function composeCameraRuntime(audioRuntime){
     '};',
     'const jhCameraHost56=createCameraHostIntegration({',
     '  getCatalogDigest:()=>SECURE56_TOOL_CATALOG_DIGEST,',
-    '  runSecure:jhCameraRunSecure56',
+    '  runSecure:jhCameraRunSecure56,',
+    '  runSecureFrame:createGoalFramePort({chooseDevice,active:active56,createWaiter:createFrameWaiter56,',
+    '    awaitFrame:awaitFrame56,runSecure:jhCameraRunSecure56,textResult,sha:sha56})',
     '});',
     '',
     ''
@@ -142,6 +145,8 @@ export function selectAttestedCameraRuntime(ownerRoot,audioParent){
      stamp.cameraExtension?.id!==CAMERA_EXTENSION.id||
      stamp.cameraExtension?.version!==CAMERA_EXTENSION.version||
      stamp.cameraExtension?.digest!==CAMERA_EXTENSION.digest||
+     stamp.goalExtension?.digest!==GOAL_EXTENSION.digest||
+     stamp.goalExtension?.id!==GOAL_EXTENSION.id||stamp.goalExtension?.version!==GOAL_EXTENSION.version||
      stamp.productionEnabled!==false||stamp.automaticReplayAllowed!==false)
     fail('CAMERA_ATTESTATION_CHANGED');
   if(text(p.runtime)!==composed.runtime||
@@ -183,6 +188,7 @@ export function buildCameraOverlayFromVerifiedAudio(ownerRoot,audio,env=process.
     unifiedSha256:sha(linked.unified),
     operationalSha256:sha(linked.entry),
     cameraExtension:CAMERA_EXTENSION,
+    goalExtension:GOAL_EXTENSION,
     productionEnabled:false,
     automaticReplayAllowed:false,
     baseCatalogChanged:false,
