@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "00-README-FIRST.txt",
-      "sha256": "b85522075e4d5ac96d5440aa630234a1c518cfe2acac0c87020fe98b52e8185e"
+      "sha256": "52b77047e0b58371d8f61b7a6d5a362aa636303dadd0f50f1af5d742a01df2d9"
     },
     {
       "path": "JH-RUN-SAFETY.ps1",
@@ -11,11 +11,11 @@
     },
     {
       "path": "JH216-LIB.ps1",
-      "sha256": "9d7537e03b0a59711e082dd6b7a259ea34ea9cd7563e1ce6a650c5a65b79b245"
+      "sha256": "a4fd2820f22f7ed466ca68882eefb49bdfeab6fe5c557b07f490d42cc61eb0b4"
     },
     {
       "path": "ONECLICK.ps1",
-      "sha256": "75a6946e764290282ebbfd8715c06f726025bda84e416ab82c647220772cbb8e"
+      "sha256": "a25596d4814204285b5799f6f929f16d2b970d192fb14adadca7ecbc74c5da15"
     },
     {
       "path": "POWER_SHELL_ERROR_CHECKLIST.txt",
@@ -30,7 +30,7 @@
       "sha256": "43a15729583b582f53e75bcae288944d10dbe3afd26f1502d9fdc924ee879b25"
     },
     {
-      "path": "\uc2e4\ud589.cmd",
+      "path": "실행.cmd",
       "sha256": "5befabb224dd3479df774a75b4c2a6310bdb0efdce8459daffdf0ab5eab870c0"
     }
   ]

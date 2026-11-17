@@ -9,6 +9,7 @@ $BaselineSha='3700d413de7b726cf3afde7f162210b2d4577504b747d0e3ebd570cb2579f79a'
 $VersionName='jh216-kabiseo-goal-switches-secure56'
 $Status='BLOCKED';$Reason='NOT_RUN';$Stage='PREFLIGHT';$SignedSha='NOT_RUN'
 $script:JhInstallAttempts=0;$RunLock=$null;$NamedMutex=$null;$OwnMutex=$false;$AllowPrimary=$false
+$script:JhKeyCandidates=0;$script:JhKeyReadable=0;$script:JhKeyFolders=0;$script:JhKeySource='NOT_RUN'
 $Signing='NOT_RUN';$Scan='NOT_RUN';$Preflight='NOT_RUN';$Report=$null
 . (Join-Path $Kit 'JH-RUN-SAFETY.ps1')
 try {
@@ -74,6 +75,7 @@ try {
         Assert-JhCertificate $Signed $Tools.Signer $ExpectedCert
         Assert-JhApk $Signed $Tools.Aapt 216 $VersionName
         Assert-JhPayloadEqual $Unsigned $Signed
+        Save-JhOriginalKeyLocator $OriginalKey $ExpectedCert
         $Signing='NEW_PASS_ORIGINAL_CERT_EXACT_PAYLOAD'
     }
     $SignedSha=Get-JhSha $Signed
@@ -99,9 +101,11 @@ try {
 } finally {
     Remove-Item Env:JH216_STOREPASS -ErrorAction SilentlyContinue
     Remove-Item Env:JH216_KEYPASS -ErrorAction SilentlyContinue
-    $lines=@('JH216_CAMERA_SWITCHES_RELEASE_V1',('UTC: '+[DateTime]::UtcNow.ToString('o')),('STAGE: '+$Stage),('REASON: '+$Reason),
+    $lines=@('JH216_CAMERA_SWITCHES_RELEASE_FIX1',('UTC: '+[DateTime]::UtcNow.ToString('o')),('STAGE: '+$Stage),('REASON: '+$Reason),
         ('PREFLIGHT: '+$Preflight),('UNSIGNED_SHA256: '+$ExpectedUnsigned),('SOURCE_SHA256: '+$ExpectedSource),
         ('SIGNED_SHA256: '+$SignedSha),('SIGNING: '+$Signing),('DEFENDER_SCAN: '+$Scan),
+        ('KEY_DISCOVERY: '+$script:JhKeySource),('KEY_CANDIDATES_CHECKED: '+$script:JhKeyCandidates),
+        ('KEY_CANDIDATES_READABLE: '+$script:JhKeyReadable),('KEY_FOLDERS_CHECKED: '+$script:JhKeyFolders),
         'BUILD: REUSED_VERIFIED_UNSIGNED_NO_LOCAL_BUILD','APP_ID: com.koreanlifehub.bridge','VERSION_CODE: 216',
         'JH215_VOICE: PAUSED_NOT_INCLUDED','APP_UNINSTALL: NEVER','DATA_CLEAR: NEVER','NEW_KEY_CREATED: NO',
         'PRIVATE_KEY_UPLOAD: NO','RENDER_DEPLOY: NOT_RUN','CAPTURE_E2E: NOT_RUN')

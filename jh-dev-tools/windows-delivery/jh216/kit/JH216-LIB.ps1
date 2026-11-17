@@ -77,22 +77,110 @@ function Get-JhTools {
     foreach($path in $tools.Values){if(!(Test-Path -LiteralPath $path -PathType Leaf)){throw 'EXISTING_ANDROID_TOOL_MISSING'}}
     return $tools
 }
-function Get-JhOriginalKey([string]$Keytool,[string]$Expected) {
-    # Reuse explicit existing store or established Android store. No recursive scan/export.
-    $candidate=$env:JH_ORIGINAL_KEYSTORE
-    if(!$candidate -and $env:USERPROFILE){$candidate=Join-Path $env:USERPROFILE '.android\debug.keystore'}
-    if(!$candidate -or !(Test-Path -LiteralPath $candidate -PathType Leaf)){throw 'ORIGINAL_KEY_PATH_REQUIRED_ON_THIS_PC'}
-    $env:JH216_STOREPASS=if($env:JH_ORIGINAL_KEYSTORE_PASS){$env:JH_ORIGINAL_KEYSTORE_PASS}else{'android'}
-    $r=Invoke-JhTool $Keytool @('-J-Duser.language=en','-list','-v','-keystore',$candidate,'-storepass:env','JH216_STOREPASS')
-    if($r.Code -ne 0){throw 'ORIGINAL_KEY_CANNOT_BE_OPENED'}
+function Read-JhOriginalKeyCandidate([string]$Keytool,[string]$Path,[string]$Expected) {
+    if(!$Path -or $Path -notmatch '^[A-Za-z]:[\\/]' -or !(Test-Path -LiteralPath $Path -PathType Leaf)){return $null}
+    $file=Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    if(!$file -or ($file.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 -or $file.Length -le 0 -or $file.Length -gt 10485760){return $null}
+    $script:JhKeyCandidates++
+    $r=Invoke-JhTool $Keytool @('-J-Duser.language=en','-list','-v','-keystore',$file.FullName,'-storepass:env','JH216_STOREPASS')
+    if($r.Code -ne 0){return $null}
+    $script:JhKeyReadable++
     $entries=[regex]::Split($r.Text,'(?im)^\s*Alias name:\s*')
     for($index=1;$index -lt $entries.Count;$index++){
         $entry=$entries[$index];$alias=($entry -split "`r?`n",2)[0].Trim()
+        if(!$alias -or $alias.Length -gt 128 -or $entry -notmatch '(?i)Entry type:\s*PrivateKeyEntry'){continue}
+        # Match the first (leaf) certificate of this private-key entry, never another alias or CA.
         $cert=[regex]::Match($entry,'(?im)^\s*SHA\s*-?\s*256\s*:\s*([0-9A-F:]{64,96})\s*$')
-        if($alias -and $entry -match '(?i)Entry type:\s*PrivateKeyEntry' -and $cert.Success -and
-           $cert.Groups[1].Value.Replace(':','').ToLowerInvariant() -ceq $Expected){return @{Path=$candidate;Alias=$alias}}
+        if($cert.Success -and $cert.Groups[1].Value.Replace(':','').ToLowerInvariant() -ceq $Expected){
+            return @{Path=$file.FullName;Alias=$alias;KeySha256=(Get-JhSha $file.FullName)}
+        }
     }
-    throw 'ORIGINAL_PRIVATE_KEY_CERTIFICATE_MISMATCH'
+    return $null
+}
+function Save-JhOriginalKeyLocator([hashtable]$Key,[string]$Expected) {
+    # Non-secret locator stays on this PC. No passwords or private-key bytes are stored/copied.
+    # Cache writes are optional and cannot change an otherwise verified signing result.
+    try {
+        if(!$env:LOCALAPPDATA){return}
+        $dir=Join-Path $env:LOCALAPPDATA 'JH\signing'
+        [void][IO.Directory]::CreateDirectory($dir)
+        if(((Get-Item -LiteralPath $dir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){return}
+        $path=Join-Path $dir ($Expected+'.json')
+        if(Test-Path -LiteralPath $path){return}
+        $value=@{schema='JH_ORIGINAL_KEY_LOCATOR_V1';certificateSha256=$Expected;path=$Key.Path;keySha256=$Key.KeySha256}
+        $bytes=([Text.UTF8Encoding]::new($false)).GetBytes(($value|ConvertTo-Json -Compress))
+        $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+        try{$stream.Write($bytes,0,$bytes.Length);$stream.Flush($true)}finally{$stream.Dispose()}
+    } catch { }
+}
+function Get-JhOriginalKey([string]$Keytool,[string]$Expected) {
+    $script:JhKeyCandidates=0;$script:JhKeyReadable=0;$script:JhKeyFolders=0;$script:JhKeySource='NOT_FOUND'
+    $env:JH216_STOREPASS=if($env:JH_ORIGINAL_KEYSTORE_PASS){$env:JH_ORIGINAL_KEYSTORE_PASS}else{'android'}
+    $seenKeys=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    $direct=New-Object 'System.Collections.Generic.List[object]'
+    if($env:JH_ORIGINAL_KEYSTORE){$direct.Add(@{Path=$env:JH_ORIGINAL_KEYSTORE;Source='EXPLICIT_EXISTING_PATH'})}
+    if($env:LOCALAPPDATA){
+        $cache=Join-Path $env:LOCALAPPDATA ('JH\signing\'+$Expected+'.json')
+        try{
+            if(Test-Path -LiteralPath $cache -PathType Leaf){
+                $info=Get-Item -LiteralPath $cache -Force
+                if($info.Length -le 16384 -and ($info.Attributes -band [IO.FileAttributes]::ReparsePoint) -eq 0){
+                    $value=Get-Content -LiteralPath $cache -Raw -Encoding UTF8|ConvertFrom-Json
+                    if($value.schema -ceq 'JH_ORIGINAL_KEY_LOCATOR_V1' -and $value.certificateSha256 -ceq $Expected -and
+                       $value.path -match '^[A-Za-z]:[\\/]' -and $value.keySha256 -cmatch '^[0-9a-f]{64}$' -and
+                       (Test-Path -LiteralPath $value.path -PathType Leaf) -and (Get-JhSha $value.path) -ceq $value.keySha256){
+                        $direct.Add(@{Path=[string]$value.path;Source='VERIFIED_LOCAL_LOCATOR'})
+                    }
+                }
+            }
+        }catch{}
+    }
+    if($env:USERPROFILE){$direct.Add(@{Path=(Join-Path $env:USERPROFILE '.android\debug.keystore');Source='DEFAULT_ANDROID_PATH'})}
+    foreach($item in $direct){
+        if(!$seenKeys.Add([string]$item.Path)){continue}
+        $key=Read-JhOriginalKeyCandidate $Keytool $item.Path $Expected
+        if($key){$script:JhKeySource=$item.Source;return $key}
+    }
+    # Same bounded JH locations as the successful JH214 signer. Wrong default key is not terminal.
+    $roots=New-Object 'System.Collections.Generic.List[object]'
+    if($env:USERPROFILE){
+        $roots.Add(@{Path=$env:USERPROFILE;Depth=0})
+        foreach($name in @('.android','Downloads','Desktop','Documents','JH')){$roots.Add(@{Path=(Join-Path $env:USERPROFILE $name);Depth=7})}
+    }
+    foreach($path in @($env:JH214_BUILD_DIR,$PSScriptRoot)){if($path){$roots.Add(@{Path=$path;Depth=7})}}
+    if($env:LOCALAPPDATA){foreach($name in @('JH168','JH171','JH185','JH212','JH213','JH214','JH')){$roots.Add(@{Path=(Join-Path $env:LOCALAPPDATA $name);Depth=7})}}
+    foreach($cloud in @($env:OneDrive,$env:OneDriveConsumer,$env:OneDriveCommercial)){
+        if($cloud){foreach($name in @('Desktop','Documents')){$roots.Add(@{Path=(Join-Path $cloud $name);Depth=7})}}
+    }
+    foreach($path in @('C:\JHU32\JH\android','C:\JHU32\JH','D:\JHU32\JH')){$roots.Add(@{Path=$path;Depth=7})}
+    $queue=New-Object 'System.Collections.Generic.Queue[object]'
+    foreach($item in $roots){if($item.Path -match '^[A-Za-z]:[\\/]' -and (Test-Path -LiteralPath $item.Path -PathType Container)){$queue.Enqueue($item)}}
+    $seenDirs=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    $watch=[Diagnostics.Stopwatch]::StartNew()
+    while($queue.Count -gt 0 -and $script:JhKeyFolders -lt 6000 -and $script:JhKeyCandidates -lt 300 -and $watch.Elapsed.TotalSeconds -lt 90){
+        $node=$queue.Dequeue();$dir=[string]$node.Path
+        if(!$seenDirs.Add($dir)){continue}
+        try{
+            $info=Get-Item -LiteralPath $dir -Force -ErrorAction Stop
+            if(($info.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){continue}
+            $script:JhKeyFolders++
+            $entries=@(Get-ChildItem -LiteralPath $dir -Force -ErrorAction Stop)
+        }catch{continue}
+        foreach($item in $entries){
+            if($script:JhKeyCandidates -ge 300 -or $watch.Elapsed.TotalSeconds -ge 90){break}
+            if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){continue}
+            if($item.PSIsContainer){
+                if($node.Depth -gt 0 -and $queue.Count -lt 6500 -and $item.Name -notmatch '^(\.git|\.gradle|node_modules|\.idea|\.venv|venv|Sdk|sdk|platforms|build-tools|\.cache|obj|target|dist)$'){
+                    $queue.Enqueue(@{Path=$item.FullName;Depth=([int]$node.Depth-1)})
+                }
+            }elseif($item.Name -match '(?i)\.(keystore|jks|p12|pfx)$' -and $seenKeys.Add($item.FullName)){
+                $key=Read-JhOriginalKeyCandidate $Keytool $item.FullName $Expected
+                if($key){$script:JhKeySource='JH214_BOUNDED_LOCATIONS';return $key}
+            }
+        }
+    }
+    if($script:JhKeyReadable -gt 0){throw 'READABLE_KEYSTORES_NO_ORIGINAL_CERT_MATCH'}
+    throw 'NO_UNLOCKED_ORIGINAL_KEY_IN_BOUNDED_LOCATIONS'
 }
 function Get-JhDevice([string]$Adb) {
     $r=Invoke-JhTool $Adb @('devices')
