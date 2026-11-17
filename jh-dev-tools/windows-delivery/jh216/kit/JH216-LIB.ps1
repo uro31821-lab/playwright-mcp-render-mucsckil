@@ -27,25 +27,30 @@ function Assert-JhCertificate([string]$Apk,[string]$Signer,[string]$Expected) {
 function Assert-JhPayloadEqual([string]$Unsigned,[string]$Signed) {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $left=[IO.Compression.ZipFile]::OpenRead($Unsigned)
-    $right=[IO.Compression.ZipFile]::OpenRead($Signed)
+    $right=$null
     try {
-        $map=@{}
+        $right=[IO.Compression.ZipFile]::OpenRead($Signed)
+        # ZIP/APK names are case-sensitive even when the host filesystem is Windows.
+        $map=New-Object 'System.Collections.Generic.Dictionary[string,string]' ([StringComparer]::Ordinal)
+        $leftNames=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+        $rightNames=New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
         foreach($entry in $left.Entries){
-            if($entry.FullName -match '(?i)^META-INF/(MANIFEST\.MF|[^/]+\.(SF|RSA|DSA|EC))$'){continue}
-            if($map.ContainsKey($entry.FullName)){throw 'DUPLICATE_APK_ENTRY'}
+            if(!$leftNames.Add($entry.FullName)){throw 'DUPLICATE_APK_ENTRY'}
+            if($entry.FullName -cmatch '^META-INF/(MANIFEST\.MF|[^/]+\.(SF|RSA|DSA|EC))$'){continue}
             $stream=$entry.Open();$algorithm=[Security.Cryptography.SHA256]::Create()
             try{$map[$entry.FullName]=[BitConverter]::ToString($algorithm.ComputeHash($stream))}finally{$stream.Dispose();$algorithm.Dispose()}
         }
         foreach($entry in $right.Entries){
-            if($entry.FullName -match '(?i)^META-INF/(MANIFEST\.MF|[^/]+\.(SF|RSA|DSA|EC))$'){continue}
+            if(!$rightNames.Add($entry.FullName)){throw 'DUPLICATE_APK_ENTRY'}
+            if($entry.FullName -cmatch '^META-INF/(MANIFEST\.MF|[^/]+\.(SF|RSA|DSA|EC))$'){continue}
             if(!$map.ContainsKey($entry.FullName)){throw 'SIGNED_PAYLOAD_DIFFERS'}
             $stream=$entry.Open();$algorithm=[Security.Cryptography.SHA256]::Create()
             try{$digest=[BitConverter]::ToString($algorithm.ComputeHash($stream))}finally{$stream.Dispose();$algorithm.Dispose()}
             if($digest -cne $map[$entry.FullName]){throw 'SIGNED_PAYLOAD_DIFFERS'}
-            $map.Remove($entry.FullName)
+            [void]$map.Remove($entry.FullName)
         }
         if($map.Count -ne 0){throw 'SIGNED_PAYLOAD_DIFFERS'}
-    } finally {$left.Dispose();$right.Dispose()}
+    } finally {if($null -ne $right){$right.Dispose()};$left.Dispose()}
 }
 function Get-JhTools {
     $sdkRoots=@($env:ANDROID_HOME,$env:ANDROID_SDK_ROOT)

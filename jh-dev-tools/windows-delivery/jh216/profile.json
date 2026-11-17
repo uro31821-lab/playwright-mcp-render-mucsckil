@@ -1,23 +1,23 @@
 {
   "schema": "jh.windows-apk-profile.v1",
-  "id": "JH216-CAMERA-SWITCHES-ORIGINAL-CERT-FIX1",
+  "id": "JH216-CAMERA-SWITCHES-ORIGINAL-CERT-FIX2",
   "version": "1",
   "entrypoint": "실행.cmd",
   "required_files": {
     "00-README-FIRST.txt": {
-      "sha256": "52b77047e0b58371d8f61b7a6d5a362aa636303dadd0f50f1af5d742a01df2d9",
-      "size": 1840
+      "sha256": "01f5c0d2f32cf24cbdb48302926efbb8e82fb183ba915bafb83fea1c5e98ad3b",
+      "size": 2174
     },
     "JH-RUN-SAFETY.ps1": {
       "sha256": "296c5624171a9f5b04e83947af59945f8357533f10a4321d39a0c11058d8e2ec",
       "size": 7450
     },
     "JH216-LIB.ps1": {
-      "sha256": "a4fd2820f22f7ed466ca68882eefb49bdfeab6fe5c557b07f490d42cc61eb0b4",
-      "size": 15538
+      "sha256": "0cca1b187c083575fc688cbd19f1ee60078d5776e29b69989df0e4038ab8e120",
+      "size": 16046
     },
     "ONECLICK.ps1": {
-      "sha256": "a25596d4814204285b5799f6f929f16d2b970d192fb14adadca7ecbc74c5da15",
+      "sha256": "21ddfc05a32f0d08f8a01a806ba5a1ac2aed8f100030bb8e18f26fbb7ae0c682",
       "size": 8675
     },
     "POWER_SHELL_ERROR_CHECKLIST.txt": {
@@ -25,7 +25,7 @@
       "size": 4060
     },
     "delivery-manifest.json": {
-      "sha256": "f8618b9646f15c03e36a95888088d3f891f66d07c3605c63a2b21f82a5dcdf57",
+      "sha256": "a31d07d19a1fa378414ad225d079eb6fba9e9c478f32ad65a4e51cac66e546b5",
       "size": 1125
     },
     "payload/JH216_UNSIGNED.apk": {
@@ -48,10 +48,12 @@
     "source:jh216-version-only-delta",
     "sha256:91b9f31ff3dd7bb4c593712145278428ee44e05eb39ccef9cf79afbd3817b77b",
     "test:Test-JH216-KeyDiscovery.ps1",
-    "source:jh216-result-20261117-153512-key-lookup-block"
+    "source:jh216-result-20261117-153512-key-lookup-block",
+    "test:Test-JH216-ApkCase.ps1",
+    "source:jh216-result-20261117-154347-apk-case-block"
   ],
   "limitations": [
-    "JH216 FIX1 original-key discovery; exact same APK, JH215 voice paused. Actual PC signing and installation still pending.",
+    "JH216 FIX2 case-sensitive APK comparison with FIX1 key discovery; unchanged APK; real PC sign/install pending.",
     "Windows synthetic safety tests are separate from real local signing, USB update and camera E2E.",
     "Original PC key stays local. Actual installation requires explicit local YES and verified exact JH214 bytes."
   ],

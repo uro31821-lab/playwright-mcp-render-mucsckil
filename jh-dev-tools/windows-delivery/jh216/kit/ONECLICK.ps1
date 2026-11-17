@@ -101,7 +101,7 @@ try {
 } finally {
     Remove-Item Env:JH216_STOREPASS -ErrorAction SilentlyContinue
     Remove-Item Env:JH216_KEYPASS -ErrorAction SilentlyContinue
-    $lines=@('JH216_CAMERA_SWITCHES_RELEASE_FIX1',('UTC: '+[DateTime]::UtcNow.ToString('o')),('STAGE: '+$Stage),('REASON: '+$Reason),
+    $lines=@('JH216_CAMERA_SWITCHES_RELEASE_FIX2',('UTC: '+[DateTime]::UtcNow.ToString('o')),('STAGE: '+$Stage),('REASON: '+$Reason),
         ('PREFLIGHT: '+$Preflight),('UNSIGNED_SHA256: '+$ExpectedUnsigned),('SOURCE_SHA256: '+$ExpectedSource),
         ('SIGNED_SHA256: '+$SignedSha),('SIGNING: '+$Signing),('DEFENDER_SCAN: '+$Scan),
         ('KEY_DISCOVERY: '+$script:JhKeySource),('KEY_CANDIDATES_CHECKED: '+$script:JhKeyCandidates),

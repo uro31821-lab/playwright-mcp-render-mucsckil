@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "00-README-FIRST.txt",
-      "sha256": "52b77047e0b58371d8f61b7a6d5a362aa636303dadd0f50f1af5d742a01df2d9"
+      "sha256": "01f5c0d2f32cf24cbdb48302926efbb8e82fb183ba915bafb83fea1c5e98ad3b"
     },
     {
       "path": "JH-RUN-SAFETY.ps1",
@@ -11,11 +11,11 @@
     },
     {
       "path": "JH216-LIB.ps1",
-      "sha256": "a4fd2820f22f7ed466ca68882eefb49bdfeab6fe5c557b07f490d42cc61eb0b4"
+      "sha256": "0cca1b187c083575fc688cbd19f1ee60078d5776e29b69989df0e4038ab8e120"
     },
     {
       "path": "ONECLICK.ps1",
-      "sha256": "a25596d4814204285b5799f6f929f16d2b970d192fb14adadca7ecbc74c5da15"
+      "sha256": "21ddfc05a32f0d08f8a01a806ba5a1ac2aed8f100030bb8e18f26fbb7ae0c682"
     },
     {
       "path": "POWER_SHELL_ERROR_CHECKLIST.txt",

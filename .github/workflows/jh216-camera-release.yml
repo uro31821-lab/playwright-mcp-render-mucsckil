@@ -29,4 +29,6 @@ jobs:
           if (-not $?) { throw 'JH216 runner safety test failed' }
           & './jh-dev-tools/windows-delivery/jh216/tests/Test-JH216-KeyDiscovery.ps1' -KitRoot './jh-dev-tools/windows-delivery/jh216/kit'
           if (-not $?) { throw 'JH216 original-key discovery test failed' }
+          & './jh-dev-tools/windows-delivery/jh216/tests/Test-JH216-ApkCase.ps1' -KitRoot './jh-dev-tools/windows-delivery/jh216/kit'
+          if (-not $?) { throw 'JH216 APK case-sensitive comparison test failed' }
           exit 0
