@@ -1,0 +1,57 @@
+{
+  "schema": "jh.windows-apk-profile.v1",
+  "id": "JH216-CAMERA-SWITCHES-ORIGINAL-CERT-1",
+  "version": "1",
+  "entrypoint": "실행.cmd",
+  "required_files": {
+    "00-README-FIRST.txt": {
+      "sha256": "b85522075e4d5ac96d5440aa630234a1c518cfe2acac0c87020fe98b52e8185e",
+      "size": 1448
+    },
+    "JH-RUN-SAFETY.ps1": {
+      "sha256": "296c5624171a9f5b04e83947af59945f8357533f10a4321d39a0c11058d8e2ec",
+      "size": 7450
+    },
+    "JH216-LIB.ps1": {
+      "sha256": "9d7537e03b0a59711e082dd6b7a259ea34ea9cd7563e1ce6a650c5a65b79b245",
+      "size": 9456
+    },
+    "ONECLICK.ps1": {
+      "sha256": "75a6946e764290282ebbfd8715c06f726025bda84e416ab82c647220772cbb8e",
+      "size": 8295
+    },
+    "POWER_SHELL_ERROR_CHECKLIST.txt": {
+      "sha256": "5b5e11fc7e605b6c82af102f339c9213020028ace61e5e1d0d40092f574da20e",
+      "size": 4060
+    },
+    "delivery-manifest.json": {
+      "sha256": "6a328217d907a881d4e8d9f86b8d60551daf568cd62fbd159a2028a2a48e0b79",
+      "size": 1131
+    },
+    "payload/JH216_UNSIGNED.apk": {
+      "sha256": "91b9f31ff3dd7bb4c593712145278428ee44e05eb39ccef9cf79afbd3817b77b",
+      "size": 122827567
+    },
+    "payload/build-receipt.json": {
+      "sha256": "43a15729583b582f53e75bcae288944d10dbe3afd26f1502d9fdc924ee879b25",
+      "size": 1368
+    },
+    "실행.cmd": {
+      "sha256": "5befabb224dd3479df774a75b4c2a6310bdb0efdce8459daffdf0ab5eab870c0",
+      "size": 5529
+    }
+  },
+  "evidence_refs": [
+    "source:jh-dev-tools/windows-delivery/jh216",
+    "test:Test-JH216.ps1",
+    "source:jh214-original-cert-sign-only-fix4",
+    "source:jh216-version-only-delta",
+    "sha256:91b9f31ff3dd7bb4c593712145278428ee44e05eb39ccef9cf79afbd3817b77b"
+  ],
+  "limitations": [
+    "Source-reviewed JH216 camera/switch runner; JH215 voice is paused and excluded.",
+    "Windows synthetic safety tests are separate from real local signing, USB update and camera E2E.",
+    "Original PC key stays local. Actual installation requires explicit local YES and verified exact JH214 bytes."
+  ],
+  "review_status": "reviewed"
+}
