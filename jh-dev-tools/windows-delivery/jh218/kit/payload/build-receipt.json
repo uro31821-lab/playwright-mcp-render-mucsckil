@@ -1,0 +1,70 @@
+{
+  "recordedAt": "2026-11-18T02:09:03.282+00:00",
+  "status": "UNSIGNED_REVIEW_CANDIDATE_BUILD_PASS",
+  "sourceDigestSha256": "98b58502d2ed236874f63cf451e96c8cde0db849e18e46567d5022f074d8f361",
+  "sourceFiles": 592,
+  "tests": {
+    "suites": 152,
+    "tests": 1479,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": {
+    "Warning": 162
+  },
+  "apk": {
+    "filename": "JH218_UNSIGNED.apk",
+    "bytes": 122845583,
+    "sha256": "c41c2a82e37b03bbe47a9bc0f31cf81a166330b2ea51b57ceafe1b4375448509",
+    "applicationId": "com.koreanlifehub.bridge",
+    "versionCode": 218,
+    "versionNumberFinalized": true,
+    "debuggable": false,
+    "signed": false
+  },
+  "deviceE2E": "NOT_RUN",
+  "installed": false,
+  "productionDeployed": false,
+  "runtimeVerified": false,
+  "offlineBuildVerified": false,
+  "schema": "JH218_HUB_FRAME_RELEASE_BUILD_V1",
+  "assembly": {
+    "command": [
+      "--no-daemon",
+      "--max-workers=1",
+      "--console=plain",
+      "--stacktrace",
+      ":app:compileReleaseKotlin",
+      ":app:lintRelease",
+      ":app:testReleaseUnitTest",
+      ":app:assembleRelease"
+    ],
+    "exitCode": 0,
+    "elapsedSeconds": 232,
+    "jdkVersion": "17.0.21+9",
+    "gradleVersion": "8.11.1",
+    "compileSdk": 36,
+    "buildTools": "35.0.0",
+    "runtimeProxySelected": true,
+    "tlsVerification": "system-truststore",
+    "installed": false,
+    "signed": false
+  },
+  "changedSourceFiles": [
+    "app/build.gradle.kts",
+    "app/src/main/AndroidManifest.xml",
+    "app/src/main/assets/JH_CAMERA_EXECUTION_CONTRACT.md",
+    "app/src/main/java/com/jh/photomaster/CameraFrameReadiness.kt",
+    "app/src/main/java/com/jh/photomaster/MainActivity.kt",
+    "app/src/main/java/com/jh/photomaster/SceneAnalyzer.kt",
+    "app/src/main/java/com/koreanlifehub/bridge/AssistantSwitchActions.kt",
+    "app/src/main/java/com/koreanlifehub/bridge/AssistantSwitchActivity.kt",
+    "app/src/main/java/com/koreanlifehub/bridge/MainActivity.kt",
+    "app/src/test/java/com/jh/photomaster/CameraFrameReadinessTest.kt",
+    "app/src/test/java/com/jh/photomaster/core/GoalContractRegressionTest.java"
+  ],
+  "voice215": "PAUSED_NOT_INCLUDED",
+  "serverCommit": "5c97a5c7de70a7c85a8bc0d46c209f630281811c",
+  "installedBaselineSha256": "4ff0c015bf18feb98ab054c3282397349a22fef6ffd4f991fce322dd86ebbb4e"
+}
