@@ -1,0 +1,34 @@
+name: JH216 camera update runner
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-dev-tools/windows-delivery/jh216/**'
+      - '.github/workflows/jh216-camera-release.yml'
+permissions:
+  contents: read
+concurrency:
+  group: jh216-runner-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows-update-safety:
+    runs-on: windows-2022
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Windows PowerShell 5.1 parser and synthetic update boundaries
+        run: |
+          if ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5 -or $PSVersionTable.PSVersion.Minor -ne 1) { throw 'Windows PowerShell 5.1 required' }
+          $PSVersionTable.PSVersion.ToString()
+          & './jh-dev-tools/windows-delivery/jh216/tests/Test-JH216.ps1' -KitRoot './jh-dev-tools/windows-delivery/jh216/kit'
+          if (-not $?) { throw 'JH216 runner safety test failed' }
+          & './jh-dev-tools/windows-delivery/jh216/tests/Test-JH216-KeyDiscovery.ps1' -KitRoot './jh-dev-tools/windows-delivery/jh216/kit'
+          if (-not $?) { throw 'JH216 original-key discovery test failed' }
+          & './jh-dev-tools/windows-delivery/jh216/tests/Test-JH216-ApkCase.ps1' -KitRoot './jh-dev-tools/windows-delivery/jh216/kit'
+          if (-not $?) { throw 'JH216 APK case-sensitive comparison test failed' }
+          exit 0

@@ -1,0 +1,37 @@
+{
+  "schema": "JH216_DELIVERY_FILES_V1",
+  "files": [
+    {
+      "path": "00-README-FIRST.txt",
+      "sha256": "01f5c0d2f32cf24cbdb48302926efbb8e82fb183ba915bafb83fea1c5e98ad3b"
+    },
+    {
+      "path": "JH-RUN-SAFETY.ps1",
+      "sha256": "296c5624171a9f5b04e83947af59945f8357533f10a4321d39a0c11058d8e2ec"
+    },
+    {
+      "path": "JH216-LIB.ps1",
+      "sha256": "0cca1b187c083575fc688cbd19f1ee60078d5776e29b69989df0e4038ab8e120"
+    },
+    {
+      "path": "ONECLICK.ps1",
+      "sha256": "21ddfc05a32f0d08f8a01a806ba5a1ac2aed8f100030bb8e18f26fbb7ae0c682"
+    },
+    {
+      "path": "POWER_SHELL_ERROR_CHECKLIST.txt",
+      "sha256": "5b5e11fc7e605b6c82af102f339c9213020028ace61e5e1d0d40092f574da20e"
+    },
+    {
+      "path": "payload/JH216_UNSIGNED.apk",
+      "sha256": "91b9f31ff3dd7bb4c593712145278428ee44e05eb39ccef9cf79afbd3817b77b"
+    },
+    {
+      "path": "payload/build-receipt.json",
+      "sha256": "43a15729583b582f53e75bcae288944d10dbe3afd26f1502d9fdc924ee879b25"
+    },
+    {
+      "path": "실행.cmd",
+      "sha256": "5befabb224dd3479df774a75b4c2a6310bdb0efdce8459daffdf0ab5eab870c0"
+    }
+  ]
+}
