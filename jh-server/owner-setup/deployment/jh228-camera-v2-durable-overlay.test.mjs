@@ -4,6 +4,8 @@ import {readFileSync} from 'node:fs';
 import {pathToFileURL,fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
+import {spawnSync} from 'node:child_process';
+import {chooseJH228CameraV2Startup} from './jh228-camera-v2-candidate-entry.mjs';
 import {patchJH228CameraV2Runtime,patchJH228ReviewedRelease,buildJH228ReviewedRelease} from './jh228-camera-v2-durable-overlay.mjs';
 const here=path.dirname(fileURLToPath(import.meta.url));
 const sha=x=>createHash('sha256').update(x).digest('hex');
@@ -48,4 +50,20 @@ test('real generated durable runtime preserves original listener fence',async()=
  assert.match(src,/serveStagedJpeg/);
  assert.match(src,/DURABLE_HOST_BOOTSTRAP_REQUIRED/);
  assert.equal(candidate.productionEnabled,false);
+ const syntax=spawnSync(process.execPath,['--check',candidate.file],{encoding:'utf8'});
+ assert.equal(syntax.status,0,syntax.stderr);
+});
+
+test('JH228 startup remains disabled until deliberate verified host E2E opt-in',()=>{
+ assert.equal(chooseJH228CameraV2Startup({}),'original');
+ const env={JH228_CAMERA_V2_STAGE_OPERATOR_ENABLE:'EXPLICIT_JH228_CAMERA_V2_STAGE_OPERATOR_V1',
+  JH_DURABLE_RELEASE:'SERVE_READY_V1',RENDER_SERVICE_ID:'srv-db0fjl2d0e5s73be114g',
+  JH228_CAMERA_V2_UPSTREAM_E2E_GATE:'TRUSTED_HOST_PORTS_AND_DEVICE_VERIFIED_V1'};
+ assert.equal(chooseJH228CameraV2Startup(env),'jh228-candidate');
+ for(const key of ['JH_DURABLE_RELEASE','RENDER_SERVICE_ID','JH228_CAMERA_V2_UPSTREAM_E2E_GATE']){
+  const bad={...env};delete bad[key];assert.throws(()=>chooseJH228CameraV2Startup(bad),/JH228_/);
+ }
+ for(const key of ['JH_PENDING_APPROVAL_OPERATOR_ENABLE','JH_SPLIT_FOLLOWUP_OPERATOR_ENABLE','JH_OWNER_DEFER_LISTEN'])
+  assert.throws(()=>chooseJH228CameraV2Startup({...env,[key]:'1'}),/JH228_/);
+ assert.throws(()=>chooseJH228CameraV2Startup({...env,JH228_CAMERA_V2_STAGE_OPERATOR_ENABLE:'invalid'}),/JH228_/);
 });
