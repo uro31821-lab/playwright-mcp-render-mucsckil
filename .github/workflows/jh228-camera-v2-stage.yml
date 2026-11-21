@@ -15,6 +15,7 @@ on:
       - "jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-verified-host-ports*.mjs"
       - "jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-durable-once-journal*.mjs"
       - "jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-current-turn-pipeline*.mjs"
+      - "jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-opt-in-gpt-image-port*.mjs"
       - ".github/workflows/jh228-camera-v2-stage.yml"
   pull_request:
     branches:
@@ -49,6 +50,8 @@ jobs:
         run: node --test jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-durable-once-journal.test.mjs
       - name: Current-turn JH verified full image handoff (synthetic ports)
         run: node --test jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-current-turn-pipeline.test.mjs
+      - name: Opt-in GPT Image API provider mocked HTTP no billing
+        run: node --test jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-opt-in-gpt-image-port.test.mjs
       - name: Verified durable runtime overlay and sealed source regression
         run: node --test jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay.test.mjs
       - name: Independent 100-process security regression
@@ -56,6 +59,6 @@ jobs:
         run: |
           set -euo pipefail
           for i in $(seq 1 100); do
-            node --test jh-server/camera-v2-secure-stage.test.mjs jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-goal-policy.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-verified-host-ports.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-durable-once-journal.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-current-turn-pipeline.test.mjs >/dev/null
+            node --test jh-server/camera-v2-secure-stage.test.mjs jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-goal-policy.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-verified-host-ports.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-durable-once-journal.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-current-turn-pipeline.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-opt-in-gpt-image-port.test.mjs >/dev/null
           done
-          echo "JH228_FULL_HANDOFF_SIMULATED_100_PASS"
+          echo "JH228_GPT_IMAGE_OPTIN_HASH_MATCH_100_PASS"
