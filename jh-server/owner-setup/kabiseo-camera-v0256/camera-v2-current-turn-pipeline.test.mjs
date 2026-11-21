@@ -31,6 +31,8 @@ function setup(overrides={}){
    verifiedBySecure56:true,sessionId:sid,deviceDigest:scope.deviceDigest,
    taskDigest:scope.taskDigest,commandId:scope.commandId,expiresAtMs:Date.now()+25000
   }),
+  confirmImageGenerationReady:async input=>({ready:true,verifiedByHost:true,
+   threadId:input.threadId,sourceRef:input.sourceRef,attachmentId:input.attachmentId}),
   claimOneShot:async()=>{state.effects.push('claim');return {claimed:true};},
   createSingleExample:async req=>{
    state.effects.push('generate');
@@ -94,7 +96,10 @@ test('missing operator E2E fence blocks before journal claim',async()=>{
    pendingReadback:false,threadId:turn.threadId,sourceRef:turn.sourceRef}),
   verifyShootingRoute:async()=>true,interpretShooting:async()=>({}),
   readSignedCapture:async()=>scope,
-  resolveActiveSignedSession:async()=>({}),claimOneShot:async()=>{state.effects.push('claim')},
+  resolveActiveSignedSession:async()=>({}),
+  confirmImageGenerationReady:async()=>({ready:true,verifiedByHost:true,
+   threadId:turn.threadId,sourceRef:turn.sourceRef,attachmentId:turn.attachments[0].id}),
+  claimOneShot:async()=>{state.effects.push('claim')},
   createSingleExample:async()=>{},renderInLeftChat:async()=>{},
   verifyLeftPresentationReceipt:async()=>false,
   applySignedGoal:async()=>{}
@@ -148,4 +153,22 @@ test('model-declared shown:true without image hash cannot trigger camera APPLY',
  assert.equal(result.code,'LEFT_GPT_PRESENTATION_NOT_VERIFIED');
  assert.deepEqual(state.effects,['claim','generate','present']);
  assert.equal(store.pendingCount(),0);store.close();
+});
+
+test('unavailable image provider or invalid billing readiness DOES NOT consume one-shot journal',async()=>{
+ const {pipeline,state,store}=setup({confirmImageGenerationReady:async()=>({
+  ready:false,verifiedByHost:false,threadId:turn.threadId,sourceRef:turn.sourceRef,
+  attachmentId:turn.attachments[0].id
+ })});
+ const result=await pipeline.run({mood:'차분한 느낌'});
+ assert.equal(result.code,'PYEONBISEO_GENERATION_NOT_READY');
+ assert.deepEqual(state.effects,[]);store.close();
+});
+test('cross-thread image-provider readiness cannot authorize a generation',async()=>{
+ const {pipeline,state,store}=setup({confirmImageGenerationReady:async()=>({
+  ready:true,verifiedByHost:true,threadId:'ANOTHER_THREAD',
+  sourceRef:turn.sourceRef,attachmentId:turn.attachments[0].id
+ })});
+ assert.equal((await pipeline.run({mood:'깔끔하게'})).code,'PYEONBISEO_GENERATION_NOT_READY');
+ assert.deepEqual(state.effects,[]);store.close();
 });
