@@ -8,6 +8,8 @@ on:
       - "jh-server/camera-v2-secure-stage.test.mjs"
       - "jh-server/server.mjs"
       - "jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay*.mjs"
+      - "jh-server/owner-setup/deployment/jh228-camera-v2-candidate-entry.mjs"
+      - "jh-server/owner-setup/deployment/published-host-router.mjs"
       - ".github/workflows/jh228-camera-v2-stage.yml"
   pull_request:
     branches:
@@ -23,6 +25,10 @@ jobs:
           node-version: "22"
       - name: Syntax check production server
         run: node --check jh-server/server.mjs
+      - name: Syntax check default published router and opt-in candidate
+        run: |
+          node --check jh-server/owner-setup/deployment/published-host-router.mjs
+          node --check jh-server/owner-setup/deployment/jh228-camera-v2-candidate-entry.mjs
       - name: Secure56 one-shot JPEG regression
         run: node --test jh-server/camera-v2-secure-stage.test.mjs
       - name: Install exact existing durable-host dependencies (no lifecycle scripts)
