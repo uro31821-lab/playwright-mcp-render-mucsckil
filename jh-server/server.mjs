@@ -4,7 +4,6 @@ import { randomBytes, createHash, createHmac, timingSafeEqual } from "node:crypt
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
-import {sharedCameraV2StageStore, createSecure56StageVerifier, serveStagedJpeg} from "./camera-v2-secure-stage.mjs";
 
 const PORT = Number(process.env.PORT || 3000);
 const BROWSER_MCP = "http://life-browser-agent.railway.internal:8931/mcp";
@@ -99,29 +98,6 @@ function wipeSession56(s){try{s?.secret?.fill(0);}catch{}}
 function purge56(s){const now=Date.now();if(s.active&&now>s.active.expiresAt){wipeSession56(s.active);s.active=null;}for(const [k,p] of s.pending){if(now>p.expiresAt){wipeSession56(p);s.pending.delete(k);}}}
 function active56(deviceId){const s=secureStates56.get(deviceId);if(!s)return null;purge56(s);return s.active;}
 function seen56(set,nonce){if(set.has(nonce))return false;set.add(nonce);while(set.size>512)set.delete(set.values().next().value);return true;}
-// JH228 read-only download route: no public upload/stage endpoint.
-const jh228StageVerifier=createSecure56StageVerifier({
-  store:sharedCameraV2StageStore,
-  lookupActiveSession:async sessionId=>{
-    for(const deviceId of secureStates56.keys()){
-      const active=active56(deviceId);
-      if(active?.sessionId===sessionId)return {verifiedBySecure56:true,
-        sessionId:active.sessionId,deviceDigest:active.deviceDigest,
-        secret:active.secret,expiresAtMs:active.expiresAt};
-    }
-    return null;
-  },
-  claimNonce:async ({sessionId,nonce})=>{
-    for(const deviceId of secureStates56.keys()){
-      const active=active56(deviceId);
-      if(active?.sessionId===sessionId){
-        if(!active.seenCameraV2)active.seenCameraV2=new Set();
-        return seen56(active.seenCameraV2,nonce);
-      }
-    }
-    return false;
-  }
-});
 function sessionDigest56(x){return sha56(x.deviceDigest+"|"+SERVER_IDENTITY_DIGEST56+"|PUBLIC_HTTPS_PROXY|unified-dev-checkpoint.56|"+SECURE56_TOOL_CATALOG_DIGEST+"|56|"+x.sessionId+"|"+x.expiresAt);}
 function payloadDigest56(p){return sha56(stable56(p||{}));}
 function signJob56(j,p){
@@ -654,7 +630,6 @@ function createMcp(){
 
 const httpServer=createServer(async(req,res)=>{
   const url=new URL(req.url||"/","http://localhost");
-  if(await serveStagedJpeg(req,res,{store:sharedCameraV2StageStore,verifyActiveDeviceSession:jh228StageVerifier}))return;
 
   if(req.method==="GET" && url.pathname==="/diag/register"){
     res.writeHead(200,{"content-type":"application/json","cache-control":"no-store"});
