@@ -75,3 +75,22 @@ test('missing Secure56 session and chat identity fail closed even with a permiss
  assert.equal(go({deviceStatus:{...status,secureSessionId:undefined}}).ok,false);
  assert.equal(go({deviceStatus:{...status,secureSessionId:'short'}}).ok,false);
 });
+
+test('whitespace-only Secure56 session tokens fail closed',()=>{
+ const r=go({scope:{...scope,secureSessionId:'        '},
+   deviceStatus:{...status,secureSessionId:'        '}});
+ assert.equal(r.ok,false);assert.equal(r.deviceAction,false);
+});
+test('whitespace-only native camera session fails closed',()=>{
+ assert.equal(go({scope:{...scope,currentCameraSessionId:'        '},
+   deviceStatus:{...status,sessionId:'        '}}).ok,false);
+});
+test('expiry timestamp must be a safe integer',()=>{
+ const max=Number.MAX_SAFE_INTEGER;
+ assert.equal(go({nowMs:max,deviceStatus:{...status,receivedAtMs:max}}).ok,false);
+});
+test('right-pane IDs outside safe integer range fail closed',()=>{
+ const unsafe=Number.MAX_SAFE_INTEGER+1;
+ assert.equal(go({scope:{...scope,currentRightWindowId:unsafe},
+   deviceStatus:{...status,rightWindowId:unsafe}}).ok,false);
+});
