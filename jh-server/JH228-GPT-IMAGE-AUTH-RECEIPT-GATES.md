@@ -22,3 +22,10 @@ GitHub `PASS` = Node/모의 HTTP·장치 콜백 검증일 뿐 실제 ChatGPT Ima
 ## 근거
 - 공식 이미지 편집 API: https://developers.openai.com/api/reference/resources/images/methods/edit
 - GitHub 개발 브랜치와 검증 결과: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/202
+
+## 이번 패치의 실제 CI 확정
+
+- [최종 GitHub Actions run 44883523316](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/44883523316): **SUCCESS**.
+- 기본 Node 시험: 51/51 PASS (JPEG5 + 구형·신규 goal12 + LEFT 영수증7 + SQLite4 + 현재 턴 pipeline13 + 선택형 GPT API 모의5 + durable runtime5).
+- 독립 Node 프로세스 100회 × 43개 핵심 시험 = **4,300/4,300 PASS**. 실제 외부 유료 이미지 생성 요청 **0회**.
+- 서버 정본은 계속 GitHub Draft PR #202. ZIP은 인계·참고자료, 실제 서버 변경 코드는 GitHub 정본을 따라야 함.
