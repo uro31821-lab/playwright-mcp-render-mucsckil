@@ -48,6 +48,7 @@ const required=[
   ['claimOneShot','JH228_DURABLE_ONCE_PORT_NOT_CONNECTED'],
   ['createSingleExample','PYEONBISEO_GENERATOR_NOT_CONNECTED'],
   ['renderInLeftChat','LEFT_GPT_OUTPUT_NOT_CONNECTED'],
+  ['verifyLeftPresentationReceipt','LEFT_GPT_RECEIPT_VERIFIER_NOT_CONNECTED'],
   ['applySignedGoal','SIGNED_CAMERA_GOAL_NOT_CONNECTED'],
 ];
 export function createJH228CameraV2Pipeline(ports={},options={}){
@@ -122,7 +123,8 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
         currentTurn:{threadId:turn.threadId,sourceRef:turn.sourceRef,
           referenceAttachmentId:turn.attachments[0].id},
         signedScope,resolveActiveSignedSession:ports.resolveActiveSignedSession,
-        renderInLeftChat:ports.renderInLeftChat,store,now
+        renderInLeftChat:ports.renderInLeftChat,
+        verifyLeftPresentationReceipt:ports.verifyLeftPresentationReceipt,store,now
       });
       const displayed=await host.chat.showLeft({
         sourceReferenceId:turn.attachments[0].id,exampleJpeg:image.jpegBytes,
