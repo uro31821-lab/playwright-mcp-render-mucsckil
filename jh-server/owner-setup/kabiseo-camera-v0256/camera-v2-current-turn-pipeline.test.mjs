@@ -46,6 +46,12 @@ function setup(overrides={}){
   };},
   verifyLeftPresentationReceipt:async (receipt,binding)=>
    receipt.imageSha256===binding.imageSha256&&receipt.linesSha256===binding.linesSha256,
+  verifySignedCameraApplyReceipt:async x=>({
+   verifiedBySecure56:true,verifiedByDevice:true,sessionId:x.secureSessionId,
+   deviceDigest:x.deviceDigest,taskDigest:x.taskDigest,commandId:x.commandId,
+   referenceId:x.referenceId,imageSha256:x.imageSha256,
+   operation:x.expectedOperation,deviceResultCode:x.deviceResult?.code
+  }),
   applySignedGoal:async req=>{
    state.effects.push('apply');state.applied=req;
    return {ok:true,code:'V2_REFERENCE_APPLIED',referenceId:req.goal.referenceId,
@@ -102,7 +108,8 @@ test('missing operator E2E fence blocks before journal claim',async()=>{
   claimOneShot:async()=>{state.effects.push('claim')},
   createSingleExample:async()=>{},renderInLeftChat:async()=>{},
   verifyLeftPresentationReceipt:async()=>false,
-  applySignedGoal:async()=>{}
+  applySignedGoal:async()=>{},
+  verifySignedCameraApplyReceipt:async()=>({})
  },{env:{...env,JH228_CAMERA_V2_UPSTREAM_E2E_GATE:'unverified'},stageStore:store});
  const result=await wrong.run({mood:'귀여운 느낌'});
  assert.equal(result.code,'JH228_OPERATOR_E2E_GATE_NOT_VERIFIED');
@@ -171,4 +178,35 @@ test('cross-thread image-provider readiness cannot authorize a generation',async
  })});
  assert.equal((await pipeline.run({mood:'깔끔하게'})).code,'PYEONBISEO_GENERATION_NOT_READY');
  assert.deepEqual(state.effects,[]);store.close();
+});
+
+test('missing independent signed apply receipt verifier denies before consuming journal',async()=>{
+ const {pipeline,state,store}=setup({verifySignedCameraApplyReceipt:undefined});
+ const result=await pipeline.run({mood:'차분한 구도'});
+ assert.equal(result.code,'SIGNED_CAMERA_GOAL_RECEIPT_VERIFIER_NOT_CONNECTED');
+ assert.deepEqual(state.effects,[]);
+ store.close();
+});
+test('device text ok=true is insufficient without signed Secure56 job confirmation',async()=>{
+ const {pipeline,state,store}=setup({verifySignedCameraApplyReceipt:async()=>({
+  verifiedBySecure56:false,verifiedByDevice:false
+ })});
+ const result=await pipeline.run({mood:'밝은 구도'});
+ assert.equal(result.ok,false);
+ assert.equal(result.code,'CAMERA_SIGNED_APPLY_RECEIPT_UNVERIFIED');
+ assert.equal(result.autoClickedByHost,false);
+ assert.deepEqual(state.effects,['claim','generate','present','apply']);
+ store.close();
+});
+test('signed receipt with a different camera command or image SHA cannot attest success',async()=>{
+ const {pipeline,state,store}=setup({verifySignedCameraApplyReceipt:async x=>({
+  verifiedBySecure56:true,verifiedByDevice:true,sessionId:x.secureSessionId,
+  deviceDigest:x.deviceDigest,taskDigest:x.taskDigest,commandId:'d'.repeat(32),
+  referenceId:x.referenceId,imageSha256:'0'.repeat(64),
+  operation:x.expectedOperation,deviceResultCode:'V2_REFERENCE_APPLIED'
+ })});
+ const result=await pipeline.run({mood:'자연스러운 구도'});
+ assert.equal(result.code,'CAMERA_SIGNED_APPLY_RECEIPT_UNVERIFIED');
+ assert.equal(result.phoneReferenceVisible,undefined);
+ store.close();
 });
