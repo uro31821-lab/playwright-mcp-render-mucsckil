@@ -13,17 +13,19 @@ public final class V2SizeZoomPolicy {
     public static float choose(float current,float min,float max,String direction,String strength){
         if(!Float.isFinite(current)||!Float.isFinite(min)||!Float.isFinite(max)||
            current<=0.0f||min<=0.0f||max<min||
-           current<min-EPSILON||current>max+EPSILON||
+           current<min||current>max||
            !("IN".equals(direction)||"OUT".equals(direction)))return Float.NaN;
         final float multiplier;
         if("SMALL".equals(strength))multiplier="IN".equals(direction)?1.15f:0.85f;
         else if("MEDIUM".equals(strength))multiplier="IN".equals(direction)?1.25f:0.75f;
         else return Float.NaN;
         final float upper=Math.min(max,MAX_QUALITY_ZOOM);
-        if(upper<min)return Float.NaN;
+        if(upper<min||current>upper)return Float.NaN;
         final float raw=current*multiplier;
         final float suggested=Math.max(min,Math.min(upper,raw));
-        return !Float.isFinite(suggested)||Math.abs(suggested-current)<EPSILON?
-            Float.NaN:suggested;
+        if(!Float.isFinite(suggested))return Float.NaN;
+        final float delta=suggested-current;
+        // A bounded correction must never move against the requested direction.
+        return ("IN".equals(direction)?delta<EPSILON:delta>-EPSILON)?Float.NaN:suggested;
     }
 }
