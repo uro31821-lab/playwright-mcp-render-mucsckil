@@ -7,6 +7,7 @@ on:
       - "jh-server/camera-v2-secure-stage.mjs"
       - "jh-server/camera-v2-secure-stage.test.mjs"
       - "jh-server/server.mjs"
+      - "jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay*.mjs"
       - ".github/workflows/jh228-camera-v2-stage.yml"
   pull_request:
     branches:
@@ -24,6 +25,8 @@ jobs:
         run: node --check jh-server/server.mjs
       - name: Secure56 one-shot JPEG regression
         run: node --test jh-server/camera-v2-secure-stage.test.mjs
+      - name: Verified durable runtime overlay and sealed source regression
+        run: node --test jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay.test.mjs
       - name: Independent 100-process security regression
         shell: bash
         run: |
