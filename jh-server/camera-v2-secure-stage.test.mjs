@@ -4,13 +4,12 @@ import {createHash, createHmac, randomBytes} from 'node:crypto';
 import {createServer} from 'node:http';
 import {
   AiCameraV2StageStore, createSecure56StageVerifier, serveStagedJpeg,
-  sharedCameraV2StageStore
+  inspectJpegHeader56, sharedCameraV2StageStore
 } from './camera-v2-secure-stage.mjs';
 
 const sha=b=>createHash('sha256').update(b).digest('hex');
 function fixture(){
-  const bytes=Buffer.alloc(128,0);
-  bytes[0]=0xff;bytes[1]=0xd8;bytes[126]=0xff;bytes[127]=0xd9;
+  const bytes=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABMNDhEODBMRDxEVFBMXHTAfHRoaHToqLCMwRT1JR0Q9Q0FMVm1dTFFoUkFDX4JgaHF1e3x7SlyGkIV3j214e3b/2wBDARQVFR0ZHTgfHzh2T0NPdnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnb/wAARCAAwAEADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAP/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAT/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCgChOAAAAAAAAAAAAAAAAAAAAAA//Z','base64');
   const secret=Buffer.alloc(32,7),sessionId='test_session_secure56_00001';
   const scope={verifiedBySecure56:true,secureSessionId:sessionId,
     deviceDigest:sha('device'),taskDigest:sha('task'),commandId:'b'.repeat(32)};
@@ -19,6 +18,16 @@ function fixture(){
 test('process-shared stage store is private and initially empty',()=>{
   assert.ok(sharedCameraV2StageStore instanceof AiCameraV2StageStore);
   assert.equal(sharedCameraV2StageStore.pendingCount(),0);
+});
+test('JPEG segment preflight checks true frame size, not just SOI/EOI',()=>{
+  const {bytes,scope}=fixture(),store=new AiCameraV2StageStore();
+  assert.deepEqual(inspectJpegHeader56(bytes),{width:64,height:48});
+  assert.equal(inspectJpegHeader56(Buffer.concat([Buffer.from([255,216]),Buffer.alloc(100,0),Buffer.from([255,217])])),null);
+  const params={...scope,referenceId:'reference_example_0000',sha256:sha(bytes),
+    bytes,size:bytes.length,dimensions:{width:64,height:47}};
+  assert.equal(store.stageVerifiedJpeg(params).acknowledged,false);
+  assert.equal(store.stageVerifiedJpeg({...params,dimensions:{width:64,height:48}}).acknowledged,true);
+  store.close();
 });
 test('no unverified or tampered image is stageable',()=>{
   const {bytes,scope}=fixture(),store=new AiCameraV2StageStore();
