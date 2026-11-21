@@ -24,3 +24,11 @@ jobs:
         run: node --check jh-server/server.mjs
       - name: Secure56 one-shot JPEG regression
         run: node --test jh-server/camera-v2-secure-stage.test.mjs
+      - name: Independent 100-process security regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 100); do
+            node --test jh-server/camera-v2-secure-stage.test.mjs >/dev/null
+          done
+          echo "JH228_REPEAT_100_PASS"
