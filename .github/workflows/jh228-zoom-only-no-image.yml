@@ -1,0 +1,47 @@
+name: JH228 zoom-only candidate (no image transfer)
+on:
+  push:
+    branches:
+      - jh228-zoom-only-no-image-20261122
+    paths:
+      - "jh-server/owner-setup/kabiseo-zoom-only/**"
+      - ".github/workflows/jh228-zoom-only-no-image.yml"
+  pull_request:
+    branches:
+      - jh-fix3-secure-server
+jobs:
+  zoom-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Syntax and standalone Node security tests
+        run: |
+          node --check jh-server/owner-setup/kabiseo-zoom-only/camera-zoom-only-intent.mjs
+          node --test jh-server/owner-setup/kabiseo-zoom-only/camera-zoom-only-intent.test.mjs
+      - name: Compile and run no-Android Java zoom policy
+        run: |
+          mkdir -p /tmp/jh228-zoom-policy
+          javac -d /tmp/jh228-zoom-policy jh-server/owner-setup/kabiseo-zoom-only/V2SubjectSizeZoomPolicy.java jh-server/owner-setup/kabiseo-zoom-only/ZoomOnlyPolicySmoke.java
+          java -cp /tmp/jh228-zoom-policy ZoomOnlyPolicySmoke
+      - name: Ensure no external image transfer or remote camera trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RniE 'api\.openai\.com|fetch\(|/device/camera-v2-example|CameraV2ExampleDownloader|armAuto\(|shutter\(' jh-server/owner-setup/kabiseo-zoom-only --include='*.mjs' --include='*.java'; then exit 1; fi
+      - name: 100 independent process repetitions of Node and Java code
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 100); do
+            node --test jh-server/owner-setup/kabiseo-zoom-only/camera-zoom-only-intent.test.mjs >/dev/null
+            java -cp /tmp/jh228-zoom-policy ZoomOnlyPolicySmoke >/dev/null
+          done
+          echo JH228_ZOOM_ONLY_NO_IMAGE_100_PASS
