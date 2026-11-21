@@ -51,6 +51,7 @@ const required=[
   ['renderInLeftChat','LEFT_GPT_OUTPUT_NOT_CONNECTED'],
   ['verifyLeftPresentationReceipt','LEFT_GPT_RECEIPT_VERIFIER_NOT_CONNECTED'],
   ['applySignedGoal','SIGNED_CAMERA_GOAL_NOT_CONNECTED'],
+  ['verifySignedCameraApplyReceipt','SIGNED_CAMERA_GOAL_RECEIPT_VERIFIER_NOT_CONNECTED'],
 ];
 export function createJH228CameraV2Pipeline(ports={},options={}){
   const env=options.env??process.env,store=options.stageStore;
@@ -177,6 +178,33 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
           goal
         });
       }catch{return stop('CAMERA_GOAL_RESULT_UNKNOWN',{exampleShown:true});}
+      // A model/text callback may claim success. The host MUST independently
+      // read back the exact signed Secure56 job completion before success.
+      // The verifier is a separate trusted port, not a boolean in device text.
+      let signedReadback;
+      try{
+        signedReadback=await ports.verifySignedCameraApplyReceipt({
+          threadId:turn.threadId,sourceRef:turn.sourceRef,
+          secureSessionId:scope.secureSessionId,
+          deviceDigest:scope.deviceDigest,taskDigest:scope.taskDigest,
+          commandId:scope.commandId,referenceId,
+          imageSha256:staged.sha256,stageLease:staged.stageLease,
+          expectedOperation:'KABISEO_GOAL_APPLY_V1',
+          expectedTool:'life_android_camera_goal_v1',
+          deviceResult:result
+        });
+      }catch{return stop('CAMERA_SIGNED_APPLY_RECEIPT_UNVERIFIED',{exampleShown:true});}
+      if(!signedReadback||signedReadback.verifiedBySecure56!==true||
+         signedReadback.verifiedByDevice!==true||
+         signedReadback.sessionId!==scope.secureSessionId||
+         signedReadback.deviceDigest!==scope.deviceDigest||
+         signedReadback.taskDigest!==scope.taskDigest||
+         signedReadback.commandId!==scope.commandId||
+         signedReadback.referenceId!==referenceId||
+         signedReadback.imageSha256!==staged.sha256||
+         signedReadback.operation!=='KABISEO_GOAL_APPLY_V1'||
+         signedReadback.deviceResultCode!=='V2_REFERENCE_APPLIED')
+        return stop('CAMERA_SIGNED_APPLY_RECEIPT_UNVERIFIED',{exampleShown:true});
       if(result?.ok!==true||result.code!=='V2_REFERENCE_APPLIED'||
          result.referenceId!==referenceId||result.referenceVisible!==true||
          result.autoArmed!==false||result.instructionsLocation!=='LEFT_GPT_ONLY')
