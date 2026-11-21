@@ -1,0 +1,28 @@
+name: JH GPT LEFT shooting preview — prompt only
+on:
+  push:
+    branches: [jh-camera-left-preview-only-20261121]
+    paths:
+      - "jh-plugin-overlay/**"
+      - ".github/workflows/jh-camera-left-preview-only.yml"
+  pull_request:
+    branches: [jh-fix3-secure-server]
+jobs:
+  prompt-only-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Only the native GPT LEFT preview remains; no camera transmission source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          test ! -e jh-server/owner-setup/jh-camera-left-preview/left-preview-route.mjs
+          grep -q 'image_gen' jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          grep -q '왼쪽 GPT' jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          grep -q '오른쪽' jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          grep -q 'edit_existing' jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          test ! -e jh-plugin-overlay/.mcp.json
+          test ! -e jh-plugin-overlay/.app.json
+          echo JH_LEFT_NATIVE_PROMPT_ONLY_PASS
