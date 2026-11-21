@@ -178,6 +178,10 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
           goal
         });
       }catch{return stop('CAMERA_GOAL_RESULT_UNKNOWN',{exampleShown:true});}
+      if(result?.ok!==true||result.code!=='V2_REFERENCE_APPLIED'||
+         result.referenceId!==referenceId||result.referenceVisible!==true||
+         result.autoArmed!==false||result.instructionsLocation!=='LEFT_GPT_ONLY')
+        return stop('CAMERA_REFERENCE_APPLY_NOT_VERIFIED',{exampleShown:true});
       // A model/text callback may claim success. The host MUST independently
       // read back the exact signed Secure56 job completion before success.
       // The verifier is a separate trusted port, not a boolean in device text.
@@ -205,10 +209,6 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
          signedReadback.operation!=='KABISEO_GOAL_APPLY_V1'||
          signedReadback.deviceResultCode!=='V2_REFERENCE_APPLIED')
         return stop('CAMERA_SIGNED_APPLY_RECEIPT_UNVERIFIED',{exampleShown:true});
-      if(result?.ok!==true||result.code!=='V2_REFERENCE_APPLIED'||
-         result.referenceId!==referenceId||result.referenceVisible!==true||
-         result.autoArmed!==false||result.instructionsLocation!=='LEFT_GPT_ONLY')
-        return stop('CAMERA_REFERENCE_APPLY_NOT_VERIFIED',{exampleShown:true});
       return {ok:true,code:'EXAMPLE_APPLIED_AWAIT_LOCAL_AUTO',exampleShown:true,
         phoneReferenceVisible:true,referenceId,lines:[...image.movementLines],...OUT};
     }
