@@ -27,8 +27,11 @@ export function makeZoomOnlyGoal({
      typeof scope.threadId!=='string'||!scope.threadId.trim()||
      typeof scope.sourceRef!=='string'||!scope.sourceRef.trim())
     return no('ZOOM_INPUT_UNVERIFIED');
+  // AI_FIRST: current authenticated composition request can choose a bounded size-only zoom.
+  const explicitSize=intent.kind==='SUBJECT_SIZE';
+  const aiComposition=intent.kind==='AI_COMPOSITION_SIZE'&&intent.basis==='CURRENT_VERIFIED_REFERENCE'&&intent.scaleDecisionVerified===true;
   if(intent.threadId!==scope.threadId||intent.sourceRef!==scope.sourceRef||
-     intent.kind!=='SUBJECT_SIZE'||intent.userRequested!==true||
+     (!explicitSize&&!aiComposition)||intent.userRequested!==true||
      !['INCREASE','DECREASE'].includes(intent.direction)||
      !['SLIGHT','MODERATE'].includes(intent.amount))
     return no('ZOOM_NOT_A_SIZE_REQUEST');
@@ -65,6 +68,7 @@ export function makeZoomOnlyGoal({
       expectedSessionId:deviceStatus.sessionId,
       expectedRightWindowId:deviceStatus.rightWindowId,
       expectedZoom:deviceStatus.actualZoom,expiresAtMs:nowMs+20000},
+    zoomAuthority:'AI_PRIMARY',manualFallbackOnly:true,
     afterAction:'READ_GOAL_STATUS_AND_REQUIRE_ZOOM_APPLIED_VERIFIED',
     canRetryUnknownEffect:false,noRemoteAuto:true,externalImageTransfer:false};
 }
