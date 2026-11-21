@@ -1,0 +1,36 @@
+name: JH LEFT ChatGPT camera preview only (candidate)
+on:
+  push:
+    branches:
+      - jh-camera-left-preview-only-20261121
+    paths:
+      - "jh-server/owner-setup/jh-camera-left-preview/**"
+      - "jh-plugin-overlay/**"
+      - ".github/workflows/jh-camera-left-preview-only.yml"
+  pull_request:
+    branches:
+      - jh-fix3-secure-server
+jobs:
+  camera-left:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate LEFT preview contract
+        run: |
+          node --check jh-server/owner-setup/jh-camera-left-preview/left-preview-route.mjs
+          node --test jh-server/owner-setup/jh-camera-left-preview/left-preview-route.test.mjs
+      - name: Verify no source-side Android effect or external paid API
+        run: |
+          if grep -RE 'api.openai.com|https?://|/device/camera-v2-example|httpServer|fetch\(|applySignedGoal' jh-server/owner-setup/jh-camera-left-preview/left-preview-route.mjs; then exit 1; fi
+      - name: 100 independent process repeats (8 cases each)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 100); do
+            node --test jh-server/owner-setup/jh-camera-left-preview/left-preview-route.test.mjs >/dev/null
+          done
+          echo "JH_CAMERA_LEFT_PREVIEW_800_PASS"
