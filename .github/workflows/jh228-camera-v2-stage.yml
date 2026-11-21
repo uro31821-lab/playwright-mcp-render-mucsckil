@@ -10,6 +10,8 @@ on:
       - "jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay*.mjs"
       - "jh-server/owner-setup/deployment/jh228-camera-v2-candidate-entry.mjs"
       - "jh-server/owner-setup/deployment/published-host-router.mjs"
+      - "jh-server/owner-setup/kabiseo-camera-v0256/camera-goal.mjs"
+      - "jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-goal-policy*.mjs"
       - ".github/workflows/jh228-camera-v2-stage.yml"
   pull_request:
     branches:
@@ -36,6 +38,8 @@ jobs:
           npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
           npm install --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund --package-lock=false
           npm install --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund --package-lock=false
+      - name: Existing camera-goal and JH228 protocol compatibility
+        run: node --test jh-server/owner-setup/kabiseo-camera-v0256/camera-goal.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-goal-policy.test.mjs
       - name: Verified durable runtime overlay and sealed source regression
         run: node --test jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay.test.mjs
       - name: Independent 100-process security regression
@@ -43,6 +47,6 @@ jobs:
         run: |
           set -euo pipefail
           for i in $(seq 1 100); do
-            node --test jh-server/camera-v2-secure-stage.test.mjs jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay.test.mjs >/dev/null
+            node --test jh-server/camera-v2-secure-stage.test.mjs jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay.test.mjs jh-server/owner-setup/kabiseo-camera-v0256/camera-v2-goal-policy.test.mjs >/dev/null
           done
-          echo "JH228_STAGE_AND_GENERATED_RUNTIME_REPEAT_100_PASS"
+          echo "JH228_STAGE_RUNTIME_AND_GOAL_REPEAT_100_PASS"
