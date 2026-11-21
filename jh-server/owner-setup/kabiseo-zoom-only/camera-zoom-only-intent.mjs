@@ -20,7 +20,10 @@ export function makeZoomOnlyGoal({
   if(!user)return no('CURRENT_USER_ZOOM_INTENT_NOT_VERIFIED');
   if(!Number.isSafeInteger(nowMs)||!object(intent)||!object(deviceStatus)||!object(scope)||
      !hex64.test(scope.taskDigest??'')||!hex64.test(scope.deviceDigest??'')||
-     !hex32.test(scope.cameraCommandId??''))
+     !hex32.test(scope.cameraCommandId??'')||
+     typeof scope.secureSessionId!=='string'||scope.secureSessionId.length<8||
+     typeof scope.threadId!=='string'||!scope.threadId.trim()||
+     typeof scope.sourceRef!=='string'||!scope.sourceRef.trim())
     return no('ZOOM_INPUT_UNVERIFIED');
   if(intent.threadId!==scope.threadId||intent.sourceRef!==scope.sourceRef||
      intent.kind!=='SUBJECT_SIZE'||intent.userRequested!==true||
@@ -33,6 +36,7 @@ export function makeZoomOnlyGoal({
      deviceStatus.autoArmed!==false||deviceStatus.autoVisualActive!==false||
      deviceStatus.manualZoomOverride!==false||
      deviceStatus.cameraReadiness?.ready!==true||
+     typeof deviceStatus.secureSessionId!=='string'||deviceStatus.secureSessionId.length<8||
      typeof deviceStatus.sessionId!=='string'||deviceStatus.sessionId.length<8||
      !Number.isInteger(deviceStatus.rightWindowId)||deviceStatus.rightWindowId<1||
      !Number.isFinite(deviceStatus.actualZoom)||deviceStatus.actualZoom<=0)
