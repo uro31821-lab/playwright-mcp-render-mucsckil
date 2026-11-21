@@ -25,6 +25,11 @@ jobs:
         run: node --check jh-server/server.mjs
       - name: Secure56 one-shot JPEG regression
         run: node --test jh-server/camera-v2-secure-stage.test.mjs
+      - name: Install exact existing durable-host dependencies (no lifecycle scripts)
+        run: |
+          npm ci --prefix jh-server --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
       - name: Verified durable runtime overlay and sealed source regression
         run: node --test jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay.test.mjs
       - name: Independent 100-process security regression
