@@ -6,6 +6,7 @@
 const object=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const hex64=/^[a-f0-9]{64}$/,hex32=/^[a-f0-9]{32}$/;
 const no=code=>({ok:false,code,deviceAction:false});
+const nonblankToken=(v,min=8)=>typeof v==='string'&&v.trim().length>=min;
 export const PROTOCOL='JH_CAMERA_V2_ZOOM_ONLY_V1';
 export function makeZoomOnlyGoal({
   intent,deviceStatus,scope,verifyCurrentSignedStatus,
@@ -18,10 +19,11 @@ export function makeZoomOnlyGoal({
   try{user=typeof verifyCurrentUserIntent==='function'&&
        verifyCurrentUserIntent({intent,scope})===true}catch{}
   if(!user)return no('CURRENT_USER_ZOOM_INTENT_NOT_VERIFIED');
-  if(!Number.isSafeInteger(nowMs)||!object(intent)||!object(deviceStatus)||!object(scope)||
+  if(!Number.isSafeInteger(nowMs)||!Number.isSafeInteger(nowMs+20000)||
+     !object(intent)||!object(deviceStatus)||!object(scope)||
      !hex64.test(scope.taskDigest??'')||!hex64.test(scope.deviceDigest??'')||
      !hex32.test(scope.cameraCommandId??'')||
-     typeof scope.secureSessionId!=='string'||scope.secureSessionId.length<8||
+     !nonblankToken(scope.secureSessionId)||
      typeof scope.threadId!=='string'||!scope.threadId.trim()||
      typeof scope.sourceRef!=='string'||!scope.sourceRef.trim())
     return no('ZOOM_INPUT_UNVERIFIED');
@@ -36,9 +38,10 @@ export function makeZoomOnlyGoal({
      deviceStatus.autoArmed!==false||deviceStatus.autoVisualActive!==false||
      deviceStatus.manualZoomOverride!==false||
      deviceStatus.cameraReadiness?.ready!==true||
-     typeof deviceStatus.secureSessionId!=='string'||deviceStatus.secureSessionId.length<8||
-     typeof deviceStatus.sessionId!=='string'||deviceStatus.sessionId.length<8||
-     !Number.isInteger(deviceStatus.rightWindowId)||deviceStatus.rightWindowId<1||
+     !nonblankToken(deviceStatus.secureSessionId)||
+     !nonblankToken(deviceStatus.sessionId)||
+     !Number.isSafeInteger(deviceStatus.rightWindowId)||deviceStatus.rightWindowId<1||
+     !Number.isSafeInteger(scope.currentRightWindowId)||scope.currentRightWindowId<1||
      !Number.isFinite(deviceStatus.actualZoom)||deviceStatus.actualZoom<=0)
     return no('RIGHT_CAMERA_NOT_READY');
   if(scope.secureSessionId!==deviceStatus.secureSessionId||
