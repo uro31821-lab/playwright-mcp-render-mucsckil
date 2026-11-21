@@ -50,7 +50,7 @@ export function createNativeChatGPTImagePorts({
     sourceRef:currentTurn.sourceRef,attachmentId:currentTurn.referenceAttachmentId});
   let ready=null, attempted=false;
   function publicReadiness(){
-    const {sourceHandle,sourceSha256,...view}=ready;
+    const {sourceHandle,...view}=ready;
     return {...view}; // opaque current-attachment handle never escapes preflight
   }
 
