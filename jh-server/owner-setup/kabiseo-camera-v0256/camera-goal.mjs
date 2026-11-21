@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {validStagedV2Goal} from './camera-v2-goal-policy.mjs';
 import {BASE_CATALOG_DIGEST,EXPECTED_PACKAGE} from './camera-contract.mjs';
 export const GOAL_TOOL='life_android_camera_goal_v1';
 export const actions=Object.freeze({frame:'READ_ONLY',status:'READ_ONLY',apply:'WRITE_REVERSIBLE',start:'WRITE_REVERSIBLE',stop:'WRITE_REVERSIBLE'});
@@ -12,6 +13,7 @@ const hex=(v,n)=>typeof v==='string'&&new RegExp(`^[a-f0-9]{${n}}$`).test(v);
 const str=(v,n)=>typeof v==='string'&&v.trim().length>0&&v.length<=n&&!/[\u0000-\u001f\u007f]/u.test(v);
 const box=v=>exact(v,['left','top','right','bottom'])&&Object.values(v).every(Number.isFinite)&&v.left>=0&&v.top>=0&&v.right<=1&&v.bottom<=1&&v.right-v.left>=.06&&v.bottom-v.top>=.06;
 export function validGoal(g,now=Date.now()){
+  if(record(g)&&Object.hasOwn(g,'v2Protocol'))return validStagedV2Goal(g);
   return exact(g,['id','sessionId','frameId','subject','source','target','zoom','aspect','mode','style','presetId','expiresAt','movementLines'])&&
     hex(g.id,32)&&hex(g.frameId,32)&&str(g.sessionId,240)&&str(g.subject,80)&&box(g.source)&&box(g.target)&&
     g.target.left>=.02&&g.target.top>=.02&&g.target.right<=.98&&g.target.bottom<=.98&&
