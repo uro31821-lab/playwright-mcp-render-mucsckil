@@ -44,6 +44,7 @@ const required=[
   ['verifyShootingRoute','JH_VERIFY_PORT_NOT_CONNECTED'],
   ['interpretShooting','JH_INTERPRETER_NOT_CONNECTED'],
   ['readSignedCapture','SECURE56_CAPTURE_PORT_NOT_CONNECTED'],
+  ['readVerifiedV2CameraStatus','V2_CAMERA_STATUS_PORT_NOT_CONNECTED'],
   ['resolveActiveSignedSession','SECURE56_ACTIVE_SESSION_PORT_NOT_CONNECTED'],
   ['claimOneShot','JH228_DURABLE_ONCE_PORT_NOT_CONNECTED'],
   ['confirmImageGenerationReady','PYEONBISEO_READINESS_NOT_CONNECTED'],
@@ -82,6 +83,30 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
         referenceAttachmentId:turn.attachments[0].id
       });}catch{return stop('SECURE56_SIGNED_CAPTURE_UNAVAILABLE');}
       if(!validSignedScope(scope,turn))return stop('SECURE56_SIGNED_CAPTURE_UNVERIFIED');
+      // The actual JH228 Android camera has a signed GOAL STATUS reply
+      // `V2_CAMERA_UI_STATUS`. Refuse to spend image tokens or reserve a
+      // durable request if the device remains on JH227 or the RIGHT camera is
+      // not verified in v2 mode. Device and split-pane proof comes ONLY from
+      // the authenticated host adapter, not the model's answer.
+      let deviceUi;
+      try{
+        deviceUi=await ports.readVerifiedV2CameraStatus({
+          threadId:turn.threadId,sourceRef:turn.sourceRef,
+          deviceDigest:scope.deviceDigest,taskDigest:scope.taskDigest,
+          secureSessionId:scope.secureSessionId,commandId:scope.commandId
+        });
+      }catch{return stop('V2_CAMERA_UI_NOT_READY');}
+      if(deviceUi?.verifiedBySecure56!==true||
+         deviceUi.verifiedByDevice!==true||
+         deviceUi.sessionId!==scope.secureSessionId||
+         deviceUi.deviceDigest!==scope.deviceDigest||
+         deviceUi.appCameraFlow!=='AI_CAMERA_V2'||
+         deviceUi.code!=='V2_CAMERA_UI_STATUS'||
+         deviceUi.guideLocation!=='LEFT_GPT_ONLY'||
+         deviceUi.guideInputButtonPresent!==false||
+         deviceUi.autoArmed!==false||
+         deviceUi.rightCameraPaneConfirmed!==true)
+        return stop('V2_CAMERA_UI_NOT_READY');
       // Deny before consuming the journal if operator / E2E gate is missing.
       const referenceProbe={
         v2Protocol:'JH_AI_CAMERA_V2_REFERENCE_V1',
