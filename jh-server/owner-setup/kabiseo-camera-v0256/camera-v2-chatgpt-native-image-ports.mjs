@@ -49,12 +49,16 @@ export function createNativeChatGPTImagePorts({
   const binding=Object.freeze({threadId:currentTurn.threadId,
     sourceRef:currentTurn.sourceRef,attachmentId:currentTurn.referenceAttachmentId});
   let ready=null, attempted=false;
+  function publicReadiness(){
+    const {sourceHandle,sourceSha256,...view}=ready;
+    return {...view}; // opaque current-attachment handle never escapes preflight
+  }
 
   async function confirmImageGenerationReady(request){
     if(attempted||!scopeMatches(request,binding)||request.count!==1||
        typeof request.mood!=='string'||!request.mood.trim()||
        request.mood.trim().length>160)return {ready:false};
-    if(ready)return {...ready};
+    if(ready)return publicReadiness();
     try{
       // This readback must come from the authenticated current-turn attachment
       // store, never a previous chat message or a model-supplied URL.
@@ -80,7 +84,7 @@ export function createNativeChatGPTImagePorts({
         nativeArtifactReadbackAvailable:true,
         nativeLeftRenderReceiptAvailable:true,
         sourceHandle:source.assetHandle,sourceSha256:source.sha256});
-      return {...ready};
+      return publicReadiness();
     }catch{return {ready:false};}
   }
 
@@ -153,6 +157,8 @@ export function createNativeChatGPTImagePorts({
         error('JH228_NATIVE_MOVEMENT_PLAN_INVALID');
       return {
         count:1,sourceReferenceId:binding.attachmentId,
+        provider:NATIVE_PROVIDER,nativeArtifactVerified:true,
+        sourceSha256:ready.sourceSha256,imageSha256:artifact.imageSha256,
         jpegBytes:Buffer.from(artifact.jpegBytes),
         movementLines:[...movementPlan.lines],
         ...(movementPlan.suggestedZoom==null?{}:{suggestedZoom:movementPlan.suggestedZoom})
