@@ -29,7 +29,7 @@ test('verified current LEFT image receipt gates server-local Secure56 stage writ
  assert.equal((await ports.imageStage.stageVerifiedJpeg(payload)).acknowledged,false);
  assert.equal((await ports.chat.showLeft(left)).shown,true);
  const stage=await ports.imageStage.stageVerifiedJpeg(payload);
- assert.equal(stage.acknowledged,true);
+ assert.equal(stage.acknowledged,true,stage.code);
  assert.equal(imageStore.describe(stage.stageLease).sha256,sha(jpg));
  assert.equal((await ports.imageStage.stageVerifiedJpeg(payload)).acknowledged,false);
  assert.equal((await ports.chat.showLeft(left)).shown,false);
@@ -56,6 +56,6 @@ test('cross-thread image and same-turn concurrent stage attempts fail closed',as
  assert.equal((await ports.chat.showLeft(left)).shown,true);
  const [a,b]=await Promise.all([ports.imageStage.stageVerifiedJpeg(payload),
   ports.imageStage.stageVerifiedJpeg({...payload,threadId:'forged'})]);
- assert.equal([a.acknowledged,b.acknowledged].filter(Boolean).length,1);
+ assert.equal([a.acknowledged,b.acknowledged].filter(Boolean).length,1,JSON.stringify([a.code,b.code]));
  assert.equal(imageStore.pendingCount(),1);imageStore.close();
 });
