@@ -39,8 +39,11 @@ function setup(overrides={}){
   },
   renderInLeftChat:async req=>{state.effects.push('present');return {
    shown:true,threadId:req.threadId,sourceRef:req.sourceRef,attachmentId:req.attachmentId,
-   presentationId:'left_present_0123456789'
+   presentationId:'left_present_0123456789',imageSha256:req.imageSha256,
+   linesSha256:req.linesSha256
   };},
+  verifyLeftPresentationReceipt:async (receipt,binding)=>
+   receipt.imageSha256===binding.imageSha256&&receipt.linesSha256===binding.linesSha256,
   applySignedGoal:async req=>{
    state.effects.push('apply');state.applied=req;
    return {ok:true,code:'V2_REFERENCE_APPLIED',referenceId:req.goal.referenceId,
@@ -93,6 +96,7 @@ test('missing operator E2E fence blocks before journal claim',async()=>{
   readSignedCapture:async()=>scope,
   resolveActiveSignedSession:async()=>({}),claimOneShot:async()=>{state.effects.push('claim')},
   createSingleExample:async()=>{},renderInLeftChat:async()=>{},
+  verifyLeftPresentationReceipt:async()=>false,
   applySignedGoal:async()=>{}
  },{env:{...env,JH228_CAMERA_V2_UPSTREAM_E2E_GATE:'unverified'},stageStore:store});
  const result=await wrong.run({mood:'귀여운 느낌'});
@@ -124,4 +128,24 @@ test('signed camera scope cannot be replaced by a forged device or expired sessi
  const {pipeline,state,store}=setup({readSignedCapture:async()=>({...scope,deviceDigest:'x'.repeat(64)})});
  assert.equal((await pipeline.run({mood:'차분한 느낌'})).code,'SECURE56_SIGNED_CAPTURE_UNVERIFIED');
  assert.deepEqual(state.effects,[]);store.close();
+});
+
+test('missing independent LEFT receipt verifier stops before claiming once',async()=>{
+ const {pipeline,state,store}=setup({verifyLeftPresentationReceipt:undefined});
+ const result=await pipeline.run({mood:'예쁘게'});
+ assert.equal(result.code,'LEFT_GPT_RECEIPT_VERIFIER_NOT_CONNECTED');
+ assert.deepEqual(state.effects,[]);
+ store.close();
+});
+test('model-declared shown:true without image hash cannot trigger camera APPLY',async()=>{
+ const {pipeline,state,store}=setup({renderInLeftChat:async p=>{
+  state.effects.push('present');return {
+   shown:true,threadId:p.threadId,sourceRef:p.sourceRef,
+   attachmentId:p.attachmentId,presentationId:'left_present_0123456789'
+  };
+ }});
+ const result=await pipeline.run({mood:'차분하게'});
+ assert.equal(result.code,'LEFT_GPT_PRESENTATION_NOT_VERIFIED');
+ assert.deepEqual(state.effects,['claim','generate','present']);
+ assert.equal(store.pendingCount(),0);store.close();
 });
