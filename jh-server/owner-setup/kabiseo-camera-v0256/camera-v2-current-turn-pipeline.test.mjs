@@ -27,6 +27,13 @@ function setup(overrides={}){
   routeShootingTurn:async()=>route,verifyShootingRoute:async(t,r)=>t===turn&&r===route,
   interpretShooting:async()=>({}),
   readSignedCapture:async()=>scope,
+  readVerifiedV2CameraStatus:async x=>({
+   verifiedBySecure56:true,verifiedByDevice:true,
+   sessionId:x.secureSessionId,deviceDigest:x.deviceDigest,
+   code:'V2_CAMERA_UI_STATUS',appCameraFlow:'AI_CAMERA_V2',
+   guideLocation:'LEFT_GPT_ONLY',guideInputButtonPresent:false,
+   autoArmed:false,rightCameraPaneConfirmed:true
+  }),
   resolveActiveSignedSession:async sid=>({
    verifiedBySecure56:true,sessionId:sid,deviceDigest:scope.deviceDigest,
    taskDigest:scope.taskDigest,commandId:scope.commandId,expiresAtMs:Date.now()+25000
@@ -102,6 +109,13 @@ test('missing operator E2E fence blocks before journal claim',async()=>{
    pendingReadback:false,threadId:turn.threadId,sourceRef:turn.sourceRef}),
   verifyShootingRoute:async()=>true,interpretShooting:async()=>({}),
   readSignedCapture:async()=>scope,
+  readVerifiedV2CameraStatus:async x=>({
+   verifiedBySecure56:true,verifiedByDevice:true,
+   sessionId:x.secureSessionId,deviceDigest:x.deviceDigest,
+   code:'V2_CAMERA_UI_STATUS',appCameraFlow:'AI_CAMERA_V2',
+   guideLocation:'LEFT_GPT_ONLY',guideInputButtonPresent:false,
+   autoArmed:false,rightCameraPaneConfirmed:true
+  }),
   resolveActiveSignedSession:async()=>({}),
   confirmImageGenerationReady:async()=>({ready:true,verifiedByHost:true,
    threadId:turn.threadId,sourceRef:turn.sourceRef,attachmentId:turn.attachments[0].id}),
@@ -209,4 +223,31 @@ test('signed receipt with a different camera command or image SHA cannot attest 
  assert.equal(result.code,'CAMERA_SIGNED_APPLY_RECEIPT_UNVERIFIED');
  assert.equal(result.phoneReferenceVisible,undefined);
  store.close();
+});
+
+test('JH227 or wrong RIGHT pane status cannot consume image budget or durable one-shot',async()=>{
+ const scenarios=[
+  {code:'CAMERA_NOT_READY'}, {appCameraFlow:'LEGACY_CAMERA'},
+  {rightCameraPaneConfirmed:false}, {guideInputButtonPresent:true},
+  {autoArmed:true}, {verifiedBySecure56:false}
+ ];
+ for(const mismatch of scenarios){
+  const {pipeline,state,store}=setup({readVerifiedV2CameraStatus:async x=>({
+   verifiedBySecure56:true,verifiedByDevice:true,
+   sessionId:x.secureSessionId,deviceDigest:x.deviceDigest,
+   code:'V2_CAMERA_UI_STATUS',appCameraFlow:'AI_CAMERA_V2',
+   guideLocation:'LEFT_GPT_ONLY',guideInputButtonPresent:false,
+   autoArmed:false,rightCameraPaneConfirmed:true,...mismatch
+  })});
+  const result=await pipeline.run({mood:'자연스러운 분위기'});
+  assert.equal(result.code,'V2_CAMERA_UI_NOT_READY',JSON.stringify(mismatch));
+  assert.deepEqual(state.effects,[]);
+  assert.equal(store.pendingCount(),0);
+  store.close();
+ }
+});
+test('missing authenticated JH228 v2 camera-status port denies before spending',async()=>{
+ const {pipeline,state,store}=setup({readVerifiedV2CameraStatus:undefined});
+ assert.equal((await pipeline.run({mood:'차분한 구도'})).code,'V2_CAMERA_STATUS_PORT_NOT_CONNECTED');
+ assert.deepEqual(state.effects,[]);store.close();
 });
