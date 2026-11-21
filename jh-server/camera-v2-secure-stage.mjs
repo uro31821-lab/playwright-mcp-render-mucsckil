@@ -16,6 +16,38 @@ function validScope(v) {
 }
 const validDims=d=>Number.isSafeInteger(d?.width)&&d.width>=32&&d.width<=8000&&
   Number.isSafeInteger(d?.height)&&d.height>=32&&d.height<=8000;
+/**
+ * Early JPEG segment preflight; Android's BitmapFactory remains the final decoder.
+ * Reject blobs with SOI/EOI only, missing frame/SOS, conflicting dimensions and
+ * forged declared dimensions BEFORE issuing a phone download lease.
+ */
+export function inspectJpegHeader56(bytes){
+  if(!Buffer.isBuffer(bytes)||bytes.length<64||bytes.length>8*1024*1024||
+     bytes[0]!==0xff||bytes[1]!==0xd8||
+     bytes.at(-2)!==0xff||bytes.at(-1)!==0xd9)return null;
+  let offset=2,found=null,segments=0;
+  const SOF=new Set([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf]);
+  while(offset<bytes.length-2&&segments++<512){
+    if(bytes[offset++]!==0xff)return null;
+    while(offset<bytes.length-2&&bytes[offset]===0xff)offset++;
+    if(offset>=bytes.length-2)return null;
+    const marker=bytes[offset++];
+    if(marker===0xd8||marker===0xd9||marker===0x00||
+       marker===0x01||(marker>=0xd0&&marker<=0xd7))return null;
+    if(offset+2>bytes.length-2)return null;
+    const length=bytes.readUInt16BE(offset);
+    if(length<2||offset+length>bytes.length-2)return null;
+    if(SOF.has(marker)){
+      if(found||length<8)return null;
+      const height=bytes.readUInt16BE(offset+3),width=bytes.readUInt16BE(offset+5);
+      if(!validDims({width,height}))return null;
+      found={width,height};
+    }
+    if(marker===0xda)return found; // SOS present; native Android decodes the scan data.
+    offset+=length;
+  }
+  return null;
+}
 function reject(res,status,code){
   res.writeHead(status,{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
   res.end(code);return true;
@@ -34,8 +66,7 @@ export class AiCameraV2StageStore {
     if(!validScope(x)||!REF.test(x.referenceId)||!SHA.test(x.sha256)||
        !Buffer.isBuffer(x.bytes)||x.size!==x.bytes.length||x.size<64||x.size>8*1024*1024||
        !validDims(x.dimensions)||!same(hash(x.bytes),x.sha256)||
-       x.bytes[0]!==255||x.bytes[1]!==216||
-       x.bytes[x.size-2]!==255||x.bytes[x.size-1]!==217)
+       !((frame)=>frame?.width===x.dimensions.width&&frame.height===x.dimensions.height)(inspectJpegHeader56(x.bytes)))
       return {acknowledged:false,code:'STAGE_INVALID_OR_UNVERIFIED'};
     if(this.#items.size>=8)return {acknowledged:false,code:'STAGING_CAPACITY_REACHED'};
     const stageLease=randomBytes(32).toString('base64url'),expiresAtMs=this.#now()+30000;
