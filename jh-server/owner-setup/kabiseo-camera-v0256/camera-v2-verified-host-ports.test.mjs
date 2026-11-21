@@ -8,14 +8,18 @@ const jpg=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABMNDhEODBMRDxEVFBMXHTAfH
 const scope={secureSessionId:'secure_session_0123456789abc',deviceDigest:'a'.repeat(64),
  taskDigest:'b'.repeat(64),commandId:'c'.repeat(32)};
 const turn={threadId:'thread-7788',sourceRef:'turn-jh-7788',referenceAttachmentId:'reference-photo-7788'};
-function make({render,resolve,store}={}){
+function make({render,resolve,store,verify}={}){
  const imageStore=store??new AiCameraV2StageStore();
  const ports=createJH228HostDeliveryPorts({currentTurn:turn,signedScope:scope,store:imageStore,
   resolveActiveSignedSession:resolve??(async()=>({verifiedBySecure56:true,
    sessionId:scope.secureSessionId,deviceDigest:scope.deviceDigest,taskDigest:scope.taskDigest,
    commandId:scope.commandId,expiresAtMs:Date.now()+20000})),
   renderInLeftChat:render??(async x=>({shown:true,threadId:x.threadId,sourceRef:x.sourceRef,
-   attachmentId:x.attachmentId,presentationId:'shown_left_0123456789'}))});
+   attachmentId:x.attachmentId,presentationId:'shown_left_0123456789',
+   imageSha256:x.imageSha256,linesSha256:x.linesSha256})),
+  verifyLeftPresentationReceipt:verify??(async (receipt,binding)=>
+   receipt.shown===true&&receipt.imageSha256===binding.imageSha256&&
+   receipt.linesSha256===binding.linesSha256)});
  const payload={threadId:turn.threadId,referenceId:'generated_photo_reference_1',
   bytes:jpg,size:jpg.length,sha256:sha(jpg),dimensions:{width:64,height:48},
   ...scope,verifiedBySecure56:false};
@@ -37,7 +41,8 @@ test('verified current LEFT image receipt gates server-local Secure56 stage writ
 });
 test('wrong, forged or missing LEFT display receipt never permits staging',async()=>{
  const {ports,imageStore,payload,left}=make({render:async x=>({shown:true,
-  threadId:'OTHER',sourceRef:x.sourceRef,attachmentId:x.attachmentId,presentationId:'shown_left_0123456789'})});
+  threadId:'OTHER',sourceRef:x.sourceRef,attachmentId:x.attachmentId,
+  imageSha256:x.imageSha256,linesSha256:x.linesSha256,presentationId:'shown_left_0123456789'})});
  assert.equal((await ports.chat.showLeft(left)).shown,false);
  assert.equal((await ports.imageStage.stageVerifiedJpeg(payload)).acknowledged,false);
  assert.equal(imageStore.pendingCount(),0); imageStore.close();
@@ -58,4 +63,37 @@ test('cross-thread image and same-turn concurrent stage attempts fail closed',as
   ports.imageStage.stageVerifiedJpeg({...payload,threadId:'forged'})]);
  assert.equal([a.acknowledged,b.acknowledged].filter(Boolean).length,1,JSON.stringify([a.code,b.code]));
  assert.equal(imageStore.pendingCount(),1);imageStore.close();
+});
+
+test('LEFT display must attest the exact image and 3 lines, not shown:true only',async()=>{
+ const x=make({render:async p=>({shown:true,threadId:p.threadId,sourceRef:p.sourceRef,
+  attachmentId:p.attachmentId,presentationId:'shown_left_0123456789',
+  imageSha256:sha('another-image'),linesSha256:p.linesSha256})});
+ assert.equal((await x.ports.chat.showLeft(x.left)).shown,false);
+ assert.equal((await x.ports.imageStage.stageVerifiedJpeg(x.payload)).acknowledged,false);
+ assert.equal(x.imageStore.pendingCount(),0);x.imageStore.close();
+
+ const y=make({render:async p=>({shown:true,threadId:p.threadId,sourceRef:p.sourceRef,
+  attachmentId:p.attachmentId,presentationId:'shown_left_0123456789',
+  imageSha256:p.imageSha256,linesSha256:sha('different instructions')})});
+ assert.equal((await y.ports.chat.showLeft(y.left)).shown,false);
+ assert.equal(y.imageStore.pendingCount(),0);y.imageStore.close();
+});
+test('LEFT host verifier denial blocks an otherwise matching presentation receipt',async()=>{
+ const x=make({verify:async()=>false});
+ assert.equal((await x.ports.chat.showLeft(x.left)).shown,false);
+ assert.equal((await x.ports.imageStage.stageVerifiedJpeg(x.payload)).acknowledged,false);
+ assert.equal(x.imageStore.pendingCount(),0);x.imageStore.close();
+});
+test('presented and staged image bytes must match after render even if both are valid JPEGs',async()=>{
+ const x=make();
+ assert.equal((await x.ports.chat.showLeft(x.left)).shown,true);
+ const altered=Buffer.from(x.payload.bytes);
+ // Change entropy-coded scan data without changing JPEG dimensions or markers.
+ altered[altered.length-10]^=0x01;
+ const mismatch={...x.payload,bytes:altered,size:altered.length,sha256:sha(altered)};
+ const result=await x.ports.imageStage.stageVerifiedJpeg(mismatch);
+ assert.equal(result.acknowledged,false);
+ assert.equal(result.code,'JH228_LEFT_IMAGE_BYTES_MISMATCH');
+ assert.equal(x.imageStore.pendingCount(),0);x.imageStore.close();
 });
