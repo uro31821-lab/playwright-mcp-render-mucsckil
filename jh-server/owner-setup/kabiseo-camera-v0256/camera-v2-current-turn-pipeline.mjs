@@ -10,6 +10,7 @@ import {randomBytes, createHash} from 'node:crypto';
 import {createJH228HostDeliveryPorts} from './camera-v2-verified-host-ports.mjs';
 import {inspectJpegHeader56} from '../../camera-v2-secure-stage.mjs';
 import {validStagedV2Goal} from './camera-v2-goal-policy.mjs';
+const NATIVE_PROVIDER='CHATGPT_NATIVE_IMAGEGEN';
 
 const obj=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
 const id=x=>typeof x==='string'&&x.trim().length>0&&x.length<=1024;
@@ -116,8 +117,9 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
       };
       if(!validStagedV2Goal(referenceProbe,env))
         return stop('JH228_OPERATOR_E2E_GATE_NOT_VERIFIED');
-      // Never burn the durable one-shot slot if the real image editor, source
-      // attachment or billable API approval is not available for THIS turn.
+      // Never burn the durable one-shot slot unless the native ChatGPT
+      // first-party image producer and artifact readback are available.
+      // External billed image APIs are never a fallback in this pipeline.
       let readiness;
       try{
         readiness=await ports.confirmImageGenerationReady({
@@ -127,8 +129,14 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
       }catch{return stop('PYEONBISEO_GENERATION_NOT_READY');}
       if(!readiness||readiness.ready!==true||readiness.verifiedByHost!==true||
          readiness.threadId!==turn.threadId||readiness.sourceRef!==turn.sourceRef||
-         readiness.attachmentId!==turn.attachments[0].id)
-        return stop('PYEONBISEO_GENERATION_NOT_READY');
+         readiness.attachmentId!==turn.attachments[0].id||
+         readiness.provider!==NATIVE_PROVIDER||
+         readiness.billingMode!=='CHATGPT_PLAN'||
+         readiness.externalApiRequired!==false||
+         readiness.paidApiBillingAuthorized!==false||
+         readiness.nativeArtifactReadbackAvailable!==true||
+         readiness.nativeLeftRenderReceiptAvailable!==true)
+        return stop('PYEONBISEO_NATIVE_CHATGPT_NOT_READY');
       let claim;
       try{claim=await ports.claimOneShot({
         threadId:turn.threadId,sourceRef:turn.sourceRef,
@@ -148,7 +156,12 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
         });
       }catch{return stop('PYEONBISEO_GENERATION_UNCONFIRMED');}
       if(!obj(image)||image.count!==1||image.sourceReferenceId!==turn.attachments[0].id||
-         !Buffer.isBuffer(image.jpegBytes)||!validEasyCameraLines(image.movementLines)||
+         image.provider!==NATIVE_PROVIDER||image.nativeArtifactVerified!==true||
+         !HEX64.test(image.sourceSha256??'')||
+         !HEX64.test(image.imageSha256??'')||
+         !Buffer.isBuffer(image.jpegBytes)||
+         sha(image.jpegBytes)!==image.imageSha256||
+         !validEasyCameraLines(image.movementLines)||
          (image.suggestedZoom!=null&&(!Number.isFinite(image.suggestedZoom)||
            image.suggestedZoom<.6||image.suggestedZoom>2)))
         return stop('PYEONBISEO_RESULT_INVALID');
