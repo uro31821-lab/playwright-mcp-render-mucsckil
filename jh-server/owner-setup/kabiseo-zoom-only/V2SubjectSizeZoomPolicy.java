@@ -26,7 +26,8 @@ public final class V2SubjectSizeZoomPolicy {
       scale<MIN_RELATIVE_SCALE||scale>MAX_RELATIVE_SCALE)
       return new Decision(State.INVALID,Float.NaN);
     if(busy)return new Decision(State.CAMERA_BUSY,Float.NaN);
-    // AI is default; only a CURRENT in-flight manual zoom operation blocks this command.\n    if(manualGestureActive)return new Decision(State.MANUAL_PRIORITY,Float.NaN);
+    // AI is default; only a CURRENT in-flight manual zoom operation blocks this command.
+    if(manualGestureActive)return new Decision(State.MANUAL_PRIORITY,Float.NaN);
     if(Math.abs(current-expected)>READBACK_TOLERANCE)
       return new Decision(State.STALE_CAMERA_STATUS,Float.NaN);
     if(perspective)return new Decision(State.PERSPECTIVE_REQUIRED,Float.NaN);
