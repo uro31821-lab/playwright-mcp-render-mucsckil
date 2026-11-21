@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {validStagedV2Goal} from './camera-v2-goal-policy.mjs';
-import {validGoal} from './camera-goal.mjs';
+import {validGoal,goalRoute,GOAL_EXTENSION,GOAL_TOOL} from './camera-goal.mjs';
 const active=Object.freeze({
  JH228_CAMERA_V2_STAGE_OPERATOR_ENABLE:'EXPLICIT_JH228_CAMERA_V2_STAGE_OPERATOR_V1',
  JH228_CAMERA_V2_UPSTREAM_E2E_GATE:'TRUSTED_HOST_PORTS_AND_DEVICE_VERIFIED_V1',
@@ -58,4 +58,17 @@ test('v2 goal rejects forged URL, oversized or mixed/foreign image content',()=>
  ];
  for(const change of cases)
    assert.equal(validStagedV2Goal({...goal,...change},active),false,JSON.stringify(change));
+});
+
+test('verified JH228 metadata can travel the existing signed apply job type only',()=>{
+ const before={};for(const key of Object.keys(active)){before[key]=process.env[key];process.env[key]=active[key];}
+ try{
+  const payload={mcpToolName:GOAL_TOOL,cameraExtension:GOAL_EXTENSION,
+   secureRequestedEffect:'WRITE_REVERSIBLE',operation:'KABISEO_GOAL_APPLY_V1',
+   packageName:'com.koreanlifehub.bridge',allowedSideEffect:'kabiseo_goal_apply',
+   commandId:'e'.repeat(32),taskDigest:'f'.repeat(64),goal};
+  assert.equal(goalRoute('kabiseo_goal_apply',payload,'device'),true);
+  assert.equal(goalRoute('kabiseo_goal_stop',{...payload,allowedSideEffect:'kabiseo_goal_stop'},'device'),false);
+  assert.equal(goalRoute('kabiseo_goal_apply',{...payload,goal:{...goal,stageLease:'bad'}},'device'),false);
+ }finally{for(const [key,value] of Object.entries(before)){if(value===undefined)delete process.env[key];else process.env[key]=value;}}
 });
