@@ -94,3 +94,16 @@ test('right-pane IDs outside safe integer range fail closed',()=>{
  assert.equal(go({scope:{...scope,currentRightWindowId:unsafe},
    deviceStatus:{...status,rightWindowId:unsafe}}).ok,false);
 });
+
+test('AI-first verified camera composition can authorize size-only adjustment',()=>{
+ const i={...intent,kind:'AI_COMPOSITION_SIZE',basis:'CURRENT_VERIFIED_REFERENCE',scaleDecisionVerified:true};
+ const r=go({intent:i});
+ assert.equal(r.ok,true);assert.equal(r.zoomAuthority,'AI_PRIMARY');
+ assert.equal(r.manualFallbackOnly,true);assert.equal(r.externalImageTransfer,false);
+});
+test('AI-first guessed old reference or active manual gesture must not apply',()=>{
+ const i={...intent,kind:'AI_COMPOSITION_SIZE',basis:'OLD_UNVERIFIED',scaleDecisionVerified:true};
+ assert.equal(go({intent:i}).ok,false);
+ const good={...i,basis:'CURRENT_VERIFIED_REFERENCE'};
+ assert.equal(go({intent:good,deviceStatus:{...status,manualZoomOverride:true}}).ok,false);
+});
