@@ -1,31 +1,26 @@
-# JH Secure Live 카비서 × 편비서 — 왼쪽 GPT 구도 시안 독립 기능 인계
+# JH 카비서 × 편비서 — 간단한 GPT 이미지 자동 생성 규칙
 
-작성: 2026-11-21. **구형 자동 이미지 파일 전송 PR #202와 별도.**
+2026-11-21 사용자 재확정: **복잡한 서버 개발이 아니라 ChatGPT가 자체적으로 생성 문장을 작성한 뒤 기본 image_gen으로 바로 왼쪽에 1장 생성하면 된다.**
 
-## 사용자 최종 확정
-**현재 참고사진 + 원하는 분위기 입력 → 카비서 주담당 → 편비서 자동 협력 → ChatGPT 자체 이미지 생성 도구로 왼쪽 GPT 대화창에 예시사진 1장 → 바로 실행할 수 있는 쉬운 카메라 이동 안내 3줄.**
+## 사용자가 원하는 실제 동작
 
-**사용 중단**: 왼쪽 GPT 생성 JPEG를 오른쪽 카비서/Secure56으로 자동 파일 전송·다운로드·스테이징하는 기능 **하나뿐**. 편비서 자동 호출/왼쪽 이미지 생성은 중단하지 않음.
+참고사진 + 원하는 분위기 입력 → 카비서가 주담당, 편비서 자동 협력 → GPT가 이미지 생성 프롬프트 내부 작성 → ChatGPT 기본 이미지 생성 도구 실제 호출 → 왼쪽 GPT에 구도 예시 1장 + 유치원생 수준의 쉬운 카메라 움직임 3줄.
 
-## 현재 소스
-- `jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md`: 정확한 사용자 작업·출력·실행 금지 경계. 실제 ChatGPT 이미지 생성 도구는 현재 호스트만 실행할 수 있음
-- `jh-server/owner-setup/jh-camera-left-preview/left-preview-route.mjs`: 현재 대화/발화/REFERENCE/분위기/검증된 촬영 요청→카비서 주담당·편비서 촬영 시안 협력 계획. 기존 `edit_existing` 사진 편집·불확실 명령은 배제. 외부 효과 없음
-- `left-preview-route.test.mjs`: 8개 독립 경계 테스트
-- `.github/workflows/jh-camera-left-preview-only.yml`: 100개 독립 Node 22 프로세스 검증, HTTP/Android 효과 금지 검사
+오른쪽 카비서로 이미지 파일을 자동 전송하는 기능 **한 가지만 사용하지 않는다.** 기존 카비서 실제 촬영·사용자 직접 AUTO·줌·격자·수평계는 유지한다. 별도 유료 이미지 API·복사 붙여넣기·원격 셔터 없음.
 
-## JH 개인 플러그인 실제 통합
-현행 `plugins_6ac116dadd588191ba4712ffe090534b` v1.34.137는 기존 촬영 라우터에서 사진 편집으로 의도치 않게 전환되는 것을 차단. 이 보호는 유지한다. **새 협력은 이미지 편집 실행 경로에 편승하지 말고**, 촬영 구도 예시 전용 협력으로 분리해야 한다.
+## 이번 패치의 단순화
+- 기존 JH228 Secure56 stage, 다운로더, signed APPLY, Host UI receipt 등 **별도 image-transfer 개발을 사용하지 않는다**.
+- 기존 PR #203의 `left-preview-route.mjs`와 테스트는 삭제했다. 전용 이미지 전송 포트나 별도 백엔드가 전혀 없다.
+- 현 브랜치의 핵심 결과는 `jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md` 한 파일이다.
+- JH 플러그인에 등록하려면 기존 **1.34.137** 원본 manifest 2개에 **짧은 defaultPrompt 1개만 추가**하고, 이미 있는 assistant-hub/카비서/편비서 스킬에 촬영 구도 이미지 생성 협력만 예외로 안내한다.
+- 이를 검증하고 원본 22개 defaultPrompt를 보존하는 **실패 시 중단형 로컬 패치 생성기** `build_jh_simple_left_preview.py`와 인계 ZIP은 대화 첨부에 제공한다.
 
-Plugin Creator `update_plugin`에서 초기에 ZIP manifest 부족으로 실패했고, 정식 manifest가 포함된 진단 패키지는 서버 package 검사까지 통과했으나 현행 release를 보존하기 위해 실제 JH manifest를 축약해 덮어쓰는 업데이트는 하지 않았다. 따라서 **본 PR의 통과와 실제 JH 플러그인 편입은 별개**다.
+## 실제 실행/등록 상태
+- GitHub의 prompt-only 정적 검사 = 코드를 살펴보고 안전 문구가 있다는 뜻일 뿐 이미지 생성 실행 성공 아님.
+- 실제 내장 image_gen 호출·현재 사진으로 시안 생성·왼쪽 표시의 실사용 시험은 아직 미완료.
+- Plugin Creator `update_plugin`은 여러 번 올바른 형식의 후보를 받아들이지 않고 **invalid arguments**를 반환하므로 실제 JH 등록 성공 없음. 위험하게 구형 22개 prompt를 덮어쓰지 않았다.
+- JH plugin ID `plugins_6ac116dadd588191ba4712ffe090534b`, 버전 `1.34.137` 그대로. Android/JH227, Render LIVE, Secure56, 인증서·개인 원장 수정 없음.
+- PR #202는 자동 이미지 파일 전송 후보로서 종료·미병합 유지. 이 PR #203은 **왼쪽 GPT 생성 규칙 전용**으로 Draft 유지.
 
-현행 앱의 `.app.json`, `.mcp.json`, `plugin.json`, `.codex-plugin/plugin.json`, 22개 root defaultPrompt 및 기존 카비서/편비서 SKILL·스크립트는 변경 없이 보존해야 함. 통합 때 새로운 좌측 촬영 예시 협력 문구만 기존 manifest·허브·카비서·편비서 스킬에 최소 추가할 것. JH 개인 플러그인 업데이트에는 현행 release ID 재조회와 업데이트 성공 후 같은 플러그인 ID의 재조회가 필요하다.
-
-## 완료 증거 구분
-- 기본 Node 테스트 8개 PASS, 100개 독립 프로세스 800개 PASS는 소스 회귀 검증임
-- 실제 ChatGPT image_gen이 현재 참고사진을 변환해 **사용자 왼쪽 창에 이미지 1장을 표시한 경우**만 기능 실사용 성공
-- 기존 JH227·Secure56·Render, 인증서·기기 데이터, 사용자 직접 AUTO는 변경하지 않음
-- **추가 유료 OpenAI 이미지 API / 원격 셔터 / 오른쪽 이미지 다운로드는 사용하지 않음**
-
-## 개발 링크
-- 신규 독립 PR: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/203
-- 이전 자동파일전송 취소 PR: https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/pull/202
+## 완료 기준
+현재 사용자가 촬영용 REFERENCE 사진과 분위기를 올렸을 때, GPT 이미지 생성 도구가 **실제로** 예시 1장을 왼쪽에 표시하고 짧은 3줄을 함께 보여줄 것. 실제 도구가 실행되지 않으면 완료라고 하지 않는다.
