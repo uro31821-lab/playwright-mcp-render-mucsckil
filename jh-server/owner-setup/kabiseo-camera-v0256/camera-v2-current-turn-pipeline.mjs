@@ -134,6 +134,7 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
          readiness.billingMode!=='CHATGPT_PLAN'||
          readiness.externalApiRequired!==false||
          readiness.paidApiBillingAuthorized!==false||
+         !HEX64.test(readiness.sourceSha256??'')||
          readiness.nativeArtifactReadbackAvailable!==true||
          readiness.nativeLeftRenderReceiptAvailable!==true)
         return stop('PYEONBISEO_NATIVE_CHATGPT_NOT_READY');
@@ -158,6 +159,7 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
       if(!obj(image)||image.count!==1||image.sourceReferenceId!==turn.attachments[0].id||
          image.provider!==NATIVE_PROVIDER||image.nativeArtifactVerified!==true||
          !HEX64.test(image.sourceSha256??'')||
+         image.sourceSha256!==readiness.sourceSha256||
          !HEX64.test(image.imageSha256??'')||
          !Buffer.isBuffer(image.jpegBytes)||
          sha(image.jpegBytes)!==image.imageSha256||
