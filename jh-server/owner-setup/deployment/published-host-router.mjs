@@ -63,6 +63,14 @@ export function selectJH168FollowupOperator56(env=process.env){
 export async function main(){
  const sourceRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),hostRoot=path.dirname(sourceRoot);
  if(path.basename(sourceRoot)!=='owner-setup')fail('PUBLISHED_HOST_LAYOUT_REQUIRED');
+ // Disabled by default. Retain every existing startup branch unless the
+ // authorized operator explicitly enabled the JH228 candidate after E2E.
+ if(process.env.JH228_CAMERA_V2_STAGE_OPERATOR_ENABLE!==undefined &&
+    process.env.JH228_CAMERA_V2_STAGE_OPERATOR_ENABLE!==''){
+  assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
+  const {main:jh228Main}=await import('./jh228-camera-v2-candidate-entry.mjs');
+  return jh228Main(process.env);
+ }
  if(selectPendingApprovalStartup56(process.env)==='pending-approval'){
   assertPublishedHost(hostRoot,sourceRoot);requirePcNodeVersion(process.versions.node);
   if(selectJH168FollowupOperator56(process.env)==='followup'){
