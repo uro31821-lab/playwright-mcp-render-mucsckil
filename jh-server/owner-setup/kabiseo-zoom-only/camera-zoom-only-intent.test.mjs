@@ -61,3 +61,17 @@ test('unknown goal application must use readback, never auto-replay',()=>{
  assert.equal(r.canRetryUnknownEffect,false);
  assert.equal(r.afterAction,'READ_GOAL_STATUS_AND_REQUIRE_ZOOM_APPLIED_VERIFIED');
 });
+
+test('missing Secure56 session and chat identity fail closed even with a permissive host verifier',()=>{
+ for(const scopeMissing of [
+   {...scope,secureSessionId:undefined},
+   {...scope,secureSessionId:''},
+   {...scope,threadId:undefined},
+   {...scope,sourceRef:''}
+ ]){
+   const deviceStatus={...status,secureSessionId:scopeMissing.secureSessionId};
+   assert.equal(go({scope:scopeMissing,deviceStatus}).ok,false);
+ }
+ assert.equal(go({deviceStatus:{...status,secureSessionId:undefined}}).ok,false);
+ assert.equal(go({deviceStatus:{...status,secureSessionId:'short'}}).ok,false);
+});
