@@ -22,7 +22,7 @@ public final class V2SubjectSizeZoomPolicy {
     float min,float max,boolean perspective,boolean userManual,boolean busy){
     if(!finite(current)||!finite(expected)||!finite(scale)||!finite(min)||!finite(max)||
       current<=0||expected<=0||min<=0||max<min||
-      current<min-.0001f||current>max+.0001f||
+      current<min||current>max||expected<min||expected>max||
       scale<MIN_RELATIVE_SCALE||scale>MAX_RELATIVE_SCALE)
       return new Decision(State.INVALID,Float.NaN);
     if(busy)return new Decision(State.CAMERA_BUSY,Float.NaN);
@@ -33,7 +33,10 @@ public final class V2SubjectSizeZoomPolicy {
     final float upper=Math.min(max,MAX_QUALITY_ZOOM);
     if(min>upper)return new Decision(State.INVALID,Float.NaN);
     final float target=current*scale;
-    if(target<min-.0001f||target>upper+.0001f)
+    if(!finite(target)||target<min||target>upper)
+      return new Decision(State.MOVE_REQUIRED,Float.NaN);
+    // A size-only change must never reverse the requested direction.
+    if((scale>1.0f&&target<current)||(scale<1.0f&&target>current))
       return new Decision(State.MOVE_REQUIRED,Float.NaN);
     if(Math.abs(target-current)<=READBACK_TOLERANCE)
       return new Decision(State.MATCHED,current);
