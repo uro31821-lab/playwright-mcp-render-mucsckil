@@ -1,0 +1,26 @@
+name: JH228 Secure Camera Example Stage (candidate)
+on:
+  push:
+    branches:
+      - jh228-camera-v2-secure-stage-20261121
+    paths:
+      - "jh-server/camera-v2-secure-stage.mjs"
+      - "jh-server/camera-v2-secure-stage.test.mjs"
+      - "jh-server/server.mjs"
+      - ".github/workflows/jh228-camera-v2-stage.yml"
+  pull_request:
+    branches:
+      - jh-fix3-secure-server
+jobs:
+  scoped-image-stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Syntax check production server
+        run: node --check jh-server/server.mjs
+      - name: Secure56 one-shot JPEG regression
+        run: node --test jh-server/camera-v2-secure-stage.test.mjs
