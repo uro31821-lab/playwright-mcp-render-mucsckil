@@ -71,7 +71,7 @@ test('Secure56 signed JPEG download accepts exactly one request, rejects forged 
     assert.equal(res.headers.get('x-jh-image-sha256'),sha(bytes));
     assert.deepEqual(Buffer.from(await res.arrayBuffer()),bytes);
     const replay=await fetch(origin+path,{headers});
-    assert.equal(replay.status,404);
+    assert.equal(replay.status,403); // A consumed lease is indistinguishable from an invalid proof.
     assert.equal(store.pendingCount(),0);
     const unmatched=await fetch(origin+'/health',{headers});
     assert.equal(unmatched.status,404);
