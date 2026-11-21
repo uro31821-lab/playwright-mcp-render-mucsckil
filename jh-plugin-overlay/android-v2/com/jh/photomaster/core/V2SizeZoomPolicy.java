@@ -5,24 +5,23 @@ package com.jh.photomaster.core;
  * independently before any CameraX setZoomRatio side-effect. */
 public final class V2SizeZoomPolicy {
     private V2SizeZoomPolicy() {}
-    public static final String PROTOCOL = "JH_AI_CAMERA_V2_SIZE_ZOOM_V1";
+    public static final String PROTOCOL = "JH_CAMERA_V2_ZOOM_ONLY_V1";
     public static final float MAX_QUALITY_ZOOM = 2.0f;
     public static final float EPSILON = 0.02f;
-    public static final float SMALL_STEP = 0.10f;
-    public static final float MEDIUM_STEP = 0.20f;
+    // Relative to the CURRENT zoom, never an absolute 0.1x / 0.2x addition.
 
     public static float choose(float current,float min,float max,String direction,String strength){
         if(!Float.isFinite(current)||!Float.isFinite(min)||!Float.isFinite(max)||
            current<=0.0f||min<=0.0f||max<min||
            current<min-EPSILON||current>max+EPSILON||
            !("IN".equals(direction)||"OUT".equals(direction)))return Float.NaN;
-        final float delta;
-        if("SMALL".equals(strength))delta=SMALL_STEP;
-        else if("MEDIUM".equals(strength))delta=MEDIUM_STEP;
+        final float multiplier;
+        if("SMALL".equals(strength))multiplier="IN".equals(direction)?1.15f:0.85f;
+        else if("MEDIUM".equals(strength))multiplier="IN".equals(direction)?1.25f:0.75f;
         else return Float.NaN;
         final float upper=Math.min(max,MAX_QUALITY_ZOOM);
         if(upper<min)return Float.NaN;
-        final float raw=current+("IN".equals(direction)?delta:-delta);
+        final float raw=current*multiplier;
         final float suggested=Math.max(min,Math.min(upper,raw));
         return !Float.isFinite(suggested)||Math.abs(suggested-current)<EPSILON?
             Float.NaN:suggested;
