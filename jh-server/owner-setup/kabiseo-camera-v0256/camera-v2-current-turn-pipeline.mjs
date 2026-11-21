@@ -46,6 +46,7 @@ const required=[
   ['readSignedCapture','SECURE56_CAPTURE_PORT_NOT_CONNECTED'],
   ['resolveActiveSignedSession','SECURE56_ACTIVE_SESSION_PORT_NOT_CONNECTED'],
   ['claimOneShot','JH228_DURABLE_ONCE_PORT_NOT_CONNECTED'],
+  ['confirmImageGenerationReady','PYEONBISEO_READINESS_NOT_CONNECTED'],
   ['createSingleExample','PYEONBISEO_GENERATOR_NOT_CONNECTED'],
   ['renderInLeftChat','LEFT_GPT_OUTPUT_NOT_CONNECTED'],
   ['verifyLeftPresentationReceipt','LEFT_GPT_RECEIPT_VERIFIER_NOT_CONNECTED'],
@@ -89,6 +90,19 @@ export function createJH228CameraV2Pipeline(ports={},options={}){
       };
       if(!validStagedV2Goal(referenceProbe,env))
         return stop('JH228_OPERATOR_E2E_GATE_NOT_VERIFIED');
+      // Never burn the durable one-shot slot if the real image editor, source
+      // attachment or billable API approval is not available for THIS turn.
+      let readiness;
+      try{
+        readiness=await ports.confirmImageGenerationReady({
+          threadId:turn.threadId,sourceRef:turn.sourceRef,
+          attachmentId:turn.attachments[0].id,mood:mood.trim(),count:1
+        });
+      }catch{return stop('PYEONBISEO_GENERATION_NOT_READY');}
+      if(!readiness||readiness.ready!==true||readiness.verifiedByHost!==true||
+         readiness.threadId!==turn.threadId||readiness.sourceRef!==turn.sourceRef||
+         readiness.attachmentId!==turn.attachments[0].id)
+        return stop('PYEONBISEO_GENERATION_NOT_READY');
       let claim;
       try{claim=await ports.claimOneShot({
         threadId:turn.threadId,sourceRef:turn.sourceRef,
