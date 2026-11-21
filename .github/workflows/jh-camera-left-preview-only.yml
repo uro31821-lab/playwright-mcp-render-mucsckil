@@ -13,6 +13,21 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Bounded zoom policy 100 independent Java process repeats
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/jh-zoom-classes
+          javac -d /tmp/jh-zoom-classes jh-plugin-overlay/android-v2/com/jh/photomaster/core/V2SizeZoomPolicy.java jh-plugin-overlay/android-v2/com/jh/photomaster/core/V2SizeZoomPolicyTest.java
+          java -cp /tmp/jh-zoom-classes com.jh.photomaster.core.V2SizeZoomPolicyTest
+          for i in $(seq 1 100); do
+            java -cp /tmp/jh-zoom-classes com.jh.photomaster.core.V2SizeZoomPolicyTest >/dev/null
+          done
+          echo JH_ZOOM_SIZE_ONLY_100_PASS
       - name: Only the native GPT LEFT preview remains; no camera transmission source
         shell: bash
         run: |
