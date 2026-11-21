@@ -35,4 +35,7 @@
 ## 기존 보호
 - Render 서비스 `jh-secure-bridge-fix4` 운영 브랜치 `jh-fix3-secure-server`, 자동 배포 OFF. PR Draft 유지.
 - 기존 JH227 앱 및 Android AUTO, 원본 인증서/키, 데이터, JH Secure Live 플러그인 현행 릴리스에 변경 없음.
-- 유료 OpenAI API adapter는 과거 개발 후보의 별도 파일로만 존재하며 본 네이티브 경로에는 import·호출하지 않음. 기존 코드의 존재를 실제 API 사용으로 간주하지 않는다.
+- **2026-11-21 후속 변경:** 이전에 남겨둔 별도 유료 이미지 API 어댑터 및 그 시험 파일을 개발 브랜치에서 삭제했다. `camera-v2-no-paid-api-contract.test.mjs`가 유료 API 호출 경로의 재도입을 자동으로 차단한다. 기존 LIVE 서버는 변경하지 않았다.
+
+## 실제 자동전송 가능성 확인 결과
+GPT Actions의 `openaiFileIdRefs`는 대화 첨부 파일 전달을 문서화한 **별도 경로**다. 현재 JH MCP 플러그인에 해당 바인딩이 제공된다는 증거는 없다. ChatGPT Images의 `공유`는 사용자 조작을 요구하므로 기존 0회 조작 목표에 채택하지 않는다. 자세한 내용은 `JH228-IMAGE-AUTOTRANSFER-FEASIBILITY-NO-PAID.md` 참고.
