@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {AiCameraV2StageStore} from '../../camera-v2-secure-stage.mjs';
 import {createJH228CameraV2Pipeline,validEasyCameraLines} from './camera-v2-current-turn-pipeline.mjs';
+const sha=x=>createHash('sha256').update(x).digest('hex');
+const sourceDigest=sha('bound-source-photo-reference');
 const jpeg=Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABMNDhEODBMRDxEVFBMXHTAfHRoaHToqLCMwRT1JR0Q9Q0FMVm1dTFFoUkFDX4JgaHF1e3x7SlyGkIV3j214e3b/2wBDARQVFR0ZHTgfHzh2T0NPdnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnZ2dnb/wAARCAAwAEADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAP/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAT/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCgChOAAAAAAAAAAAAAAAAAAAAAA//Z','base64');
 const env={
  JH228_CAMERA_V2_STAGE_OPERATOR_ENABLE:'EXPLICIT_JH228_CAMERA_V2_STAGE_OPERATOR_V1',
@@ -39,11 +42,17 @@ function setup(overrides={}){
    taskDigest:scope.taskDigest,commandId:scope.commandId,expiresAtMs:Date.now()+25000
   }),
   confirmImageGenerationReady:async input=>({ready:true,verifiedByHost:true,
-   threadId:input.threadId,sourceRef:input.sourceRef,attachmentId:input.attachmentId}),
+   threadId:input.threadId,sourceRef:input.sourceRef,attachmentId:input.attachmentId,
+   provider:'CHATGPT_NATIVE_IMAGEGEN',billingMode:'CHATGPT_PLAN',
+   externalApiRequired:false,paidApiBillingAuthorized:false,
+   nativeArtifactReadbackAvailable:true,nativeLeftRenderReceiptAvailable:true,
+   sourceSha256:sourceDigest}),
   claimOneShot:async()=>{state.effects.push('claim');return {claimed:true};},
   createSingleExample:async req=>{
    state.effects.push('generate');
    return {count:1,sourceReferenceId:req.source.id,jpegBytes:jpeg,
+    sourceSha256:sourceDigest,imageSha256:sha(jpeg),
+    provider:'CHATGPT_NATIVE_IMAGEGEN',nativeArtifactVerified:true,
     movementLines:lines,suggestedZoom:1.25};
   },
   renderInLeftChat:async req=>{state.effects.push('present');return {
@@ -118,7 +127,11 @@ test('missing operator E2E fence blocks before journal claim',async()=>{
   }),
   resolveActiveSignedSession:async()=>({}),
   confirmImageGenerationReady:async()=>({ready:true,verifiedByHost:true,
-   threadId:turn.threadId,sourceRef:turn.sourceRef,attachmentId:turn.attachments[0].id}),
+   threadId:turn.threadId,sourceRef:turn.sourceRef,attachmentId:turn.attachments[0].id,
+   provider:'CHATGPT_NATIVE_IMAGEGEN',billingMode:'CHATGPT_PLAN',
+   externalApiRequired:false,paidApiBillingAuthorized:false,
+   nativeArtifactReadbackAvailable:true,nativeLeftRenderReceiptAvailable:true,
+   sourceSha256:sourceDigest}),
   claimOneShot:async()=>{state.effects.push('claim')},
   createSingleExample:async()=>{},renderInLeftChat:async()=>{},
   verifyLeftPresentationReceipt:async()=>false,
@@ -182,7 +195,7 @@ test('unavailable image provider or invalid billing readiness DOES NOT consume o
   attachmentId:turn.attachments[0].id
  })});
  const result=await pipeline.run({mood:'차분한 느낌'});
- assert.equal(result.code,'PYEONBISEO_GENERATION_NOT_READY');
+ assert.equal(result.code,'PYEONBISEO_NATIVE_CHATGPT_NOT_READY');
  assert.deepEqual(state.effects,[]);store.close();
 });
 test('cross-thread image-provider readiness cannot authorize a generation',async()=>{
@@ -190,7 +203,7 @@ test('cross-thread image-provider readiness cannot authorize a generation',async
   ready:true,verifiedByHost:true,threadId:'ANOTHER_THREAD',
   sourceRef:turn.sourceRef,attachmentId:turn.attachments[0].id
  })});
- assert.equal((await pipeline.run({mood:'깔끔하게'})).code,'PYEONBISEO_GENERATION_NOT_READY');
+ assert.equal((await pipeline.run({mood:'깔끔하게'})).code,'PYEONBISEO_NATIVE_CHATGPT_NOT_READY');
  assert.deepEqual(state.effects,[]);store.close();
 });
 
@@ -250,4 +263,43 @@ test('missing authenticated JH228 v2 camera-status port denies before spending',
  const {pipeline,state,store}=setup({readVerifiedV2CameraStatus:undefined});
  assert.equal((await pipeline.run({mood:'차분한 구도'})).code,'V2_CAMERA_STATUS_PORT_NOT_CONNECTED');
  assert.deepEqual(state.effects,[]);store.close();
+});
+
+test('paid external API readiness is refused before claim, image generation, or phone transfer',async()=>{
+ const {pipeline,state,store}=setup({confirmImageGenerationReady:async input=>({
+  ready:true,verifiedByHost:true,
+  threadId:input.threadId,sourceRef:input.sourceRef,attachmentId:input.attachmentId,
+  provider:'OPENAI_API_IMAGE_EDIT',billingMode:'EXTERNAL_API',
+  externalApiRequired:true,paidApiBillingAuthorized:true,
+  nativeArtifactReadbackAvailable:false,nativeLeftRenderReceiptAvailable:false,
+  sourceSha256:sourceDigest
+ })});
+ const result=await pipeline.run({mood:'자연스럽게'});
+ assert.equal(result.ok,false);
+ assert.equal(result.code,'PYEONBISEO_NATIVE_CHATGPT_NOT_READY');
+ assert.deepEqual(state.effects,[]);
+ assert.equal(store.pendingCount(),0);
+ store.close();
+});
+test('native ChatGPT result with wrong current source SHA or generated JPEG digest cannot be staged',async()=>{
+ for(const mismatch of [
+  {sourceSha256:sha('other-photo')},
+  {imageSha256:sha('wrong-image')},
+  {provider:'PAID_EXTERNAL_IMAGE_API'},
+  {nativeArtifactVerified:false}
+ ]){
+  const {pipeline,state,store}=setup({createSingleExample:async req=>{
+   state.effects.push('generate');
+   return {count:1,sourceReferenceId:req.source.id,jpegBytes:jpeg,
+    sourceSha256:sourceDigest,imageSha256:sha(jpeg),
+    provider:'CHATGPT_NATIVE_IMAGEGEN',nativeArtifactVerified:true,
+    movementLines:lines,suggestedZoom:1.25,...mismatch};
+  }});
+  const result=await pipeline.run({mood:'고급스럽게'});
+  assert.equal(result.ok,false,JSON.stringify(mismatch));
+  assert.equal(result.code,'PYEONBISEO_RESULT_INVALID');
+  assert.deepEqual(state.effects,['claim','generate']);
+  assert.equal(store.pendingCount(),0);
+  store.close();
+ }
 });
