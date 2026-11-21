@@ -29,3 +29,14 @@
 
 ## 격리
 이 PR은 사용자 취소한 이미지 자동전송 PR #202 또는 별개 왼쪽 GPT 프롬프트 PR #203을 병합하지 않으며 **Draft 상태**로 유지한다. 기존 JH Secure Live 플러그인, JH227 설치본, Render LIVE 커밋, 원본 인증서/이미지 원장은 변경하지 않는다.
+## 2026-11-22 경계값 수정 및 빌드 보류 (코드 기준 확정)
+
+- **실제 수정 대상**: 이 브랜치의 `V2SubjectSizeZoomPolicy.java`와 `ZoomOnlyPolicySmoke.java`, `camera-zoom-only-intent.mjs` 및 해당 테스트. 기존 JH227 앱과 운영 서비스는 변경하지 않았다.
+- 원래 Java 정책은 2배 품질 한계에 0.0001을 더한 값까지 적용할 수 있었다. 실제 예: 현재 1.60004×, 25% 확대 → 목표 2.00005×를 `APPLY` 허용. 이제 목표 배율이 하드웨어/2배 경계를 **조금이라도 넘으면** `MOVE_REQUIRED`로 차단한다. 이미 2배보다 높게 수동 변경한 상태에서 새 목표가 품질 범위 이내인 **축소**는 허용하며 확대 방향 반전은 거부한다.
+- 원래 Signed STATUS 검증 이후에도 Secure56 세션 ID와 현재 thread/source ID가 빈 상태인 계약을 명시적으로 차단한다. 이는 호스트 단계 **추가 입력 검증**이며 실제 서명 증명이 완료됐다는 뜻은 아니다.
+- 독립 로컬 JDK21 컴파일/회귀: 경계·보안 검증 + 배율 12,000개 무작위 결정적 케이스를 포함한 **35,661개 단언 × 100 독립 프로세스 PASS**. 상용 Android 카메라 실험 아님.
+- GitHub PR #204 Draft 최종 보안·Node·Java·금지기능 검사 및 Node/Java 100회 반복: [Actions PASS](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/44921939233).
+- GitHub PR #203은 겹치는 두 Android 줌 정책 파일을 삭제해 **왼쪽 GPT 이미지 안내만** 남겼다. [PR #203 Actions PASS](https://github.com/uro31821-lab/playwright-mcp-render-mucsckil/actions/runs/44922077417). 사용자가 제외한 이미지 파일 자동 전송은 두 후보 어디에서도 재개하지 않는다.
+- **매우 중요: 기존 대화 ZIP의 Android 639개 완전 소스 자체에는 이 GitHub 최신 수정이 자동 반영되지 않는다.** 이 PR이 보관하는 Java 정책·호스트 검증 코드를 639개 소스의 별도 검증 사본과 대조해 병합하고, 바뀐 SHA 잠금을 다시 계산한 뒤 Windows에서 `assembleRelease`/lint **build-only**를 실행해야 한다. 오래된 639개 잠금 PASS를 신규 패치의 PASS로 재사용 금지.
+- 전체 Android 639개 소스의 실제 ZIP은 현재 개발 실행 환경에서 원본 바이트를 열지 못했다. 따라서 **신규 Gradle 빌드, 신규 APK 서명·설치, 기기 readback, 자동 줌 E2E, AUTO·저장 E2E는 모두 미완료**. 예전 JH228 설치 시도에 결과 불확실 기록이 있으므로 먼저 *읽기 전용* 앱 버전·서명·상태를 확인하고 불확실하면 자동 재설치 금지.
+- 완료 기준: (1) 새 639개 소스 병합과 Gradle/Lint PASS → (2) 현재 앱 읽기 전용 상태 확인 → (3) 사용자 승인하에 원본 인증서 유지한 업데이트 여부 결정 → (4) CameraX 실제 상태 재조회와 수동 줌/AUTO/한 장 저장의 실기기 확인. 코드 단위시험과 디바이스 성공은 구별한다.
