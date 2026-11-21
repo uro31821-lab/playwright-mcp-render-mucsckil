@@ -68,6 +68,7 @@ export class AiCameraV2StageStore {
       release(){e.bytes.fill(0);}};
   }
 }
+export const sharedCameraV2StageStore=new AiCameraV2StageStore();
 export function createSecure56StageVerifier({store,lookupActiveSession,claimNonce,now=()=>Date.now()}={}){
   if(!(store instanceof AiCameraV2StageStore)||typeof lookupActiveSession!=='function'||
      typeof claimNonce!=='function')throw Error('SECURE56_STAGE_BACKEND_REQUIRED');
