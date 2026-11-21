@@ -19,14 +19,14 @@ public final class V2SubjectSizeZoomPolicy {
   private static boolean finite(float x){return !Float.isNaN(x)&&!Float.isInfinite(x);}
   private V2SubjectSizeZoomPolicy(){}
   public static Decision decide(float current,float expected,float scale,
-    float min,float max,boolean perspective,boolean userManual,boolean busy){
+    float min,float max,boolean perspective,boolean manualGestureActive,boolean busy){
     if(!finite(current)||!finite(expected)||!finite(scale)||!finite(min)||!finite(max)||
       current<=0||expected<=0||min<=0||max<min||
       current<min||current>max||expected<min||expected>max||
       scale<MIN_RELATIVE_SCALE||scale>MAX_RELATIVE_SCALE)
       return new Decision(State.INVALID,Float.NaN);
     if(busy)return new Decision(State.CAMERA_BUSY,Float.NaN);
-    if(userManual)return new Decision(State.MANUAL_PRIORITY,Float.NaN);
+    // AI is default; only a CURRENT in-flight manual zoom operation blocks this command.\n    if(manualGestureActive)return new Decision(State.MANUAL_PRIORITY,Float.NaN);
     if(Math.abs(current-expected)>READBACK_TOLERANCE)
       return new Decision(State.STALE_CAMERA_STATUS,Float.NaN);
     if(perspective)return new Decision(State.PERSPECTIVE_REQUIRED,Float.NaN);
