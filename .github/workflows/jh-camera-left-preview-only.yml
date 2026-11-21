@@ -1,36 +1,28 @@
-name: JH LEFT ChatGPT camera preview only (candidate)
+name: JH GPT LEFT shooting preview — prompt only
 on:
   push:
-    branches:
-      - jh-camera-left-preview-only-20261121
+    branches: [jh-camera-left-preview-only-20261121]
     paths:
-      - "jh-server/owner-setup/jh-camera-left-preview/**"
       - "jh-plugin-overlay/**"
       - ".github/workflows/jh-camera-left-preview-only.yml"
   pull_request:
-    branches:
-      - jh-fix3-secure-server
+    branches: [jh-fix3-secure-server]
 jobs:
-  camera-left:
+  prompt-only-contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Validate LEFT preview contract
-        run: |
-          node --check jh-server/owner-setup/jh-camera-left-preview/left-preview-route.mjs
-          node --test jh-server/owner-setup/jh-camera-left-preview/left-preview-route.test.mjs
-      - name: Verify no source-side Android effect or external paid API
-        run: |
-          if grep -RE 'api.openai.com|https?://|/device/camera-v2-example|httpServer|fetch\(|applySignedGoal' jh-server/owner-setup/jh-camera-left-preview/left-preview-route.mjs; then exit 1; fi
-      - name: 100 independent process repeats (8 cases each)
+      - name: Only the native GPT LEFT preview remains; no camera transmission source
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 100); do
-            node --test jh-server/owner-setup/jh-camera-left-preview/left-preview-route.test.mjs >/dev/null
-          done
-          echo "JH_CAMERA_LEFT_PREVIEW_800_PASS"
+          test -f jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          test ! -e jh-server/owner-setup/jh-camera-left-preview/left-preview-route.mjs
+          grep -q 'image_gen' jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          grep -q '왼쪽 GPT' jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          grep -q '오른쪽' jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          grep -q 'edit_existing' jh-plugin-overlay/skills/jh-camera-left-preview/SKILL.md
+          test ! -e jh-plugin-overlay/.mcp.json
+          test ! -e jh-plugin-overlay/.app.json
+          echo JH_LEFT_NATIVE_PROMPT_ONLY_PASS
