@@ -27,8 +27,8 @@ jobs:
         run: node --test jh-server/camera-v2-secure-stage.test.mjs
       - name: Install exact existing durable-host dependencies (no lifecycle scripts)
         run: |
-          npm ci --prefix jh-server --ignore-scripts --no-audit --no-fund
-          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm install --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund --package-lock=false
           npm install --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund --package-lock=false
       - name: Verified durable runtime overlay and sealed source regression
         run: node --test jh-server/owner-setup/deployment/jh228-camera-v2-durable-overlay.test.mjs
