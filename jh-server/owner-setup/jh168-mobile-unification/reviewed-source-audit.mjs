@@ -180,6 +180,17 @@ const REVIEWED_TRANSITIONS=Object.freeze([
      'jh-server/owner-setup/owner-enrollment/permanent-trust-revocation.test.mjs':
       '2d26a53e9cccd68a2ca0427da0dd7a899f8bb149'
     })
+   }),
+   Object.freeze({
+    reviewedHead:'b14b5f5793e520c91b69940f4123486447699d76',
+    protectedObjects:Object.freeze({
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs':
+      '13ba53742979e62ae7cda2d8b589321f3d722520',
+     'jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs':
+      '1c069671188016a0da3884a83b85565be75610fc',
+     'jh-server/owner-setup/jh168-mobile-unification/stage61-owner-admission-scope.test.mjs':
+      '99866678815f67db2fcf81222f283aa17fdacdc1'
+    })
    })
   ])
  })
