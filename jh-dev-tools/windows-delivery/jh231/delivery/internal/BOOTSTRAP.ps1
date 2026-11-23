@@ -80,6 +80,8 @@ function AssertBootPreflight {
         foreach($assignment in $assignments){
             if($assignment.Left -is [Management.Automation.Language.VariableExpressionAst]){
                 $variable=$assignment.Left.VariablePath.UserPath.ToLowerInvariant()
+                # Plain $null = <command> is an output sink, not mutable application state.
+                if($variable -ceq 'null' -and $assignment.Operator -eq [Management.Automation.Language.TokenKind]::Equals){continue}
                 if($autoNames -contains ($variable -replace '^(?:script|global|local|private):','')){throw 'POWERSHELL_AUTOMATIC_VARIABLE_COLLISION'}
             }
         }

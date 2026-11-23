@@ -16,7 +16,7 @@ $cases=@('single-update','nonzero-install-exact-readback','already-installed-exa
     'post-install-wrong-hash','uncertain-no-replay','resign-no-replay','reuse-signed-apk','preserve-existing-signed-apk',
     'preserve-current-sign-temp','preserve-readback-folder','preserve-existing-result','result-fallback','all-result-writes-fail',
     'boot-pass','boot-stale-run-id','boot-wrong-kind','boot-no-receipt','boot-child-blocked','boot-parse-failure',
-    'boot-automatic-variable','boot-bad-bom','boot-hash-mismatch','boot-report-fallback','boot-all-reports-fail',
+    'boot-automatic-variable','boot-protected-home','boot-bad-bom','boot-hash-mismatch','boot-report-fallback','boot-all-reports-fail',
     'cmd-success','cmd-bootstrap-missing','cmd-bootstrap-nonzero','cmd-bootstrap-parse-error','cmd-fallback-local')
 $passed=0;$failed=New-Object 'System.Collections.Generic.List[string]'
 foreach($case in $cases){

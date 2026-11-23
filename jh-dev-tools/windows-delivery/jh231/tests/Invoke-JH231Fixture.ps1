@@ -168,6 +168,9 @@ try {
         if($CaseName -eq 'boot-automatic-variable'){
             [IO.File]::AppendAllText((Join-Path $fixtureRoot 'internal\JH231-UPDATE.ps1'),"`r`n`$Matches='fixture'`r`n",[Text.UTF8Encoding]::new($false))
         }
+        if($CaseName -eq 'boot-protected-home'){
+            [IO.File]::AppendAllText((Join-Path $fixtureRoot 'internal\JH231-UPDATE.ps1'),"`r`n`$HOME='fixture'`r`n",[Text.UTF8Encoding]::new($false))
+        }
         if($CaseName -eq 'boot-bad-bom'){
             $path=Join-Path $fixtureRoot 'internal\JH231-UPDATE.ps1';$bytes=[IO.File]::ReadAllBytes($path);[IO.File]::WriteAllBytes($path,$bytes[3..($bytes.Length-1)])
         }
@@ -181,9 +184,18 @@ try {
         $resultCode=InvokeJh231Bootstrap
         if($CaseName -in @('boot-pass','boot-report-fallback')){Check ($resultCode -eq 0 -and $BootStatus -eq 'PASS_CURRENT_RUNNER_RESULT_VERIFIED') 'Bootstrap current success receipt'}
         elseif($CaseName -eq 'boot-child-blocked'){Check ($resultCode -eq 2 -and $BootStatus -eq 'BLOCKED_CHILD_REPORTED_NO_INSTALL') 'Bootstrap current blocked receipt'}
-        elseif($CaseName -in @('boot-parse-failure','boot-automatic-variable','boot-bad-bom','boot-hash-mismatch')){Check ($resultCode -eq 2 -and $FixtureChildCalls -eq 0 -and $BootStatus -eq 'BLOCKED_NO_RUNNER_DISPATCH') 'Bootstrap preflight no dispatch'}
+        elseif($CaseName -in @('boot-parse-failure','boot-automatic-variable','boot-protected-home','boot-bad-bom','boot-hash-mismatch')){Check ($resultCode -eq 2 -and $FixtureChildCalls -eq 0 -and $BootStatus -eq 'BLOCKED_NO_RUNNER_DISPATCH') 'Bootstrap preflight no dispatch'}
         elseif($CaseName -eq 'boot-all-reports-fail'){Check ($resultCode -eq 2 -and -not $BootSaved) 'Bootstrap cannot claim result saved'}
         else{Check ($resultCode -eq 2 -and $BootStatus -eq 'UNKNOWN_AFTER_RUNNER_DISPATCH_NO_REPLAY') 'Untrusted/missing current receipt is unknown'}
+        $expectedBootReasons=@{
+            'boot-pass'='CURRENT_RUN_ID_AND_REPORT_KIND_MATCH';'boot-report-fallback'='CURRENT_RUN_ID_AND_REPORT_KIND_MATCH';
+            'boot-all-reports-fail'='CURRENT_RUN_ID_AND_REPORT_KIND_MATCH';'boot-child-blocked'='CURRENT_RUNNER_BLOCKED_SEE_CHILD_RESULT';
+            'boot-parse-failure'='POWERSHELL_51_PARSE_FAILED';'boot-automatic-variable'='POWERSHELL_AUTOMATIC_VARIABLE_COLLISION';
+            'boot-protected-home'='POWERSHELL_AUTOMATIC_VARIABLE_COLLISION';'boot-bad-bom'='POWERSHELL_UTF8_BOM_REQUIRED';
+            'boot-hash-mismatch'='DELIVERY_FILE_HASH_OR_SIZE_MISMATCH';'boot-stale-run-id'='CURRENT_RUN_ID_RESULT_MISSING_OR_INVALID_NO_REPLAY';
+            'boot-wrong-kind'='CURRENT_RUN_ID_RESULT_MISSING_OR_INVALID_NO_REPLAY';'boot-no-receipt'='CURRENT_RUN_ID_RESULT_MISSING_OR_INVALID_NO_REPLAY'
+        }
+        Check ($BootReason -ceq $expectedBootReasons[$CaseName]) ('Exact bootstrap reason for '+$CaseName+': '+$BootReason)
         Check ($FixtureInstallCalls -eq 0 -and $FixtureSignCalls -eq 0) 'Bootstrap test never touches sign/install'
     } else {
         $resultCode=Invoke-Jh231Update
