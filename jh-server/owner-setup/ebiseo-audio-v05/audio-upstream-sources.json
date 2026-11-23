@@ -162,7 +162,7 @@
     "owner-setup/jh168-mobile-unification/stage41-command-lifecycle-patch.mjs": "95986ef235a4af792e91c7ce4e5ba8f45b040b34ffef80b4a476524438c12d7f",
     "owner-setup/jh168-mobile-unification/stage44-device-focus-patch.mjs": "99d1f8347733b46a0671b31dd928fe9d662d51b68f5a19c7a8919237fb6d21a4",
     "owner-setup/jh168-mobile-unification/stage44-device-focus.mjs": "b1bb1a50695cee1d5b0b59a98603905b6dedd00c3f5cc9f801a9cc3ccaee3116",
-    "owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs": "d420c4bb6b66fb0024a7924e303b3d087971b2c581641969720e0768bcda4d72",
+    "owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.mjs": "5537c5841f3ee6ce50b9349de17d364dc1042bff85a0198752d715afa0b1e364",
     "owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.mjs": "9e830c16616228e42bc6e32d77734dc8bc912601baf4f8b785d09f5687ca5bd2",
     "owner-setup/jh168-mobile-unification/stage61-right-pane-router.mjs": "84d96a004119fde7bd02ab22a5219c679c23b6eea3d82807ae17909d6b568a50",
     "owner-setup/jh168-mobile-unification/stage64-feature-fallback.mjs": "d2030721fbbaef949355a689c3d8ab1c2c6b945c6349e2e12170454e1f8b0734",

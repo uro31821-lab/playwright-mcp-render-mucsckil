@@ -1,0 +1,97 @@
+name: JH owner admission scope review
+
+on:
+  push:
+    branches: [fix/instagram-owner-admission-scope-20261123]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Verify exact reviewed transition with the unchanged audit algorithm
+        run: |
+          node --input-type=module <<'JS'
+          import {readFileSync} from 'node:fs';
+          import vm from 'node:vm';
+          import {assertReviewedSource} from './jh-server/owner-setup/jh168-mobile-unification/reviewed-source-audit.mjs';
+          const text=readFileSync('jh-server/owner-setup/jh168-mobile-unification/stage42-protected-source-provenance.test.mjs','utf8');
+          const a=text.indexOf('const transitionPaths=['),b=text.indexOf('\n];',a);
+          if(a<0||b<=a)throw Error('Original protected-path declaration missing');
+          const paths=vm.runInNewContext("const ROOT='jh-server/owner-setup/';"+text.slice(a,b+3)+';transitionPaths;');
+          console.log(JSON.stringify(assertReviewedSource({cwd:process.cwd(),baseline:'8596f5ef299d27fa7064ee40a64a99030196774a',paths})));
+          JS
+      - name: Install existing locked test dependencies without lifecycle scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Verify original owner checks and actual generated scope
+        run: |
+          mkdir -p "$RUNNER_TEMP/jh-owner-core"
+          cp -a jh-server "$RUNNER_TEMP/jh-owner-core/jh-server"
+          cd "$RUNNER_TEMP/jh-owner-core"
+          node --test --test-concurrency=1 --test-reporter=spec \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-owner-admission-scope.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-mobile-runtime-patch.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-host-adapter.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-right-pane-router.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage61-current-source-compat.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage63-native-select-owner-admission.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage40-owner-admission-diagnostics.test.mjs \
+            jh-server/owner-setup/jh168-mobile-unification/stage25-live-operator-followup-entry.test.mjs
+      - name: Verify existing audio composition and pin rejection contracts
+        run: |
+          mkdir -p "$RUNNER_TEMP/jh-owner-audio"
+          cp -a jh-server "$RUNNER_TEMP/jh-owner-audio/jh-server"
+          cd "$RUNNER_TEMP/jh-owner-audio"
+          mkdir -p "$RUNNER_TEMP/jh-owner-audio-historical"
+          cp -a jh-server "$RUNNER_TEMP/jh-owner-audio-historical/jh-server"
+          HISTORICAL_OWNER="$RUNNER_TEMP/jh-owner-audio-historical/jh-server/owner-setup"
+          node --input-type=module -e "import {buildCleanRestartRelease56} from './jh-server/owner-setup/deployment/durable-clean-restart-news-review-entry.mjs'; import {pathToFileURL} from 'node:url'; const b=buildCleanRestartRelease56(); const m=await import(pathToFileURL(b.file).href+'?sha='+b.sha256); const x=m.buildDurableRoutedOperationalEntrypoint(process.argv[1]); console.log(JSON.stringify(x))" "$HISTORICAL_OWNER" > "$RUNNER_TEMP/jh-owner-audio-historical-build.json"
+          EBISEO_TEST_SERVER_RUNTIME="$HISTORICAL_OWNER/server-integration/server-durable-native-return-route56.mjs" EBISEO_TEST_CURRENT_OWNER_ROOT="$PWD/jh-server/owner-setup" node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/ebiseo-audio-v05/*.test.mjs
+      - name: Verify camera contracts and both complete composition entry points
+        run: |
+          mkdir -p "$RUNNER_TEMP/jh-owner-camera"
+          cp -a jh-server "$RUNNER_TEMP/jh-owner-camera/jh-server"
+          cd "$RUNNER_TEMP/jh-owner-camera"
+          node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/kabiseo-camera-v0256/*.test.mjs
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import path from 'node:path';
+          import {cpSync,mkdtempSync,readFileSync} from 'node:fs';
+          import {tmpdir} from 'node:os';
+          import {pathToFileURL} from 'node:url';
+          const env={CI:'true',NODE_ENV:'test',JH_OWNER_DEFER_LISTEN:'1',
+            JH_MOBILE_WEB_13_MODE:'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1',
+            JH_STAGE26_SIGNED_COMPLETION_ACK:'EXPLICIT_IDENTICAL_SIGNED_RESULT_V1',
+            JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS:'EXPLICIT_ORIGINAL_OWNER_REASON_V1',
+            JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS:'EXPLICIT_SIGNED_COMMAND_CAUSE_V1',
+            JH_STAGE44_DEVICE_FOCUS:'EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1',
+            JH_MOBILE13_COMMAND_DIAGNOSTICS:'EXPLICIT_OWNER_DEVICE_READ_ONLY_V1',
+            JH_EBISEO_AUDIO_ENABLE:'EXPLICIT_EBISEO_AUDIO_V05',
+            JH_KABISEO_CAMERA_ENABLE:'EXPLICIT_KABISEO_CAMERA_V0256'};
+          for(const entry of ['camera','audio-hook']){
+            const folder=mkdtempSync(path.join(tmpdir(),'jh-owner-compose-'));
+            const host=path.join(folder,'jh-server');cpSync('jh-server',host,{recursive:true});
+            const root=path.join(host,'owner-setup');
+            const modulePath=entry==='camera'?'kabiseo-camera-v0256/camera-compose-audio-host.mjs':'ebiseo-audio-v05/audio-compose-current-host.mjs';
+            const module=await import(pathToFileURL(path.join(root,modulePath)));
+            const result=await (entry==='camera'?module.buildCameraReleaseCandidate:module.buildCurrentAudioReleaseCandidate)(root,env);
+            assert.equal(result.listenerStarted,false);
+            assert.equal(result.cameraOverlayActive,true);
+            assert.ok(readFileSync(result.file,'utf8').includes('record,firstAttempt,payload,jhOwnerAdmission155)'));
+            console.log(JSON.stringify({entry,listenerStarted:result.listenerStarted,cameraOverlayActive:result.cameraOverlayActive,candidateSha256:result.candidateSha256}));
+          }
+          JS

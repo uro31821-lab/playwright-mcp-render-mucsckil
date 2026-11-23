@@ -10,7 +10,7 @@ import {patchStage61MobileRuntime56,reverseStage61MobileRuntime56}
 
 const ROOT=path.resolve(import.meta.dirname,'..');
 const OWNER_OLD='beforeDispatch:({record,firstAttempt})=>jhOwnerAdmission155(device,commandId,record,firstAttempt),';
-const OWNER_NEW='beforeDispatch:({record,firstAttempt})=>jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload),';
+const OWNER_NEW='beforeDispatch:({record,firstAttempt})=>jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload,jhOwnerAdmission155),';
 const fixture=`import x from "x";
 function token56(){}
 function secureResult56(){}
@@ -58,6 +58,15 @@ function secureCall56(device,mcpToolName,args={}){
   }
 
   registerOAuthTool("life_web_navigate",{});
+  registerOAuthTool("life_web_press_key",{
+    title:"Supported RIGHT-pane navigation key",
+    description:"Only explicit Android BACK is currently bridged. Enter, Tab, Escape, Arrow keys require verified native action contracts and never silently use server Playwright.",
+    inputSchema:{key:z.string(),context_id:z.string().optional(),request_id:z.string().optional()}
+  },async(args)=>{
+    if(!["BACK","AndroidBack"].includes(args.key))
+      return jhMobileWebReject56("MOBILE_KEY_NOT_VERIFIED",{requestedKey:args.key});
+    return jhMobileWebFollow56(args,"BACK","오른쪽 화면에서 Android 뒤로 가기 1회");
+  });
 `;
 
 function helperFromPatched(source){
@@ -69,7 +78,7 @@ function helperFromPatched(source){
 function exactPayload({contextId,ref,requestId='3'.repeat(32)}={}){
  return {action:'CLICK',command:'오른쪽 화면에서 새로 확인한 옵션 선택',contextId,
   requestId,stage61Action:'SELECT_PICK',stage61ComputerOutcome:'NOT_RUN',
-  stage61PlaywrightMobileAvailable:false,stage61RouteSchema:'JH168_STAGE61_ROUTE_REQUEST_V1',
+  stage61RouteSchema:'JH168_STAGE61_ROUTE_REQUEST_V1',
   stage61WebOutcome:'NOT_RUN',targetItemRef:ref};
 }
 function openResult(ref,extra={}){
@@ -87,13 +96,12 @@ function runtimeHarness(source){
     action,replayAllowed:false,automaticReplay:false}),
   phonePayload:({routeToken,action})=>({ok:true,routeToken,replayAllowed:false,
     automaticReplay:false,stage61RouteSchema:'JH168_STAGE61_ROUTE_REQUEST_V1',
-    stage61Action:action,stage61WebOutcome:'NOT_RUN',stage61ComputerOutcome:'NOT_RUN',
-    stage61PlaywrightMobileAvailable:false}),
+    stage61Action:action,stage61WebOutcome:'NOT_RUN',stage61ComputerOutcome:'NOT_RUN'}),
   discard:()=>({ok:true})
  };
  const env={
   createStage61HostAdapter:()=>host,token56:()=>'',secureResult56:()=>{},textResult:x=>x,
-  jhOwnerAdmission155:async()=>{generic++;return true;},
+  originalAdmissionForTest:async()=>{generic++;return true;},
   jhOwnerAdmissionNote40:(record,code)=>{notes.push(code);return false;},
   jhRequireCommand56:()=> 'a'.repeat(32),
   jhPaymentLifecycle:{captureBinding:()=>{capture++;return {ok:true};},
@@ -102,9 +110,10 @@ function runtimeHarness(source){
   jhBlockedCommands56:new Set(),Map,Set,Date,Object,Array,Promise,Number,String,RegExp
  };
  const ctx=vm.createContext(env);
- const api=vm.runInContext(`(()=>{${helper}\nreturn {
-  admit:jhStage61OwnerAdmission56,remember:jhStage61RememberPreparedPick56,
-  routes:jhStage61ContextRoute56,prepared:jhStage61PreparedPick56};})()`,ctx);
+ const api=vm.runInContext(`(()=>{${helper}\nfunction createMcp(){
+  const jhOwnerAdmission155=originalAdmissionForTest;return {
+  admit:(...args)=>jhStage61OwnerAdmission56(...args,jhOwnerAdmission155),remember:jhStage61RememberPreparedPick56,
+  routes:jhStage61ContextRoute56,prepared:jhStage61PreparedPick56};}return createMcp();})()`,ctx);
  return {api,host,notes,get generic(){return generic;},get capture(){return capture;},
   get asserted(){return asserted;},setAuth:value=>{auth=value;}};
 }
@@ -119,8 +128,10 @@ test('Stage61 wraps only the exact split FOLLOWUP owner callback and reverses by
  const afterEnd=helper.indexOf('function jhStage61PrepareComputer56',afterBegin);
  const afterAction=helper.slice(afterBegin,afterEnd);
  assert.ok(afterBegin>=0&&afterEnd>afterBegin,'after-action helper must be bounded');
- assert.ok(afterAction.indexOf('if(action==="SELECT_OPEN")jhStage61PreparedPick56.delete(routeToken);')<
-   afterAction.indexOf('const record=await jhStage61Host56.record({routeToken'),
+ const openStart=afterAction.indexOf('if(action==="SELECT_OPEN"){');
+ const clearPrepared=afterAction.indexOf('jhStage61PreparedPick56.delete(routeToken);',openStart);
+ const inspectReceipt=afterAction.indexOf('await jhStage61Host56.record(');
+ assert.ok(openStart>=0&&clearPrepared>openStart&&inspectReceipt>clearPrepared,
    'every re-open clears stale prepared refs before its receipt inspection');
  assert.throws(()=>patchStage61MobileRuntime56(patched));
 });

@@ -12,7 +12,7 @@ import {createPinnedAudioReleaseAuthority} from './audio-release-authority.mjs';
 export const AUDIO_SOURCE_COMMIT='8c9370f873d4312543310cb8aa1da2ed2b06b2c5';
 export const AUDIO_RECORDED_RUNTIME_COMMIT='a06e4643a036fa7cc121ef997bc332a43f2f85df';
 // Stage78 baseline reviewed separately from the audio implementation; see manifest.baselineReview.
-const MANIFEST_SHA256='3d1cef853df3867eb693a765b316898dd3c51043997d482f82b21258f36251f3';
+const MANIFEST_SHA256='9470769950e5a716f8feb90b96bcefcea80f9df5d2e6a1346111ce4f4a9ff898';
 const VERSION='v05',DIRECTORY='ebiseo-audio-'+VERSION;
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const moduleFiles=Object.freeze(['audio-contract.mjs','audio-extension-catalog.mjs',

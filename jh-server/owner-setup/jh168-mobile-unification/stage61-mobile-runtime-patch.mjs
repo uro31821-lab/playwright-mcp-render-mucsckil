@@ -38,7 +38,7 @@ const PRESS_KEY_NEW=String.raw`  registerOAuthTool("life_web_press_key",{
   });`;
 
 const OWNER_PICK_BEFORE='      beforeDispatch:({record,firstAttempt})=>jhOwnerAdmission155(device,commandId,record,firstAttempt),';
-const OWNER_PICK_AFTER='      beforeDispatch:({record,firstAttempt})=>jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload),';
+const OWNER_PICK_AFTER='      beforeDispatch:({record,firstAttempt})=>jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload,jhOwnerAdmission155),';
 const HELPER=String.raw`
   // Stage61: server-owned route state over ORIGINAL Secure56 phone results.
   const jhStage61OriginalResult56=new Map();
@@ -237,11 +237,15 @@ const HELPER=String.raw`
       return {intended:true,ok:true,code:"OWNER_SELECT_PICK_ROUTE_VERIFIED",routeToken};
     }catch{return {intended:true,ok:false,code:"OWNER_SELECT_PICK_ROUTE_NOT_READY"};}
   }
-  async function jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload){
+  async function jhStage61OwnerAdmission56(device,commandId,record,firstAttempt,payload,admitOriginal){
     const open=jhStage61ExactSelectOpen56(payload);
     const pick=jhStage61ExactSelectPick56(payload);
     const exact=open.intended?open:pick;
-    if(!exact.intended)return jhOwnerAdmission155(device,commandId,record,firstAttempt);
+    if(!exact.intended){
+      // The original admission belongs to createMcp; only its host call site supplies it.
+      if(typeof admitOriginal!=="function")return false;
+      return admitOriginal(device,commandId,record,firstAttempt);
+    }
     const fail=code=>jhStage61OwnerNote56(record,code);
     try{if(jhRequireCommand56(device)!==commandId)return fail("COMMAND_BINDING_CHANGED");}
     catch{return fail("COMMAND_BINDING_UNVERIFIED");}
