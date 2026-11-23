@@ -56,7 +56,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/jh-owner-audio"
           cp -a jh-server "$RUNNER_TEMP/jh-owner-audio/jh-server"
           cd "$RUNNER_TEMP/jh-owner-audio"
-          EBISEO_TEST_CURRENT_OWNER_ROOT="$PWD/jh-server/owner-setup" node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/ebiseo-audio-v05/*.test.mjs
+          mkdir -p "$RUNNER_TEMP/jh-owner-audio-historical"
+          cp -a jh-server "$RUNNER_TEMP/jh-owner-audio-historical/jh-server"
+          HISTORICAL_OWNER="$RUNNER_TEMP/jh-owner-audio-historical/jh-server/owner-setup"
+          node --input-type=module -e "import {buildCleanRestartRelease56} from './jh-server/owner-setup/deployment/durable-clean-restart-news-review-entry.mjs'; import {pathToFileURL} from 'node:url'; const b=buildCleanRestartRelease56(); const m=await import(pathToFileURL(b.file).href+'?sha='+b.sha256); const x=m.buildDurableRoutedOperationalEntrypoint(process.argv[1]); console.log(JSON.stringify(x))" "$HISTORICAL_OWNER" > "$RUNNER_TEMP/jh-owner-audio-historical-build.json"
+          EBISEO_TEST_SERVER_RUNTIME="$HISTORICAL_OWNER/server-integration/server-durable-native-return-route56.mjs" EBISEO_TEST_CURRENT_OWNER_ROOT="$PWD/jh-server/owner-setup" node --test --test-concurrency=1 --test-reporter=spec jh-server/owner-setup/ebiseo-audio-v05/*.test.mjs
       - name: Verify camera contracts and both complete composition entry points
         run: |
           mkdir -p "$RUNNER_TEMP/jh-owner-camera"
