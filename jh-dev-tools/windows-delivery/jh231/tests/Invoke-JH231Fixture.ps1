@@ -19,6 +19,7 @@ try {
     foreach($dir in @($fixtureRoot,(Join-Path $fixtureRoot 'internal'),(Join-Path $fixtureRoot 'payload'),(Join-Path $work 'local'),(Join-Path $work 'temp'))){$null=New-Item -Path $dir -ItemType Directory -Force}
     $env:LOCALAPPDATA=Join-Path $work 'local';$env:TEMP=Join-Path $work 'temp';$env:TMP=$env:TEMP
     foreach($rel in @('실행.cmd','README_FIRST.md','POWER_SHELL_ERROR_CHECKLIST.txt','internal\BOOTSTRAP.ps1','internal\JH231-UPDATE.ps1')){Copy-Item -LiteralPath (Join-Path $KitRoot $rel) -Destination (Join-Path $fixtureRoot $rel)}
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $unsignedFixture=Join-Path $fixtureRoot 'payload\app-release-unsigned.apk'
     $zip=[IO.Compression.ZipFile]::Open($unsignedFixture,[IO.Compression.ZipArchiveMode]::Create)
@@ -35,7 +36,9 @@ try {
     FixtureText (Join-Path $fixtureRoot 'DELIVERY_PINS.json') ($fixturePins | ConvertTo-Json)
     $mainSource=Get-Content -LiteralPath (Join-Path $fixtureRoot 'internal\JH231-UPDATE.ps1') -Raw -Encoding UTF8
     $mainPrelude=($mainSource -split '# MAIN_ENTRY',2)[0]
-    . ([scriptblock]::Create($mainPrelude))
+    $fixtureMainPrelude=Join-Path $fixtureRoot 'internal\Fixture-Main-Prelude.ps1'
+    [IO.File]::WriteAllText($fixtureMainPrelude,$mainPrelude,[Text.UTF8Encoding]::new($true))
+    . $fixtureMainPrelude
     $DeliveryRoot=$fixtureRoot
     $script:FixtureInstallCalls=0;$script:FixtureSignCalls=0;$script:FixtureNativeCalls=0
     $script:FixtureBeforeVersion='230';$script:FixtureAfterVersion='231'
@@ -144,7 +147,9 @@ try {
     }
     if($CaseName -like 'boot-*'){
         $bootSource=Get-Content -LiteralPath (Join-Path $fixtureRoot 'internal\BOOTSTRAP.ps1') -Raw -Encoding UTF8
-        . ([scriptblock]::Create(($bootSource -split '# BOOTSTRAP_MAIN_ENTRY',2)[0]))
+        $fixtureBootPrelude=Join-Path $fixtureRoot 'internal\Fixture-Boot-Prelude.ps1'
+        [IO.File]::WriteAllText($fixtureBootPrelude,($bootSource -split '# BOOTSTRAP_MAIN_ENTRY',2)[0],[Text.UTF8Encoding]::new($true))
+        . $fixtureBootPrelude
         $BootRoot=$fixtureRoot
         function InvokeUpdateChild([string]$Runner,[string]$Id){
             $script:FixtureChildCalls++;$script:BootDispatched=$true
