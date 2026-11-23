@@ -34,3 +34,11 @@ jobs:
           & './jh-dev-tools/windows-delivery/jh231/tests/Test-JH231Delivery.ps1' -KitRoot './jh-dev-tools/windows-delivery/jh231/delivery'
           if (-not $?) { throw 'JH231 delivery regressions failed' }
 
+      - name: Verify live progress before harmless child exit
+        run: |
+          & './jh-dev-tools/windows-delivery/jh231/tests/Test-JH231Progress.ps1' -KitRoot './jh-dev-tools/windows-delivery/jh231/delivery'
+          if (-not $?) { throw 'JH231 real child progress regression failed' }
+      - name: Verify read-only recovery observer
+        run: |
+          & './jh-dev-tools/windows-delivery/jh231/recovery/tests/Test-JH231ReadStatus.ps1' -KitRoot './jh-dev-tools/windows-delivery/jh231/recovery/delivery'
+          if (-not $?) { throw 'JH231 read-only recovery regressions failed' }

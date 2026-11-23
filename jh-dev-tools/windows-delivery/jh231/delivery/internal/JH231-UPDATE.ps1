@@ -37,6 +37,10 @@ $SecretVars = @('JH231_LOCAL_KS_PASSWORD','JH231_LOCAL_KEY_PASSWORD')
 $Checks = New-Object 'System.Collections.Generic.List[string]'
 
 function Evidence([string]$Name,[string]$Value) { $script:Checks.Add($Name + ': ' + $Value) }
+function SetJh231Stage([string]$Value) {
+    $script:Stage=$Value
+    Write-Host ('[JH231] '+$Value+' UTC='+[DateTime]::UtcNow.ToString('o')+' RunId='+$RunId)
+}
 function AddLog([string]$Field,[string]$Value) { Evidence $Field $Value }
 function Sha256([string]$File) { return (Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant() }
 function Hash256([string]$File) { return Sha256 $File }
@@ -451,23 +455,23 @@ function CreateInstallJournal([string]$Serial) {
 }
 function Invoke-Jh231Update {
     try {
-        $script:Stage='INPUT_PREFLIGHT'
+        SetJh231Stage 'INPUT_PREFLIGHT'
         $unsigned=AssertPinsAndInput
-        $script:Stage='LOCK'
+        SetJh231Stage 'LOCK'
         $script:Mutex=[Threading.Mutex]::new($false,'Local\JH231_ORIGINAL_CERT_SIGN_UPDATE_V1')
         try { $script:OwnsMutex=$script:Mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $script:OwnsMutex=$true }
         if(-not $script:OwnsMutex) { throw 'ANOTHER_SIGN_UPDATE_RUNNING_NO_ACTION' }
         $script:RunLock=[IO.FileStream]::new((Join-Path $DeliveryRoot '.jh231-running.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
-        $script:Stage='TOOLS'
+        SetJh231Stage 'TOOLS'
         $tools=FindAndroidTools
         AssertTargetMetadata $unsigned $tools
-        $script:Stage='EXISTING_WINDOWS_CRASH_GATE'
+        SetJh231Stage 'EXISTING_WINDOWS_CRASH_GATE'
         AssertCrashGate
-        $script:Stage='SIGN_OR_REUSE'
+        SetJh231Stage 'SIGN_OR_REUSE'
         $apk=SignOrReuse $unsigned $tools
         $script:SignedSha=Sha256 $apk
         $script:SignedFile=$apk
-        $script:Stage='DEVICE_PRECHECK'
+        SetJh231Stage 'DEVICE_PRECHECK'
         $serial=GetOneDevice $tools.Adb
         $scratchCandidate=Join-Path ([IO.Path]::GetTempPath()) ('JH231-device-read-'+$RunId)
         $null=New-Item -Path $scratchCandidate -ItemType Directory -ErrorAction Stop
@@ -476,29 +480,29 @@ function Invoke-Jh231Update {
         if($before.Version -ceq $ToVersion -and $before.Name -ceq $ToName) {
             $script:DeviceReadback='EXACT_PACKAGE_VERSION_CERT_AND_APK_SHA_ALREADY_INSTALLED'
             $script:Status='ALREADY_INSTALLED_VERIFIED_NO_INSTALL'
-            $script:Stage='DONE'
+            SetJh231Stage 'DONE'
             $script:Reason='CURRENT_PHONE_ALREADY_HAS_EXACT_SIGNED_APK'
         } elseif($before.Version -cne $FromVersion -or $before.Name -cne $FromName) {
             throw 'CURRENT_PHONE_VERSION_DIFFERS_NO_INSTALL'
         } else {
-            $script:Stage='FINAL_INPUT_RECHECK'
+            SetJh231Stage 'FINAL_INPUT_RECHECK'
             if((Sha256 $unsigned) -cne $ExpectedUnsignedSha -or (Sha256 $apk) -cne $script:SignedSha) { throw 'APK_CHANGED_BEFORE_INSTALL_NO_ACTION' }
             AssertSignedCandidate $unsigned $apk $tools
             if((GetOneDevice $tools.Adb) -cne $serial) { throw 'DEVICE_CHANGED_BEFORE_INSTALL_NO_ACTION' }
-            $script:Stage='ONE_SHOT_JOURNAL'
+            SetJh231Stage 'ONE_SHOT_JOURNAL'
             CreateInstallJournal $serial
-            $script:Stage='ADB_INSTALL_ONCE'
+            SetJh231Stage 'ADB_INSTALL_ONCE'
             $script:AdbInstallStarted=$true
             $action=ExecNative $tools.Adb @('-s',$serial,'install','-r',$apk)
             # Always use readback once after dispatch, including a non-success return.
             # Never issue a second install. Readback can resolve a lost success response.
             Evidence 'ADB_INSTALL_RETURN_CODE' ([string]$action.Code)
-            $script:Stage='POST_INSTALL_READBACK'
+            SetJh231Stage 'POST_INSTALL_READBACK'
             $after=ReadInstalledApk $tools $serial 'AFTER'
             if($after.Version -cne $ToVersion -or $after.Name -cne $ToName) { throw 'POST_INSTALL_STATE_NOT_CONFIRMED_NO_RETRY' }
             $script:DeviceReadback='EXACT_PACKAGE_VERSION_CERT_AND_APK_SHA_VERIFIED'
             $script:Status='PASS_UPDATE_INSTALLED_VERIFIED'
-            $script:Stage='DONE'
+            SetJh231Stage 'DONE'
             $script:Reason='ONE_UPDATE_AND_EXACT_INSTALLED_APK_READBACK'
         }
     } catch {

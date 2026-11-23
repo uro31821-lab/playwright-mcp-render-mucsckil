@@ -1,4 +1,6 @@
 @echo off
+echo JH231 update starting. Progress will appear below.
+echo Keep this window open. Do not start a second copy.
 setlocal DisableDelayedExpansion
 set "JH_DELIVERY_ROOT=%~dp0"
 set "JH_POWERSHELL=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"

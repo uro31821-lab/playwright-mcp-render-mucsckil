@@ -54,6 +54,7 @@ function AssertBootPreflight {
     if((Get-Item -LiteralPath $manifestPath).Length -gt 65536){throw 'PACKAGE_MANIFEST_TOO_LARGE'}
     $manifest=Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach($rel in $required){
+        Write-Host ('[JH231] Verifying '+$rel)
         $file=Join-Path $BootRoot $rel
         if(-not(Test-Path -LiteralPath $file -PathType Leaf)){throw 'REQUIRED_DELIVERY_FILE_MISSING_EXTRACT_ALL'}
         $info=Get-Item -LiteralPath $file -Force -ErrorAction Stop
@@ -101,10 +102,9 @@ function InvokeUpdateChild([string]$Runner,[string]$Id) {
     $prior=$ErrorActionPreference
     try {
         $ErrorActionPreference='Continue'
-        $lines=@(& $ps -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $Runner -RunId $Id 2>&1 | ForEach-Object {$_.ToString()})
+        & $ps -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $Runner -RunId $Id 2>&1 | ForEach-Object {Write-Host $_.ToString()}
         $code=$LASTEXITCODE
     } finally {$ErrorActionPreference=$prior}
-    foreach($line in $lines){Write-Host $line}
     return [pscustomobject]@{Code=$code}
 }
 function ReadCurrentChildResult {
@@ -128,7 +128,9 @@ function ReadCurrentChildResult {
 }
 function InvokeJh231Bootstrap {
     try {
+        Write-Host ('[JH231] CHECKING_DELIVERY_FILES RunId='+$BootRunId)
         AssertBootPreflight
+        Write-Host '[JH231] DELIVERY_CHECKS_PASSED_STARTING_RUNNER'
         $result=InvokeUpdateChild (Join-Path $BootRoot 'internal\JH231-UPDATE.ps1') $BootRunId
         $script:BootChildCode=[string]$result.Code
         $receipt=ReadCurrentChildResult
