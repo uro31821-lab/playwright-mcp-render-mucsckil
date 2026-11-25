@@ -6,13 +6,18 @@ import {Worker} from 'node:worker_threads';
 import {readNoticeCatalog,selectNotice,noticeDigest,pickupText} from './notice-catalog.mjs';
 import {parsePickupQuestion,trialReceiptSuffix} from './pickup-question.mjs';
 
+import {registrationRecords,selectRegistration} from './registration-statistics.mjs';
+import {openSyntheticPair,pairEvent} from './synthetic-pair.mjs';
+
+const actors=['preparation','statistics'];
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const bounded=(x,n)=>typeof x==='string'&&x.trim().length>0&&Array.from(x).length<=n;
 const replyError=message=>({isError:true,content:[{type:'text',text:message}]});
 
 function receive(work){
+  const file=work.actor==='statistics'?'./registration-statistics.mjs':'./preparation-receiver.mjs';
   return new Promise((resolve,reject)=>{
-    const worker=new Worker(new URL('./preparation-receiver.mjs',import.meta.url),{workerData:work,env:{}});
+    const worker=new Worker(new URL(file,import.meta.url),{workerData:work,env:{}});
     const timer=setTimeout(()=>{void worker.terminate();reject(Error('PEER_TIMEOUT'));},5000);
     worker.once('message',value=>{
       clearTimeout(timer);
@@ -26,7 +31,9 @@ function receive(work){
 }
 
 export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PEER_PREPARATION_TRIAL_SHA256,
+  statisticsJson=process.env.JH_PEER_STATISTICS_SOURCE_JSON??'[]',recordPilot=line=>console.info(line),
   recordTrial=line=>console.info(line)}){
+  const stats=registrationRecords(statisticsJson);
   const catalog=readNoticeCatalog(noticeJson);
   const trialEnabled=trialDigest===catalog.trialCard;
   const filename=path.join(config.stateDir,'ordinary-peer.sqlite');
@@ -41,6 +48,10 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
       actor TEXT NOT NULL, question TEXT NOT NULL, purpose TEXT NOT NULL,
       source_digest TEXT NOT NULL, reply_ref TEXT NOT NULL UNIQUE, reply TEXT,
       created_at TEXT NOT NULL, received_at TEXT, UNIQUE(owner,retry_hash))`);
+  const pilot=openSyntheticPair(db,config.accountDigest,recordPilot);
+  const pilotNotice={event:pairEvent,pickup:pilot.source.pickup};
+  const pilotRegistration={event:pairEvent,teams:pilot.source.teams};
+  const records=stats.some(row=>row.event===pairEvent)?stats:[...stats,pilotRegistration];
   if(trialEnabled)db.exec('CREATE TABLE IF NOT EXISTS peer_trial_receipts (owner TEXT NOT NULL, card_hash TEXT NOT NULL, reply_ref TEXT NOT NULL UNIQUE, emitted_at TEXT NOT NULL, PRIMARY KEY(owner,card_hash))');
   const markTrial=!trialEnabled?null:db.prepare('INSERT OR IGNORE INTO peer_trial_receipts VALUES(?,?,?,?)');
   function emitTrial(row,notice){
@@ -67,10 +78,17 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
   }
   async function ask(args,session){
     if(!ownerOf(session()))return denied();
-    if(args.actor!=='preparation'||!bounded(args.question,2200)||!bounded(args.purpose,240)||
-      (args.retryKey!==undefined&&!(typeof args.retryKey==='string'&&/^[a-zA-Z0-9_-]{16,96}$/.test(args.retryKey))))return replyError('준비비서 질문 형식을 확인해 주세요.');
-    const notice=selectNotice(args.question,catalog.notices);
-    const sourceDigest=notice?noticeDigest(notice):catalog.sourceDigest;
+    if(!actors.includes(args.actor)||(args.requester!==undefined&&(!actors.includes(args.requester)||args.requester===args.actor))||
+      !bounded(args.question,2200)||!bounded(args.purpose,240)||
+      (args.retryKey!==undefined&&!(typeof args.retryKey==='string'&&/^[a-zA-Z0-9_-]{16,96}$/.test(args.retryKey))))return replyError('질문을 받을 동료와 질문 형식을 확인해 주세요.');
+    const isStatistics=args.actor==='statistics';
+    const registration=isStatistics?selectRegistration(args.question,records):null;
+    const pilotPickup=!isStatistics && !catalog.notices.some(row=>row.event===pairEvent) && pilot.pickupRequested(args.question);
+    const notice=isStatistics?null:(pilotPickup?pilotNotice:selectNotice(args.question,catalog.notices));
+    const isPilot=pilotPickup||registration===pilotRegistration;
+    const source=isStatistics?digest(JSON.stringify(registration)):notice?noticeDigest(notice):catalog.sourceDigest;
+    // Requests without an explicit caller retain their historical retry binding.
+    const sourceDigest=args.requester?digest(JSON.stringify([source,args.requester])):source;
     const key=digest(args.retryKey??randomUUID()),owner=config.accountDigest;
     db.prepare('INSERT OR IGNORE INTO peer_requests VALUES(?,?,?,?,?,?,?,?,NULL,?,NULL)').run(
       owner,key,randomUUID(),args.actor,args.question,args.purpose,sourceDigest,randomUUID(),new Date().toISOString());
@@ -80,22 +98,24 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     if(original.reply===null){
       let work=pending.get(original.request_ref);
       if(!work){
-        if(pending.size>=16)return replyError('준비비서가 처리 중입니다. 잠시 후 다시 물어봐 주세요.');
-        work=receive({requestRef:original.request_ref,replyRef:original.reply_ref,question:original.question,notices:catalog.notices})
+        if(pending.size>=16)return replyError('동료 비서가 처리 중입니다. 잠시 후 다시 물어봐 주세요.');
+        const material=isStatistics?{registration}:pilotPickup?{resolvedNotice:pilotNotice}:{notices:catalog.notices};
+        work=receive({actor:args.actor,requestRef:original.request_ref,replyRef:original.reply_ref,question:original.question,...material})
           .then(text=>db.prepare('UPDATE peer_requests SET reply=?, received_at=? WHERE request_ref=? AND reply IS NULL').run(text,new Date().toISOString(),original.request_ref))
           .finally(()=>pending.delete(original.request_ref));
         pending.set(original.request_ref,work);
       }
-      try{await work;}catch{return replyError('준비비서의 회신을 확보하지 못했습니다.');}
+      try{await work;}catch{return replyError('동료 비서의 회신을 확보하지 못했습니다.');}
     }
     if(!ownerOf(session()))return denied();
     const stored=byKey.get(owner,key);
-    if(!stored?.received_at||typeof stored.reply!=='string')return replyError('준비비서 회신을 확인할 수 없습니다.');
-    emitTrial(stored,notice);
+    if(!stored?.received_at||typeof stored.reply!=='string')return replyError('동료의 회신을 확인할 수 없습니다.');
+    if(isPilot)pilot.record(stored,args.requester,digest);
+    else if(!isStatistics)emitTrial(stored,notice);
     const showReceipt=notice && stored.reply===notice.pickup&&parsePickupQuestion(stored.question,notice).showReceipt;
     const display=showReceipt?stored.reply+'\n회신번호: '+stored.reply_ref:stored.reply;
-    return {content:[{type:'text',text:display}],structuredContent:{actor:'preparation',text:stored.reply,
-      ...(notice?.status==='unavailable'?{availability:'unavailable'}:{}),
+    return {content:[{type:'text',text:display}],structuredContent:{actor:stored.actor,...(args.requester?{requester:args.requester}:{}),text:stored.reply,
+      ...(notice?.status==='unavailable'||(isStatistics&&!registration)?{availability:'unavailable'}:{}),
       replyRef:stored.reply_ref,status:'returned_to_model',scope:'active_tool_call',
       originalQuestionVerified:false,finalDisplayVerified:false}};
   }

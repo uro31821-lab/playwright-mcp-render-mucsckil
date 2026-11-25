@@ -8,5 +8,5 @@ export function answerPickup(question,source){
 }
 if(parentPort){
   parentPort.postMessage({requestRef:workerData.requestRef,replyRef:workerData.replyRef,
-    text:answerPickup(workerData.question,workerData.notices)});
+    text:workerData.resolvedNotice?pickupText(workerData.resolvedNotice):answerPickup(workerData.question,workerData.notices)});
 }
