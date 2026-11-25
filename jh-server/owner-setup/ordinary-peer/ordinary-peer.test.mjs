@@ -5,7 +5,7 @@ import {mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
-import {createOwnerChannel} from './owner-channel.mjs';
+import {createOwnerChannel,rejectOwnerVerification} from './owner-channel.mjs';
 import {openPeerService} from './peer-service.mjs';
 import {answerPickup} from './preparation-receiver.mjs';
 
@@ -83,5 +83,56 @@ test('one independent recipient, bound original and reply, retry, audit and rest
     assert.notEqual(answerPickup('예시 행사와 다른 행사 자료를 어디서 받아요?',notice),notice.pickup);
     notice.pickup='새 창구';peer.close();peer=open();
     assert.equal((await peer.ask(args,allow)).isError,true);
+  }finally{peer.close();rmSync(dir,{recursive:true,force:true});}
+});
+test('expired, denied and unrecognized failures publish only enumerated reason codes',async t=>{
+  const lines=[];
+  t.mock.method(console,'warn',message=>lines.push(message));
+  const owner=createOwnerChannel(cfg,{peer:{},verifier:{verify:async()=>({accountDigest:'other'})}});
+  for(const [origin,expected] of [[undefined,'ORIGIN_MISSING'],['null','ORIGIN_NULL'],['https://else.invalid','ORIGIN_MISMATCH'],[cfg.serverOrigin,'IDENTITY_POLICY']]){
+    const c=begin(owner);
+    const err=await owner.verify({headers:{origin,cookie:c.cookie}},{...params,peer_proof:c.nonce}).catch(e=>e);
+    const out={writeHead(status){this.status=status;return this;},end(body){this.body=body;}};
+    rejectOwnerVerification(out,err);
+    assert.equal(out.status,403);assert.ok(out.body.endsWith(expected));
+    assert.equal(lines.at(-1),'JH_PEER_OWNER_VERIFY_REJECT '+expected);
+  }
+  let publicText;
+  rejectOwnerVerification({writeHead(){return this;},end(v){publicText=v;}},Object.assign(Error('private sample'),{code:'private sample'}));
+  assert.ok(publicText.endsWith('VERIFICATION_FAILED'));
+  assert.equal(lines.at(-1),'JH_PEER_OWNER_VERIFY_REJECT VERIFICATION_FAILED');
+});
+test('exact operator-selected test card emits one redacted receipt across fresh requests, retries and restart',async()=>{
+  const dir=mkdtempSync(path.join(tmpdir(),'peer-log-')),notice={event:'합성 자료행사',pickup:'합성 시험 창구'};
+  const logs=[],config={...cfg,stateDir:dir},allow=()=>({owner:cfg.accountDigest,aud:cfg.serverOrigin});
+  const open=trialDigest=>openPeerService({config,noticeJson:JSON.stringify(notice),trialDigest,recordTrial:s=>logs.push(s)});
+  const testDigest=hash(JSON.stringify([notice.event,notice.pickup]));
+  const args={actor:'preparation',question:notice.event+' 자료는 어디서 받아요?',purpose:'합성 확인'};
+  let peer=open('not-the-test-card');
+  try{
+    await peer.ask(args,allow);assert.deepEqual(logs,[]);
+    peer.close();peer=open(testDigest);
+    assert.equal((await peer.ask(args,()=>null)).isError,true);
+    await peer.ask({...args,question:notice.event+' 자료를 어디서 받아요?'},allow);
+    let count=0;
+    assert.equal((await peer.ask(args,()=>++count===1?allow():null)).isError,true);
+    assert.deepEqual(logs,[]);
+    const reply=await peer.ask({...args,retryKey:'test-receipt-123456789'},allow);
+    await peer.ask({...args,retryKey:'test-receipt-123456789'},allow);
+    peer.close();peer=open(testDigest);
+    await peer.ask(args,allow);
+    assert.equal(logs.length,1);
+    const prefix='JH_PREPARATION_TRIAL_RECEIPT ';
+    assert.ok(logs[0].startsWith(prefix));
+    assert.equal(logs[0].includes(cfg.accountDigest),false);
+    const receipt=JSON.parse(logs[0].slice(prefix.length));
+    assert.deepEqual(Object.keys(receipt).sort(),['answerSha256','questionSha256','replyRef','requestRef','utc']);
+    assert.equal(receipt.questionSha256,hash(args.question));assert.equal(receipt.answerSha256,hash(notice.pickup));
+    assert.equal(receipt.replyRef,reply.structuredContent.replyRef);assert.ok(Date.parse(receipt.utc)>0);
+    const audit=new DatabaseSync(path.join(dir,'ordinary-peer.sqlite'),{readOnly:true});
+    try{
+      const row=audit.prepare('SELECT request_ref,reply_ref FROM peer_requests WHERE reply_ref=?').get(receipt.replyRef);
+      assert.equal(receipt.requestRef,row.request_ref);
+    }finally{audit.close();}
   }finally{peer.close();rmSync(dir,{recursive:true,force:true});}
 });

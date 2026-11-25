@@ -23,12 +23,15 @@ function receive(work){
   });
 }
 
-export function openPeerService({config,noticeJson}){
+export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PEER_PREPARATION_TRIAL_SHA256,
+  recordTrial=line=>console.info(line)}){
   const n=JSON.parse(noticeJson);
   if(!n||Object.keys(n).sort().join(',')!=='event,pickup'||!bounded(n.event,160)||!bounded(n.pickup,240))
     throw Error('PEER_NOTICE_INVALID');
   const notice={event:n.event.trim(),pickup:n.pickup.trim()};
   const sourceDigest=digest(JSON.stringify(notice));
+  const trialCard=digest(JSON.stringify([notice.event,notice.pickup]));
+  const trialQuestion=trialDigest===trialCard?notice.event+' 자료는 어디서 받아요?':null;
   const filename=path.join(config.stateDir,'ordinary-peer.sqlite');
   const fd=openSync(filename,constants.O_RDWR|constants.O_CREAT|constants.O_NOFOLLOW,0o600);
   closeSync(fd);
@@ -41,6 +44,16 @@ export function openPeerService({config,noticeJson}){
       actor TEXT NOT NULL, question TEXT NOT NULL, purpose TEXT NOT NULL,
       source_digest TEXT NOT NULL, reply_ref TEXT NOT NULL UNIQUE, reply TEXT,
       created_at TEXT NOT NULL, received_at TEXT, UNIQUE(owner,retry_hash))`);
+  if(trialQuestion!==null)db.exec('CREATE TABLE IF NOT EXISTS peer_trial_receipts (owner TEXT NOT NULL, card_hash TEXT NOT NULL, reply_ref TEXT NOT NULL UNIQUE, emitted_at TEXT NOT NULL, PRIMARY KEY(owner,card_hash))');
+  const markTrial=trialQuestion===null?null:db.prepare('INSERT OR IGNORE INTO peer_trial_receipts VALUES(?,?,?,?)');
+  function emitTrial(row){
+    if(!markTrial||row.question!==trialQuestion||row.reply!==notice.pickup)return;
+    const utc=new Date().toISOString();
+    if(markTrial.run(config.accountDigest,trialCard,row.reply_ref,utc).changes!==1)return;
+    const receipt={requestRef:row.request_ref,replyRef:row.reply_ref,questionSha256:digest(row.question),
+      answerSha256:digest(row.reply),utc};
+    try{recordTrial('JH_PREPARATION_TRIAL_RECEIPT '+JSON.stringify(receipt));}catch{}
+  }
   const byKey=db.prepare('SELECT * FROM peer_requests WHERE owner=? AND retry_hash=?');
   const pending=new Map();
   function denied(){
@@ -74,6 +87,7 @@ export function openPeerService({config,noticeJson}){
     if(!ownerOf(session()))return denied();
     const stored=byKey.get(owner,key);
     if(!stored?.received_at||typeof stored.reply!=='string')return replyError('준비비서 회신을 확인할 수 없습니다.');
+    emitTrial(stored);
     return {content:[{type:'text',text:stored.reply}],structuredContent:{actor:'preparation',text:stored.reply,
       replyRef:stored.reply_ref,status:'returned_to_model',scope:'active_tool_call',
       originalQuestionVerified:false,finalDisplayVerified:false}};
