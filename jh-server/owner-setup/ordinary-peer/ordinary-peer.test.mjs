@@ -7,6 +7,7 @@ import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {createOwnerChannel,rejectOwnerVerification} from './owner-channel.mjs';
 import {openPeerService} from './peer-service.mjs';
+import {readNoticeCatalog} from './notice-catalog.mjs';
 import {answerPickup} from './preparation-receiver.mjs';
 
 const cfg={googleWebClientId:'testing.apps.googleusercontent.com',serverOrigin:'https://test.invalid',accountDigest:'b'.repeat(64)};
@@ -208,6 +209,88 @@ test('a pinned synthetic trace follows the exact question and reply across indep
       assert.equal(r.questionSha256,hash(question));
       assert.equal(r.answerSha256,hash(notice.pickup));
       assert.deepEqual(Object.keys(r).sort(),['answerSha256','questionSha256','replyRef','requestRef','utc']);
+    }
+  }finally{peer.close();rmSync(dir,{recursive:true,force:true});}
+});
+
+const multiSchema='jh.preparation-notices.v1';
+const makeCatalog=notices=>({schema:multiSchema,notices});
+const firstEvent='모형 견본 모임 작은반', otherEvent='모형 견본 모임 큰반';
+const before={event:firstEvent,pickup:'처음 예시 창구',revision:3};
+const corrected={event:firstEvent,pickup:'정정 예시 창구',revision:5};
+const adjacent={event:otherEvent,pickup:'이웃 예시 창구',revision:7};
+
+test('catalog resolves normalized event revisions independently of order and rejects any conflicting revision',()=>{
+  const duplicate={...corrected,event:firstEvent.normalize('NFD').replace(' ','   ')};
+  const records=[duplicate,adjacent,corrected,before];
+  const catalog=readNoticeCatalog(JSON.stringify(makeCatalog(records)));
+  assert.equal(catalog.trialCard,hash(JSON.stringify(makeCatalog(records))));
+  const question=firstEvent+' 자료는 어디서 받아요?';
+  assert.equal(answerPickup(question,catalog.notices),corrected.pickup);
+  assert.equal(answerPickup(otherEvent+' 자료는 어디서 받아요?',catalog.notices),adjacent.pickup);
+  assert.equal(answerPickup('모형 견본 모임 자료는 어디서 받아요?',catalog.notices),'작은반, 큰반 중 어느 행사인가요?');
+  assert.equal(answerPickup(question,readNoticeCatalog(JSON.stringify(makeCatalog(records.toReversed()))).notices),corrected.pickup);
+  assert.throws(()=>readNoticeCatalog(JSON.stringify(makeCatalog([...records,{...before,pickup:'충돌 예시 창구'}]))),/REVISION_CONFLICT/);
+  for(const revision of [0,-2,1.5,'5',Number.MAX_SAFE_INTEGER+1]){
+    assert.throws(()=>readNoticeCatalog(JSON.stringify(makeCatalog([{...corrected,revision}]))),/NOTICE_INVALID/);
+  }
+  assert.throws(()=>readNoticeCatalog(JSON.stringify(makeCatalog([]))),/NOTICE_INVALID/);
+  assert.throws(()=>readNoticeCatalog(JSON.stringify({schema:'unknown',notices:records})),/NOTICE_INVALID/);
+});
+
+test('multi-notice returns are bound to the selected revision and only pinned exact synthetic successes are logged',async()=>{
+  const dir=mkdtempSync(path.join(tmpdir(),'peer-catalog-'));
+  const config={...cfg,stateDir:dir},allow=()=>({owner:cfg.accountDigest,aud:cfg.serverOrigin}),lines=[];
+  const open=(rows,activated)=>{
+    const configuration=JSON.stringify(makeCatalog(rows));
+    return openPeerService({config,noticeJson:configuration,trialDigest:activated?hash(configuration):'unregistered',recordTrial:line=>lines.push(line)});
+  };
+  const args=(event,key,suffix='')=>({actor:'preparation',question:event+' 자료는 어디서 받아요?'+suffix,purpose:'수령처',retryKey:key});
+  const q=args(firstEvent,'repeatable-test-000001');
+  let peer=open([before,adjacent],false);
+  try{
+    const prior=await peer.ask(q,allow); assert.equal(prior.structuredContent.text,before.pickup);
+    assert.deepEqual(lines,[]);
+    peer.close();peer=open([corrected,adjacent,before],true);
+    assert.equal((await peer.ask(q,allow)).isError,true);
+    const current={...q,retryKey:'repeatable-test-000002'};
+    const [a,b]=await Promise.all([peer.ask(current,allow),peer.ask(current,allow)]);
+    assert.deepEqual(a,b);assert.equal(a.content[0].text,corrected.pickup);
+    const traced=await peer.ask(args(otherEvent,'repeatable-test-000003',' 회신번호도 알려 주세요.'),allow);
+    assert.equal(traced.content[0].text,adjacent.pickup+'\n회신번호: '+traced.structuredContent.replyRef);
+    const ambiguous=await peer.ask(args('모형 견본 모임','repeatable-test-000004',' 회신번호도 알려 주세요.'),allow);
+    assert.equal(ambiguous.content[0].text,'작은반, 큰반 중 어느 행사인가요?');
+    assert.doesNotMatch((await peer.ask(args('관계없는 행사','repeatable-test-000005'),allow)).content[0].text,/예시 창구|작은반|큰반/);
+    await peer.ask({...current,question:firstEvent+' 준비물은 어디서 받아요?',retryKey:'repeatable-test-000006'},allow);
+    const rows=lines.map(v=>JSON.parse(v.slice('JH_PREPARATION_TRIAL_RECEIPT '.length)));
+    assert.equal(rows.length,2);assert.equal(rows[0].questionSha256,hash(q.question));assert.equal(rows[0].answerSha256,hash(corrected.pickup));
+    assert.equal(rows[0].replyRef,a.structuredContent.replyRef);assert.equal(rows[1].replyRef,traced.structuredContent.replyRef);
+    assert.doesNotMatch(lines.join(''),/모형|창구/);
+    peer.close();peer=open([corrected,adjacent,before],true);
+    assert.deepEqual(await peer.ask(current,allow),a);assert.equal(lines.length,2);
+    const independent=await peer.ask({...current,retryKey:'repeatable-test-000007'},allow);
+    assert.notEqual(independent.structuredContent.replyRef,a.structuredContent.replyRef);assert.equal(lines.length,3);
+    // An unrelated revision cannot invalidate the original event's retry.
+    peer.close();peer=open([corrected,{...adjacent,revision:8}],false);
+    assert.deepEqual(await peer.ask(current,allow),a);
+  }finally{peer.close();rmSync(dir,{recursive:true,force:true});}
+});
+
+test('migrating a legacy notice to revision one preserves its stored reply, but edits do not',async()=>{
+  const dir=mkdtempSync(path.join(tmpdir(),'peer-migrate-'));
+  const config={...cfg,stateDir:dir}, allow=()=>({owner:cfg.accountDigest,aud:cfg.serverOrigin});
+  const source={event:firstEvent,pickup:'기존 수령처'};
+  const open=notice=>openPeerService({config,noticeJson:JSON.stringify(notice),trialDigest:''});
+  const args={actor:'preparation',question:firstEvent+' 자료는 어디서 받아요?',purpose:'예시',retryKey:'legacy-request-00001'};
+  let peer=open(source);
+  try{
+    const original=await peer.ask(args,allow);
+    assert.equal(original.structuredContent.text,source.pickup);
+    peer.close();peer=open(makeCatalog([{...source,revision:1},adjacent]));
+    assert.deepEqual(await peer.ask(args,allow),original);
+    for(const edited of [{...source,pickup:'다른 수령처',revision:1},{...source,revision:2}]){
+      peer.close();peer=open(makeCatalog([edited,adjacent]));
+      assert.equal((await peer.ask(args,allow)).isError,true);
     }
   }finally{peer.close();rmSync(dir,{recursive:true,force:true});}
 });
