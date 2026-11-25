@@ -24,7 +24,7 @@ export function composePeer(source){
     ...options,securitySchemes:oauthSchemes56,_meta:{securitySchemes:oauthSchemes56}
   },handler),()=>peerChannel.current(peerRequest,oauthAccess56,sha56,OAUTH_SCOPE56));`);
   const html="    const html='<!doctype html><meta charset=\"utf-8\">";
-  out=one(out,html,'    if(peerChannel){peerChannel.page(res,p);return;}\n'+html);
+  out=one(out,html,'    if(peerChannel){peerChannel.page(res,p,validChatGptRedirect56);return;}\n'+html);
   const code='    const code="ac56_"+token56(24);';
   out=one(out,code,`    let peerClaims=null;
     if(peerChannel){try{peerClaims=await peerChannel.verify(req,p);}
@@ -36,10 +36,14 @@ export function composePeer(source){
     const token=kind.toLowerCase(),key='oauth'+kind+'56.set(sha56("oauth-'+token+'|"+'+token+'),{expiresAt:now+';
     out=one(out,key,key.replace('{expiresAt','{peer59,expiresAt'));
   }
+  const redirect='    res.writeHead(302,{"location":dest.toString(),"cache-control":"no-store"}).end();return;';
+  out=one(out,redirect,'    if(peerClaims)console.info("JH_PEER_OWNER_OAUTH CODE_ISSUED");\n'+redirect);
   const issue='res.writeHead(200).end(JSON.stringify(oauthTokenResponse56()));return;';
   for(const [removal,refresh] of [['oauthCodes56.delete(String(p.code));',false],['oauthRefresh56.delete(key);',true]]){
     const block=removal+'\n      '+issue;
-    out=one(out,block,'if(peerChannel&&!peerChannel.accepted(rec.peer59,p,'+refresh+')){res.writeHead(400).end(JSON.stringify({error:"invalid_grant"}));return;}\n      '+removal+'\n      '+issue.replace('oauthTokenResponse56()','oauthTokenResponse56(rec.peer59)'));
+    let response=issue.replace('oauthTokenResponse56()','oauthTokenResponse56(rec.peer59)');
+    if(!refresh)response='const issued=oauthTokenResponse56(rec.peer59);\n      if(rec.peer59)console.info("JH_PEER_OWNER_OAUTH CODE_EXCHANGED");\n      '+issue.replace('oauthTokenResponse56()','issued');
+    out=one(out,block,'if(peerChannel&&!peerChannel.accepted(rec.peer59,p,'+refresh+')){res.writeHead(400).end(JSON.stringify({error:"invalid_grant"}));return;}\n      '+removal+'\n      '+response);
   }
   return out;
 }

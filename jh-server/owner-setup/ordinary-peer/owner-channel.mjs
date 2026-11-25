@@ -27,7 +27,16 @@ export function rejectOwnerVerification(res,error){
 export function createOwnerChannel(config,{verifier=new GoogleOwnerVerifier({clientId:config.googleWebClientId,allowedSubjects:[config.ownerSubject],allowedPresenters:config.allowedPresenterClientIds}),
   peer=openPeerService({config,noticeJson:process.env.JH_PEER_PREPARATION_NOTICE_JSON}),clock=Date.now}={}){
   const challenges=new Map();
-  function page(res,params){
+  function page(res,params,isAllowedCallback){
+    // The host supplies the same callback validator used during authorization.
+    // Use the single canonical URL of this grant, without a host-wide wildcard.
+    let formAction="'self'";
+    const rawCallback=params.redirect_uri;
+    if(typeof rawCallback==='string'&&isAllowedCallback?.(rawCallback)){
+      const url=new URL(rawCallback);
+      if(url.href===rawCallback&&!url.username&&!url.password&&!url.search&&!url.hash)
+        formAction+=' '+url.href;
+    }
     const now=clock();
     for(const [key,value] of challenges)if(value.expires<=now)challenges.delete(key);
     if(challenges.size>=1024){res.writeHead(429,{'cache-control':'no-store'}).end();return;}
@@ -44,7 +53,7 @@ export function createOwnerChannel(config,{verifier=new GoogleOwnerVerifier({cli
       '<form method="post" action="/oauth/authorize">'+inputs+'<p><button>기존 기능만 연결</button></p></form></html>';
     res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','referrer-policy':'strict-origin',
       'x-frame-options':'DENY','x-content-type-options':'nosniff','cross-origin-opener-policy':'same-origin-allow-popups',
-      'content-security-policy':"default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'nonce-"+script+"' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com; connect-src https://accounts.google.com/gsi/; style-src https://accounts.google.com/gsi/style 'unsafe-inline'; img-src data: https://accounts.google.com",
+      'content-security-policy':"default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action "+formAction+"; script-src 'nonce-"+script+"' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com; connect-src https://accounts.google.com/gsi/; style-src https://accounts.google.com/gsi/style 'unsafe-inline'; img-src data: https://accounts.google.com",
       'set-cookie':cookieName+'='+cookie+'; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=300'}).end(html);
   }
   async function verify(req,params){

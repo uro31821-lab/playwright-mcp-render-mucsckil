@@ -4,6 +4,8 @@ from contextlib import suppress
 import json
 from pathlib import Path
 import subprocess
+import time
+from urllib.request import urlopen
 from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright
 
@@ -13,7 +15,8 @@ args = parser.parse_args()
 fixture = Path(__file__).with_name("browser-owner-fixture.mjs")
 server = subprocess.Popen(["node", str(fixture)], stdout=subprocess.PIPE, text=True)
 try:
-    origin = server.stdout.readline().strip()
+    service = json.loads(server.stdout.readline())
+    origin, callback = service["origin"], service["returnUrl"]
     assert origin.startswith("http://127.0.0.1:")
     # Replace the Google script locally. The actual form, callback, browser
     # origin/referrer generation and cookie handling come from the production page.
@@ -30,7 +33,7 @@ try:
         address = route.request.url
         if address == "https://accounts.google.com/gsi/client":
             route.fulfill(content_type="application/javascript", body=synthetic_google)
-        elif urlsplit(address).netloc == urlsplit(origin).netloc:
+        elif urlsplit(address).netloc in {urlsplit(origin).netloc, urlsplit(callback).netloc}:
             route.continue_()
         else:
             route.abort()
@@ -53,6 +56,30 @@ try:
                     facts = response.json()
                     assert facts == dict(originMatched=True, cookiePresent=True, referrerWasOriginOnly=True)
                     results[kind] = {"status": response.status, **facts}
+                context.close()
+            def counts():
+                with urlopen(origin + "/stats", timeout=2) as response:
+                    return json.load(response)
+            for kind in ("self-only", "redirect"):
+                before = counts()
+                context = browser.new_context()
+                context.route("**/*", route_local)
+                page = context.new_page()
+                page.goto(origin + "/" + kind)
+                button = page.get_by_role("button", name="Synthetic test account")
+                button.click(no_wait_after=True)
+                deadline = time.monotonic() + 4
+                while counts()["approved"] == before["approved"] and time.monotonic() < deadline:
+                    page.wait_for_timeout(50)
+                assert counts()["approved"] == before["approved"] + 1
+                if kind == "redirect":
+                    page.wait_for_url(callback + "?code=synthetic", timeout=3500)
+                    assert counts()["received"] == before["received"] + 1
+                else:
+                    page.wait_for_timeout(750)
+                    assert counts()["received"] == before["received"]
+                    assert page.url != callback + "?code=synthetic"
+                results[kind] = {"serverIssuedRedirect": True, "callbackReceived": kind == "redirect"}
                 context.close()
             print(json.dumps({"chromium": browser.version, "googleNetwork": False, **results}))
 finally:
