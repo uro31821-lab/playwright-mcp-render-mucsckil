@@ -88,9 +88,9 @@ export function createOwnerChannel(config,{verifier=new GoogleOwnerVerifier({cli
     return claims?.owner===config.accountDigest&&claims.aud===config.serverOrigin?claims:null;
   }
   function register(z,registerTool,session){
-    registerTool('jh_ask_peer',{title:'준비비서에게 행사 안내 묻기',
-      description:'등록된 소유자의 질문을 준비비서에게 전달하고 공유된 행사 자료 수령처를 현재 호출에 회신합니다.',
-      inputSchema:{actor:z.literal('preparation'),question:z.string().min(1).refine(s=>Array.from(s).length<=2200),purpose:z.string().min(1).refine(s=>Array.from(s).length<=240),
+    registerTool('jh_ask_peer',{title:'행사 준비·통계 담당 동료에게 묻기',
+      description:'준비비서는 행사 자료 수령처를, 통비서는 등록 집계의 확정 인원을 회신합니다. requester에 질문을 맡은 비서 역할을, actor에 질문을 받을 동료를 지정합니다.',
+      inputSchema:{actor:z.enum(['preparation','statistics']),requester:z.enum(['preparation','statistics']).optional(),question:z.string().min(1).refine(s=>Array.from(s).length<=2200),purpose:z.string().min(1).refine(s=>Array.from(s).length<=240),
         retryKey:z.string().regex(/^[a-zA-Z0-9_-]{16,96}$/).optional()},
       annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}},
       args=>peer.ask(args,session));
