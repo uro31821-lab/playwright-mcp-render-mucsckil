@@ -180,13 +180,18 @@ export async function buildCurrentAudioReleaseCandidate(ownerRoot,env=process.en
     storageNamespaceChanged:false,originalPublishedRouterChanged:false,
     originalAuthenticationGatesPreserved:true,ownerSelectorChanged:true,
     activated:false,listenerStarted:false,networkRequests:0,runtimeVerifiedLive:false});
+  let release=audioResult;
   const cameraFlag=env?.JH_KABISEO_CAMERA_ENABLE;
   if(cameraFlag!==undefined&&cameraFlag!==''){
     const camera=await import('../kabiseo-camera-v0256/camera-compose-audio-host.mjs');
     if(!camera.cameraActivationEnabled(env))fail('CAMERA_ACTIVATION_REQUIRED');
-    return camera.buildCameraOverlayFromVerifiedAudio(root,audioResult,env);
+    release=camera.buildCameraOverlayFromVerifiedAudio(root,audioResult,env);
   }
-  return audioResult;
+  if(env.JH_PEER_PREPARATION_NOTICE_JSON){
+    const {buildPeerRelease}=await import('../ordinary-peer/peer-release.mjs');
+    return buildPeerRelease(root,env,release);
+  }
+  return release;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===path.resolve(new URL(import.meta.url).pathname)){
   if(process.argv.length!==4||process.argv[3]!=='--local-test-profile')
