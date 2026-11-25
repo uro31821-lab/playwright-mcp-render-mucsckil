@@ -148,3 +148,66 @@ test('authorization form names only the already validated callback of that grant
   assert.equal(policy('https://else.invalid/callback'),"form-action 'self'");
   assert.equal(policy(undefined),"form-action 'self'");
 });
+
+test('the actual return reference is visible only with an explicit request and an available pickup',async()=>{
+  const dir=mkdtempSync(path.join(tmpdir(),'peer-visible-'));
+  const notice={event:'합성 도서전',pickup:'모형 창구'};
+  const allow=()=>({owner:cfg.accountDigest,aud:cfg.serverOrigin});
+  const peer=openPeerService({config:{...cfg,stateDir:dir},noticeJson:JSON.stringify(notice),trialDigest:''});
+  const ask=question=>peer.ask({actor:'preparation',question,purpose:'자료 수령 안내'},allow);
+  try{
+    const base=notice.event+' 자료는 어디서 받아요?';
+    const ordinary=await ask(base);
+    assert.equal(ordinary.content[0].text,notice.pickup);
+    for(const suffix of [' 회신번호도 알려 주세요.',' 이번 회신 번호를 표시해 주세요.']){
+      const reply=await ask(base+suffix);
+      assert.equal(reply.structuredContent.text,notice.pickup);
+      assert.equal(reply.content[0].text,notice.pickup+'\n회신번호: '+reply.structuredContent.replyRef);
+      assert.notEqual(reply.structuredContent.replyRef,ordinary.structuredContent.replyRef);
+      assert.equal(reply.structuredContent.finalDisplayVerified,false);
+    }
+    for(const question of [base+' 회신번호는 알려 주지 마세요.',base+' 회신번호',
+      '다른 도서전 자료는 어디서 받아요? 회신번호도 알려 주세요.']){
+      const reply=await ask(question);
+      assert.equal(reply.content[0].text,reply.structuredContent.text);
+      assert.equal(reply.content[0].text.includes(reply.structuredContent.replyRef),false);
+    }
+  }finally{peer.close();rmSync(dir,{recursive:true,force:true});}
+});
+
+test('a pinned synthetic trace follows the exact question and reply across independent calls, retries and restart',async()=>{
+  const dir=mkdtempSync(path.join(tmpdir(),'peer-visible-log-'));
+  const notice={event:'합성 종이행사',pickup:'모형 작업대'};
+  const base=notice.event+' 자료는 어디서 받아요?',question=base+' 회신번호도 알려 주세요.';
+  const config={...cfg,stateDir:dir},allow=()=>({owner:cfg.accountDigest,aud:cfg.serverOrigin});
+  const logs=[],card=hash(JSON.stringify([notice.event,notice.pickup]));
+  const open=trialDigest=>openPeerService({config,noticeJson:JSON.stringify(notice),trialDigest,recordTrial:s=>logs.push(s)});
+  const args={actor:'preparation',question,purpose:'시험 수령처 안내',retryKey:'explicit-synthetic-01'};
+  let peer=open('inactive');
+  try{
+    await peer.ask({...args,retryKey:'explicit-inactive-01'},allow);
+    peer.close();peer=open(card);
+    await peer.ask({...args,question:base+' 회신 번호를 표시해 주세요.',retryKey:'other-wording-001'},allow);
+    assert.equal((await peer.ask(args,()=>null)).isError,true);
+    assert.deepEqual(logs,[]);
+    await peer.ask({...args,question:base,retryKey:'plain-question-001'},allow);
+    const [first,retry]=await Promise.all([peer.ask(args,allow),peer.ask(args,allow)]);
+    assert.deepEqual(retry,first);
+    assert.equal(logs.length,2);
+    peer.close();peer=open(card);
+    assert.deepEqual(await peer.ask(args,allow),first);
+    const second=await peer.ask({...args,retryKey:'explicit-synthetic-02'},allow);
+    assert.equal(second.structuredContent.text,notice.pickup);
+    const receipts=logs.map(line=>JSON.parse(line.slice('JH_PREPARATION_TRIAL_RECEIPT '.length)));
+    assert.equal(receipts.length,3);
+    assert.equal(receipts[0].questionSha256,hash(base));
+    assert.deepEqual(receipts.slice(1).map(r=>r.replyRef),[first,second].map(r=>r.structuredContent.replyRef));
+    assert.equal(new Set(receipts.map(r=>r.requestRef)).size,3);
+    assert.equal(new Set(receipts.map(r=>r.replyRef)).size,3);
+    for(const r of receipts.slice(1)){
+      assert.equal(r.questionSha256,hash(question));
+      assert.equal(r.answerSha256,hash(notice.pickup));
+      assert.deepEqual(Object.keys(r).sort(),['answerSha256','questionSha256','replyRef','requestRef','utc']);
+    }
+  }finally{peer.close();rmSync(dir,{recursive:true,force:true});}
+});

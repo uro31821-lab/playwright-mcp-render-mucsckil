@@ -3,6 +3,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {lstatSync,chmodSync,openSync,closeSync,constants} from 'node:fs';
 import path from 'node:path';
 import {Worker} from 'node:worker_threads';
+import {parsePickupQuestion,trialReceiptSuffix} from './pickup-question.mjs';
 
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const bounded=(x,n)=>typeof x==='string'&&x.trim().length>0&&Array.from(x).length<=n;
@@ -47,9 +48,15 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
   if(trialQuestion!==null)db.exec('CREATE TABLE IF NOT EXISTS peer_trial_receipts (owner TEXT NOT NULL, card_hash TEXT NOT NULL, reply_ref TEXT NOT NULL UNIQUE, emitted_at TEXT NOT NULL, PRIMARY KEY(owner,card_hash))');
   const markTrial=trialQuestion===null?null:db.prepare('INSERT OR IGNORE INTO peer_trial_receipts VALUES(?,?,?,?)');
   function emitTrial(row){
-    if(!markTrial||row.question!==trialQuestion||row.reply!==notice.pickup)return;
+    if(!markTrial||row.reply!==notice.pickup)return;
+    let receiptKey=trialCard;
+    if(row.question===trialQuestion+trialReceiptSuffix){
+      // Each explicitly traced, synthetic call has its own evidence. The
+      // stored request reference remains stable on retries and after restart.
+      receiptKey=digest(JSON.stringify([trialCard,row.request_ref]));
+    }else if(row.question!==trialQuestion)return;
     const utc=new Date().toISOString();
-    if(markTrial.run(config.accountDigest,trialCard,row.reply_ref,utc).changes!==1)return;
+    if(markTrial.run(config.accountDigest,receiptKey,row.reply_ref,utc).changes!==1)return;
     const receipt={requestRef:row.request_ref,replyRef:row.reply_ref,questionSha256:digest(row.question),
       answerSha256:digest(row.reply),utc};
     try{recordTrial('JH_PREPARATION_TRIAL_RECEIPT '+JSON.stringify(receipt));}catch{}
@@ -88,7 +95,9 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     const stored=byKey.get(owner,key);
     if(!stored?.received_at||typeof stored.reply!=='string')return replyError('준비비서 회신을 확인할 수 없습니다.');
     emitTrial(stored);
-    return {content:[{type:'text',text:stored.reply}],structuredContent:{actor:'preparation',text:stored.reply,
+    const showReceipt=stored.reply===notice.pickup&&parsePickupQuestion(stored.question,notice).showReceipt;
+    const display=showReceipt?stored.reply+'\n회신번호: '+stored.reply_ref:stored.reply;
+    return {content:[{type:'text',text:display}],structuredContent:{actor:'preparation',text:stored.reply,
       replyRef:stored.reply_ref,status:'returned_to_model',scope:'active_tool_call',
       originalQuestionVerified:false,finalDisplayVerified:false}};
   }
