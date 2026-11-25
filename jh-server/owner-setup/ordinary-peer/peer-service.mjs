@@ -3,7 +3,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {lstatSync,chmodSync,openSync,closeSync,constants} from 'node:fs';
 import path from 'node:path';
 import {Worker} from 'node:worker_threads';
-import {readNoticeCatalog,selectNotice,noticeDigest} from './notice-catalog.mjs';
+import {readNoticeCatalog,selectNotice,noticeDigest,pickupText} from './notice-catalog.mjs';
 import {parsePickupQuestion,trialReceiptSuffix} from './pickup-question.mjs';
 
 const digest=value=>createHash('sha256').update(value).digest('hex');
@@ -44,7 +44,7 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
   if(trialEnabled)db.exec('CREATE TABLE IF NOT EXISTS peer_trial_receipts (owner TEXT NOT NULL, card_hash TEXT NOT NULL, reply_ref TEXT NOT NULL UNIQUE, emitted_at TEXT NOT NULL, PRIMARY KEY(owner,card_hash))');
   const markTrial=!trialEnabled?null:db.prepare('INSERT OR IGNORE INTO peer_trial_receipts VALUES(?,?,?,?)');
   function emitTrial(row,notice){
-    if(!markTrial||!notice||row.reply!==notice.pickup)return;
+    if(!markTrial||!notice||row.reply!==pickupText(notice))return;
     const trialQuestion=notice.event+' 자료는 어디서 받아요?';
     const traced=row.question===trialQuestion+trialReceiptSuffix;
     if(!traced && row.question!==trialQuestion)return;
@@ -53,7 +53,8 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     if(markTrial.run(config.accountDigest,receiptKey,row.reply_ref,utc).changes!==1)return;
     const receipt={requestRef:row.request_ref,replyRef:row.reply_ref,questionSha256:digest(row.question),
       answerSha256:digest(row.reply),utc};
-    try{recordTrial('JH_PREPARATION_TRIAL_RECEIPT '+JSON.stringify(receipt));}catch{}
+    const marker=notice.status==='unavailable'?'JH_PREPARATION_TRIAL_UNAVAILABLE ':'JH_PREPARATION_TRIAL_RECEIPT ';
+    try{recordTrial(marker+JSON.stringify(receipt));}catch{}
   }
   const byKey=db.prepare('SELECT * FROM peer_requests WHERE owner=? AND retry_hash=?');
   const pending=new Map();
@@ -94,6 +95,7 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     const showReceipt=notice && stored.reply===notice.pickup&&parsePickupQuestion(stored.question,notice).showReceipt;
     const display=showReceipt?stored.reply+'\n회신번호: '+stored.reply_ref:stored.reply;
     return {content:[{type:'text',text:display}],structuredContent:{actor:'preparation',text:stored.reply,
+      ...(notice?.status==='unavailable'?{availability:'unavailable'}:{}),
       replyRef:stored.reply_ref,status:'returned_to_model',scope:'active_tool_call',
       originalQuestionVerified:false,finalDisplayVerified:false}};
   }
