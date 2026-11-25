@@ -8,6 +8,12 @@ const bounded=(text,max)=>typeof text==='string' && text.trim().length>0 && Arra
 const exactKeys=(value,keys)=>value!==null && typeof value==='object' && !Array.isArray(value) && Object.keys(value).sort().join(',')===keys;
 const validPlace=row=>bounded(row.event,160) && bounded(row.pickup,240);
 
+export const unavailablePickup='현재 공지에서 이 행사의 자료 수령처를 확인할 수 없습니다.';
+
+export function pickupText(notice){
+  return notice.status==='unavailable'?unavailablePickup:notice.pickup;
+}
+
 export function readNoticeCatalog(json){
   const value=JSON.parse(json);
   if(exactKeys(value,'event,pickup') && validPlace(value)){
@@ -19,15 +25,20 @@ export function readNoticeCatalog(json){
 
   const histories=new Map(), current=new Map(), canonical=[];
   for(const row of value.notices){
-    if(!exactKeys(row,'event,pickup,revision') || !validPlace(row) || !Number.isSafeInteger(row.revision) || row.revision<1)
-      throw Error('PEER_NOTICE_INVALID');
-    canonical.push({event:row.event,pickup:row.pickup,revision:row.revision});
-    const event=eventName(row.event), pickup=row.pickup.trim(), revision=row.revision;
-    const key=JSON.stringify([event,revision]);
-    if(histories.has(key) && histories.get(key)!==pickup)throw Error('PEER_NOTICE_REVISION_CONFLICT');
-    histories.set(key,pickup);
+    const unavailable=exactKeys(row,'event,revision,status') && row.status==='unavailable' && bounded(row.event,160);
+    const available=exactKeys(row,'event,pickup,revision') && validPlace(row);
+    if((!available && !unavailable) || !Number.isSafeInteger(row.revision) || row.revision<1)throw Error('PEER_NOTICE_INVALID');
+    // Preserve input bytes in the registered catalog digest before normalizing the lookup index.
+    const canonicalRow=unavailable?{event:row.event,status:'unavailable',revision:row.revision}
+      :{event:row.event,pickup:row.pickup,revision:row.revision};
+    canonical.push(canonicalRow);
+    const event=eventName(row.event), revision=row.revision;
+    const notice=unavailable?{event,status:'unavailable',revision}:{event,pickup:row.pickup.trim(),revision};
+    const key=JSON.stringify([event,revision]), prior=histories.get(key);
+    if(prior && (prior.status!==notice.status || prior.pickup!==notice.pickup))throw Error('PEER_NOTICE_REVISION_CONFLICT');
+    histories.set(key,notice);
     const existing=current.get(event);
-    if(!existing || existing.revision<revision)current.set(event,{event,pickup,revision});
+    if(!existing || existing.revision<revision)current.set(event,notice);
   }
   const trialCard=digest({schema,notices:canonical});
   return {notices:[...current.values()],sourceDigest:trialCard,trialCard,legacy:false};
@@ -59,5 +70,5 @@ export function clarifyPickup(question,notices){
 
 // Revision one is the entry point for previously stored single-notice retries.
 export function noticeDigest(notice){
-  return notice.revision===1?digest({event:notice.event,pickup:notice.pickup}):digest(notice);
+  return notice.revision===1 && notice.status!=='unavailable'?digest({event:notice.event,pickup:notice.pickup}):digest(notice);
 }

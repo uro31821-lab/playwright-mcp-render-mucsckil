@@ -294,3 +294,60 @@ test('migrating a legacy notice to revision one preserves its stored reply, but 
     }
   }finally{peer.close();rmSync(dir,{recursive:true,force:true});}
 });
+
+test('an unavailable revision supersedes the old pickup while preserving branch selection and later recovery',()=>{
+  const withheld={event:firstEvent,status:'unavailable',revision:6};
+  const unknown='현재 공지에서 이 행사의 자료 수령처를 확인할 수 없습니다.';
+  const parse=rows=>readNoticeCatalog(JSON.stringify(makeCatalog(rows)));
+  for(const rows of [[withheld,corrected,before,adjacent],[before,adjacent,corrected,withheld,withheld]]){
+    const catalog=parse(rows);
+    assert.equal(catalog.trialCard,hash(JSON.stringify(makeCatalog(rows))));
+    assert.equal(answerPickup(firstEvent+' 자료는 어디서 받아요?',catalog.notices),unknown);
+    assert.equal(answerPickup(otherEvent+' 자료는 어디서 받아요?',catalog.notices),adjacent.pickup);
+    assert.equal(answerPickup('모형 견본 모임 자료는 어디서 받아요?',catalog.notices),'작은반, 큰반 중 어느 행사인가요?');
+  }
+  assert.equal(answerPickup(firstEvent+' 자료는 어디서 받아요?',parse([withheld,{...corrected,revision:7}]).notices),corrected.pickup);
+  assert.throws(()=>parse([withheld,{...corrected,revision:6}]),/REVISION_CONFLICT/);
+  for(const bad of [{...withheld,status:'cancelled'},{...withheld,pickup:'낡은 안내'},{...withheld,revision:0}]){
+    assert.throws(()=>parse([bad]),/NOTICE_INVALID/);
+  }
+});
+
+test('a fresh unavailable lookup returns a bound no-location reply and a separately pinned synthetic receipt',async()=>{
+  const dir=mkdtempSync(path.join(tmpdir(),'peer-no-pickup-')),logs=[];
+  const full=firstEvent+' 자료는 어디서 받아요?';
+  const base={actor:'preparation',question:full,purpose:'현재 수령처',retryKey:'before-withdrawal-key'};
+  const cfg2={...cfg,stateDir:dir},allow=()=>({owner:cfg2.accountDigest,aud:cfg2.serverOrigin});
+  const unknown='현재 공지에서 이 행사의 자료 수령처를 확인할 수 없습니다.';
+  const withheld={event:firstEvent,status:'unavailable',revision:6};
+  let peer;
+  function open(rows,pin){
+    const raw=JSON.stringify(makeCatalog(rows));
+    peer=openPeerService({config:cfg2,noticeJson:raw,trialDigest:pin??hash(raw),recordTrial:l=>logs.push(l)});
+  }
+  try {
+    open([corrected,adjacent]);
+    const initial=await peer.ask(base,allow);
+    assert.equal(initial.structuredContent.text,corrected.pickup);
+    peer.close();open([corrected,adjacent,withheld]);
+    const stale=await peer.ask(base,allow);
+    assert.equal(stale.isError,true);assert.equal(stale.structuredContent,undefined);
+    const args={...base,retryKey:'after-withdrawal-key'};
+    const fresh=await peer.ask(args,allow);
+    assert.equal(fresh.content[0].text,unknown);assert.equal(fresh.structuredContent.text,unknown);
+    assert.equal(fresh.structuredContent.availability,'unavailable');
+    assert.notEqual(fresh.structuredContent.replyRef,initial.structuredContent.replyRef);
+    assert.deepEqual(await peer.ask(args,allow),fresh);
+    assert.equal(logs.length,2);
+    const prefix='JH_PREPARATION_TRIAL_UNAVAILABLE ';
+    assert.ok(logs[1].startsWith(prefix));
+    const trace=JSON.parse(logs[1].slice(prefix.length));
+    assert.equal(trace.questionSha256,hash(full));assert.equal(trace.answerSha256,hash(unknown));
+    assert.equal(trace.replyRef,fresh.structuredContent.replyRef);
+    await peer.ask({...args,question:firstEvent+' 자료를 어디서 받아요?',retryKey:undefined},allow);
+    assert.equal(logs.length,2);
+    peer.close();open([corrected,adjacent,withheld],'unregistered');
+    assert.equal((await peer.ask({...args,retryKey:undefined},allow)).structuredContent.availability,'unavailable');
+    assert.equal(logs.length,2);
+  } finally {peer?.close();rmSync(dir,{recursive:true,force:true});}
+});
