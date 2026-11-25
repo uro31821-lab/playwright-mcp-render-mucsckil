@@ -8,6 +8,22 @@ const fields=['response_type','client_id','redirect_uri','code_challenge','code_
 const digest=params=>createHash('sha256').update(JSON.stringify(fields.map(k=>params[k]??null))).digest('hex');
 const esc=value=>String(value).replace(/[&"<>'`]/g,c=>({'&':'&amp;','"':'&quot;','<':'&lt;','>':'&gt;',"'":'&#39;','`':'&#96;'}[c]));
 const claimsKey='peer59';
+const reasons=new Map([
+  ['PEER_ORIGIN_NULL','ORIGIN_NULL'],['PEER_ORIGIN_MISSING','ORIGIN_MISSING'],
+  ['PEER_ORIGIN_MISMATCH','ORIGIN_MISMATCH'],['PEER_COOKIE','BROWSER_COOKIE'],
+  ['PEER_CHALLENGE','CHALLENGE_MISSING'],['PEER_EXPIRED','CHALLENGE_EXPIRED'],
+  ['PEER_BINDING','REQUEST_BINDING'],['PEER_OWNER','IDENTITY_POLICY'],
+  ['owner_not_authorized','IDENTITY_POLICY'],['identity_token_invalid','IDENTITY_FORMAT'],
+  ['identity_verification_failed','IDENTITY_VERIFICATION'],['identity_time_invalid','IDENTITY_TIME'],
+  ['identity_nonce_mismatch','IDENTITY_NONCE']
+]);
+function reject(code){throw Object.assign(Error('Owner verification failed'),{code});}
+export function rejectOwnerVerification(res,error){
+  const reason=reasons.get(error?.code)??'VERIFICATION_FAILED';
+  console.warn('JH_PEER_OWNER_VERIFY_REJECT '+reason);
+  res.writeHead(403,{'cache-control':'no-store','content-type':'text/plain; charset=utf-8'})
+    .end('소유자 확인을 완료하지 못했습니다. 앱을 다시 연결해 주세요. 확인 코드 '+reason);
+}
 export function createOwnerChannel(config,{verifier=new GoogleOwnerVerifier({clientId:config.googleWebClientId,allowedSubjects:[config.ownerSubject],allowedPresenters:config.allowedPresenterClientIds}),
   peer=openPeerService({config,noticeJson:process.env.JH_PEER_PREPARATION_NOTICE_JSON}),clock=Date.now}={}){
   const challenges=new Map();
@@ -26,22 +42,27 @@ export function createOwnerChannel(config,{verifier=new GoogleOwnerVerifier({cli
       '<div class="g_id_signin" data-type="standard"></div><script nonce="'+script+'">window.jhVerify=function(r){const f=document.getElementById("owner");f.elements.peer_proof.value=r.credential;f.submit();};</script>'+
       '<script async src="https://accounts.google.com/gsi/client"></script>'+
       '<form method="post" action="/oauth/authorize">'+inputs+'<p><button>기존 기능만 연결</button></p></form></html>';
-    res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','referrer-policy':'no-referrer',
+    res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','referrer-policy':'strict-origin',
       'x-frame-options':'DENY','x-content-type-options':'nosniff','cross-origin-opener-policy':'same-origin-allow-popups',
       'content-security-policy':"default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'nonce-"+script+"' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com; connect-src https://accounts.google.com/gsi/; style-src https://accounts.google.com/gsi/style 'unsafe-inline'; img-src data: https://accounts.google.com",
       'set-cookie':cookieName+'='+cookie+'; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=300'}).end(html);
   }
   async function verify(req,params){
     if(!Object.hasOwn(params,'peer_proof'))return null;
-    if(req.headers.origin!==config.serverOrigin)throw Error('PEER_ORIGIN');
+    const origin=req.headers.origin;
+    if(!origin)reject('PEER_ORIGIN_MISSING');
+    if(origin==='null')reject('PEER_ORIGIN_NULL');
+    if(origin!==config.serverOrigin)reject('PEER_ORIGIN_MISMATCH');
     const cookies=String(req.headers.cookie??'').split(';').map(s=>s.trim()).filter(s=>s.startsWith(cookieName+'='));
-    if(cookies.length!==1)throw Error('PEER_BROWSER');
+    if(cookies.length!==1)reject('PEER_COOKIE');
     const cookie=cookies[0].slice(cookieName.length+1);
     const c=challenges.get(cookie);
     challenges.delete(cookie);
-    if(!c||c.expires<=clock()||c.request!==digest(params))throw Error('PEER_EXPIRED');
+    if(!c)reject('PEER_CHALLENGE');
+    if(c.expires<=clock())reject('PEER_EXPIRED');
+    if(c.request!==digest(params))reject('PEER_BINDING');
     const verified=await verifier.verify(params.peer_proof,c.nonce);
-    if(verified.accountDigest!==config.accountDigest)throw Error('PEER_OWNER');
+    if(verified.accountDigest!==config.accountDigest)reject('PEER_OWNER');
     return {owner:config.accountDigest,aud:config.serverOrigin,client:params.client_id,resource:params.resource};
   }
   function accepted(claims,params,refresh=false){

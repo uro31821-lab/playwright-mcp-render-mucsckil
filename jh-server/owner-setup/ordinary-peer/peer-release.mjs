@@ -14,7 +14,7 @@ function read(file){
   return readFileSync(file,'utf8');
 }
 export function composePeer(source){
-  let out='import {createOwnerChannel} from "../ordinary-peer/owner-channel.mjs";\n'+
+  let out='import {createOwnerChannel,rejectOwnerVerification} from "../ordinary-peer/owner-channel.mjs";\n'+
     'let peerChannel;\nexport function installOwnerPeer(config){if(peerChannel)throw Error("PEER_ALREADY_INSTALLED");peerChannel=createOwnerChannel(config);}\n'+source;
   out=one(out,'function createMcp(){','function createMcp(peerRequest){');
   out=one(out,'const server=createMcp();','const server=createMcp(req);');
@@ -28,7 +28,7 @@ export function composePeer(source){
   const code='    const code="ac56_"+token56(24);';
   out=one(out,code,`    let peerClaims=null;
     if(peerChannel){try{peerClaims=await peerChannel.verify(req,p);}
-    catch{res.writeHead(403,{"cache-control":"no-store"}).end("Owner verification failed. Reopen the app connection to retry.");return;}}
+    catch(error){rejectOwnerVerification(res,error);return;}}
 `+code);
   out=one(out,'oauthCodes56.set(code,{clientId:p.client_id,','oauthCodes56.set(code,{peer59:peerClaims,clientId:p.client_id,');
   out=one(out,'function oauthTokenResponse56(){','function oauthTokenResponse56(peer59){');
