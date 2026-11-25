@@ -3,6 +3,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {lstatSync,chmodSync,openSync,closeSync,constants} from 'node:fs';
 import path from 'node:path';
 import {Worker} from 'node:worker_threads';
+import {readNoticeCatalog,selectNotice,noticeDigest} from './notice-catalog.mjs';
 import {parsePickupQuestion,trialReceiptSuffix} from './pickup-question.mjs';
 
 const digest=value=>createHash('sha256').update(value).digest('hex');
@@ -26,13 +27,8 @@ function receive(work){
 
 export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PEER_PREPARATION_TRIAL_SHA256,
   recordTrial=line=>console.info(line)}){
-  const n=JSON.parse(noticeJson);
-  if(!n||Object.keys(n).sort().join(',')!=='event,pickup'||!bounded(n.event,160)||!bounded(n.pickup,240))
-    throw Error('PEER_NOTICE_INVALID');
-  const notice={event:n.event.trim(),pickup:n.pickup.trim()};
-  const sourceDigest=digest(JSON.stringify(notice));
-  const trialCard=digest(JSON.stringify([notice.event,notice.pickup]));
-  const trialQuestion=trialDigest===trialCard?notice.event+' 자료는 어디서 받아요?':null;
+  const catalog=readNoticeCatalog(noticeJson);
+  const trialEnabled=trialDigest===catalog.trialCard;
   const filename=path.join(config.stateDir,'ordinary-peer.sqlite');
   const fd=openSync(filename,constants.O_RDWR|constants.O_CREAT|constants.O_NOFOLLOW,0o600);
   closeSync(fd);
@@ -45,16 +41,14 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
       actor TEXT NOT NULL, question TEXT NOT NULL, purpose TEXT NOT NULL,
       source_digest TEXT NOT NULL, reply_ref TEXT NOT NULL UNIQUE, reply TEXT,
       created_at TEXT NOT NULL, received_at TEXT, UNIQUE(owner,retry_hash))`);
-  if(trialQuestion!==null)db.exec('CREATE TABLE IF NOT EXISTS peer_trial_receipts (owner TEXT NOT NULL, card_hash TEXT NOT NULL, reply_ref TEXT NOT NULL UNIQUE, emitted_at TEXT NOT NULL, PRIMARY KEY(owner,card_hash))');
-  const markTrial=trialQuestion===null?null:db.prepare('INSERT OR IGNORE INTO peer_trial_receipts VALUES(?,?,?,?)');
-  function emitTrial(row){
-    if(!markTrial||row.reply!==notice.pickup)return;
-    let receiptKey=trialCard;
-    if(row.question===trialQuestion+trialReceiptSuffix){
-      // Each explicitly traced, synthetic call has its own evidence. The
-      // stored request reference remains stable on retries and after restart.
-      receiptKey=digest(JSON.stringify([trialCard,row.request_ref]));
-    }else if(row.question!==trialQuestion)return;
+  if(trialEnabled)db.exec('CREATE TABLE IF NOT EXISTS peer_trial_receipts (owner TEXT NOT NULL, card_hash TEXT NOT NULL, reply_ref TEXT NOT NULL UNIQUE, emitted_at TEXT NOT NULL, PRIMARY KEY(owner,card_hash))');
+  const markTrial=!trialEnabled?null:db.prepare('INSERT OR IGNORE INTO peer_trial_receipts VALUES(?,?,?,?)');
+  function emitTrial(row,notice){
+    if(!markTrial||!notice||row.reply!==notice.pickup)return;
+    const trialQuestion=notice.event+' 자료는 어디서 받아요?';
+    const traced=row.question===trialQuestion+trialReceiptSuffix;
+    if(!traced && row.question!==trialQuestion)return;
+    const receiptKey=catalog.legacy && !traced?catalog.trialCard:digest(JSON.stringify([catalog.trialCard,row.request_ref]));
     const utc=new Date().toISOString();
     if(markTrial.run(config.accountDigest,receiptKey,row.reply_ref,utc).changes!==1)return;
     const receipt={requestRef:row.request_ref,replyRef:row.reply_ref,questionSha256:digest(row.question),
@@ -74,6 +68,8 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     if(!ownerOf(session()))return denied();
     if(args.actor!=='preparation'||!bounded(args.question,2200)||!bounded(args.purpose,240)||
       (args.retryKey!==undefined&&!(typeof args.retryKey==='string'&&/^[a-zA-Z0-9_-]{16,96}$/.test(args.retryKey))))return replyError('준비비서 질문 형식을 확인해 주세요.');
+    const notice=selectNotice(args.question,catalog.notices);
+    const sourceDigest=notice?noticeDigest(notice):catalog.sourceDigest;
     const key=digest(args.retryKey??randomUUID()),owner=config.accountDigest;
     db.prepare('INSERT OR IGNORE INTO peer_requests VALUES(?,?,?,?,?,?,?,?,NULL,?,NULL)').run(
       owner,key,randomUUID(),args.actor,args.question,args.purpose,sourceDigest,randomUUID(),new Date().toISOString());
@@ -84,7 +80,7 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
       let work=pending.get(original.request_ref);
       if(!work){
         if(pending.size>=16)return replyError('준비비서가 처리 중입니다. 잠시 후 다시 물어봐 주세요.');
-        work=receive({requestRef:original.request_ref,replyRef:original.reply_ref,question:original.question,notice})
+        work=receive({requestRef:original.request_ref,replyRef:original.reply_ref,question:original.question,notices:catalog.notices})
           .then(text=>db.prepare('UPDATE peer_requests SET reply=?, received_at=? WHERE request_ref=? AND reply IS NULL').run(text,new Date().toISOString(),original.request_ref))
           .finally(()=>pending.delete(original.request_ref));
         pending.set(original.request_ref,work);
@@ -94,8 +90,8 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     if(!ownerOf(session()))return denied();
     const stored=byKey.get(owner,key);
     if(!stored?.received_at||typeof stored.reply!=='string')return replyError('준비비서 회신을 확인할 수 없습니다.');
-    emitTrial(stored);
-    const showReceipt=stored.reply===notice.pickup&&parsePickupQuestion(stored.question,notice).showReceipt;
+    emitTrial(stored,notice);
+    const showReceipt=notice && stored.reply===notice.pickup&&parsePickupQuestion(stored.question,notice).showReceipt;
     const display=showReceipt?stored.reply+'\n회신번호: '+stored.reply_ref:stored.reply;
     return {content:[{type:'text',text:display}],structuredContent:{actor:'preparation',text:stored.reply,
       replyRef:stored.reply_ref,status:'returned_to_model',scope:'active_tool_call',
