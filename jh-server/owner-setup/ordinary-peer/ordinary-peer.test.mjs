@@ -136,3 +136,15 @@ test('exact operator-selected test card emits one redacted receipt across fresh 
     }finally{audit.close();}
   }finally{peer.close();rmSync(dir,{recursive:true,force:true});}
 });
+test('authorization form names only the already validated callback of that grant',()=>{
+  const owner=createOwnerChannel(cfg,{peer:{},verifier:{}});
+  const approved=new Set(['https://chatgpt.com/connector_platform_oauth_redirect','https://chatgpt.com/connector/oauth/local-synthetic']);
+  function policy(uri){
+    const out={writeHead(status,headers){assert.equal(status,200);this.headers=headers;return this;},end(){}};
+    owner.page(out,{...params,redirect_uri:uri},value=>approved.has(value));
+    return out.headers['content-security-policy'].split(';').map(v=>v.trim()).find(v=>v.startsWith('form-action '));
+  }
+  for(const uri of approved)assert.equal(policy(uri),"form-action 'self' "+uri);
+  assert.equal(policy('https://else.invalid/callback'),"form-action 'self'");
+  assert.equal(policy(undefined),"form-action 'self'");
+});
