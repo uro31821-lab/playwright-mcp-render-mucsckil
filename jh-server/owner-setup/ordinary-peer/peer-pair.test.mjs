@@ -65,6 +65,8 @@ test('normal MCP calls resolve the two different recipients, bind retries to the
   assert.equal(missing.structuredContent.text,unknownCount);assert.equal(missing.structuredContent.availability,'unavailable');
   const general=await call({actor:'statistics',question:'등록 장부 큰반 확정 인원은 몇 명인가요?'});
   assert.equal(general.structuredContent.text,'확정 등록 인원은 총 37명입니다.');
+  const tracedStats=await call({actor:'statistics',requester:'preparation',question:'등록 장부 큰반 확정 신청자 수는? 확인한 회신번호도 적어줘.'});
+  assert.equal(tracedStats.content[0].text,tracedStats.structuredContent.text+'\n회신번호: '+tracedStats.structuredContent.replyRef);
   const old=await call({actor:'preparation',question:'종전 모임 자료는 어디서 받아요?'});
   assert.equal(old.structuredContent.text,'종전 자료실');assert.ok(!Object.hasOwn(old.structuredContent,'requester'));
   const logged=trace.filter(line=>line.startsWith('JH_PEER_PILOT66_REPLY ')).map(line=>JSON.parse(line.slice(line.indexOf(' ')+1)));

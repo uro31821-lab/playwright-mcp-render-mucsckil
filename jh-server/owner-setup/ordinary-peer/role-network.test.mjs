@@ -83,3 +83,21 @@ test('spoken event particles and whole team names resolve without counting anoth
   for(const suffix of ['이야.','인데,','입니다.','이에요.'])assert.equal(selectRegistration(pm.event+suffix+' 확정 등록자 수는?',[pm]),pm);
   assert.equal(selectRegistration('구름매듭 66 실습회 오후반별 확정 등록자 수는?',[pm]),null);
 });
+
+test('only a requested available reply displays its stored receipt for native and host work',t=>{
+  const {mesh}=open(t);
+  for(const [index,suffix] of [' 회신번호도 적어줘.',' 회신 번호까지 함께 알려 주세요.',' 회신번호는 알려 주지 마세요.',' 회신번호'].entries()){
+    for(const actor of ['pricing','book']){
+      const args={...original,actor,question:'이번 결과는?'+suffix,retryKey:'test-optional-receipt-'+actor+index,
+        ...(actor==='pricing'?{workInput:{offers:[{name:'가',price:21,quantity:1},{name:'나',price:37,quantity:2}]}}:{})};
+      const first=mesh.ask(args);
+      const reply=actor==='pricing'?first:mesh.accept(finish(first.structuredContent));
+      const expected=reply.structuredContent.text+(index<2?'\n회신번호: '+reply.structuredContent.replyRef:'');
+      assert.equal(reply.content[0].text,expected);
+      assert.deepEqual(mesh.ask(args),reply);
+    }
+  }
+  const denied=mesh.ask({...original,actor:'audio',question:'회신번호 적어줘.',retryKey:'audio-missing-receipt-67'});
+  const missing=mesh.accept(finish(denied.structuredContent,{basis:'unavailable',text:'현재 재생 상태를 확인할 수 없습니다.'}));
+  assert.equal(missing.content[0].text,missing.structuredContent.text);
+});

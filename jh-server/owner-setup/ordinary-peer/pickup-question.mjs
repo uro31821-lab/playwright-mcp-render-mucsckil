@@ -2,6 +2,15 @@
 // a negated request must never change how an ordinary answer is displayed.
 const receiptSuffix = /\s+(?:이번\s+)?회신\s*번호(?:도|를)?\s*(?:알려\s*(?:주세요|줘|주시겠어요)|표시해\s*(?:주세요|줘))\s*[.!?]?\s*$/u;
 
+// Handoffs may paraphrase an instruction. Only an affirmative receipt request
+// selects the display form; withdrawal, examples and mere mentions do not.
+export function requestsReceipt(question){
+  const affirmative=/회신\s*번호(?:까지|도|를|는)?\s*(?:(?:함께|같이|마지막\s*줄에|끝에|꼭|그대로)\s*)*(?:알려|적어|붙여|써|포함해|표시해|기재해|남겨|보여)\s*(?:주세요|줘|주시겠어요|달라|줘요)\s*[.!?]?\s*$/u;
+  return affirmative.test(question);
+}
+export function withReceipt(text,id,requested){
+  return requested?text+'\n회신번호: '+id:text;
+}
 function splitReceiptRequest(question) {
   const suffix = receiptSuffix.exec(question);
   return suffix

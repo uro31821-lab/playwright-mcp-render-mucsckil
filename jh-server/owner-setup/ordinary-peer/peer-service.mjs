@@ -4,7 +4,7 @@ import {lstatSync,chmodSync,openSync,closeSync,constants} from 'node:fs';
 import path from 'node:path';
 import {Worker} from 'node:worker_threads';
 import {readNoticeCatalog,selectNotice,noticeDigest,pickupText} from './notice-catalog.mjs';
-import {parsePickupQuestion,trialReceiptSuffix} from './pickup-question.mjs';
+import {requestsReceipt,withReceipt,trialReceiptSuffix} from './pickup-question.mjs';
 
 import {registrationRecords,selectRegistration} from './registration-statistics.mjs';
 import {openSyntheticPair,pairEvent} from './synthetic-pair.mjs';
@@ -118,8 +118,8 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     if(!stored?.received_at||typeof stored.reply!=='string')return replyError('동료의 회신을 확인할 수 없습니다.');
     if(isPilot)pilot.record(stored,args.requester,digest);
     else if(!isStatistics)emitTrial(stored,notice);
-    const showReceipt=notice && stored.reply===notice.pickup&&parsePickupQuestion(stored.question,notice).showReceipt;
-    const display=showReceipt?stored.reply+'\n회신번호: '+stored.reply_ref:stored.reply;
+    const available=isStatistics?!!registration:!!notice&&notice.status!=='unavailable'&&stored.reply===notice.pickup;
+    const display=withReceipt(stored.reply,stored.reply_ref,available&&requestsReceipt(stored.question));
     return {content:[{type:'text',text:display}],structuredContent:{actor:stored.actor,...(args.requester?{requester:args.requester}:{}),text:stored.reply,
       ...(notice?.status==='unavailable'||(isStatistics&&!registration)?{availability:'unavailable'}:{}),
       requestRef:stored.request_ref,origin:'native',basis:isStatistics?'server_calculation':'server_source',

@@ -1,6 +1,7 @@
 import {createHash,createHmac,randomBytes,randomUUID,timingSafeEqual} from 'node:crypto';
 import {roleCatalog} from './role-catalog.mjs';
 import {calculate} from './role-calculations.mjs';
+import {requestsReceipt,withReceipt} from './pickup-question.mjs';
 
 const maximumAge=15*60_000;
 const maxRows=1024;
@@ -23,7 +24,7 @@ export function openRoleNetwork(db,owner,clock=Date.now,recordTrial=line=>consol
     CREATE TABLE IF NOT EXISTS peer_role_work (
     owner TEXT NOT NULL, retry_hash TEXT NOT NULL, request_ref TEXT PRIMARY KEY,
     fingerprint TEXT NOT NULL, actor TEXT NOT NULL, requester TEXT NOT NULL,
-    issued_at INTEGER NOT NULL, result TEXT, trial_question TEXT, client_hash TEXT NOT NULL, UNIQUE(owner,retry_hash));
+    issued_at INTEGER NOT NULL, result TEXT, trial_question TEXT, client_hash TEXT NOT NULL, show_receipt INTEGER NOT NULL, UNIQUE(owner,retry_hash));
     CREATE INDEX IF NOT EXISTS peer_role_work_expiry ON peer_role_work(issued_at);`);
   db.prepare('INSERT OR IGNORE INTO peer_return_keys VALUES(?,?)').run(owner,randomBytes(32));
   const key=db.prepare('SELECT key FROM peer_return_keys WHERE owner=?').get(owner).key;
@@ -31,7 +32,7 @@ export function openRoleNetwork(db,owner,clock=Date.now,recordTrial=line=>consol
   const byRef=db.prepare('SELECT * FROM peer_role_work WHERE owner=? AND request_ref=?');
   const expire=db.prepare('DELETE FROM peer_role_work WHERE issued_at<=?');
   const size=db.prepare('SELECT COUNT(*) AS count FROM peer_role_work WHERE owner=?');
-  const insert=db.prepare('INSERT OR IGNORE INTO peer_role_work VALUES (?,?,?,?,?,?,?,?,?,?)');
+  const insert=db.prepare('INSERT OR IGNORE INTO peer_role_work VALUES (?,?,?,?,?,?,?,?,?,?,?)');
   const finish=db.prepare('UPDATE peer_role_work SET result=? WHERE owner=? AND request_ref=? AND result IS NULL');
   const legacy=db.prepare('SELECT 1 AS used FROM peer_requests WHERE owner=? AND retry_hash=?');
   const token=row=>createHmac('sha256',key).update(JSON.stringify([row.owner,row.request_ref,row.fingerprint,row.actor,row.requester,row.issued_at])).digest('hex');
@@ -44,7 +45,10 @@ export function openRoleNetwork(db,owner,clock=Date.now,recordTrial=line=>consol
     try{recordTrial('JH_PEER_ROOM67_REPLY '+JSON.stringify(receipt));}catch{}
   }
   function read(row){
-    if(row.result)return packet(JSON.parse(row.result));
+    if(row.result){
+      const result=JSON.parse(row.result);
+      return packet(result,withReceipt(result.text,result.replyRef,row.show_receipt&&result.availability==='available'));
+    }
     const {skill,capability}=roleCatalog.get(row.actor);
     return packet({status:'awaiting_role_work',origin:'host_handoff',requestRef:row.request_ref,
       actor:row.actor,requester:row.requester,skill,capability,returnToken:token(row),expiresAt:new Date(row.issued_at+maximumAge).toISOString(),
@@ -74,7 +78,7 @@ export function openRoleNetwork(db,owner,clock=Date.now,recordTrial=line=>consol
       result=JSON.stringify(finalResult(ref,args.actor,args.requester,{origin:'native',basis:'server_calculation',...answer}));
     }
     const trial=args.purpose==='JH67 합성 동일방 검증'?hash(args.question):null;
-    const fresh=insert.run(owner,retryHash,ref,fingerprint,args.actor,args.requester,at,result,trial,clientScope(claims)).changes;
+    const fresh=insert.run(owner,retryHash,ref,fingerprint,args.actor,args.requester,at,result,trial,clientScope(claims),Number(requestsReceipt(args.question))).changes;
     const row=byKey.get(owner,retryHash);
     if(row.fingerprint!==fingerprint)return invalid();
     if(fresh)trace(row);
