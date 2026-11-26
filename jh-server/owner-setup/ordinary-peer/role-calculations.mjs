@@ -1,5 +1,7 @@
 // Read-only operations on the minimum facts already present in the owner's current conversation.
 import {z} from 'zod';
+import {cameraPlansSchema, compareCameraPlans} from './camera-plans.mjs';
+import {audioPresetsSchema, compareAudioPresets} from './audio-presets.mjs';
 import {compareSuppliedMenus, menuComparisonSchema} from './menu-comparison.mjs';
 import {compareReservationTimes, reservationTimesSchema} from './reservation-times.mjs';
 import {compareRepairQuotes, repairQuotesSchema} from './repair-quotes.mjs';
@@ -20,6 +22,8 @@ const timestamp = z.string().datetime({offset:true}).refine(value=>Number.isFini
 const periodYear=z.number().int().min(1).max(9999).nullable();
 const docLabel=z.string().min(1).max(64);
 const schemas = {
+  camera: cameraPlansSchema(z),
+  audio: audioPresetsSchema(z),
   food: menuComparisonSchema(z),
   reservation: reservationTimesSchema(z),
   repair: repairQuotesSchema(z),
@@ -96,6 +100,8 @@ export function calculate(role,input) {
   const schema=Object.hasOwn(schemas,role)?schemas[role]:null;
   if(!schema)throw Error('ROLE_HAS_NO_INLINE_CALCULATION');
   const data=schema.parse(input);
+  if(role==='camera')return compareCameraPlans(data);
+  if(role==='audio')return compareAudioPresets(data);
   if(role==='food')return compareSuppliedMenus(data);
   if(role==='reservation')return compareReservationTimes(data);
   if(role==='repair')return compareRepairQuotes(data);
