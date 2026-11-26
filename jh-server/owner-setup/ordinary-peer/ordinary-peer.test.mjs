@@ -160,7 +160,7 @@ test('the actual return reference is visible only with an explicit request and a
     const base=notice.event+' 자료는 어디서 받아요?';
     const ordinary=await ask(base);
     assert.equal(ordinary.content[0].text,notice.pickup);
-    for(const suffix of [' 회신번호도 알려 주세요.',' 이번 회신 번호를 표시해 주세요.']){
+    for(const suffix of [' 회신번호도 알려 주세요.',' 이번 회신 번호를 표시해 주세요.',' 회신번호도 적어줘.',' 확인한 회신 번호까지 함께 알려 주세요.']){
       const reply=await ask(base+suffix);
       assert.equal(reply.structuredContent.text,notice.pickup);
       assert.equal(reply.content[0].text,notice.pickup+'\n회신번호: '+reply.structuredContent.replyRef);

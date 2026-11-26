@@ -121,7 +121,7 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     const available=isStatistics?!!registration:!!notice&&notice.status!=='unavailable'&&stored.reply===notice.pickup;
     const display=withReceipt(stored.reply,stored.reply_ref,available&&requestsReceipt(stored.question));
     return {content:[{type:'text',text:display}],structuredContent:{actor:stored.actor,...(args.requester?{requester:args.requester}:{}),text:stored.reply,
-      ...(notice?.status==='unavailable'||(isStatistics&&!registration)?{availability:'unavailable'}:{}),
+      availability:available?'available':'unavailable',
       requestRef:stored.request_ref,origin:'native',basis:isStatistics?'server_calculation':'server_source',
       operation:isStatistics?'confirmed_registration_total':'event_pickup',peerWorkVerifiedExternally:false,
       replyRef:stored.reply_ref,status:'returned_to_model',scope:'active_tool_call',
