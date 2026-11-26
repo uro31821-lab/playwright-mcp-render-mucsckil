@@ -1,5 +1,7 @@
 // Read-only operations on the minimum facts already present in the owner's current conversation.
 import {z} from 'zod';
+import {compareSuppliedMenus, menuComparisonSchema} from './menu-comparison.mjs';
+import {compareReservationTimes, reservationTimesSchema} from './reservation-times.mjs';
 import {compareRepairQuotes, repairQuotesSchema} from './repair-quotes.mjs';
 import {reviewSuppliedCooperation} from './cooperation-review.mjs';
 import {cooperationReviewSchema} from './cooperation-review-schema.mjs';
@@ -18,6 +20,8 @@ const timestamp = z.string().datetime({offset:true}).refine(value=>Number.isFini
 const periodYear=z.number().int().min(1).max(9999).nullable();
 const docLabel=z.string().min(1).max(64);
 const schemas = {
+  food: menuComparisonSchema(z),
+  reservation: reservationTimesSchema(z),
   repair: repairQuotesSchema(z),
   suggestion: cooperationReviewSchema(z),
   government_services: documentListSchema(z),
@@ -92,6 +96,8 @@ export function calculate(role,input) {
   const schema=Object.hasOwn(schemas,role)?schemas[role]:null;
   if(!schema)throw Error('ROLE_HAS_NO_INLINE_CALCULATION');
   const data=schema.parse(input);
+  if(role==='food')return compareSuppliedMenus(data);
+  if(role==='reservation')return compareReservationTimes(data);
   if(role==='repair')return compareRepairQuotes(data);
   if(role==='suggestion')return reviewSuppliedCooperation(data);
   if(role==='government_services')return assessDocumentList(data);
