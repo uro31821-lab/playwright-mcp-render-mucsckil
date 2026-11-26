@@ -135,3 +135,31 @@ test('retention never reports a duration for timestamps with an unreadable offse
       assert.throws(()=>calculate('cleanup',{...input,[field]:value}));
   }
 });
+
+test('an older photo client can attach one explicit observation line to its question',t=>{
+  const {mesh,logs}=open(t), marker='JH_PHOTO_OBSERVATIONS_V1=';
+  const seen=[{ref:'T1',match:'seen',captureTimeMs:1,detail:'blue'}];
+  const line=marker+JSON.stringify(seen);
+  const prompt='제공된 관찰 중 가장 최근을 알려줘. 회신번호도 적어줘.';
+  const args={...original,actor:'photo',purpose:'JH67 합성 동일방 검증',retryKey:'compat-photo-observation-retry',question:prompt+'\r\n'+line};
+  const answer=mesh.ask(args);
+  const typed=mesh.ask({...args,question:prompt,retryKey:undefined,workInput:{observations:seen}});
+  assert.deepEqual([answer.structuredContent.origin,answer.structuredContent.operation,answer.structuredContent.text],
+    ['native','latest_confirmed_observation',typed.structuredContent.text]);
+  assert.equal(answer.content[0].text,answer.structuredContent.text+'\n회신번호: '+answer.structuredContent.replyRef);
+  assert.deepEqual(mesh.ask(args),answer);
+  assert.equal(logs.length,2);
+  assert.equal(mesh.ask({...args,question:args.question.replace('T1','T2')}).isError,true);
+  for(const question of [line,prompt+'\n'+line+'\n',prompt+'\n'+line+'\n'+line,
+    prompt+'\n'+marker+'{}',prompt+'\n'+marker+'[]',prompt+'\n'+marker+'[invalid',
+    prompt+'\n'+marker+JSON.stringify(Array(17).fill(seen[0])), '가'.repeat(2200)+'\n'+line]) {
+    assert.equal(mesh.ask({...args,question,retryKey:undefined}).isError,true);
+  }
+  assert.equal(mesh.ask({...args,workInput:{observations:seen},retryKey:undefined}).isError,true);
+  const ordinary=mesh.ask({...args,question:'일반 관찰 설명: '+line,retryKey:undefined});
+  assert.equal(ordinary.structuredContent.status,'awaiting_role_work');
+  const other=mesh.ask({...args,actor:'book',retryKey:undefined});
+  assert.equal(other.structuredContent.status,'awaiting_role_work');
+  const unrequested=mesh.ask({...args,retryKey:undefined,question:'관찰표를 정리해 줘.\n'+line});
+  assert.equal(unrequested.content[0].text,unrequested.structuredContent.text);
+});
