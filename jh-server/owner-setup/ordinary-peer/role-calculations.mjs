@@ -1,5 +1,8 @@
 // Read-only operations on the minimum facts already present in the owner's current conversation.
 import {z} from 'zod';
+import {assessDocumentList} from './document-list.mjs';
+import {documentListSchema} from './document-list-schema.mjs';
+import {calculateNostalgiaAges} from './nostalgia-ages.mjs';
 import {reviewNotice} from './notice-review.mjs';
 import {calculateHistoryPeriod} from './history-periods.mjs';
 import {classifyCheongbiseoFile} from '../../../host-cheongbiseo-cleanup/policy.mjs';
@@ -12,6 +15,11 @@ const timestamp = z.string().datetime({offset:true}).refine(value=>Number.isFini
 const periodYear=z.number().int().min(1).max(9999).nullable();
 const docLabel=z.string().min(1).max(64);
 const schemas = {
+  government_services: documentListSchema(z),
+  nostalgia: z.object({
+    birthYear: periodYear,
+    records: z.array(z.object({label,year:periodYear}).strict()).min(1).max(6)
+  }).strict(),
   history:z.object({periods:z.array(z.object({label,start:periodYear,end:periodYear}).strict()).length(2)}).strict(),
   official_document:z.object({noticeId:docLabel,documents:z.array(z.object({
     ref:docLabel,noticeId:docLabel,text:z.string().min(1).max(1200),
@@ -79,6 +87,8 @@ export function calculate(role,input) {
   const schema=Object.hasOwn(schemas,role)?schemas[role]:null;
   if(!schema)throw Error('ROLE_HAS_NO_INLINE_CALCULATION');
   const data=schema.parse(input);
+  if(role==='government_services')return assessDocumentList(data);
+  if(role==='nostalgia')return calculateNostalgiaAges(data);
   if(role==='history')return calculateHistoryPeriod(data);
   if(role==='official_document')return reviewNotice(data);
   const [operation,text]=operations[role](data);
