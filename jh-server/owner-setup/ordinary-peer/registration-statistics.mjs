@@ -36,8 +36,14 @@ export function matchesEvent(question,event){
   }
   return false;
 }
+export function asksRegistrationCount(question,records){
+  const personOrEvent=/(?:등록|신청|참가|참석|참여|명단|인원|인당|몇\s*(?:명|부)|총원)/u.test(question)||
+    records.some(row=>matchesEvent(question,row.event));
+  return personOrEvent&&/(?:확정|등록|신청|참가|참석|참여|명단|인원|인당)/u.test(question)&&
+    /(?:인원|수량|(?:신청|등록|참가|참석)자\s*수|몇\s*(?:명|부)|총원|합계|몇\s*사람|총\s*(?:수|등록|참가|신청)|전체\s*수)/u.test(question);
+}
 export function selectRegistration(question,records){
-  if(!/(?:확정|등록|신청|참가|참석|참여|명단|인원|인당)/u.test(question)||!/(?:인원|수량|(?:신청|등록|참가|참석)자\s*수|몇\s*(?:명|부)|총원|합계|몇\s*사람|총\s*(?:수|등록|참가|신청)|전체\s*수)/u.test(question))return null;
+  if(!asksRegistrationCount(question,records))return null;
   if(/취소|대기|성비|평균|미확정|불참|백분율|비율|증가율|전년/u.test(question))return null;
   const matched=records.filter(row=>matchesEvent(question,row.event));
   if(matched.length!==1)return null;
