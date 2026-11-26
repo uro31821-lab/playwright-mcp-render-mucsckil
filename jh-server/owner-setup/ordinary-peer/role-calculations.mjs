@@ -1,5 +1,7 @@
 // Read-only operations on the minimum facts already present in the owner's current conversation.
 import {z} from 'zod';
+import {medicationLeafletsSchema, compareMedicationLeaflets} from './medication-leaflets.mjs';
+import {tradingRuleRevisionsSchema, resolveSuppliedTradingRule} from './trading-rule-revisions.mjs';
 import {insuranceExcerptsSchema, compareInsuranceExcerpts} from './insurance-excerpts.mjs';
 import {preferenceRevisionsSchema, resolveSuppliedPreferences} from './preference-revisions.mjs';
 import {cameraPlansSchema, compareCameraPlans} from './camera-plans.mjs';
@@ -24,6 +26,8 @@ const timestamp = z.string().datetime({offset:true}).refine(value=>Number.isFini
 const periodYear=z.number().int().min(1).max(9999).nullable();
 const docLabel=z.string().min(1).max(64);
 const schemas = {
+  medication: medicationLeafletsSchema(z),
+  tropical_trading: tradingRuleRevisionsSchema(z),
   insurance: insuranceExcerptsSchema(z),
   personal: preferenceRevisionsSchema(z),
   camera: cameraPlansSchema(z),
@@ -104,6 +108,8 @@ export function calculate(role,input) {
   const schema=Object.hasOwn(schemas,role)?schemas[role]:null;
   if(!schema)throw Error('ROLE_HAS_NO_INLINE_CALCULATION');
   const data=schema.parse(input);
+  if (role === 'medication') return compareMedicationLeaflets(data);
+  if (role === 'tropical_trading') return resolveSuppliedTradingRule(data);
   if (role === 'insurance') return compareInsuranceExcerpts(data);
   if (role === 'personal') return resolveSuppliedPreferences(data);
   if(role==='camera')return compareCameraPlans(data);

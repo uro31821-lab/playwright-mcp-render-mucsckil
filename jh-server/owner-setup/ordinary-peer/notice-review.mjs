@@ -13,7 +13,7 @@ const label = text => typeof text === 'string' && text.trim() === text && text.l
   [...text].length <= 64 && !/[\p{C}〔〕「」“”]/u.test(text);
 const unavailable = text => ({operation, availability: 'unavailable', text});
 
-function orderedSources(docs) {
+export function orderedSources(docs) {
   const byRef = new Map(), next = new Map();
   let original;
   for (const doc of docs) {
