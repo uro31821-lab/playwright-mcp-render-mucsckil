@@ -6,8 +6,14 @@ const whole = z.number().int().min(0).max(1_000_000_000_000);
 const positive = whole.min(1);
 const days = positive.max(366);
 const label = z.string().trim().min(1).max(48).regex(/^[^\u0000-\u001F\u007F]+$/u);
-const timestamp = z.string().datetime({offset:true});
+const timestamp = z.string().datetime({offset:true}).refine(value=>Number.isFinite(Date.parse(value)));
 const schemas = {
+  photo: z.object({observations:z.array(z.object({
+    ref:label,
+    match:z.enum(['seen','possible','absent','unread']),
+    captureTimeMs:z.number().int().min(-8_640_000_000_000_000).max(8_640_000_000_000_000).nullish(),
+    detail:z.string().trim().min(1).max(100).optional()
+  }).strict()).min(1).max(16)}).strict(),
   pricing: z.object({offers:z.array(z.object({name:label,price:whole,quantity:positive}).strict()).min(2).max(6)}).strict(),
   shopping: z.object({dailyUse:whole,horizonDays:days,packSize:positive,stock:whole,unit:label}).strict(),
   revenue: z.object({cumulativeRevenue:whole,actualWorkdays:days,totalWorkdays:days}).strict(),
@@ -17,6 +23,23 @@ const schemas = {
 export const workInputSchema = z.union(Object.values(schemas));
 const group = n=>n.toLocaleString('ko-KR',{maximumFractionDigits:2});
 const operations = {
+  photo({observations}) {
+    const refs=observations.map(row=>row.ref);
+    if(new Set(refs).size!==refs.length)throw Error('DUPLICATE_OBSERVATION');
+    if(observations.some(row=>['seen','possible'].includes(row.match)&&!row.detail))throw Error('OBSERVATION_DETAIL_REQUIRED');
+    const confirmed=observations.filter(row=>row.match==='seen');
+    const dated=confirmed.filter(row=>row.captureTimeMs!=null);
+    let latest='촬영 시각이 기록된 확인 사진은 없습니다.';
+    if(dated.length) {
+      const last=Math.max(...dated.map(row=>row.captureTimeMs));
+      const labels=dated.filter(row=>row.captureTimeMs===last).map(row=>row.ref);
+      latest='촬영 시각이 기록된 확인 사진 중 가장 최근은 '+labels.join(', ')+'입니다 ('+new Date(last).toISOString()+').';
+    }
+    const possible=observations.filter(row=>row.match==='possible').length;
+    const unread=observations.filter(row=>row.match==='unread').length;
+    return ['latest_confirmed_observation','제공된 관찰표 기준입니다. '+latest+
+      ' 촬영 시각 미상 확인 '+(confirmed.length-dated.length)+'건, 불확실 '+possible+'건, 미열람 '+unread+'건입니다.'];
+  },
   pricing(data) {
     const offers = data.offers;
     if(new Set(offers.map(o=>o.name)).size!==offers.length)throw Error('DUPLICATE_LABEL');

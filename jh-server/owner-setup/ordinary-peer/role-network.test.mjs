@@ -101,3 +101,37 @@ test('only a requested available reply displays its stored receipt for native an
   const missing=mesh.accept(finish(denied.structuredContent,{basis:'unavailable',text:'현재 재생 상태를 확인할 수 없습니다.'}));
   assert.equal(missing.content[0].text,missing.structuredContent.text);
 });
+
+test('photo orders only the supplied dated sightings, retaining ties and uncertainty',t=>{
+  const {mesh,logs}=open(t);
+  const observations=[
+    {ref:'A',match:'seen',captureTimeMs:1000,detail:'blue'},
+    {ref:'B',match:'seen',captureTimeMs:2000,detail:'blue'},
+    {ref:'C',match:'seen',captureTimeMs:2000,detail:'blue'},
+    {ref:'D',match:'seen',detail:'blue'},
+    {ref:'E',match:'possible',captureTimeMs:3000,detail:'blurred'},
+    {ref:'F',match:'unread',captureTimeMs:4000},
+    {ref:'G',match:'absent',captureTimeMs:5000}];
+  const args={...original,actor:'photo',workInput:{observations},question:'관찰을 정리하고 회신번호도 알려 주세요.',
+    purpose:'JH67 합성 동일방 검증'};
+  const reply=mesh.ask(args);
+  const body=reply.structuredContent;
+  assert.deepEqual([body.origin,body.basis,body.operation,body.availability],['native','server_calculation','latest_confirmed_observation','available']);
+  assert.equal(body.text,'제공된 관찰표 기준입니다. 촬영 시각이 기록된 확인 사진 중 가장 최근은 B, C입니다 (1970-01-01T00:00:02.000Z). 촬영 시각 미상 확인 1건, 불확실 1건, 미열람 1건입니다.');
+  assert.equal(reply.content[0].text,body.text+'\n회신번호: '+body.replyRef);
+  assert.deepEqual(mesh.ask(args),reply);assert.equal(logs.length,1);
+  assert.match(calculate('photo',{observations:[{ref:'B',match:'seen',captureTimeMs:null,detail:'blue'}]}).text,/기록된 확인 사진은 없습니다.*시각 미상 확인 1건/);
+  for(const invalid of [[],[observations[0],observations[0]],[{ref:'B',match:'possible'}],
+    [{ref:'C',match:'seen',captureTimeMs:0,detail:'',token:'unused'}],[{ref:'D',match:'unread',captureTimeMs:1.2}]]) {
+    assert.throws(()=>calculate('photo',{observations:invalid}));
+  }
+});
+
+test('retention never reports a duration for timestamps with an unreadable offset',()=>{
+  const input={name:'note.jpg',createdAt:'2026-05-01T09:00:00+09:00',asOf:'2026-05-01T12:00:00Z'};
+  assert.match(calculate('cleanup',input).text,/12시간.*지났습니다/);
+  for(const field of ['createdAt','asOf']) {
+    for(const value of ['2026-05-01T09:00:00+24:00','2026-05-01T09:00:00+83:81'])
+      assert.throws(()=>calculate('cleanup',{...input,[field]:value}));
+  }
+});

@@ -92,7 +92,7 @@ export function createOwnerChannel(config,{verifier=new GoogleOwnerVerifier({cli
   }
   function register(z,registerTool,session){
     registerTool('jh_ask_peer',{title:'같은 대화에서 JH 동료에게 묻기',
-      description:'같은 대화에서 requester(주담당)가 actor(동료)를 선택합니다. 준비·통은 행사 원본 조회, 가격·쇼핑·매출·청구서·정리는 해당 workInput으로 계산합니다. pricing은 같은 상품의 원화 견적, billing은 동일 기간의 확정 원화 금액입니다. 현재 대화에 제공된 자료만 전달합니다. awaiting_role_work이면 현재 대화 안에서 지정된 역할로 실제 작업 후 jh_return_peer를 호출합니다. 인계만으로 회신 완료가 되지 않습니다.',
+      description:'같은 대화에서 requester(주담당)가 actor(동료)를 선택합니다. 준비·통은 행사 원본 조회, 가격·쇼핑·매출·청구서·정리·편비서는 해당 workInput으로 계산합니다. photo는 현재 제공된 관찰표의 ref·match·captureTimeMs(UTC 밀리초)·detail로 마지막으로 확인된 기록을 정리합니다. pricing은 같은 상품의 원화 견적, billing은 동일 기간의 확정 원화 금액입니다. 현재 대화에 제공된 자료만 전달합니다. awaiting_role_work이면 현재 대화 안에서 지정된 역할로 실제 작업 후 jh_return_peer를 호출합니다. 인계만으로 회신 완료가 되지 않습니다.',
       inputSchema:{actor:z.enum(roleIds),requester:z.enum(roleIds).optional(),workInput:workInputSchema.optional(),question:z.string().min(1).refine(s=>Array.from(s).length<=2200),purpose:z.string().min(1).refine(s=>Array.from(s).length<=240),
         retryKey:z.string().regex(/^[a-zA-Z0-9_-]{16,96}$/).optional()},
       annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}},
