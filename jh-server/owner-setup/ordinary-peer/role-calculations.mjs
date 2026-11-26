@@ -95,8 +95,16 @@ const operations = {
     return ['monthly_projection','전일까지 일평균 '+group(Math.round(cumulativeRevenue/actualWorkdays))+'원입니다. 이 평균이 유지되면 월 예상 매출은 '+group(Math.round(cumulativeRevenue*totalWorkdays/actualWorkdays))+'원입니다.'];
   },
   billing({baselineCosts,baselineRefunds,alternativeCosts,alternativeRefunds}) {
-    const current=baselineCosts-baselineRefunds, alternative=alternativeCosts-alternativeRefunds;
-    return ['net_cashflow_krw','같은 기간의 원화 순지출은 현재 '+group(current)+'원, 대안 '+group(alternative)+'원입니다. 대안 선택 시 지출 감소액은 '+group(current-alternative)+'원입니다.'];
+    const current = baselineCosts - baselineRefunds;
+    const alternative = alternativeCosts - alternativeRefunds;
+    const savings = current - alternative;
+    let comparison = '두 안의 순지출은 같습니다.';
+    if (savings > 0) {
+      comparison = '대안 선택 시 지출 감소액은 '+group(savings)+'원입니다.';
+    } else if (savings < 0) {
+      comparison = '대안 선택 시 지출이 '+group(-savings)+'원 늘어납니다.';
+    }
+    return ['net_cashflow_krw', '같은 기간의 원화 순지출은 현재 '+group(current)+'원, 대안 '+group(alternative)+'원입니다. '+comparison];
   },
   cleanup({name,createdAt,asOf}) {
     const result=classifyCheongbiseoFile({name,createdAt},Date.parse(asOf));
