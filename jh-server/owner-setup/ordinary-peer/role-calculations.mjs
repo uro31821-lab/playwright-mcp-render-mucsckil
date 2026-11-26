@@ -1,5 +1,7 @@
 // Read-only operations on the minimum facts already present in the owner's current conversation.
 import {z} from 'zod';
+import {reviewNotice} from './notice-review.mjs';
+import {calculateHistoryPeriod} from './history-periods.mjs';
 import {classifyCheongbiseoFile} from '../../../host-cheongbiseo-cleanup/policy.mjs';
 
 const whole = z.number().int().min(0).max(1_000_000_000_000);
@@ -7,7 +9,14 @@ const positive = whole.min(1);
 const days = positive.max(366);
 const label = z.string().trim().min(1).max(48).regex(/^[^\u0000-\u001F\u007F]+$/u);
 const timestamp = z.string().datetime({offset:true}).refine(value=>Number.isFinite(Date.parse(value)));
+const periodYear=z.number().int().min(1).max(9999).nullable();
+const docLabel=z.string().min(1).max(64);
 const schemas = {
+  history:z.object({periods:z.array(z.object({label,start:periodYear,end:periodYear}).strict()).length(2)}).strict(),
+  official_document:z.object({noticeId:docLabel,documents:z.array(z.object({
+    ref:docLabel,noticeId:docLabel,text:z.string().min(1).max(1200),
+    corrects:docLabel.optional(),mode:z.enum(['amend','replace']).optional()
+  }).strict()).min(1).max(12)}).strict(),
   photo: z.object({observations:z.array(z.object({
     ref:label,
     match:z.enum(['seen','possible','absent','unread']),
@@ -70,6 +79,8 @@ export function calculate(role,input) {
   const schema=Object.hasOwn(schemas,role)?schemas[role]:null;
   if(!schema)throw Error('ROLE_HAS_NO_INLINE_CALCULATION');
   const data=schema.parse(input);
+  if(role==='history')return calculateHistoryPeriod(data);
+  if(role==='official_document')return reviewNotice(data);
   const [operation,text]=operations[role](data);
   return {operation,text};
 }

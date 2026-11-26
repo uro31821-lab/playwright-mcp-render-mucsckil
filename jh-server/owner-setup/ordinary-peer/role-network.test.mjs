@@ -163,3 +163,32 @@ test('an older photo client can attach one explicit observation line to its ques
   const unrequested=mesh.ask({...args,retryKey:undefined,question:'관찰표를 정리해 줘.\n'+line});
   assert.equal(unrequested.content[0].text,unrequested.structuredContent.text);
 });
+
+test('document and period sources return the same findings from old and current callers',t=>{
+  const {mesh}=open(t);
+  const notices={noticeId:'파랑',documents:[{ref:'A',noticeId:'파랑',text:'제출기한: 9월 12일\n제출처: 동문'},
+    {ref:'B',noticeId:'파랑',corrects:'A',mode:'amend',text:'제출기한: 9월 15일'}]};
+  const periods=[{label:'흙',start:1600,end:1609},{label:'돌',start:1608,end:1620}];
+  const query='제공된 자료를 대조해 줘. 회신번호도 알려 주세요.';
+  for(const [actor,operation,input,marker,data,expected] of [
+    ['official_document','notice_current_terms',notices,'JH_NOTICE_V1=',notices,['9월 15일','동문','〔A〕','〔B〕']],
+    ['history','compare_supplied_year_ranges',{periods},'JH_HISTORY_PERIODS_V1=',periods,['1608년부터 1609년','2개 연도']]
+  ]){
+    const args={actor,requester:'book',purpose:'가상 대조',question:query};
+    const asText={...args,question:query+'\n'+marker+JSON.stringify(data)};
+    const first=mesh.ask({...args,workInput:input}),second=mesh.ask(asText);
+    for(const r of [first,second]){
+      assert.equal(r.structuredContent.operation,operation);assert.equal(r.structuredContent.origin,'native');
+      assert.equal(r.structuredContent.availability,'available');
+      for(const value of expected)assert.ok(r.structuredContent.text.includes(value));
+      assert.ok(r.content[0].text.endsWith(r.structuredContent.replyRef));
+    }
+    assert.equal(first.structuredContent.text,second.structuredContent.text);
+    assert.equal(mesh.ask({...asText,workInput:input}).isError,true);
+    assert.equal(mesh.ask({...args,question:query+'\n'+marker+'invalid'}).isError,true);
+    assert.equal(mesh.ask({...args,workInput:{...input,privateAttribute:'irrelevant'}}).isError,true);
+  }
+  const unsure=mesh.ask({actor:'history',requester:'book',purpose:'누락',question:query,
+    workInput:{periods:[{label:'가',start:1600,end:null},{label:'나',start:1650,end:null}]}}).structuredContent;
+  assert.equal(unsure.availability,'unavailable');assert.equal(unsure.origin,'native');
+});
