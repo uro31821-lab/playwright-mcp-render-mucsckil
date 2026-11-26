@@ -20,16 +20,23 @@ function safeText(value,max){
     !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u.test(value);
 }
 // Older clients expose the question field before they refresh optional input shapes.
-const observationsMarker='JH_PHOTO_OBSERVATIONS_V1=';
-function photoInput(args){
+const inlineFormats = new Map([
+  ['photo',{prefix:'JH_PHOTO_OBSERVATIONS_V1=',list:'observations'}],
+  ['history',{prefix:'JH_HISTORY_PERIODS_V1=',list:'periods'}],
+  ['official_document',{prefix:'JH_NOTICE_V1='}]
+]);
+function inlinePayload(args) {
+  const format=inlineFormats.get(args.actor);
+  if (!format) return {input:args.workInput,question:args.question};
   const lines=args.question.split(/\r?\n/u);
-  const first=lines.findIndex(line=>line.startsWith(observationsMarker));
+  const first=lines.findIndex(line=>line.startsWith(format.prefix));
   if(first===-1)return {input:args.workInput,question:args.question};
   if(args.workInput!==undefined || first===0 || first!==lines.length-1 || Array.from(args.question).length>2200)
-    throw Error('INVALID_PHOTO_RECORD_LINE');
+    throw Error('INVALID_INLINE_RECORD_LINE');
   const question=lines.slice(0,first).join('\n');
-  if(!question.trim())throw Error('PHOTO_QUESTION_REQUIRED');
-  return {input:{observations:JSON.parse(lines[first].slice(observationsMarker.length))},question};
+  if(!question.trim())throw Error('INLINE_QUESTION_REQUIRED');
+  const data=JSON.parse(lines[first].slice(format.prefix.length));
+  return {input:format.list ? {[format.list]:data} : data,question};
 }
 
 export function openRoleNetwork(db,owner,clock=Date.now,recordTrial=line=>console.info(line)) {
@@ -75,10 +82,8 @@ export function openRoleNetwork(db,owner,clock=Date.now,recordTrial=line=>consol
   const clientScope=claims=>hash(JSON.stringify([claims?.client??null,claims?.resource??null]));
   function ask(args,claims){
     if(!roleCatalog.has(args.requester)||!roleCatalog.has(args.actor)||args.actor===args.requester)return invalid();
-    let payload={input:args.workInput,question:args.question};
-    if(args.actor==='photo'){
-      try{payload=photoInput(args);}catch{return invalid();}
-    }
+    let payload;
+    try{payload=inlinePayload(args);}catch{return invalid();}
     const at=clock();
     expire.run(at-maximumAge);
     const fingerprint=hash(JSON.stringify(canonical([args.actor,args.requester,args.question,args.purpose,payload.input??null,clientScope(claims)])));
