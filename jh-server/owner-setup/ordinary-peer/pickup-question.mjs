@@ -1,7 +1,13 @@
 // A separate, affirmative request can follow the pickup question. A mention or
 // a negated request must never change how an ordinary answer is displayed.
-const receiptSuffix = /\s+(?:이번\s+)?회신\s*번호(?:도|를)?\s*(?:알려\s*(?:주세요|줘|주시겠어요)|표시해\s*(?:주세요|줘))\s*[.!?]?\s*$/u;
+const receiptSuffix=/(?:^|\s+)(?:(?:이번|확인한|실제)\s+)?회신\s*번호(?:까지|도|를|는)?\s*(?:(?:함께|같이|마지막\s*줄에|끝에|꼭|그대로)\s*)*(?:알려|적어|붙여|써|포함해|표시해|기재해|남겨|보여)\s*(?:주세요|줘|주시겠어요|달라|줘요)\s*[.!?]?\s*$/u;
 
+export function requestsReceipt(question){
+  return receiptSuffix.test(question);
+}
+export function withReceipt(text,id,requested){
+  return requested?text+'\n회신번호: '+id:text;
+}
 function splitReceiptRequest(question) {
   const suffix = receiptSuffix.exec(question);
   return suffix

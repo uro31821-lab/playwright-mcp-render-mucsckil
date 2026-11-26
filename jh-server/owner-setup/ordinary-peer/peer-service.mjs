@@ -4,12 +4,13 @@ import {lstatSync,chmodSync,openSync,closeSync,constants} from 'node:fs';
 import path from 'node:path';
 import {Worker} from 'node:worker_threads';
 import {readNoticeCatalog,selectNotice,noticeDigest,pickupText} from './notice-catalog.mjs';
-import {parsePickupQuestion,trialReceiptSuffix} from './pickup-question.mjs';
+import {requestsReceipt,withReceipt,trialReceiptSuffix} from './pickup-question.mjs';
 
 import {registrationRecords,selectRegistration} from './registration-statistics.mjs';
 import {openSyntheticPair,pairEvent} from './synthetic-pair.mjs';
 
-const actors=['preparation','statistics'];
+import {roleCatalog} from './role-catalog.mjs';
+import {openRoleNetwork} from './role-network.mjs';
 const digest=value=>createHash('sha256').update(value).digest('hex');
 const bounded=(x,n)=>typeof x==='string'&&x.trim().length>0&&Array.from(x).length<=n;
 const replyError=message=>({isError:true,content:[{type:'text',text:message}]});
@@ -69,6 +70,7 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
   }
   const byKey=db.prepare('SELECT * FROM peer_requests WHERE owner=? AND retry_hash=?');
   const pending=new Map();
+  const network=openRoleNetwork(db,config.accountDigest);
   function denied(){
     return {...replyError('준비비서에 연결하려면 이 앱을 다시 연결하고 등록된 소유자 계정으로 확인해 주세요.'),
       _meta:{'mcp/www_authenticate':['Bearer resource_metadata="'+config.serverOrigin+'/.well-known/oauth-protected-resource", error="insufficient_scope"']}};
@@ -77,10 +79,14 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     return session?.owner===config.accountDigest&&session?.aud===config.serverOrigin;
   }
   async function ask(args,session){
-    if(!ownerOf(session()))return denied();
-    if(!actors.includes(args.actor)||(args.requester!==undefined&&(!actors.includes(args.requester)||args.requester===args.actor))||
+    const claims=session();
+    if(!ownerOf(claims))return denied();
+    if(!roleCatalog.has(args.actor)||(args.requester!==undefined&&(!roleCatalog.has(args.requester)||args.requester===args.actor))||
       !bounded(args.question,2200)||!bounded(args.purpose,240)||
       (args.retryKey!==undefined&&!(typeof args.retryKey==='string'&&/^[a-zA-Z0-9_-]{16,96}$/.test(args.retryKey))))return replyError('질문을 받을 동료와 질문 형식을 확인해 주세요.');
+    const nativeSource=args.actor==='preparation'||args.actor==='statistics';
+    if(!nativeSource)return network.ask(args,claims);
+    if(args.workInput!==undefined||network.hasRetry(args.retryKey))return replyError('이 요청의 지정 입력 또는 재시도 번호를 확인해 주세요.');
     const isStatistics=args.actor==='statistics';
     const registration=isStatistics?selectRegistration(args.question,records):null;
     const pilotPickup=!isStatistics && !catalog.notices.some(row=>row.event===pairEvent) && pilot.pickupRequested(args.question);
@@ -112,12 +118,18 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
     if(!stored?.received_at||typeof stored.reply!=='string')return replyError('동료의 회신을 확인할 수 없습니다.');
     if(isPilot)pilot.record(stored,args.requester,digest);
     else if(!isStatistics)emitTrial(stored,notice);
-    const showReceipt=notice && stored.reply===notice.pickup&&parsePickupQuestion(stored.question,notice).showReceipt;
-    const display=showReceipt?stored.reply+'\n회신번호: '+stored.reply_ref:stored.reply;
+    const available=isStatistics?!!registration:!!notice&&notice.status!=='unavailable'&&stored.reply===notice.pickup;
+    const display=withReceipt(stored.reply,stored.reply_ref,available&&requestsReceipt(stored.question));
     return {content:[{type:'text',text:display}],structuredContent:{actor:stored.actor,...(args.requester?{requester:args.requester}:{}),text:stored.reply,
-      ...(notice?.status==='unavailable'||(isStatistics&&!registration)?{availability:'unavailable'}:{}),
+      availability:available?'available':'unavailable',
+      requestRef:stored.request_ref,origin:'native',basis:isStatistics?'server_calculation':'server_source',
+      operation:isStatistics?'confirmed_registration_total':'event_pickup',peerWorkVerifiedExternally:false,
       replyRef:stored.reply_ref,status:'returned_to_model',scope:'active_tool_call',
       originalQuestionVerified:false,finalDisplayVerified:false}};
   }
-  return {ask,close:()=>db.close()};
+  function accept(args,session){
+    const claims=session();
+    return ownerOf(claims)?network.accept(args,claims):denied();
+  }
+  return {ask,accept,close:()=>db.close()};
 }

@@ -2,6 +2,9 @@ import {createHash,randomBytes} from 'node:crypto';
 import {GoogleOwnerVerifier} from '../owner-enrollment/owner-enrollment.mjs';
 import {openPeerService} from './peer-service.mjs';
 
+import {roleIds} from './role-catalog.mjs';
+import {workInputSchema} from './role-calculations.mjs';
+
 const cookieName='__Host-jh-peer';
 const random=()=>randomBytes(32).toString('hex');
 const fields=['response_type','client_id','redirect_uri','code_challenge','code_challenge_method','resource','scope','state'];
@@ -88,12 +91,19 @@ export function createOwnerChannel(config,{verifier=new GoogleOwnerVerifier({cli
     return claims?.owner===config.accountDigest&&claims.aud===config.serverOrigin?claims:null;
   }
   function register(z,registerTool,session){
-    registerTool('jh_ask_peer',{title:'행사 준비·통계 담당 동료에게 묻기',
-      description:'준비비서는 행사 자료 수령처를, 통비서는 등록 집계의 확정 인원을 회신합니다. requester에 질문을 맡은 비서 역할을, actor에 질문을 받을 동료를 지정합니다.',
-      inputSchema:{actor:z.enum(['preparation','statistics']),requester:z.enum(['preparation','statistics']).optional(),question:z.string().min(1).refine(s=>Array.from(s).length<=2200),purpose:z.string().min(1).refine(s=>Array.from(s).length<=240),
+    registerTool('jh_ask_peer',{title:'같은 대화에서 JH 동료에게 묻기',
+      description:'같은 대화에서 requester(주담당)가 actor(동료)를 선택합니다. 준비·통은 행사 원본 조회, 가격·쇼핑·매출·청구서·정리는 해당 workInput으로 계산합니다. pricing은 같은 상품의 원화 견적, billing은 동일 기간의 확정 원화 금액입니다. 현재 대화에 제공된 자료만 전달합니다. awaiting_role_work이면 현재 대화 안에서 지정된 역할로 실제 작업 후 jh_return_peer를 호출합니다. 인계만으로 회신 완료가 되지 않습니다.',
+      inputSchema:{actor:z.enum(roleIds),requester:z.enum(roleIds).optional(),workInput:workInputSchema.optional(),question:z.string().min(1).refine(s=>Array.from(s).length<=2200),purpose:z.string().min(1).refine(s=>Array.from(s).length<=240),
         retryKey:z.string().regex(/^[a-zA-Z0-9_-]{16,96}$/).optional()},
       annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}},
       args=>peer.ask(args,session));
+    registerTool('jh_return_peer',{title:'같은 대화에서 동료가 작성한 회신 접수',
+      description:'대기 중인 요청에 지정된 비서로 실제 처리한 결과를 전달합니다. returnToken은 내부 표식입니다. 외부 기능 결과에는 민감 정보가 없는 출처 식별자가 필요합니다. 자료·권한 부족은 unavailable로 표시합니다.',
+      inputSchema:{requestRef:z.string().uuid(),returnToken:z.string().regex(/^[a-f0-9]{64}$/),actor:z.enum(roleIds),requester:z.enum(roleIds),
+        text:z.string().min(1).max(1024),basis:z.enum(['conversation_material','published_role_work','authorized_tool_result','unavailable']),
+        sourceRef:z.string().min(1).max(192).optional()},
+      annotations:{readOnlyHint:false,destructiveHint:false,openWorldHint:false}},
+      args=>peer.accept(args,session));
   }
   return {page,verify,accepted,current,register};
 }

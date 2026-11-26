@@ -1,0 +1,52 @@
+// Read-only operations on the minimum facts already present in the owner's current conversation.
+import {z} from 'zod';
+import {classifyCheongbiseoFile} from '../../../host-cheongbiseo-cleanup/policy.mjs';
+
+const whole = z.number().int().min(0).max(1_000_000_000_000);
+const positive = whole.min(1);
+const days = positive.max(366);
+const label = z.string().trim().min(1).max(48).regex(/^[^\u0000-\u001F\u007F]+$/u);
+const timestamp = z.string().datetime({offset:true});
+const schemas = {
+  pricing: z.object({offers:z.array(z.object({name:label,price:whole,quantity:positive}).strict()).min(2).max(6)}).strict(),
+  shopping: z.object({dailyUse:whole,horizonDays:days,packSize:positive,stock:whole,unit:label}).strict(),
+  revenue: z.object({cumulativeRevenue:whole,actualWorkdays:days,totalWorkdays:days}).strict(),
+  billing: z.object({baselineCosts:whole,baselineRefunds:whole,alternativeCosts:whole,alternativeRefunds:whole}).strict(),
+  cleanup: z.object({name:label,createdAt:timestamp,asOf:timestamp}).strict()
+};
+export const workInputSchema = z.union(Object.values(schemas));
+const group = n=>n.toLocaleString('ko-KR',{maximumFractionDigits:2});
+const operations = {
+  pricing(data) {
+    const offers = data.offers;
+    if(new Set(offers.map(o=>o.name)).size!==offers.length)throw Error('DUPLICATE_LABEL');
+    const cmp=(a,b)=>BigInt(a.price)*BigInt(b.quantity)-BigInt(b.price)*BigInt(a.quantity);
+    const lowest=offers.reduce((best,offer)=>cmp(offer,best)<0n?offer:best);
+    const equal=offers.filter(offer=>cmp(offer,lowest)===0n);
+    return ['unit_price_krw', '같은 상품·단위로 받은 견적의 최저 단가는 개당 약 '+group(lowest.price/lowest.quantity)+'원입니다. 해당 견적은 '+equal.map(x=>x.name).join(', ')+'입니다.'];
+  },
+  shopping({dailyUse,horizonDays,packSize,stock,unit}) {
+    const shortage=Math.max(0,dailyUse*horizonDays-stock);
+    return ['pack_quantity','재고를 뺀 필요량은 '+group(shortage)+unit+'이고, 한 묶음 '+group(packSize)+unit+' 기준 '+group(Math.ceil(shortage/packSize))+'묶음입니다.'];
+  },
+  revenue({cumulativeRevenue,actualWorkdays,totalWorkdays}) {
+    if(totalWorkdays<actualWorkdays)throw Error('WORKDAYS_OUT_OF_RANGE');
+    return ['monthly_projection','전일까지 일평균 '+group(Math.round(cumulativeRevenue/actualWorkdays))+'원입니다. 이 평균이 유지되면 월 예상 매출은 '+group(Math.round(cumulativeRevenue*totalWorkdays/actualWorkdays))+'원입니다.'];
+  },
+  billing({baselineCosts,baselineRefunds,alternativeCosts,alternativeRefunds}) {
+    const current=baselineCosts-baselineRefunds, alternative=alternativeCosts-alternativeRefunds;
+    return ['net_cashflow_krw','같은 기간의 원화 순지출은 현재 '+group(current)+'원, 대안 '+group(alternative)+'원입니다. 대안 선택 시 지출 감소액은 '+group(current-alternative)+'원입니다.'];
+  },
+  cleanup({name,createdAt,asOf}) {
+    const result=classifyCheongbiseoFile({name,createdAt},Date.parse(asOf));
+    if(result.reason==='future_timestamp')throw Error('FUTURE_CREATION');
+    return ['file_retention_check','제공된 파일의 기본 보존 기준은 '+group(result.thresholdMs/3600000)+'시간입니다. 기준 시각에 '+(result.status==='expired'?'기본 보존기간이 지났습니다.':'기본 보존기간 이내입니다.')+' 삭제는 수행하지 않았습니다.'];
+  }
+};
+export function calculate(role,input) {
+  const schema=Object.hasOwn(schemas,role)?schemas[role]:null;
+  if(!schema)throw Error('ROLE_HAS_NO_INLINE_CALCULATION');
+  const data=schema.parse(input);
+  const [operation,text]=operations[role](data);
+  return {operation,text};
+}
