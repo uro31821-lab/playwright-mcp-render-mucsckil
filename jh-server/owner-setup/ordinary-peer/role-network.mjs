@@ -21,6 +21,8 @@ function safeText(value,max){
 }
 // Older clients expose the question field before they refresh optional input shapes.
 const inlineFormats = new Map([
+  ['food',{prefix:'JH_MENU_TERMS_V1='}],
+  ['reservation',{prefix:'JH_RESERVATION_TIMES_V1='}],
   ['repair',{prefix:'JH_REPAIR_QUOTES_V1='}],
   ['suggestion',{prefix:'JH_COOPERATION_REVIEW_V1='}],
   ['government_services',{prefix:'JH_DOCUMENT_LIST_V1='}],
