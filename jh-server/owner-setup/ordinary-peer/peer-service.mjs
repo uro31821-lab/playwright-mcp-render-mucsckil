@@ -6,7 +6,7 @@ import {Worker} from 'node:worker_threads';
 import {readNoticeCatalog,selectNotice,noticeDigest,pickupText} from './notice-catalog.mjs';
 import {requestsReceipt,withReceipt,trialReceiptSuffix} from './pickup-question.mjs';
 
-import {registrationRecords,selectRegistration} from './registration-statistics.mjs';
+import {asksRegistrationCount,registrationRecords,selectRegistration} from './registration-statistics.mjs';
 import {openSyntheticPair,pairEvent} from './synthetic-pair.mjs';
 
 import {roleCatalog} from './role-catalog.mjs';
@@ -86,8 +86,14 @@ export function openPeerService({config,noticeJson,trialDigest=process.env.JH_PE
       (args.retryKey!==undefined&&!(typeof args.retryKey==='string'&&/^[a-zA-Z0-9_-]{16,96}$/.test(args.retryKey))))return replyError('질문을 받을 동료와 질문 형식을 확인해 주세요.');
     const nativeSource=args.actor==='preparation'||args.actor==='statistics';
     if(!nativeSource)return network.ask(args,claims);
-    if(args.workInput!==undefined||network.hasRetry(args.retryKey))return replyError('이 요청의 지정 입력 또는 재시도 번호를 확인해 주세요.');
+    if(args.workInput!==undefined)return replyError('이 요청의 지정 입력 또는 재시도 번호를 확인해 주세요.');
     const isStatistics=args.actor==='statistics';
+    if(isStatistics&&!asksRegistrationCount(args.question,records)){
+      // Older releases stored every statistics request in the registration table. Preserve its original receipt.
+      const legacy=args.retryKey&&byKey.get(config.accountDigest,digest(args.retryKey));
+      if(!legacy)return network.ask(args,claims);
+    }
+    if(network.hasRetry(args.retryKey))return replyError('이 요청의 재시도 번호를 확인해 주세요.');
     const registration=isStatistics?selectRegistration(args.question,records):null;
     const pilotPickup=!isStatistics && !catalog.notices.some(row=>row.event===pairEvent) && pilot.pickupRequested(args.question);
     const notice=isStatistics?null:(pilotPickup?pilotNotice:selectNotice(args.question,catalog.notices));
