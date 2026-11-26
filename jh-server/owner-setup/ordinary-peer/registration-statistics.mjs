@@ -30,8 +30,8 @@ export function matchesEvent(question,event){
   const text=normalized(question), name=normalized(event);
   for(let start=text.indexOf(name);start!==-1;start=text.indexOf(name,start+name.length)){
     const tail=text.slice(start+name.length);
-    const before=start===0||/[\s“"'「(,:]/u.test(text[start-1]);
-    const after=/^(?:$|[\s,.!?“”"')」]|(?:의|에|에는|에서|은|는|을|를|이|가|용|이야|입니다|이에요|인데|으로|으로는)(?=[\s,.!?“”"')」]|$))/u.test(tail);
+    const before=start===0||/[\s‘“"'「(,:]/u.test(text[start-1]);
+    const after=/^(?:$|[\s,.!?‘’“”"')」]|(?:의|에|에는|에서|은|는|을|를|이|가|용|이야|입니다|이에요|인데|으로|으로는)(?=[\s,.!?‘’“”"')」]|$))/u.test(tail);
     if(before&&after)return true;
   }
   return false;

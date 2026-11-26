@@ -19,7 +19,12 @@ export function openSyntheticPair(db,owner,log){
   log('JH_PEER_PILOT66_SOURCE '+JSON.stringify(source));
   const mark=db.prepare('INSERT OR IGNORE INTO peer_synthetic_receipts VALUES(?)');
   return {source,
-    pickupRequested(question){return matchesEvent(question,pairEvent) && /(?:수령처|수령\s*(?:창구|장소)|배부\s*(?:처|창구|장소)|받는\s*(?:곳|장소|위치)|어디.{0,16}(?:받|수령|찾)|(?:받|수령).{0,10}어디)/u.test(question);},
+    pickupRequested(question){
+      if(!matchesEvent(question,pairEvent))return false;
+      const usual=/(?:수령처|수령\s*(?:창구|장소)|배부\s*(?:처|창구|장소)|받는\s*(?:곳|장소|위치)|어디.{0,16}(?:받|수령|찾)|(?:받|수령).{0,10}어디)/u;
+      const materialDesk=/(?:자료|준비물|인쇄물|안내문|키트)(?:를|을)?\s*받는\s*창구를\s*(?:한\s*줄로\s*)?(?:알려\s*(?:줘|주세요)|안내하는\s*한\s*문장을\s*써\s*(?:줘|주세요))\s*[.!?]?$/u;
+      return usual.test(question)||materialDesk.test(question);
+    },
     record(row,requester,hash){
       if(!mark.run(row.reply_ref).changes)return;
       log('JH_PEER_PILOT66_REPLY '+JSON.stringify({fixtureId:source.fixtureId,requester:requester??null,
