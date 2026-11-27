@@ -80,6 +80,32 @@ try {
   assert.deepEqual(mediaNames, analysis || generation ? expectedNames : []);
   assert(names.includes('life_status'), 'existing owner tool must remain registered');
   assert(names.includes('life_guide13_catalog'), 'existing guide catalog must remain registered');
+
+  // Match the exact MCP URL bundled in the installed JH plugin: /mcp?catalog=103.
+  // A passing plain /mcp test alone must not certify ChatGPT catalog discovery.
+  const catalogClient = new Client({name: 'jh-gemini-catalog-103-probe', version: '0.0.1'}, {capabilities: {}});
+  try {
+    await catalogClient.connect(new StreamableHTTPClientTransport(new URL(base + '/mcp?catalog=103'), {
+      requestInit: {headers: {Authorization: 'Bearer ' + process.env.LIFE_HUB_TOKEN}}
+    }));
+    const catalogList = await catalogClient.listTools();
+    const catalogNames = catalogList.tools.map(x => x.name);
+    const listedGemini = catalogNames.filter(x => x.startsWith('jh_gemini_media_')).sort();
+    assert.deepEqual(listedGemini, mediaNames, 'catalog=103 must expose exactly the same Gemini tools as /mcp');
+    assert(catalogNames.includes('life_status'), 'catalog=103 must preserve existing JH tools');
+    assert(catalogNames.includes('life_guide13_catalog'), 'catalog=103 must preserve the guide catalog');
+    if (analysis || generation) {
+      const localStatus = await catalogClient.callTool({name: 'jh_gemini_media_status', arguments: {}});
+      assert.equal(CallToolResultSchema.safeParse(localStatus).success, true);
+      const payload = JSON.parse(localStatus.content.find(x => x.type === 'text')?.text || '{}');
+      assert.equal(payload.ok, true, 'catalog=103 status must remain callable without a provider request');
+      assert.equal(payload.hardBillingCapGuaranteed, false);
+      assert.equal(payload.providerCreditBalanceUsd, null);
+    }
+  } finally {
+    await catalogClient.close();
+  }
+
   if (process.env.JH_EBISEO_AUDIO_ENABLE) {
     assert(names.includes('life_android_audio_status'), 'existing audio tool must remain registered');
   }
