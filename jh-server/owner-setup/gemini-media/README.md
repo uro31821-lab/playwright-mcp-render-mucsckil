@@ -35,8 +35,10 @@ The storage subclass opens an additional SQLite connection to the same existing 
 After a separately reviewed release, the supplementary start command from `jh-server` is:
 
 ```bash
-node owner-setup/gemini-media/gemini-owner-entry.mjs
+npm run prestart && node owner-setup/gemini-media/gemini-owner-entry.mjs
 ```
+
+The existing `prestart` hook builds the original authentication candidate. A direct `node` command does not invoke npm lifecycle hooks, so preserve this step when replacing the service's current `npm start` command. For a service that starts at the repository root, retain its existing `cd jh-server &&` prefix. The runtime must also satisfy the original Node.js requirement of version 22.16 or later.
 
 This command is not installed as the default by this change. With both media switches off it delegates to the original published startup. Enabling media also requires `JH_GEMINI_OPERATOR_ENABLE=EXPLICIT_GEMINI_MEDIA_OWNER_V1` and the existing production release/operator identity conditions. Do not change or manufacture those existing conditions to enable media.
 
@@ -61,7 +63,21 @@ For an approved one-time migration, the existing owner bootstrap recognizes:
 JH_GEMINI_MEDIA_PROVISION=INITIALIZE_EXISTING_LIFE_DB_V1
 ```
 
-At least one media feature flag must be `1` for that installation path to run; the provision variable alone does nothing while both are off. Keep the API key absent and the verified allowance at zero during an initialization-only startup. That permits schema initialization without authorizing any provider call. Use the existing database backup and single-runtime locking procedure before the migration. After successful initialization, remove the provision variable and leave the features off until operational activation is approved. Do not expose schema initialization as an MCP action.
+At least one media feature flag must be `1` for that installation path to run; the provision variable alone does nothing while both are off. Keep the API key absent, the verification marker empty, and the verified allowance at zero during the initial storage/readiness startup. The existing authenticated owner server starts and the local media tools become available, while Gemini provider calls remain blocked. This is not a schema-only command that exits after migration.
+
+Before migration, obtain and verify a consistent backup of the existing owner state using the current approved backup procedure. A plain copy of an actively written SQLite file is not that verification. Preserve the current database, storage binding, private registry and access to the existing keys; do not create a replacement owner identity or database. The migration runs only after the existing owner startup has validated its mounted state and acquired its single-runtime lock. If storage is missing or partial, stop and review the condition instead of reinitializing it.
+
+After successful initialization, remove the provision variable. For an intentionally enabled local-preview phase, retain the feature flags with no API key and zero verified allowance. If the capabilities are to remain hidden, set both feature flags back to `0`. Do not expose schema initialization as an MCP action.
+
+### No-paid-call readiness check
+
+1. Preserve the existing service identity, parent/audio/camera/peer settings, authentication and storage configuration. Select the supplementary start command above and the explicit Gemini operator marker.
+2. Set the requested media feature flags to `1`, leave `GEMINI_API_KEY` absent, leave `JH_GEMINI_CREDIT_VERIFIED` empty, and set `JH_GEMINI_VERIFIED_CREDIT_USD=0`. Add the one-time provision value only for the verified first migration.
+3. After startup, inspect the actual authenticated MCP tool list for the five `jh_gemini_media_*` tools. A healthy deployment by itself does not prove that the supplementary entry was selected.
+4. Call local status and, if desired, preview with an explicitly identified source/task. Expect `BLOCKED_AUTH`, `readyToSubmit:false` and `paidRequestSent:false` on preview. Preview stores a local plan; it does not send the source or media to Gemini. Do not call submit or request a provider refresh as an installation test.
+5. Remove the one-time provision setting and verify normal restart with the same initialized store. Keep the API key absent and allowance at zero until account readiness and a concrete media request have been reviewed.
+
+The configuration verification marker is a record of an operator's decision, not a Google account check. Do not set it merely to make readiness appear successful.
 
 ## Configuration and credit verification
 
