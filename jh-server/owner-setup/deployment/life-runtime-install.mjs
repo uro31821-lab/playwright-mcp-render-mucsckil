@@ -12,7 +12,7 @@ export async function installConfiguredLifeRuntime(runtime,config,options) {
   Object.keys(options).some(k=>!['enabled','open','remoteTasks'].includes(k))||typeof options.remoteTasks!=='boolean')fail('LIFE_EXPLICIT_CONFIGURATION_REQUIRED');
  if(runtime?.httpServer?.listening||typeof runtime?.installLifeContinuationHandler56!=='function')fail('LIFE_RUNTIME_SLOT_REQUIRED');
  let resources,slot,closed=false,closePromise;
- function close(){if(!closePromise)closePromise=(async()=>{closed=true;try{await slot?.drain();}finally{try{resources?.store?.close();}finally{await resources?.close?.();}}})();return closePromise;}
+ function close(){if(!closePromise)closePromise=(async()=>{closed=true;try{await slot?.drain();await runtime?.closeGeminiMedia56?.();}finally{try{resources?.store?.close();}finally{await resources?.close?.();}}})();return closePromise;}
  try{
   resources=await options.open(Object.freeze({ownerDigest:config.accountDigest,serverOrigin:config.serverOrigin,stateDirectory:config.stateDir}));
   if(!resources||!(resources.store instanceof LifeCheckpointStore)||typeof resources.authenticate!=='function'||typeof resources.close!=='function')fail('LIFE_BOOTSTRAP_RESOURCES_REQUIRED');
@@ -28,6 +28,9 @@ export async function installConfiguredLifeRuntime(runtime,config,options) {
   };
   const clock=resources.clock??(()=>Date.now());
   if(typeof clock!=='function')fail('LIFE_CLOCK_REQUIRED');
+  // Optional media uses the SAME validated owner and encrypted life.sqlite.
+  // The runtime installer is inert unless one of the two media flags is on.
+  runtime.installGeminiMediaStore56?.({store:resources.store,ownerDigest:config.accountDigest,clock});
   const handler=createLifeContinuationHost({store:resources.store,authenticate,clock,directory:resources.directory,enableQueue:true,enableRemoteTasks:options.remoteTasks});
   slot=runtime.installLifeContinuationHandler56(handler);
   if(!slot||typeof slot.quiesce!=='function'||typeof slot.drain!=='function')fail('LIFE_SLOT_CONTRACT_INVALID');
