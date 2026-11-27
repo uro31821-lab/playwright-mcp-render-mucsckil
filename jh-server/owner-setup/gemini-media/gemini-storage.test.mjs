@@ -6,7 +6,7 @@ import {join} from 'node:path';
 import {createHash,createHmac} from 'node:crypto';
 import {DatabaseSync} from 'node:sqlite';
 import {Worker} from 'node:worker_threads';
-import {LifeCheckpointStore} from '../server-continuation/life-checkpoint-store.mjs';
+import {GeminiLifeCheckpointStore as LifeCheckpointStore} from './gemini-storage.mjs';
 
 const OWNER='a'.repeat(64),OTHER='b'.repeat(64),SERVER='c'.repeat(64),REQUEST='gemini_request_1';
 const digest=bytes=>createHash('sha256').update(bytes).digest('hex');
@@ -200,12 +200,12 @@ test('ciphertext tampering and replacing another owner row fail authentication',
 });
 
 test('two SQLite connections reserve the same request once, including shared owner cost',{timeout:5000},async t=>{
- const f=fixture(t),moduleUrl=new URL('../server-continuation/life-checkpoint-store.mjs',import.meta.url).href;
+ const f=fixture(t),moduleUrl=new URL('./gemini-storage.mjs',import.meta.url).href;
  function worker(){
   const w=new Worker(`
    const {parentPort,workerData}=require('node:worker_threads');
    (async()=>{
-    const {LifeCheckpointStore}=await import(workerData.moduleUrl);
+    const {GeminiLifeCheckpointStore:LifeCheckpointStore}=await import(workerData.moduleUrl);
     const store=new LifeCheckpointStore({...workerData.options,key:Buffer.from(workerData.options.key)});
     parentPort.postMessage({ready:true});
     parentPort.once('message',()=>{

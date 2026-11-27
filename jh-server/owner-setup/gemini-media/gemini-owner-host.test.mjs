@@ -35,7 +35,10 @@ assert.equal(process.env.GEMINI_API_KEY, undefined);
 const {buildCleanRestartRelease56} = await imp(ROOT + '/deployment/durable-clean-restart-news-review-entry.mjs');
 const releaseFile = buildCleanRestartRelease56().file;
 const release = await imp(releaseFile);
-const built = release.buildDurableRoutedOperationalEntrypoint(ROOT);
+const {buildGeminiMediaOwnerEntrypoint} = await imp(ROOT + '/gemini-media/gemini-owner-entry.mjs');
+const useMedia = process.env.JH_GEMINI_ANALYSIS_ENABLED === '1' || process.env.JH_GEMINI_GENERATION_ENABLED === '1';
+const built = useMedia ? await buildGeminiMediaOwnerEntrypoint(ROOT, process.env,
+  {baseMode: process.env.JH_GEMINI_TEST_BASE_MODE || 'durable'}) : release.buildDurableRoutedOperationalEntrypoint(ROOT);
 const {validateOwnerConfiguration, loadOwnerKey} = await imp(ROOT + '/deployment/owner-config.mjs');
 const {takeStorageSecrets, materializeStorageKeys} = await imp(ROOT + '/deployment/storage-secret-bridge.mjs');
 const {prepareOperationalStorage} = await imp(ROOT + '/deployment/operational-service-entry.mjs');
@@ -77,6 +80,9 @@ try {
   assert.deepEqual(mediaNames, analysis || generation ? expectedNames : []);
   assert(names.includes('life_status'), 'existing owner tool must remain registered');
   assert(names.includes('life_guide13_catalog'), 'existing guide catalog must remain registered');
+  if (process.env.JH_EBISEO_AUDIO_ENABLE) {
+    assert(names.includes('life_android_audio_status'), 'existing audio tool must remain registered');
+  }
   const value = async (name, args = {}) => {
     const reply = await client.callTool({name, arguments: args});
     assert.equal(CallToolResultSchema.safeParse(reply).success, true);
@@ -145,7 +151,20 @@ try {
 const cases = [
   {name: 'default OFF', env: {}, analysis: false, generation: false},
   {name: 'analysis ON, generation OFF', env: {JH_GEMINI_ANALYSIS_ENABLED: '1', JH_GEMINI_GENERATION_ENABLED: '0'}, analysis: true, generation: false},
-  {name: 'generation ON, analysis OFF', env: {JH_GEMINI_ANALYSIS_ENABLED: '0', JH_GEMINI_GENERATION_ENABLED: '1'}, analysis: false, generation: true}
+  {name: 'generation ON, analysis OFF; pending approval parent', env: {JH_GEMINI_ANALYSIS_ENABLED: '0', JH_GEMINI_GENERATION_ENABLED: '1', JH_GEMINI_TEST_BASE_MODE: 'pending-approval'}, analysis: false, generation: true},
+  {name: 'both ON; followup parent', env: {JH_GEMINI_ANALYSIS_ENABLED: '1', JH_GEMINI_GENERATION_ENABLED: '1', JH_GEMINI_TEST_BASE_MODE: 'followup'}, analysis: true, generation: true},
+  {name: 'both ON; complete audio-camera-peer parent', env: {
+    JH_GEMINI_ANALYSIS_ENABLED: '1', JH_GEMINI_GENERATION_ENABLED: '1', JH_GEMINI_TEST_BASE_MODE: 'audio',
+    JH_EBISEO_AUDIO_ENABLE: 'EXPLICIT_EBISEO_AUDIO_V05',
+    JH_MOBILE_WEB_13_MODE: 'EXPLICIT_SIGNED_ANDROID_RIGHT_13_V1',
+    JH_STAGE26_SIGNED_COMPLETION_ACK: 'EXPLICIT_IDENTICAL_SIGNED_RESULT_V1',
+    JH_STAGE40_OWNER_ADMISSION_DIAGNOSTICS: 'EXPLICIT_ORIGINAL_OWNER_REASON_V1',
+    JH_STAGE41_COMMAND_LIFECYCLE_DIAGNOSTICS: 'EXPLICIT_SIGNED_COMMAND_CAUSE_V1',
+    JH_STAGE44_DEVICE_FOCUS: 'EXPLICIT_SIGNED_WORKFLOW_FOCUS_V1',
+    JH_MOBILE13_COMMAND_DIAGNOSTICS: 'EXPLICIT_OWNER_DEVICE_READ_ONLY_V1',
+    JH_KABISEO_CAMERA_ENABLE: 'EXPLICIT_KABISEO_CAMERA_V0256',
+    JH_PEER_PREPARATION_NOTICE_JSON: '{"event":"Synthetic test event","pickup":"Synthetic test counter"}'
+  }, analysis: true, generation: true}
 ];
 
 for (const c of cases) test('real generated owner HTTP: ' + c.name, {timeout: 60000}, () => {
@@ -166,8 +185,10 @@ for (const c of cases) test('real generated owner HTTP: ' + c.name, {timeout: 60
     const run = spawnSync(process.execPath, ['--input-type=module', '-e', PROBE, ROOT, fixture], {
       cwd: path.resolve(ROOT, '..'), encoding: 'utf8', timeout: 45000, maxBuffer: 8 * 1024 * 1024,
       env: {PATH: process.env.PATH,
+        CI: 'true', NODE_ENV: 'test',
         LIFE_HUB_TOKEN: 'GEMINI_SYNTHETIC_LOOPBACK_TOKEN_ONLY_20261127',
         JH_OWNER_DEFER_LISTEN: '1',
+        JH_GEMINI_OPERATOR_ENABLE: 'EXPLICIT_GEMINI_MEDIA_OWNER_V1',
         JH_GEMINI_MEDIA_PROVISION: 'INITIALIZE_EXISTING_LIFE_DB_V1', ...c.env}
     });
     assert.equal(run.status, 0, c.name + '\n' + run.stderr + '\n' + run.stdout);

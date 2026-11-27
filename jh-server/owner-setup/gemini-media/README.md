@@ -20,9 +20,25 @@ Code installation, local tests, account configuration, and successful real media
 | `gemini-service.mjs` | Preview, immutable request binding, local budget reservations, state transitions, and result recovery |
 | `gemini-tools.mjs` | Five tools registered through the existing owner OAuth registrar |
 | `gemini-composition.mjs` | Additive composition after the existing exact-source and security guards |
-| `../server-continuation/life-checkpoint-store.mjs` | Encrypted records and output bytes in the existing `life.sqlite` |
+| `gemini-storage.mjs` | Additive subclass of the unchanged Life store; encrypted records and output bytes in the same `life.sqlite`, using the same Life key |
+| `gemini-owner-runtime.mjs` | Wrap the original validated Life installer and drain media work before the existing store closes |
+| `gemini-owner-entry.mjs` | Explicit supplementary entry that first verifies the existing release and writes separate, reversible generated outputs |
 
 The service is installed by the validated owner-storage bootstrap using the existing store and owner binding. It is not a separate HTTP server, browser session, authentication system, or physical database. Do not construct another owner store, change the Android catalog, or weaken an existing source check to install it.
+
+The original published router, package startup script, release composition, Life installer and Life store source stay byte-identical. The supplementary entry runs the original parent builders and selectors first, then adds the media registration and lifecycle through separately generated runtime/owner/unified/operational/bootstrap/provision files. Each change is reversible to its verified parent. Generated files alone cannot authorize startup; the explicit entry must establish and verify their provenance on every start.
+
+Supported parents are the existing durable, pending-approval and followup entries, plus the complete current audio chain with its optional camera and peer layers. Existing feature flags determine the parent; media cannot silently select an earlier parent and discard an enabled capability. The original audio/camera/peer selectors and all upstream source pins remain authoritative.
+
+The storage subclass opens an additional SQLite connection to the same existing file after the base constructor has validated the file, key and original schema proof. Its own connection serves only the media tables. It creates no separate database or key, and closes both connections and clears its copied key on shutdown.
+
+After a separately reviewed release, the supplementary start command from `jh-server` is:
+
+```bash
+node owner-setup/gemini-media/gemini-owner-entry.mjs
+```
+
+This command is not installed as the default by this change. With both media switches off it delegates to the original published startup. Enabling media also requires `JH_GEMINI_OPERATOR_ENABLE=EXPLICIT_GEMINI_MEDIA_OWNER_V1` and the existing production release/operator identity conditions. Do not change or manufacture those existing conditions to enable media.
 
 ## Storage initialization
 
@@ -55,6 +71,7 @@ Configuration is read from the server environment during service installation. I
 | --- | --- | --- |
 | `JH_GEMINI_ANALYSIS_ENABLED` | Off; `0` or `1` | Enables the analysis capability independently |
 | `JH_GEMINI_GENERATION_ENABLED` | Off; `0` or `1` | Enables the generation capability independently |
+| `JH_GEMINI_OPERATOR_ENABLE` | Empty; `EXPLICIT_GEMINI_MEDIA_OWNER_V1` | Explicitly selects the supplementary owner entry in addition to the existing production gates |
 | `GEMINI_API_KEY` | Empty | Key for the intended Gemini API project |
 | `JH_GEMINI_MONTHLY_LIMIT_USD` | `10`; at most `10` | Local calendar-month budget in USD |
 | `JH_GEMINI_REQUEST_LIMIT_USD` | `2`; at most `10` | Maximum local reservation for one request |
@@ -71,6 +88,7 @@ This is a deliberately inactive configuration example:
 ```text
 JH_GEMINI_ANALYSIS_ENABLED=0
 JH_GEMINI_GENERATION_ENABLED=0
+JH_GEMINI_OPERATOR_ENABLE=
 GEMINI_API_KEY=PLACEHOLDER
 JH_GEMINI_MONTHLY_LIMIT_USD=10
 JH_GEMINI_REQUEST_LIMIT_USD=2
@@ -251,7 +269,9 @@ node --test --test-concurrency=1 jh-server/owner-setup/gemini-media/*.test.mjs
 
 The tests use injected provider responses, fake test credentials, and temporary local stores. They must not require a real API key or make real Gemini calls. Keep tests for incorrect sources, current-request intent, sensitive input, malformed usage, ambiguous POST responses, duplicate tasks, restart uncertainty, cancellation, output integrity, encrypted owner separation, and budget contention. Run the existing host composition and affected regression tests as part of the reviewed integration change.
 
-Passing local tests establishes the checked code behavior; it does not establish Google account access, applied credits, real inference quality, actual video playback, or operational deployment.
+The focused suite includes actual generated owner HTTP on loopback for default OFF, analysis-only, pending-approval, followup, and the full audio/camera/peer parent. Those checks preserve authentication and existing tools, and reject provider dispatch with no API key. Generated output tampering, parent mismatch and downgrade attempts fail before a listener is opened.
+
+Passing local tests establishes the checked code behavior; it does not establish Google account access, applied credits, real inference quality, actual video playback, or operational deployment. The existing source-protection checks remain required. Do not amend their pins or exclusions to make a media change pass.
 
 Before operational activation, separately confirm:
 

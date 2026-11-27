@@ -14,9 +14,9 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import {CallToolResultSchema} from '@modelcontextprotocol/sdk/types.js';
 import {z} from 'zod';
-import {LifeCheckpointStore} from '../server-continuation/life-checkpoint-store.mjs';
-import {buildCleanRestartRelease56} from '../deployment/durable-clean-restart-news-review-entry.mjs';
-import {installConfiguredLifeRuntime} from '../deployment/life-runtime-install.mjs';
+import {GeminiLifeCheckpointStore as LifeCheckpointStore} from './gemini-storage.mjs';
+import {installConfiguredLifeRuntimeWithGemini as installConfiguredLifeRuntime} from './gemini-owner-runtime.mjs';
+import {buildGeminiMediaOwnerEntrypoint} from './gemini-owner-entry.mjs';
 import {validateOwnerConfiguration, EXPECTED_CATALOG, EXPECTED_ORIGIN} from '../deployment/owner-config.mjs';
 import {geminiMediaRequested, installGeminiMediaService, registerGeminiMediaTools} from './gemini-tools.mjs';
 import {patchGeminiMediaRuntime56} from './gemini-composition.mjs';
@@ -40,7 +40,7 @@ const configured = (flags = {}) => ({
   JH_GEMINI_CREDIT_APPROVAL_REF: 'synthetic_credit_fixture',
   JH_GEMINI_CREDIT_VALID_UNTIL: '2026-11-30T14:59:59Z',
   JH_GEMINI_VERIFIED_CREDIT_USD: '10', ...flags
-});
+  });
 
 function fixture(t, {migrate = true} = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), 'jh-gemini-mcp-'));
@@ -237,23 +237,23 @@ test('owner bootstrap binds media to validated existing store and drains media b
       return {store, ownerDigest: config.accountDigest, serverOrigin: config.serverOrigin, clock: () => NOW,
         authenticate: async () => null,
         async close() {events.push('resources-close'); assert.throws(() => store.readGeminiMediaBudget(config.accountDigest), /checkpoint_store_closed/);}};
-    }});
+    }}, {env});
   assert.equal(installed.workersStarted, 0); assert.equal(calls, 0);
   const preview = service.preview(request('analysis', 'bootstrap'));
   assert.equal(preview.readyToSubmit, true);
   assert.equal(store.readGeminiMedia(config.accountDigest, preview.requestId).job.requestId, preview.requestId);
   assert.equal(store.readGeminiMedia(OWNER, preview.requestId).job, null);
   installed.quiesce(); await installed.close(); await installed.close();
-  assert.deepEqual(events, ['media-install', 'life-install', 'quiesce', 'life-drain', 'media-close', 'resources-close']);
+  assert.deepEqual(events, ['life-install', 'media-install', 'quiesce', 'life-drain', 'media-close', 'resources-close']);
   assert.equal(calls, 0);
 });
 
 test('current generated runtime passes syntax with additive OAuth media registration and original catalog', {timeout: 30000}, async () => {
   const sourceFile = path.join(ROOT, 'deployment/durable-live-release.mjs');
   const originalRelease = readFileSync(sourceFile, 'utf8');
-  const pin = buildCleanRestartRelease56();
-  const release = await import(pathToFileURL(pin.file).href + '?gemini-offline-integration=1');
-  const built = release.buildDurableRoutedOperationalEntrypoint(ROOT);
+  const built = await buildGeminiMediaOwnerEntrypoint(ROOT,
+    {CI: 'true', NODE_ENV: 'test', JH_OWNER_DEFER_LISTEN: '1',
+      JH_GEMINI_OPERATOR_ENABLE: 'EXPLICIT_GEMINI_MEDIA_OWNER_V1', JH_GEMINI_ANALYSIS_ENABLED: '1'}, {baseMode: 'durable'});
   const source = readFileSync(built.runtimeFile, 'utf8');
   const occurrences = text => source.split(text).length - 1;
   assert.equal(readFileSync(sourceFile, 'utf8'), originalRelease, 'reviewed live release must remain unchanged');

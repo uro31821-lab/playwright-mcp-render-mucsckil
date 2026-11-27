@@ -4,7 +4,7 @@ import {mkdtempSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
-import {LifeCheckpointStore} from '../server-continuation/life-checkpoint-store.mjs';
+import {GeminiLifeCheckpointStore as LifeCheckpointStore} from './gemini-storage.mjs';
 import {createGeminiMediaService, readGeminiConfiguration} from './gemini-service.mjs';
 import {MEDIA_MODELS} from './gemini-policy.mjs';
 
