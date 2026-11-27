@@ -1,0 +1,49 @@
+name: JH Gemini Media
+
+on:
+  pull_request:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/gemini-media/**'
+      - 'jh-server/owner-setup/server-continuation/life-checkpoint-store.mjs'
+      - 'jh-server/owner-setup/deployment/**'
+      - '.github/workflows/jh-gemini-media.yml'
+  push:
+    branches: ['jh-fix3-secure-server']
+    paths:
+      - 'jh-server/owner-setup/gemini-media/**'
+      - 'jh-server/owner-setup/server-continuation/life-checkpoint-store.mjs'
+      - 'jh-server/owner-setup/deployment/**'
+      - '.github/workflows/jh-gemini-media.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jh-gemini-media-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gemini-media:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out the candidate
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Use Node.js 22
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Install existing dependencies without lifecycle scripts
+        run: |
+          npm install --prefix jh-server --ignore-scripts --no-audit --no-fund --package-lock=false
+          npm ci --prefix jh-server/owner-setup --ignore-scripts --no-audit --no-fund
+          npm ci --prefix jh-server/owner-setup/owner-enrollment --ignore-scripts --no-audit --no-fund
+      - name: Verify media contracts, cost boundaries, encrypted restart state and actual MCP
+        env:
+          CI: 'true'
+          JH_GEMINI_ANALYSIS_ENABLED: '0'
+          JH_GEMINI_GENERATION_ENABLED: '0'
+        run: node --test --test-concurrency=1 jh-server/owner-setup/gemini-media/*.test.mjs
