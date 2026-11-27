@@ -1,5 +1,17 @@
 # Gemini media integration
 
+## Updated user decision — 2026-11-27: supersede the legacy Gemini ban
+
+**Confirmed by the user:** The old November 12 blanket prohibition on paid Gemini video analysis and video creation was written after a failed earlier Gemini integration. It is no longer an operative ban for the new, independently built Gemini media module authorized on November 27.
+
+- **영비서:** A current request to analyze a YouTube video may use the approved Gemini analysis path after local preview and cost review. Keep ordinary search, Naver Clip discovery and free subtitle/PlayMCP analysis on their existing paths when sufficient. Do not let the historical blanket prohibition block this newer approved Gemini tool.
+- **편비서:** A current request to create a short video from supplied text or an authorized photo may use the Gemini generation path. Keep ordinary photo editing in the ChatGPT native image workflow. The older removal of 영비서's automatic SNS/Reels production project does not block the separately authorized 편비서 one-video feature.
+- **Instagram/Threads remain excluded.** Do not restore social likes/saves/follows ingestion, automatic publishing, or SNS/Reels production.
+- **Cost safeguards remain mandatory.** Show the estimated API cost and chosen model, require the current user media request and exact request identity, and prevent replay after uncertain submission. Local limits remain USD 10/month and USD 2/request. These local limits are not a Google billing hard cap. JH_GEMINI_VERIFIED_CREDIT_USD=0 or an empty verification marker continues to block paid provider submissions.
+- Feature configuration, status inquiry, generic 'continue', or connector refresh is not permission to submit a sample paid request.
+- The November 12 ban is historical context, not an overriding current restriction. Update older published JH skill wording without deleting unrelated functions or default prompts. This README does not itself modify a published ChatGPT plugin skill release or prove live MCP tool discovery.
+
+
 This module adds two independent capabilities to the existing JH owner service:
 
 | Capability | Existing assistant | Provider model | Default |
